@@ -1,0 +1,33 @@
+Levantamento de Requisitos para Gestão de Inventário em Clínicas de Harmonização 
+
+Visão Geral do Projeto 
+
+O presente projeto tem como objetivo central o desenvolvimento de uma solução dedicada à gestão de inventário em clínicas de harmonização. Como etapa inicial, será realizado um levantamento detalhado dos requisitos, com o intuito de identificar todas as necessidades essenciais para garantir o funcionamento eficiente do sistema proposto. 
+
+Definição do MVP 
+
+Para viabilizar o início do projeto, será concebido um MVP (Produto Mínimo Viável). Este MVP deverá reunir as funcionalidades fundamentais para promover uma gestão eficaz do inventário, com especial atenção ao controlo dos produtos presentes na clínica. Entre as principais preocupações, destacam-se a gestão das datas de validade dos itens e a monitorização constante das quantidades em estoque, permitindo uma administração precisa e segura dos insumos. 
+
+Funcionalidades Principais 
+
+Gestão de inventário: O sistema fará o registo e acompanhamento dos produtos existentes na clínica, possibilitando uma visão clara e atualizada do inventário. 
+
+Controle de data de validade: Será efetuado o controlo rigoroso das datas de vencimento dos itens em estoque, evitando desperdícios e garantindo a utilização adequada dos produtos. 
+
+Controle de quantidade em estoque: As quantidades disponíveis serão atualizadas constantemente, permitindo uma gestão eficiente dos recursos e evitando rupturas de stock. 
+
+Registro e aprovação de solicitações: Todas as solicitações de produtos serão devidamente registadas no sistema e passarão por um processo de aprovação interno, promovendo maior controlo e rastreabilidade das movimentações. 
+
+Gestão de pacientes: O sistema contemplará também a manutenção dos cadastros e o controlo dos pacientes atendidos, facilitando a integração das informações clínicas com a gestão de inventário. 
+
+Processo de Solicitação 
+
+A cada pedido realizado dentro da clínica, a solicitação será associada a um solicitante específico, que poderá ser um médico, dentista ou outro profissional envolvido no processo. Essa associação possibilita o rastreamento das demandas, além de simplificar a identificação dos responsáveis por cada ação efetuada no sistema, promovendo transparência e eficiência na gestão dos pedidos. 
+
+Inclusão de Produtos Vinculada à Nota Fiscal 
+
+Para aprimorar o controlo do inventário, o MVP deverá incluir um processo específico para a entrada de novos produtos no sistema, vinculando obrigatoriamente cada item ao número de uma nota fiscal. Esta funcionalidade permitirá identificar, com precisão, o momento da inserção de cada produto, facilitando o rastreamento das entradas e contribuindo para uma gestão mais rigorosa dos insumos utilizados na clínica. 
+
+Controle de Notas Fiscais 
+
+Além do registo dos produtos, o sistema deverá garantir o controlo das notas fiscais recebidas. Dessa forma, será possível consultar o histórico de compras e identificar a origem dos produtos, promovendo maior transparência e organização no gerenciamento do estoque da clínica. 

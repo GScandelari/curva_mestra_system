@@ -1,0 +1,32 @@
+# Backup Service Dockerfile
+FROM node:18-alpine
+
+# Install PostgreSQL client and cron
+RUN apk add --no-cache postgresql-client dcron
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy backup scripts
+COPY scripts/ ./scripts/
+COPY src/utils/logger.js ./src/utils/logger.js
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S backup -u 1001
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/backups && \
+    chown -R backup:nodejs /app
+
+# Switch to non-root user
+USER backup
+
+# Start backup scheduler
+CMD ["node", "scripts/backup-scheduler.js", "start"]

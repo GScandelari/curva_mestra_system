@@ -1,0 +1,5 @@
+export { default as PatientForm } from './PatientForm'
+export { default as PatientList } from './PatientList'
+export { default as PatientDetails } from './PatientDetails'
+export { default as TreatmentForm } from './TreatmentForm'
+export { default as PatientConsumptionReport } from './PatientConsumptionReport'
