@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { X, Save, AlertCircle } from 'lucide-react'
 import { toast } from 'react-toastify'
 import firebasePatientService from '../../services/firebasePatientService'
@@ -47,7 +47,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
     }
   }, [patient])
 
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target
     
     if (name.startsWith('address.')) {
@@ -73,7 +73,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
         [name]: ''
       }))
     }
-  }
+  }, [errors])
 
   const validateForm = () => {
     const newErrors = {}
@@ -150,15 +150,15 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
     return digits.replace(/(\d{5})(\d{3})/, '$1-$2')
   }
 
-  const handlePhoneChange = (e) => {
+  const handlePhoneChange = useCallback((e) => {
     const formatted = formatPhone(e.target.value)
     handleInputChange({ target: { name: 'phone', value: formatted } })
-  }
+  }, [handleInputChange])
 
-  const handleZipCodeChange = (e) => {
+  const handleZipCodeChange = useCallback((e) => {
     const formatted = formatZipCode(e.target.value)
     handleInputChange({ target: { name: 'address.zipCode', value: formatted } })
-  }
+  }, [handleInputChange])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -197,7 +197,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
     }
   }
 
-  const FormContent = () => (
+  const renderFormContent = () => (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Personal Information */}
       <div>
@@ -532,7 +532,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               <X className="h-6 w-6" />
             </button>
           </div>
-          <FormContent />
+          {renderFormContent()}
         </div>
       </div>
     )
@@ -544,7 +544,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
         <h2 className="text-lg font-medium text-gray-900 mb-6">
           {patient ? 'Editar Paciente' : 'Cadastrar Paciente'}
         </h2>
-        <FormContent />
+        {renderFormContent()}
       </div>
     </div>
   )
