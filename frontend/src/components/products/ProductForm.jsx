@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Save, AlertCircle } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { productService } from '../../services'
+import { firebaseProductService } from '../../services'
 
 const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
   const [formData, setFormData] = useState({
@@ -48,8 +48,13 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
 
   const loadCategories = async () => {
     try {
-      const data = await productService.getCategories()
-      setCategories(data)
+      const result = await firebaseProductService.getCategories()
+      if (result.success) {
+        setCategories(result.data.categories || [])
+      } else {
+        console.error('Error loading categories:', result.error)
+        toast.error(result.error || 'Erro ao carregar categorias')
+      }
     } catch (error) {
       console.error('Error loading categories:', error)
       toast.error('Erro ao carregar categorias')
@@ -148,14 +153,24 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
 
       let result
       if (product) {
-        result = await productService.updateProduct(product.id, productData)
-        toast.success('Produto atualizado com sucesso!')
+        result = await firebaseProductService.updateProduct(product.id, productData)
+        if (result.success) {
+          toast.success(result.message || 'Produto atualizado com sucesso!')
+          onSave(result.data.product)
+        } else {
+          toast.error(result.error || 'Erro ao atualizar produto')
+          return
+        }
       } else {
-        result = await productService.createProduct(productData)
-        toast.success('Produto cadastrado com sucesso!')
+        result = await firebaseProductService.createProduct(productData)
+        if (result.success) {
+          toast.success(result.message || 'Produto cadastrado com sucesso!')
+          onSave(result.data.product)
+        } else {
+          toast.error(result.error || 'Erro ao cadastrar produto')
+          return
+        }
       }
-
-      onSave(result)
     } catch (error) {
       console.error('Error saving product:', error)
       const message = error.response?.data?.message || 'Erro ao salvar produto'

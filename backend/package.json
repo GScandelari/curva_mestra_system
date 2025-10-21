@@ -20,7 +20,15 @@
     "db:setup": "npm run migrate && npm run seed",
     "db:reset": "npm run migrate:rollback && npm run migrate && npm run seed",
     "backup:db": "node scripts/backup-database.js",
-    "restore:db": "node scripts/restore-database.js"
+    "restore:db": "node scripts/restore-database.js",
+    "firestore:setup": "node scripts/setup-firestore.js",
+    "firestore:migrate": "node scripts/migrate-to-firestore.js",
+    "firestore:test-rules": "node scripts/test-firestore-rules-simple.js",
+    "migration:check": "node scripts/pre-migration-check.js",
+    "migration:execute": "node scripts/production-migration.js migrate",
+    "migration:validate": "node scripts/post-migration-validation.js",
+    "migration:rollback": "node scripts/production-migration.js rollback --confirm",
+    "migration:status": "node scripts/production-migration.js status"
   },
   "keywords": [
     "inventory",
@@ -38,6 +46,7 @@
     "exceljs": "^4.4.0",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
+    "firebase-admin": "^13.5.0",
     "helmet": "^7.1.0",
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
@@ -49,6 +58,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
     "eslint": "^8.55.0",
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-import": "^2.29.0",

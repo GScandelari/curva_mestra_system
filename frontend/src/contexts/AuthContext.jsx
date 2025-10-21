@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react'
-import { authService } from '../services/authService'
+import firebaseAuthService from '../services/firebaseAuthService'
 import { toast } from 'react-toastify'
 
 const AuthContext = createContext()
@@ -66,50 +66,54 @@ const initialState = {
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState)
 
-  // Check for existing token on app load
+  // Set up Firebase auth state listener
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    const user = localStorage.getItem('user')
-    
-    if (token && user) {
-      try {
-        const parsedUser = JSON.parse(user)
+    const unsubscribe = firebaseAuthService.onAuthStateChange((user) => {
+      if (user) {
         dispatch({
           type: 'LOGIN_SUCCESS',
-          payload: { token, user: parsedUser }
+          payload: { 
+            token: user.token, 
+            user: {
+              id: user.uid,
+              email: user.email,
+              username: user.displayName || user.email,
+              role: user.role || 'receptionist',
+              permissions: user.permissions || [],
+              clinicId: user.clinicId,
+              isAdmin: user.isAdmin || user.role === 'admin',
+              emailVerified: user.emailVerified
+            }
+          }
         })
-        authService.setAuthToken(token)
-      } catch (error) {
-        console.error('Error parsing stored user data:', error)
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+      } else {
+        dispatch({ type: 'LOGOUT' })
       }
-    }
+    })
+
+    return unsubscribe
   }, [])
 
   const login = async (credentials) => {
     dispatch({ type: 'LOGIN_START' })
     
     try {
-      const response = await authService.login(credentials)
-      const { token, user } = response.data
+      const result = await firebaseAuthService.login(credentials)
       
-      // Store in localStorage
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
-      
-      // Set auth token for future requests
-      authService.setAuthToken(token)
-      
-      dispatch({
-        type: 'LOGIN_SUCCESS',
-        payload: { token, user }
-      })
-      
-      toast.success('Login realizado com sucesso!')
-      return { success: true }
+      if (result.success) {
+        // Firebase auth state listener will handle the state update
+        toast.success('Login realizado com sucesso!')
+        return { success: true }
+      } else {
+        dispatch({
+          type: 'LOGIN_FAILURE',
+          payload: result.error
+        })
+        toast.error(result.error)
+        return { success: false, error: result.error }
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Erro ao fazer login'
+      const errorMessage = error.message || 'Erro ao fazer login'
       dispatch({
         type: 'LOGIN_FAILURE',
         payload: errorMessage
@@ -121,17 +125,20 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await authService.logout()
+      const result = await firebaseAuthService.logout()
+      
+      if (result.success) {
+        // Firebase auth state listener will handle the state update
+        toast.info('Logout realizado com sucesso')
+      } else {
+        console.error('Logout error:', result.error)
+        // Force logout locally even if Firebase logout fails
+        dispatch({ type: 'LOGOUT' })
+        toast.info('Logout realizado com sucesso')
+      }
     } catch (error) {
       console.error('Error during logout:', error)
-    } finally {
-      // Clear local storage
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      
-      // Clear auth token
-      authService.setAuthToken(null)
-      
+      // Force logout locally
       dispatch({ type: 'LOGOUT' })
       toast.info('Logout realizado com sucesso')
     }
@@ -141,11 +148,17 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'SET_LOADING', payload: true })
     
     try {
-      await authService.forgotPassword(email)
-      toast.success('Email de recuperação enviado com sucesso!')
-      return { success: true }
+      const result = await firebaseAuthService.forgotPassword(email)
+      
+      if (result.success) {
+        toast.success(result.message)
+        return { success: true }
+      } else {
+        toast.error(result.error)
+        return { success: false, error: result.error }
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Erro ao enviar email de recuperação'
+      const errorMessage = error.message || 'Erro ao enviar email de recuperação'
       toast.error(errorMessage)
       return { success: false, error: errorMessage }
     } finally {
@@ -153,15 +166,21 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const resetPassword = async (token, newPassword) => {
+  const resetPassword = async (oobCode, newPassword) => {
     dispatch({ type: 'SET_LOADING', payload: true })
     
     try {
-      await authService.resetPassword(token, newPassword)
-      toast.success('Senha alterada com sucesso!')
-      return { success: true }
+      const result = await firebaseAuthService.resetPassword(oobCode, newPassword)
+      
+      if (result.success) {
+        toast.success(result.message)
+        return { success: true }
+      } else {
+        toast.error(result.error)
+        return { success: false, error: result.error }
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Erro ao alterar senha'
+      const errorMessage = error.message || 'Erro ao alterar senha'
       toast.error(errorMessage)
       return { success: false, error: errorMessage }
     } finally {
@@ -190,6 +209,23 @@ export const AuthProvider = ({ children }) => {
     return userPermissions.includes(permission)
   }
 
+  const getDefaultRedirectPath = () => {
+    if (!state.user) return '/dashboard'
+    
+    // Role-based default redirects
+    switch (state.user.role) {
+      case 'admin':
+      case 'manager':
+        return '/dashboard'
+      case 'doctor':
+        return '/patients'
+      case 'receptionist':
+        return '/patients'
+      default:
+        return '/dashboard'
+    }
+  }
+
   const value = {
     ...state,
     login,
@@ -197,7 +233,8 @@ export const AuthProvider = ({ children }) => {
     forgotPassword,
     resetPassword,
     clearError,
-    hasPermission
+    hasPermission,
+    getDefaultRedirectPath
   }
 
   return (

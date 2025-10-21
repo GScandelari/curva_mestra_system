@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "curva-mestra",
+    "staging": "curva-mestra",
+    "production": "curva-mestra"
+  },
+  "targets": {},
+  "etags": {}
+}

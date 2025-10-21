@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { 
   Search, 
   Filter, 
@@ -8,16 +8,21 @@ import {
   AlertTriangle, 
   Package,
   Calendar,
-  TrendingDown
+  TrendingDown,
+  Wifi,
+  WifiOff
 } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { productService } from '../../services'
+import { firebaseProductService } from '../../services'
 import { useAuth } from '../../contexts/AuthContext'
 
 const ProductList = ({ onEditProduct, onCreateProduct }) => {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(true)
+  const [isOffline, setIsOffline] = useState(false)
+  const [listenerId, setListenerId] = useState(null)
   const [filters, setFilters] = useState({
     search: '',
     category: '',
@@ -34,26 +39,84 @@ const ProductList = ({ onEditProduct, onCreateProduct }) => {
   
   const { hasPermission } = useAuth()
 
+  // Handle real-time updates
+  const handleProductsUpdate = useCallback((result) => {
+    if (result.success) {
+      setProducts(result.data)
+      setPagination(prev => ({
+        ...prev,
+        total: result.data.length
+      }))
+      setIsOffline(result.fromCache || false)
+      
+      // Show notification for real-time changes
+      if (result.changes && result.changes.length > 0) {
+        const addedCount = result.changes.filter(change => change.type === 'added').length
+        const modifiedCount = result.changes.filter(change => change.type === 'modified').length
+        const removedCount = result.changes.filter(change => change.type === 'removed').length
+        
+        if (addedCount > 0 || modifiedCount > 0 || removedCount > 0) {
+          toast.info(`Produtos atualizados: ${addedCount} novos, ${modifiedCount} modificados, ${removedCount} removidos`)
+        }
+      }
+    } else {
+      console.error('Error in real-time products update:', result.error)
+      setIsOffline(true)
+    }
+    setIsLoading(false)
+  }, [])
+
   useEffect(() => {
-    loadProducts()
+    if (isRealTimeEnabled) {
+      // Setup real-time listener
+      const id = firebaseProductService.onProductsChange(handleProductsUpdate, {
+        category: filters.category || undefined
+      })
+      setListenerId(id)
+      
+      return () => {
+        if (id) {
+          firebaseProductService.removeListener(id)
+        }
+      }
+    } else {
+      // Load products once
+      loadProducts()
+    }
+    
     loadCategories()
-  }, [filters, pagination.page])
+  }, [isRealTimeEnabled, filters.category, handleProductsUpdate])
+
+  // Cleanup listener on unmount
+  useEffect(() => {
+    return () => {
+      if (listenerId) {
+        firebaseProductService.removeListener(listenerId)
+      }
+    }
+  }, [listenerId])
 
   const loadProducts = async () => {
     setIsLoading(true)
     try {
-      const data = await productService.getProducts({
+      const result = await firebaseProductService.getProducts({
         ...filters,
         page: pagination.page,
         limit: pagination.limit
       })
       
-      setProducts(data.products || [])
-      setPagination(prev => ({
-        ...prev,
-        total: data.total || 0,
-        totalPages: data.totalPages || 0
-      }))
+      if (result.success) {
+        setProducts(result.data.products || [])
+        setPagination(prev => ({
+          ...prev,
+          total: result.data.total || 0,
+          totalPages: Math.ceil((result.data.total || 0) / pagination.limit)
+        }))
+        setIsOffline(result.fromCache || false)
+      } else {
+        console.error('Error loading products:', result.error)
+        toast.error(result.error || 'Erro ao carregar produtos')
+      }
     } catch (error) {
       console.error('Error loading products:', error)
       toast.error('Erro ao carregar produtos')
@@ -64,8 +127,12 @@ const ProductList = ({ onEditProduct, onCreateProduct }) => {
 
   const loadCategories = async () => {
     try {
-      const data = await productService.getCategories()
-      setCategories(data)
+      const result = await firebaseProductService.getCategories()
+      if (result.success) {
+        setCategories(result.data.categories || [])
+      } else {
+        console.error('Error loading categories:', result.error)
+      }
     } catch (error) {
       console.error('Error loading categories:', error)
     }
@@ -77,6 +144,11 @@ const ProductList = ({ onEditProduct, onCreateProduct }) => {
       [name]: value
     }))
     setPagination(prev => ({ ...prev, page: 1 }))
+    
+    // If not using real-time updates, reload products
+    if (!isRealTimeEnabled) {
+      loadProducts()
+    }
   }
 
   const handleDeleteProduct = async (product) => {
@@ -85,13 +157,19 @@ const ProductList = ({ onEditProduct, onCreateProduct }) => {
     }
 
     try {
-      await productService.deleteProduct(product.id)
-      toast.success('Produto excluído com sucesso!')
-      loadProducts()
+      const result = await firebaseProductService.deleteProduct(product.id)
+      if (result.success) {
+        toast.success(result.message || 'Produto excluído com sucesso!')
+        // Real-time listener will update the list automatically
+        if (!isRealTimeEnabled) {
+          loadProducts()
+        }
+      } else {
+        toast.error(result.error || 'Erro ao excluir produto')
+      }
     } catch (error) {
       console.error('Error deleting product:', error)
-      const message = error.response?.data?.message || 'Erro ao excluir produto'
-      toast.error(message)
+      toast.error('Erro ao excluir produto')
     }
   }
 
@@ -135,20 +213,47 @@ const ProductList = ({ onEditProduct, onCreateProduct }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
+            {isOffline && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                <WifiOff className="h-3 w-3 mr-1" />
+                Offline
+              </span>
+            )}
+            {isRealTimeEnabled && !isOffline && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <Wifi className="h-3 w-3 mr-1" />
+                Tempo Real
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-gray-600">
             Gerencie o inventário de produtos da clínica
           </p>
         </div>
-        {hasPermission('manage_products') && (
-          <button
-            onClick={onCreateProduct}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Produto
-          </button>
-        )}
+        <div className="flex items-center space-x-3">
+          {/* Real-time toggle */}
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={isRealTimeEnabled}
+              onChange={(e) => setIsRealTimeEnabled(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="ml-2 text-sm text-gray-700">Atualizações em tempo real</span>
+          </label>
+          
+          {hasPermission('manage_products') && (
+            <button
+              onClick={onCreateProduct}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Produto
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}

@@ -33,11 +33,23 @@ const retryConfig = {
 
 // Request interceptor
 apiClient.interceptors.request.use(
-  (config) => {
-    // Add auth token
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    // Add Firebase ID token
+    try {
+      // Import Firebase auth service dynamically to avoid circular dependency
+      const { default: firebaseAuthService } = await import('../services/firebaseAuthService');
+      
+      if (firebaseAuthService.isAuthenticated()) {
+        const token = await firebaseAuthService.getIdToken();
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.warn('Could not get Firebase ID token:', error);
+      // Fallback to localStorage token for backward compatibility
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     
     // Add request timestamp for timeout tracking

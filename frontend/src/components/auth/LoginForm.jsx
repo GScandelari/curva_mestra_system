@@ -4,13 +4,14 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Eye, EyeOff, LogIn, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFormError } from '../../contexts/ErrorContext'
-import { ErrorDisplay, FieldError, ButtonSpinner } from '../common/ErrorDisplay'
+import ErrorDisplay, { FieldError } from '../common/ErrorDisplay'
+import { ButtonSpinner } from '../common/LoadingSpinner'
 import { useSuccessNotification } from '../common/NotificationToast'
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, getDefaultRedirectPath } = useAuth()
   const { fieldErrors, handleFormError, clearAllFieldErrors } = useFormError()
   const { showSuccess } = useSuccessNotification()
   const navigate = useNavigate()
@@ -28,10 +29,10 @@ const LoginForm = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname || '/dashboard'
+      const from = location.state?.from?.pathname || getDefaultRedirectPath()
       navigate(from, { replace: true })
     }
-  }, [isAuthenticated, navigate, location])
+  }, [isAuthenticated, navigate, location, getDefaultRedirectPath])
 
   // Focus on email field when component mounts
   useEffect(() => {
@@ -55,7 +56,7 @@ const LoginForm = () => {
       const result = await login(data)
       if (result.success) {
         showSuccess('Login realizado com sucesso!')
-        const from = location.state?.from?.pathname || '/dashboard'
+        const from = location.state?.from?.pathname || getDefaultRedirectPath()
         navigate(from, { replace: true })
       }
     } catch (error) {

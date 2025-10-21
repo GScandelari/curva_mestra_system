@@ -1,0 +1,160 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Função para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Função para verificar role do usuário
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.role == role;
+    }
+    
+    // Função para verificar se pertence à mesma clínica
+    function sameClinic(clinicId) {
+      return isAuthenticated() && request.auth.token.clinicId == clinicId;
+    }
+    
+    // Função para verificar se é admin ou manager
+    function isAdminOrManager() {
+      return hasRole('admin') || hasRole('manager');
+    }
+    
+    // Função para verificar se é o próprio usuário
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Regras para clínicas
+    match /clinics/{clinicId} {
+      // Apenas usuários da mesma clínica podem ler dados da clínica
+      allow read: if sameClinic(clinicId);
+      // Apenas admins podem modificar dados da clínica
+      allow write: if sameClinic(clinicId) && hasRole('admin');
+      
+      // Regras para usuários da clínica
+      match /users/{userId} {
+        // Usuários podem ler dados de outros usuários da mesma clínica
+        allow read: if sameClinic(clinicId);
+        // Usuários podem atualizar seus próprios dados
+        allow update: if sameClinic(clinicId) && isOwner(userId);
+        // Apenas admins podem criar/deletar usuários
+        allow create, delete: if sameClinic(clinicId) && hasRole('admin');
+      }
+      
+      // Regras para produtos
+      match /products/{productId} {
+        // Todos os usuários autenticados da clínica podem ler produtos
+        allow read: if sameClinic(clinicId);
+        // Apenas admins e managers podem criar/modificar produtos
+        allow write: if sameClinic(clinicId) && isAdminOrManager();
+        
+        // Regras para movimentações de estoque (subcoleção)
+        match /movements/{movementId} {
+          // Todos podem ler movimentações
+          allow read: if sameClinic(clinicId);
+          // Todos podem criar movimentações (entrada/saída)
+          allow create: if sameClinic(clinicId) && isAuthenticated();
+          // Apenas admins podem modificar/deletar movimentações
+          allow update, delete: if sameClinic(clinicId) && hasRole('admin');
+        }
+      }
+      
+      // Regras para pacientes
+      match /patients/{patientId} {
+        // Todos os usuários da clínica podem ler pacientes
+        allow read: if sameClinic(clinicId);
+        // Doctors, admins e managers podem criar/modificar pacientes
+        allow write: if sameClinic(clinicId) && 
+          (hasRole('admin') || hasRole('manager') || hasRole('doctor'));
+        
+        // Regras para tratamentos (subcoleção)
+        match /treatments/{treatmentId} {
+          allow read: if sameClinic(clinicId);
+          // Apenas doctors e admins podem criar/modificar tratamentos
+          allow write: if sameClinic(clinicId) && 
+            (hasRole('admin') || hasRole('doctor'));
+        }
+      }
+      
+      // Regras para solicitações de produtos
+      match /requests/{requestId} {
+        // Todos podem ler solicitações
+        allow read: if sameClinic(clinicId);
+        // Todos podem criar solicitações
+        allow create: if sameClinic(clinicId) && isAuthenticated();
+        // Apenas o solicitante, admins ou managers podem modificar
+        allow update: if sameClinic(clinicId) && 
+          (hasRole('admin') || hasRole('manager') || 
+           resource.data.requesterId == request.auth.uid);
+        // Apenas admins podem deletar
+        allow delete: if sameClinic(clinicId) && hasRole('admin');
+        
+        // Regras para produtos solicitados (subcoleção)
+        match /products/{productId} {
+          allow read: if sameClinic(clinicId);
+          allow write: if sameClinic(clinicId) && 
+            (hasRole('admin') || hasRole('manager') || 
+             get(/databases/$(database)/documents/clinics/$(clinicId)/requests/$(requestId)).data.requesterId == request.auth.uid);
+        }
+      }
+      
+      // Regras para notas fiscais
+      match /invoices/{invoiceId} {
+        // Todos podem ler notas fiscais
+        allow read: if sameClinic(clinicId);
+        // Apenas admins e managers podem criar/modificar notas fiscais
+        allow write: if sameClinic(clinicId) && isAdminOrManager();
+        
+        // Regras para produtos da nota fiscal (subcoleção)
+        match /products/{productId} {
+          allow read: if sameClinic(clinicId);
+          allow write: if sameClinic(clinicId) && isAdminOrManager();
+        }
+      }
+      
+      // Regras para movimentações de estoque
+      match /stockMovements/{movementId} {
+        // Todos podem ler movimentações
+        allow read: if sameClinic(clinicId);
+        // Todos podem criar movimentações
+        allow create: if sameClinic(clinicId) && isAuthenticated();
+        // Apenas admins podem modificar/deletar movimentações
+        allow update, delete: if sameClinic(clinicId) && hasRole('admin');
+      }
+      
+      // Regras para logs de auditoria
+      match /auditLogs/{logId} {
+        // Apenas admins podem ler logs de auditoria
+        allow read: if sameClinic(clinicId) && hasRole('admin');
+        // Sistema pode criar logs (via Functions)
+        allow create: if true; // Functions têm privilégios administrativos
+        // Logs não podem ser modificados ou deletados
+        allow update, delete: if false;
+      }
+      
+      // Regras para notificações
+      match /notifications/{notificationId} {
+        // Usuários podem ler suas próprias notificações
+        allow read: if sameClinic(clinicId) && 
+          (resource.data.userId == request.auth.uid || hasRole('admin'));
+        // Sistema pode criar notificações (via Functions)
+        allow create: if true; // Functions têm privilégios administrativos
+        // Usuários podem marcar suas notificações como lidas
+        allow update: if sameClinic(clinicId) && 
+          resource.data.userId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+        // Apenas admins podem deletar notificações
+        allow delete: if sameClinic(clinicId) && hasRole('admin');
+      }
+    }
+    
+    // Regra de fallback - negar acesso a qualquer documento não coberto pelas regras acima
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

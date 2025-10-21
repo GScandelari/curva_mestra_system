@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LogOut, User, Settings, ChevronDown, Menu, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
-import NotificationBell from '../common/NotificationBell'
+import NotificationCenter from '../notifications/NotificationCenter'
 
 const Header = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
@@ -102,7 +102,7 @@ const Header = () => {
           {/* User Menu */}
           <div className="flex items-center space-x-4">
             {/* Notifications */}
-            <NotificationBell />
+            <NotificationCenter />
 
             {/* Mobile menu button */}
             <button
