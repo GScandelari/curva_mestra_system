@@ -533,7 +533,7 @@ const logger = new Logger();
 
 // Export logger instance and utilities
 export default logger;
-export { Logger, LogLevel, LogCategory, ErrorType };
+export { Logger };
 
 // Global debug utilities
 if (typeof window !== 'undefined') {

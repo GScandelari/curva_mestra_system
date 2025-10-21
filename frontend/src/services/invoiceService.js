@@ -1,10 +1,10 @@
 import firebaseService from './firebaseService'
-import { ErrorHandler } from '../../../shared/utils/ErrorHandler.js'
-import { AuthErrorStrategy } from '../../../shared/strategies/AuthErrorStrategy.js'
-import { NetworkErrorStrategy } from '../../../shared/strategies/NetworkErrorStrategy.js'
-import { ValidationErrorStrategy } from '../../../shared/strategies/ValidationErrorStrategy.js'
-import { FallbackStrategy } from '../../../shared/strategies/FallbackStrategy.js'
-import { ErrorType } from '../../../shared/types/errorTypes.js'
+import { ErrorHandler } from '../../../shared/utils/ErrorHandler.ts'
+import { AuthErrorStrategy } from '../../../shared/strategies/AuthErrorStrategy.ts'
+import { NetworkErrorStrategy } from '../../../shared/strategies/NetworkErrorStrategy.ts'
+import { ValidationErrorStrategy } from '../../../shared/strategies/ValidationErrorStrategy.ts'
+import { FallbackStrategy } from '../../../shared/strategies/FallbackStrategy.ts'
+import { ErrorType } from '../../../shared/types/errorTypes.ts'
 import logger, { LogCategory, ErrorType as LogErrorType } from '../utils/logger.js'
 
 // Initialize error handler for service

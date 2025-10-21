@@ -200,7 +200,7 @@ const debugApiError = (error, context = {}) => {
   }
 };
 
-export const parseApiError = (error) => {
+export const parseApiError = async (error) => {
   try {
     // Enhanced debug logging with centralized logger
     debugApiError(error, { function: 'parseApiError' });
