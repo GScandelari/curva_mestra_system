@@ -116,24 +116,36 @@ class FirebaseAuthService {
       
       let errorMessage = 'Erro ao fazer login';
       
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'Usuário não encontrado';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Senha incorreta';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'Email inválido';
-          break;
-        case 'auth/user-disabled':
-          errorMessage = 'Conta desativada';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'Muitas tentativas. Tente novamente mais tarde';
-          break;
-        default:
-          errorMessage = error.message || 'Erro desconhecido';
+      // Handle Firebase Auth errors
+      if (error.code && error.code.startsWith('auth/')) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+            errorMessage = 'Usuário não encontrado';
+            break;
+          case 'auth/wrong-password':
+            errorMessage = 'Senha incorreta';
+            break;
+          case 'auth/invalid-email':
+            errorMessage = 'Email inválido';
+            break;
+          case 'auth/user-disabled':
+            errorMessage = 'Conta desativada';
+            break;
+          case 'auth/too-many-requests':
+            errorMessage = 'Muitas tentativas. Tente novamente mais tarde';
+            break;
+          case 'auth/network-request-failed':
+            errorMessage = 'Erro de conexão. Verifique sua internet';
+            break;
+          case 'auth/invalid-credential':
+            errorMessage = 'Credenciais inválidas';
+            break;
+          default:
+            errorMessage = error.message || 'Erro de autenticação';
+        }
+      } else {
+        // Handle other types of errors
+        errorMessage = error.message || 'Erro interno do servidor';
       }
 
       return {

@@ -113,7 +113,17 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: result.error }
       }
     } catch (error) {
-      const errorMessage = error.message || 'Erro ao fazer login'
+      console.error('AuthContext login error:', error);
+      
+      let errorMessage = 'Erro ao fazer login';
+      
+      // Handle different types of errors
+      if (error.code && error.code.startsWith('auth/')) {
+        errorMessage = error.message || 'Erro de autenticação';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       dispatch({
         type: 'LOGIN_FAILURE',
         payload: errorMessage

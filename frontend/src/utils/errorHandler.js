@@ -161,63 +161,88 @@ export const getErrorMessage = (error) => {
 // Enhanced debug logging for SYS_001 errors
 const debugApiError = (error, context = {}) => {
   try {
-    console.group('🔍 API Error Debug');
-    console.log('Error object:', error);
-    console.log('Error response:', error?.response);
-    console.log('Error status:', error?.response?.status);
-    console.log('Error data:', error?.response?.data);
-    console.log('Context:', context);
-    console.groupEnd();
+    // Only log in development or when explicitly enabled
+    if (import.meta.env.DEV || window.debugSYS001?.enabled) {
+      console.group('🔍 API Error Debug');
+      console.log('Error object:', error);
+      console.log('Error response:', error?.response);
+      console.log('Error status:', error?.response?.status);
+      console.log('Error data:', error?.response?.data);
+      console.log('Error code:', error?.code);
+      console.log('Context:', context);
+      console.groupEnd();
+    }
     
     // Log to localStorage for persistence (only in browser environment)
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-      const errorLog = {
-        timestamp: new Date().toISOString(),
-        error: {
-          message: error?.message,
-          status: error?.response?.status,
-          data: error?.response?.data
-        },
-        context,
-        url: window.location?.href || 'unknown',
-        userAgent: navigator?.userAgent || 'unknown'
-      };
-      
-      const existingLogs = JSON.parse(localStorage.getItem('errorLogs') || '[]');
-      existingLogs.push(errorLog);
-      
-      // Keep only last 10 errors
-      if (existingLogs.length > 10) {
-        existingLogs.splice(0, existingLogs.length - 10);
+      try {
+        const errorLog = {
+          timestamp: new Date().toISOString(),
+          error: {
+            message: error?.message,
+            code: error?.code,
+            status: error?.response?.status,
+            data: error?.response?.data,
+            type: error?.constructor?.name
+          },
+          context,
+          url: window.location?.href || 'unknown',
+          userAgent: navigator?.userAgent || 'unknown'
+        };
+        
+        const existingLogs = JSON.parse(localStorage.getItem('errorLogs') || '[]');
+        existingLogs.push(errorLog);
+        
+        // Keep only last 10 errors
+        if (existingLogs.length > 10) {
+          existingLogs.splice(0, existingLogs.length - 10);
+        }
+        
+        localStorage.setItem('errorLogs', JSON.stringify(existingLogs));
+      } catch (storageError) {
+        console.warn('Could not save error log to localStorage:', storageError);
       }
-      
-      localStorage.setItem('errorLogs', JSON.stringify(existingLogs));
     }
-  } catch (e) {
-    console.warn('Could not save error log:', e);
+  } catch (debugError) {
+    console.warn('Error in debugApiError:', debugError);
   }
 };
 
 export const parseApiError = (error) => {
-  // Debug logging
-  debugApiError(error, { function: 'parseApiError' });
-  // Network errors
-  if (!error.response) {
-    if (error.code === 'ECONNABORTED') {
+  try {
+    // Debug logging
+    debugApiError(error, { function: 'parseApiError' });
+    
+    // Handle Firebase Auth errors specifically
+    if (error.code && error.code.startsWith('auth/')) {
       return new AppError(
-        'Tempo limite excedido',
-        ErrorCodes.TIMEOUT_ERROR,
-        ErrorTypes.NETWORK,
-        ErrorSeverity.MEDIUM
+        error.message || 'Erro de autenticação',
+        ErrorCodes.INVALID_CREDENTIALS,
+        ErrorTypes.AUTHENTICATION,
+        ErrorSeverity.HIGH
       );
     }
     
-    return new AppError(
-      'Erro de conexão',
-      ErrorCodes.NETWORK_ERROR,
-      ErrorTypes.NETWORK,
-      ErrorSeverity.HIGH
-    );
+    // Network errors (no response received)
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return new AppError(
+          'Tempo limite excedido',
+          ErrorCodes.TIMEOUT_ERROR,
+          ErrorTypes.NETWORK,
+          ErrorSeverity.MEDIUM
+        );
+      }
+      
+      return new AppError(
+        'Erro de conexão',
+        ErrorCodes.NETWORK_ERROR,
+        ErrorTypes.NETWORK,
+        ErrorSeverity.HIGH
+      );
+    }
+  } catch (debugError) {
+    console.warn('Error in parseApiError debug:', debugError);
   }
 
   const { status, data } = error.response;
@@ -318,28 +343,36 @@ export const getRetryDelay = (retryCount) => {
 
 // Log error for debugging
 export const logError = (error, context = {}) => {
-  const errorLog = {
-    message: error.message,
-    code: error.code,
-    type: error.type,
-    severity: error.severity,
-    details: error.details,
-    timestamp: error.timestamp || new Date().toISOString(),
-    context,
-    stack: error.stack,
-    userAgent: navigator.userAgent,
-    url: window.location.href
-  };
-  
-  // Log to console in development
-  if (import.meta.env.DEV) {
-    console.error('Error occurred:', errorLog);
+  try {
+    const errorLog = {
+      message: error?.message || 'Unknown error',
+      code: error?.code || 'UNKNOWN',
+      type: error?.type || 'UNKNOWN',
+      severity: error?.severity || 'MEDIUM',
+      details: error?.details || null,
+      timestamp: error?.timestamp || new Date().toISOString(),
+      context,
+      stack: error?.stack || null,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      url: typeof window !== 'undefined' ? window.location.href : 'unknown'
+    };
+    
+    // Log to console in development
+    if (import.meta.env.DEV) {
+      console.error('Error occurred:', errorLog);
+    }
+    
+    // Here you could send to external logging service
+    // logToExternalService(errorLog);
+    
+    return errorLog;
+  } catch (logError) {
+    console.warn('Error in logError function:', logError);
+    return {
+      message: 'Error in logging system',
+      timestamp: new Date().toISOString()
+    };
   }
-  
-  // Here you could send to external logging service
-  // logToExternalService(errorLog);
-  
-  return errorLog;
 };
 
 // Error boundary helper

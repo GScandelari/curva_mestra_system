@@ -27,7 +27,8 @@ const retryConfig = {
   maxRetries: 3,
   retryDelay: 1000,
   retryCondition: (error) => {
-    return shouldRetry(parseApiError(error));
+    const parsedError = (error.response || error.request) ? parseApiError(error) : error;
+    return shouldRetry(parsedError);
   }
 };
 
@@ -61,7 +62,12 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
-    return Promise.reject(parseApiError(error));
+    // Only parse API errors for HTTP requests, not Firebase Auth errors
+    if (error.response || error.request) {
+      return Promise.reject(parseApiError(error));
+    }
+    // For other errors (like Firebase Auth), return as is
+    return Promise.reject(error);
   }
 );
 
@@ -79,6 +85,12 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    
+    // Only parse API errors for HTTP requests
+    if (!error.response && !error.request) {
+      return Promise.reject(error);
+    }
+    
     const parsedError = parseApiError(error);
     
     // Log error
@@ -236,7 +248,11 @@ class ApiClient {
       
       return response.data;
     } catch (error) {
-      throw parseApiError(error);
+      // Only parse API errors for HTTP requests
+      if (error.response || error.request) {
+        throw parseApiError(error);
+      }
+      throw error;
     } finally {
       if (loadingKey) {
         this.setLoading(loadingKey, false);
@@ -252,7 +268,9 @@ class ApiClient {
     
     try {
       const promises = requests.map(request => 
-        apiClient(request).catch(error => ({ error: parseApiError(error) }))
+        apiClient(request).catch(error => ({ 
+          error: (error.response || error.request) ? parseApiError(error) : error 
+        }))
       );
       
       const results = await Promise.all(promises);
@@ -281,7 +299,7 @@ class ApiClient {
     } catch (error) {
       return {
         healthy: false,
-        error: parseApiError(error)
+        error: (error.response || error.request) ? parseApiError(error) : error
       };
     }
   }
