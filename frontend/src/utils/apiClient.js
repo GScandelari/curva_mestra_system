@@ -11,7 +11,7 @@ import {
   AppError
 } from './errorHandler';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://us-central1-curva-mestra.cloudfunctions.net';
 
 // Create axios instance with enhanced configuration
 const apiClient = axios.create({

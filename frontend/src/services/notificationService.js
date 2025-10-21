@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://us-central1-curva-mestra.cloudfunctions.net'
 
 /**
  * Frontend notification service for interacting with notification API
@@ -10,33 +10,43 @@ class NotificationService {
    * Get notifications for the current user
    */
   static async getNotifications(options = {}) {
-    const {
-      page = 1,
-      limit = 20,
-      unreadOnly = false,
-      type = null
-    } = options
+    try {
+      const {
+        page = 1,
+        limit = 20,
+        unreadOnly = false,
+        type = null
+      } = options
 
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-      unreadOnly: unreadOnly.toString()
-    })
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        unreadOnly: unreadOnly.toString()
+      })
 
-    if (type) {
-      params.append('type', type)
+      if (type) {
+        params.append('type', type)
+      }
+
+      const response = await axios.get(`${API_BASE_URL}/notifications?${params}`)
+      return response.data
+    } catch (error) {
+      console.warn('Notifications service not available:', error.message)
+      return { data: [], total: 0, page: 1, totalPages: 0 }
     }
-
-    const response = await axios.get(`${API_BASE_URL}/notifications?${params}`)
-    return response.data
   }
 
   /**
    * Get unread notification count
    */
   static async getUnreadCount() {
-    const response = await axios.get(`${API_BASE_URL}/notifications/unread-count`)
-    return response.data.data.count
+    try {
+      const response = await axios.get(`${API_BASE_URL}/notifications/unread-count`)
+      return response.data.data.count
+    } catch (error) {
+      console.warn('Notifications service not available:', error.message)
+      return 0
+    }
   }
 
   /**
@@ -67,8 +77,13 @@ class NotificationService {
    * Get current system alerts
    */
   static async getCurrentAlerts() {
-    const response = await axios.get(`${API_BASE_URL}/notifications/alerts`)
-    return response.data.data
+    try {
+      const response = await axios.get(`${API_BASE_URL}/notifications/alerts`)
+      return response.data.data
+    } catch (error) {
+      console.warn('Notifications service not available:', error.message)
+      return []
+    }
   }
 
   /**
