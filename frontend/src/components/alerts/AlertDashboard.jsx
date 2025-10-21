@@ -10,7 +10,9 @@ const AlertDashboard = () => {
   const [creatingNotifications, setCreatingNotifications] = useState(false)
 
   useEffect(() => {
-    loadAlerts()
+    // Temporarily disabled to avoid CORS errors until notification API is implemented
+    console.log('AlertDashboard temporarily disabled');
+    // loadAlerts()
   }, [])
 
   const loadAlerts = async () => {

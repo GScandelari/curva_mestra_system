@@ -20,18 +20,21 @@ export const NotificationProvider = ({ children }) => {
 
   // Load initial notifications and set up periodic checking
   useEffect(() => {
-    if (!isAuthenticated || !user) return
+    // Temporarily disabled to avoid CORS errors until notification API is implemented
+    console.log('NotificationContext temporarily disabled');
+    
+    // if (!isAuthenticated || !user) return
 
-    // Load initial notifications
-    loadNotifications()
-    loadUnreadCount()
+    // // Load initial notifications
+    // loadNotifications()
+    // loadUnreadCount()
 
-    // Set up periodic check for new notifications
-    const interval = setInterval(() => {
-      checkForNewNotifications()
-    }, 30000) // Check every 30 seconds
+    // // Set up periodic check for new notifications
+    // const interval = setInterval(() => {
+    //   checkForNewNotifications()
+    // }, 30000) // Check every 30 seconds
 
-    return () => clearInterval(interval)
+    // return () => clearInterval(interval)
   }, [isAuthenticated, user])
 
   const loadNotifications = async () => {
