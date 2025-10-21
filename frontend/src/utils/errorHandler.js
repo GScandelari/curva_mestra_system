@@ -160,37 +160,39 @@ export const getErrorMessage = (error) => {
 
 // Enhanced debug logging for SYS_001 errors
 const debugApiError = (error, context = {}) => {
-  console.group('🔍 API Error Debug');
-  console.log('Error object:', error);
-  console.log('Error response:', error?.response);
-  console.log('Error status:', error?.response?.status);
-  console.log('Error data:', error?.response?.data);
-  console.log('Context:', context);
-  console.groupEnd();
-  
-  // Log to localStorage for persistence
   try {
-    const errorLog = {
-      timestamp: new Date().toISOString(),
-      error: {
-        message: error?.message,
-        status: error?.response?.status,
-        data: error?.response?.data
-      },
-      context,
-      url: window.location.href,
-      userAgent: navigator.userAgent
-    };
+    console.group('🔍 API Error Debug');
+    console.log('Error object:', error);
+    console.log('Error response:', error?.response);
+    console.log('Error status:', error?.response?.status);
+    console.log('Error data:', error?.response?.data);
+    console.log('Context:', context);
+    console.groupEnd();
     
-    const existingLogs = JSON.parse(localStorage.getItem('errorLogs') || '[]');
-    existingLogs.push(errorLog);
-    
-    // Keep only last 10 errors
-    if (existingLogs.length > 10) {
-      existingLogs.splice(0, existingLogs.length - 10);
+    // Log to localStorage for persistence (only in browser environment)
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const errorLog = {
+        timestamp: new Date().toISOString(),
+        error: {
+          message: error?.message,
+          status: error?.response?.status,
+          data: error?.response?.data
+        },
+        context,
+        url: window.location?.href || 'unknown',
+        userAgent: navigator?.userAgent || 'unknown'
+      };
+      
+      const existingLogs = JSON.parse(localStorage.getItem('errorLogs') || '[]');
+      existingLogs.push(errorLog);
+      
+      // Keep only last 10 errors
+      if (existingLogs.length > 10) {
+        existingLogs.splice(0, existingLogs.length - 10);
+      }
+      
+      localStorage.setItem('errorLogs', JSON.stringify(existingLogs));
     }
-    
-    localStorage.setItem('errorLogs', JSON.stringify(existingLogs));
   } catch (e) {
     console.warn('Could not save error log:', e);
   }
