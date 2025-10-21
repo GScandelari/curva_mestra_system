@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getAuth } from 'firebase-admin/auth';
+import { getAuth } from '../firebase-admin';
 
 /**
  * Admin Initialization Script
