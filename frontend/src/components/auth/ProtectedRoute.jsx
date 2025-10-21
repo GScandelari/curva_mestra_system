@@ -30,8 +30,13 @@ const ProtectedRoute = ({
   }
 
   // Check role-based access
-  if (requiredRole && user?.role !== requiredRole && user?.role !== 'admin') {
-    return <Navigate to="/unauthorized" replace />
+  if (requiredRole) {
+    const isAdmin = user?.role === 'admin' || user?.role === 'administrator' || user?.isAdmin;
+    const hasRequiredRole = user?.role === requiredRole;
+    
+    if (!hasRequiredRole && !isAdmin) {
+      return <Navigate to="/unauthorized" replace />
+    }
   }
 
   // Check permission-based access
