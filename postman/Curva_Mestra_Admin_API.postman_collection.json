@@ -1,0 +1,614 @@
+{
+  "info": {
+    "name": "Curva Mestra Admin API",
+    "description": "Collection for testing Curva Mestra Admin System endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{firebase_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Log da requisição",
+          "console.log('Request URL:', pm.request.url.toString());",
+          "console.log('Request Method:', pm.request.method);",
+          "",
+          "// Adicionar Content-Type se não existir",
+          "if (!pm.request.headers.has('Content-Type')) {",
+          "    pm.request.headers.add({",
+          "        key: 'Content-Type',",
+          "        value: 'application/json'",
+          "    });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Verificar se a resposta é válida",
+          "pm.test('Response is valid JSON', function () {",
+          "    pm.response.to.be.json;",
+          "});",
+          "",
+          "// Verificar status code",
+          "pm.test('Status code is 200', function () {",
+          "    pm.response.to.have.status(200);",
+          "});",
+          "",
+          "// Log da resposta",
+          "console.log('Response:', pm.response.json());",
+          "",
+          "// Salvar dados úteis no ambiente",
+          "const response = pm.response.json();",
+          "if (response.result && response.result.uid) {",
+          "    pm.environment.set('last_user_uid', response.result.uid);",
+          "}",
+          "",
+          "// Verificar se há erros",
+          "if (response.error) {",
+          "    pm.test('No errors in response', function () {",
+          "        pm.expect(response.error).to.be.undefined;",
+          "    });",
+          "} else {",
+          "    pm.test('Response has result', function () {",
+          "        pm.expect(response.result).to.not.be.undefined;",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://us-central1-curva-mestra.cloudfunctions.net",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Admin Initialization",
+      "item": [
+        {
+          "name": "Initialize Default Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin initialization successful', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Admin UID is correct', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.uid).to.eql('gEjUSOsHF9QmS0Dvi0zB10GsxrD2');",
+                  "});",
+                  "",
+                  "pm.test('Admin email is correct', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.email).to.eql('scandelari.guilherme@hotmail.com');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/initializeDefaultAdmin",
+              "host": ["{{base_url}}"],
+              "path": ["initializeDefaultAdmin"]
+            },
+            "description": "Inicializa o usuário administrador padrão do sistema"
+          }
+        },
+        {
+          "name": "Validate Admin Initialization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Validation successful', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Admin is initialized', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.isInitialized).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/validateAdminInitialization",
+              "host": ["{{base_url}}"],
+              "path": ["validateAdminInitialization"]
+            },
+            "description": "Valida se o administrador padrão foi inicializado corretamente"
+          }
+        },
+        {
+          "name": "Emergency Admin Assignment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Emergency admin assignment successful', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Emergency admin claims assigned', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.claims.isEmergencyAdmin).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"uid\": \"{{test_user_uid}}\",\n    \"email\": \"{{test_user_email}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencyAdminAssignment",
+              "host": ["{{base_url}}"],
+              "path": ["emergencyAdminAssignment"]
+            },
+            "description": "Atribui privilégios de administrador em caso de emergência"
+          }
+        }
+      ],
+      "description": "Endpoints para inicialização e configuração de administradores"
+    },
+    {
+      "name": "User Role Management",
+      "item": [
+        {
+          "name": "Set Admin Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin role assignment successful', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Admin claims are correct', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.claims.admin).to.be.true;",
+                  "    pm.expect(response.result.claims.role).to.eql('administrator');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"uid\": \"{{test_user_uid}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/setAdminRole",
+              "host": ["{{base_url}}"],
+              "path": ["setAdminRole"]
+            },
+            "description": "Atribui privilégios de administrador a um usuário específico"
+          }
+        },
+        {
+          "name": "Verify Admin Role - Specific User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin role verification successful', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('User admin status returned', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.isAdmin).to.not.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"uid\": \"{{test_user_uid}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/verifyAdminRole",
+              "host": ["{{base_url}}"],
+              "path": ["verifyAdminRole"]
+            },
+            "description": "Verifica se um usuário específico possui privilégios de administrador"
+          }
+        },
+        {
+          "name": "Verify Admin Role - Current User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Current user admin verification successful', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.success).to.be.true;",
+                  "});",
+                  "",
+                  "// Salvar status de admin do usuário atual",
+                  "const response = pm.response.json();",
+                  "pm.environment.set('current_user_is_admin', response.result.isAdmin);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/verifyAdminRole",
+              "host": ["{{base_url}}"],
+              "path": ["verifyAdminRole"]
+            },
+            "description": "Verifica se o usuário atual possui privilégios de administrador"
+          }
+        },
+        {
+          "name": "Get User Role - Specific User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('User role retrieval successful', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('User role information complete', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.uid).to.not.be.undefined;",
+                  "    pm.expect(response.result.email).to.not.be.undefined;",
+                  "    pm.expect(response.result.role).to.not.be.undefined;",
+                  "    pm.expect(response.result.isAdmin).to.not.be.undefined;",
+                  "    pm.expect(response.result.permissions).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"uid\": \"{{test_user_uid}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/getUserRole",
+              "host": ["{{base_url}}"],
+              "path": ["getUserRole"]
+            },
+            "description": "Obtém informações detalhadas sobre o papel de um usuário específico"
+          }
+        },
+        {
+          "name": "Get User Role - Current User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Current user role retrieval successful', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.result.success).to.be.true;",
+                  "});",
+                  "",
+                  "// Salvar informações do usuário atual",
+                  "const response = pm.response.json();",
+                  "pm.environment.set('current_user_uid', response.result.uid);",
+                  "pm.environment.set('current_user_role', response.result.role);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/getUserRole",
+              "host": ["{{base_url}}"],
+              "path": ["getUserRole"]
+            },
+            "description": "Obtém informações detalhadas sobre o papel do usuário atual"
+          }
+        }
+      ],
+      "description": "Endpoints para gerenciamento de papéis e permissões de usuários"
+    },
+    {
+      "name": "Test Sequences",
+      "item": [
+        {
+          "name": "Complete System Initialization",
+          "item": [
+            {
+              "name": "1. Validate Admin (Before)",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/validateAdminInitialization",
+                  "host": ["{{base_url}}"],
+                  "path": ["validateAdminInitialization"]
+                }
+              }
+            },
+            {
+              "name": "2. Initialize Admin",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/initializeDefaultAdmin",
+                  "host": ["{{base_url}}"],
+                  "path": ["initializeDefaultAdmin"]
+                }
+              }
+            },
+            {
+              "name": "3. Validate Admin (After)",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/validateAdminInitialization",
+                  "host": ["{{base_url}}"],
+                  "path": ["validateAdminInitialization"]
+                }
+              }
+            }
+          ],
+          "description": "Sequência completa de inicialização do sistema"
+        },
+        {
+          "name": "User Management Flow",
+          "item": [
+            {
+              "name": "1. Get Current User Role",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/getUserRole",
+                  "host": ["{{base_url}}"],
+                  "path": ["getUserRole"]
+                }
+              }
+            },
+            {
+              "name": "2. Verify Current User Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/verifyAdminRole",
+                  "host": ["{{base_url}}"],
+                  "path": ["verifyAdminRole"]
+                }
+              }
+            },
+            {
+              "name": "3. Set Admin Role to Test User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"uid\": \"{{test_user_uid}}\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/setAdminRole",
+                  "host": ["{{base_url}}"],
+                  "path": ["setAdminRole"]
+                }
+              }
+            },
+            {
+              "name": "4. Verify Test User Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"data\": {\n    \"uid\": \"{{test_user_uid}}\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/verifyAdminRole",
+                  "host": ["{{base_url}}"],
+                  "path": ["verifyAdminRole"]
+                }
+              }
+            }
+          ],
+          "description": "Fluxo completo de gerenciamento de usuários"
+        }
+      ],
+      "description": "Sequências de teste para validar fluxos completos"
+    }
+  ]
+}
