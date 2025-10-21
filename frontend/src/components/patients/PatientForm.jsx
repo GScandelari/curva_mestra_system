@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Save, AlertCircle } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { patientService } from '../../services'
+import firebasePatientService from '../../services/firebasePatientService'
 
 const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
   const [formData, setFormData] = useState({
@@ -172,17 +172,25 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
     try {
       let result
       if (patient) {
-        result = await patientService.updatePatient(patient.id, formData)
-        toast.success('Paciente atualizado com sucesso!')
+        result = await firebasePatientService.updatePatient(patient.id, formData)
+        if (result.success) {
+          toast.success('Paciente atualizado com sucesso!')
+          onSave(result.data)
+        } else {
+          toast.error(result.error || 'Erro ao atualizar paciente')
+        }
       } else {
-        result = await patientService.createPatient(formData)
-        toast.success('Paciente cadastrado com sucesso!')
+        result = await firebasePatientService.createPatient(formData)
+        if (result.success) {
+          toast.success('Paciente cadastrado com sucesso!')
+          onSave(result.data)
+        } else {
+          toast.error(result.error || 'Erro ao cadastrar paciente')
+        }
       }
-
-      onSave(result)
     } catch (error) {
       console.error('Error saving patient:', error)
-      const message = error.response?.data?.message || 'Erro ao salvar paciente'
+      const message = error.message || 'Erro ao salvar paciente'
       toast.error(message)
     } finally {
       setIsLoading(false)
@@ -206,6 +214,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
             name="name"
             value={formData.name}
             onChange={handleInputChange}
+            autoComplete="name"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.name ? 'border-red-300' : ''
             }`}
@@ -231,6 +240,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="email"
               value={formData.email}
               onChange={handleInputChange}
+              autoComplete="email"
               className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
                 errors.email ? 'border-red-300' : ''
               }`}
@@ -254,6 +264,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="phone"
               value={formData.phone}
               onChange={handlePhoneChange}
+              autoComplete="tel"
               className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
                 errors.phone ? 'border-red-300' : ''
               }`}
@@ -280,6 +291,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
             name="birthDate"
             value={formData.birthDate}
             onChange={handleInputChange}
+            autoComplete="bday"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.birthDate ? 'border-red-300' : ''
             }`}
@@ -309,6 +321,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="address.street"
               value={formData.address.street}
               onChange={handleInputChange}
+              autoComplete="address-line1"
               className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
                 errors['address.street'] ? 'border-red-300' : ''
               }`}
@@ -383,6 +396,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="address.city"
               value={formData.address.city}
               onChange={handleInputChange}
+              autoComplete="address-level2"
               className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
                 errors['address.city'] ? 'border-red-300' : ''
               }`}
@@ -430,6 +444,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="address.zipCode"
               value={formData.address.zipCode}
               onChange={handleZipCodeChange}
+              autoComplete="postal-code"
               className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
                 errors['address.zipCode'] ? 'border-red-300' : ''
               }`}

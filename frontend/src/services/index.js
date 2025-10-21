@@ -13,5 +13,6 @@ export { reportService } from './reportService';
 export { default as firebaseAuthService } from './firebaseAuthService';
 export { default as firebaseService } from './firebaseService';
 export { default as firebaseProductService } from './firebaseProductService';
+export { default as firebasePatientService } from './firebasePatientService';
 export { default as firebaseNotificationService } from './firebaseNotificationService';
 export { default as firebaseRequestService } from './firebaseRequestService';
