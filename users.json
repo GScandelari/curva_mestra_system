@@ -1,0 +1,13 @@
+{"users": [
+{
+  "localId": "0vdFsTyia3di70080j9KG1vccLN2",
+  "email": "scandelari.guilherme@hotmail.com",
+  "emailVerified": false,
+  "passwordHash": "P/rdd7YekfFBMqak4OmSl+ocmKqSS8242KvKwZoFq+sijptQsiyewjN92LlC3e4oS4AEXRJ1cvTrid4zI57OWw==",
+  "salt": "U8KYy5jPMab3Xw==",
+  "lastSignedInAt": "1761048850119",
+  "createdAt": "1761047416763",
+  "disabled": false,
+  "providerUserInfo": [],
+  "customAttributes": "{\"role\":\"admin\",\"isAdmin\":true,\"clinicId\":\"default-clinic\",\"permissions\":[\"view_products\",\"manage_products\",\"view_requests\",\"approve_requests\",\"view_patients\",\"manage_patients\",\"view_invoices\",\"manage_invoices\",\"view_reports\",\"manage_users\",\"view_analytics\",\"manage_settings\"]}"
+}]}

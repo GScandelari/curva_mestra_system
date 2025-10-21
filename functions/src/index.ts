@@ -123,3 +123,8 @@ export const healthCheck = onRequest((request, response) => {
     version: "2.0.0"
   });
 });
+
+// Import and export admin upgrade functions
+import * as adminUpgrade from "./admin-upgrade";
+export const upgradeToAdmin = adminUpgrade.upgradeToAdmin;
+export const upgradeToAdminHttp = adminUpgrade.upgradeToAdminHttp;
