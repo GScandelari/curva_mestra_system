@@ -57,6 +57,12 @@ class FirebaseService {
    */
   getCurrentClinicId() {
     const user = firebaseAuthService.getCurrentUser();
+    
+    // For admin users, use a default clinic or create one
+    if (user && (user.isAdmin || user.role === 'admin' || user.role === 'administrator')) {
+      return user.clinicId || 'default-clinic';
+    }
+    
     if (!user || !user.clinicId) {
       throw new Error('Usuário não associado a uma clínica');
     }

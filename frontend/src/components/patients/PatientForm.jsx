@@ -215,7 +215,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
             value={formData.name}
             onChange={handleInputChange}
             autoComplete="name"
-            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white ${
               errors.name ? 'border-red-300' : ''
             }`}
             placeholder="Digite o nome completo do paciente"
@@ -241,7 +241,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.email}
               onChange={handleInputChange}
               autoComplete="email"
-              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white ${
                 errors.email ? 'border-red-300' : ''
               }`}
               placeholder="email@exemplo.com"
@@ -265,7 +265,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.phone}
               onChange={handlePhoneChange}
               autoComplete="tel"
-              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white ${
                 errors.phone ? 'border-red-300' : ''
               }`}
               placeholder="(XX) XXXXX-XXXX"
@@ -291,8 +291,8 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
             name="birthDate"
             value={formData.birthDate}
             onChange={handleInputChange}
-            autoComplete="off"
-            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+            autoComplete="bday"
+            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white ${
               errors.birthDate ? 'border-red-300' : ''
             }`}
           />
@@ -322,7 +322,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.address.street}
               onChange={handleInputChange}
               autoComplete="address-line1"
-              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white ${
                 errors['address.street'] ? 'border-red-300' : ''
               }`}
               placeholder="Nome da rua"
@@ -346,7 +346,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.address.number}
               onChange={handleInputChange}
               autoComplete="off"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white"
               placeholder="123"
             />
           </div>
@@ -365,7 +365,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.address.complement}
               onChange={handleInputChange}
               autoComplete="address-line2"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white"
               placeholder="Apto, sala, etc."
             />
           </div>
@@ -381,7 +381,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.address.neighborhood}
               onChange={handleInputChange}
               autoComplete="off"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white"
               placeholder="Nome do bairro"
             />
           </div>
@@ -400,7 +400,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.address.city}
               onChange={handleInputChange}
               autoComplete="address-level2"
-              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white ${
                 errors['address.city'] ? 'border-red-300' : ''
               }`}
               placeholder="Nome da cidade"
@@ -424,7 +424,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.address.state}
               onChange={handleInputChange}
               autoComplete="address-level1"
-              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white ${
                 errors['address.state'] ? 'border-red-300' : ''
               }`}
               placeholder="SP"
@@ -449,7 +449,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               value={formData.address.zipCode}
               onChange={handleZipCodeChange}
               autoComplete="postal-code"
-              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white ${
                 errors['address.zipCode'] ? 'border-red-300' : ''
               }`}
               placeholder="XXXXX-XXX"
@@ -477,7 +477,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
           value={formData.medicalHistory}
           onChange={handleInputChange}
           autoComplete="off"
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 bg-white"
           placeholder="Informações relevantes sobre o histórico médico do paciente..."
         />
       </div>
