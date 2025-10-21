@@ -189,12 +189,15 @@ const NotificationCenter = () => {
 
   // Setup listeners on mount
   useEffect(() => {
-    setupListeners();
-    loadNotifications();
+    // Temporarily disabled to avoid CORS errors until notification API is implemented
+    console.log('NotificationCenter temporarily disabled');
+    
+    // setupListeners();
+    // loadNotifications();
 
-    return () => {
-      cleanupListeners();
-    };
+    // return () => {
+    //   cleanupListeners();
+    // };
   }, [setupListeners, cleanupListeners]);
 
   return (

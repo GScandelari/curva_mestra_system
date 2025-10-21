@@ -25,14 +25,19 @@ const NotificationsPage = () => {
   const loadNotificationsData = async () => {
     try {
       setLoading(true)
-      const response = await NotificationService.getNotifications({
-        page: pagination.page,
-        limit: pagination.limit,
-        unreadOnly: filter === 'unread',
-        type: typeFilter === 'all' ? null : typeFilter
-      })
+      
+      // Temporarily disabled to avoid CORS errors until notification API is implemented
+      console.log('Notifications API temporarily disabled')
+      setNotifications([])
+      
+      // const response = await NotificationService.getNotifications({
+      //   page: pagination.page,
+      //   limit: pagination.limit,
+      //   unreadOnly: filter === 'unread',
+      //   type: typeFilter === 'all' ? null : typeFilter
+      // })
 
-      setNotifications(response.data.notifications)
+      // setNotifications(response.data.notifications)
       setPagination(prev => ({
         ...prev,
         total: response.data.pagination.total,

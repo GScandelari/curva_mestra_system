@@ -235,16 +235,19 @@ export const useNotifications = (options = {}) => {
 
   // Setup listeners and load initial data
   useEffect(() => {
-    if (autoSetupListeners) {
-      setupListeners();
-      loadNotifications();
-    }
+    // Temporarily disabled to avoid CORS errors until notification API is implemented
+    console.log('Notifications temporarily disabled - API not yet implemented');
+    
+    // if (autoSetupListeners) {
+    //   setupListeners();
+    //   loadNotifications();
+    // }
 
-    return () => {
-      if (autoSetupListeners) {
-        cleanupListeners();
-      }
-    };
+    // return () => {
+    //   if (autoSetupListeners) {
+    //     cleanupListeners();
+    //   }
+    // };
   }, [autoSetupListeners, setupListeners, loadNotifications, cleanupListeners]);
 
   return {
@@ -283,21 +286,24 @@ export const useUnreadCount = () => {
   const [listener, setListener] = useState(null);
 
   useEffect(() => {
-    const unreadListener = firebaseNotificationService.onUnreadCountChange(
-      (result) => {
-        if (result.success) {
-          setUnreadCount(result.data.count);
-        }
-      }
-    );
+    // Temporarily disabled to avoid CORS errors until notification API is implemented
+    console.log('Unread count notifications temporarily disabled');
+    
+    // const unreadListener = firebaseNotificationService.onUnreadCountChange(
+    //   (result) => {
+    //     if (result.success) {
+    //       setUnreadCount(result.data.count);
+    //     }
+    //   }
+    // );
 
-    setListener(unreadListener);
+    // setListener(unreadListener);
 
-    return () => {
-      if (unreadListener) {
-        firebaseNotificationService.removeListener(unreadListener);
-      }
-    };
+    // return () => {
+    //   if (unreadListener) {
+    //     firebaseNotificationService.removeListener(unreadListener);
+    //   }
+    // };
   }, []);
 
   return unreadCount;
@@ -344,7 +350,9 @@ export const useAlerts = (options = {}) => {
   }, []);
 
   useEffect(() => {
-    loadAlerts();
+    // Temporarily disabled to avoid CORS errors until notification API is implemented
+    console.log('Alerts temporarily disabled');
+    // loadAlerts();
   }, [loadAlerts]);
 
   return {
