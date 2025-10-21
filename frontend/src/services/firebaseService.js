@@ -73,6 +73,14 @@ class FirebaseService {
    * Get collection reference for current clinic
    */
   getClinicCollection(collectionName) {
+    const user = firebaseAuthService.getCurrentUser();
+    
+    // For global admins, use a default clinic structure
+    if (user && (user.isAdmin || user.role === 'admin' || user.role === 'administrator')) {
+      const clinicId = user.clinicId || 'default-clinic';
+      return collection(db, 'clinics', clinicId, collectionName);
+    }
+    
     const clinicId = this.getCurrentClinicId();
     return collection(db, 'clinics', clinicId, collectionName);
   }
@@ -81,6 +89,14 @@ class FirebaseService {
    * Get document reference for current clinic
    */
   getClinicDocument(collectionName, docId) {
+    const user = firebaseAuthService.getCurrentUser();
+    
+    // For global admins, use a default clinic structure
+    if (user && (user.isAdmin || user.role === 'admin' || user.role === 'administrator')) {
+      const clinicId = user.clinicId || 'default-clinic';
+      return doc(db, 'clinics', clinicId, collectionName, docId);
+    }
+    
     const clinicId = this.getCurrentClinicId();
     return doc(db, 'clinics', clinicId, collectionName, docId);
   }

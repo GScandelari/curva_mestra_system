@@ -20,7 +20,15 @@ service cloud.firestore {
     
     // Função para verificar se é admin ou manager
     function isAdminOrManager() {
-      return hasRole('admin') || hasRole('manager');
+      return hasRole('admin') || hasRole('manager') || hasRole('administrator');
+    }
+    
+    // Função para verificar se é admin global
+    function isGlobalAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.admin == true || 
+         request.auth.token.role == 'admin' || 
+         request.auth.token.role == 'administrator');
     }
     
     // Função para verificar se é o próprio usuário
@@ -65,11 +73,12 @@ service cloud.firestore {
       
       // Regras para pacientes
       match /patients/{patientId} {
-        // Todos os usuários da clínica podem ler pacientes
-        allow read: if sameClinic(clinicId);
-        // Doctors, admins e managers podem criar/modificar pacientes
-        allow write: if sameClinic(clinicId) && 
-          (hasRole('admin') || hasRole('manager') || hasRole('doctor'));
+        // Todos os usuários da clínica podem ler pacientes, ou admins globais
+        allow read: if sameClinic(clinicId) || isGlobalAdmin();
+        // Doctors, admins e managers podem criar/modificar pacientes, ou admins globais
+        allow write: if isGlobalAdmin() || 
+          (sameClinic(clinicId) && 
+           (hasRole('admin') || hasRole('manager') || hasRole('doctor')));
         
         // Regras para tratamentos (subcoleção)
         match /treatments/{treatmentId} {
