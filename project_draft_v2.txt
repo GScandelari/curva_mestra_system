@@ -1,9 +1,0 @@
-O arquivo project_draft.txt e project_draft_v2.txt devem ser ignorados no push do git.
-
-Devemos planejar como hostiar este projeto no firebase
-    Nome do projeto: Curva Mestra
-    ID do projeto: curva-mestra
-    Número do projeto: 521885400577
-    Chave de API da Web: AIzaSyBtNXznf7cvdzGCcBym84ux-SjJrrKaSJU
-
-

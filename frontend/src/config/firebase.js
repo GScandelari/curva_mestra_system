@@ -11,7 +11,7 @@ import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // Firebase configuration object
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBtNXznf7cvdzGCcBym84ux-SjJrrKaSJU",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "curva-mestra.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "curva-mestra",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "curva-mestra.appspot.com",

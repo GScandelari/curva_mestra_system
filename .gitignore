@@ -10,6 +10,10 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
+backend/.env.production
+frontend/.env.production
+functions/.env.production
 
 # Build outputs
 /frontend/dist/
@@ -118,3 +122,23 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Kiro IDE files (internal development specs)
+.kiro/
+
+# Firebase cache and debug files
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# Project drafts and internal documentation
+project_draft*.txt
+
+# Compiled functions
+functions/lib/
+functions/*.js.map
+
+# Build artifacts
+frontend/dist/
+backend/dist/
+backend/build/
