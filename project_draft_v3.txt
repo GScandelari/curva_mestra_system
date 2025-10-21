@@ -1,0 +1,6 @@
+Kiro, a partir de agora, devemos considerar que:
+1 - A conta com login scandelari.guilherme@hotmail.com e senha "senhaAdmin12345" (já cadastrada na Authentication - UID do usuário: gEjUSOsHF9QmS0Dvi0zB10GsxrD2) deverá ter o papel de Admintrador do sistema.
+
+2 - todo documento .md deve ser enviado para uma pasta central de documentação, fazendo com que o projeto fique limpo.
+
+3 - garantir que toda ação seja enviada para o firabase (deploy) e para o git.

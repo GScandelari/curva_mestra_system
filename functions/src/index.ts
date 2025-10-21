@@ -115,6 +115,18 @@ export const setAdminUserRole = adminFunctions.setUserRole;
 export const listAllUsers = adminFunctions.listUsers;
 export const getAdminUserInfo = adminFunctions.getUserInfo;
 
+// Import and export user role manager functions
+import * as userRoleManager from "./admin/userRoleManager";
+export const setAdminRole = userRoleManager.setAdminRole;
+export const verifyAdminRole = userRoleManager.verifyAdminRole;
+export const getUserRole = userRoleManager.getUserRole;
+
+// Import and export admin initializer functions
+import * as adminInitializer from "./admin/adminInitializer";
+export const initializeDefaultAdmin = adminInitializer.initializeDefaultAdmin;
+export const validateAdminInitialization = adminInitializer.validateAdminInitialization;
+export const emergencyAdminAssignment = adminInitializer.emergencyAdminAssignment;
+
 // Health check endpoint
 export const healthCheck = onRequest((request, response) => {
   response.json({
