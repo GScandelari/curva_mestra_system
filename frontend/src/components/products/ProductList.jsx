@@ -237,6 +237,8 @@ const ProductList = ({ onEditProduct, onCreateProduct }) => {
           <label className="flex items-center">
             <input
               type="checkbox"
+              id="realtime-toggle"
+              name="realtimeToggle"
               checked={isRealTimeEnabled}
               onChange={(e) => setIsRealTimeEnabled(e.target.checked)}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -332,6 +334,8 @@ const ProductList = ({ onEditProduct, onCreateProduct }) => {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
+                    id="low-stock-filter"
+                    name="lowStockFilter"
                     checked={filters.lowStock}
                     onChange={(e) => handleFilterChange('lowStock', e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
