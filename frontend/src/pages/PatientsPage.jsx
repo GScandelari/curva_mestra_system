@@ -12,6 +12,7 @@ const PatientsPage = () => {
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
   
   const { hasPermission } = useAuth()
 
@@ -53,8 +54,8 @@ const PatientsPage = () => {
       setCurrentView('list')
     }
     
-    // Refresh the current view data
-    window.location.reload()
+    // Trigger refresh of the patient list
+    setRefreshTrigger(prev => prev + 1)
   }
 
   const handleCancelForm = () => {
@@ -79,6 +80,7 @@ const PatientsPage = () => {
             onEditPatient={handleEditPatient}
             onCreatePatient={handleCreatePatient}
             onViewPatient={handleViewPatient}
+            refreshTrigger={refreshTrigger}
           />
         )
       
@@ -98,6 +100,7 @@ const PatientsPage = () => {
             onEditPatient={handleEditPatient}
             onCreatePatient={handleCreatePatient}
             onViewPatient={handleViewPatient}
+            refreshTrigger={refreshTrigger}
           />
         )
     }

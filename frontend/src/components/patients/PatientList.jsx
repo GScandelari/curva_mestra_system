@@ -16,7 +16,7 @@ import { toast } from 'react-toastify'
 import { patientService } from '../../services'
 import { useAuth } from '../../contexts/AuthContext'
 
-const PatientList = ({ onEditPatient, onCreatePatient, onViewPatient }) => {
+const PatientList = ({ onEditPatient, onCreatePatient, onViewPatient, refreshTrigger }) => {
   const [patients, setPatients] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [filters, setFilters] = useState({
@@ -35,7 +35,7 @@ const PatientList = ({ onEditPatient, onCreatePatient, onViewPatient }) => {
 
   useEffect(() => {
     loadPatients()
-  }, [filters, pagination.page])
+  }, [filters, pagination.page, refreshTrigger])
 
   const loadPatients = async () => {
     setIsLoading(true)
