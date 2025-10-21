@@ -13,7 +13,7 @@ import {
   FileText
 } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { patientService } from '../../services'
+import { firebasePatientService } from '../../services'
 import { useAuth } from '../../contexts/AuthContext'
 
 const PatientList = ({ onEditPatient, onCreatePatient, onViewPatient, refreshTrigger }) => {
@@ -40,17 +40,23 @@ const PatientList = ({ onEditPatient, onCreatePatient, onViewPatient, refreshTri
   const loadPatients = async () => {
     setIsLoading(true)
     try {
-      const data = await patientService.getPatients({
+      const result = await firebasePatientService.getPatients({
         ...filters,
         page: pagination.page,
         limit: pagination.limit
       })
       
-      setPatients(data.patients || [])
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao carregar pacientes')
+      }
+      
+      const data = result.data || []
+      
+      setPatients(data)
       setPagination(prev => ({
         ...prev,
-        total: data.total || 0,
-        totalPages: data.totalPages || 0
+        total: result.total || data.length,
+        totalPages: Math.ceil((result.total || data.length) / pagination.limit)
       }))
     } catch (error) {
       console.error('Error loading patients:', error)
@@ -74,7 +80,11 @@ const PatientList = ({ onEditPatient, onCreatePatient, onViewPatient, refreshTri
     }
 
     try {
-      await patientService.deletePatient(patient.id)
+      const result = await firebasePatientService.deletePatient(patient.id)
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao excluir paciente')
+      }
       toast.success('Paciente excluído com sucesso!')
       loadPatients()
     } catch (error) {

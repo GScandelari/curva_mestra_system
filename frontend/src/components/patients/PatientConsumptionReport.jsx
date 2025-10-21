@@ -8,7 +8,7 @@ import {
   BarChart3
 } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { patientService, productService } from '../../services'
+import { firebasePatientService, productService } from '../../services'
 
 const PatientConsumptionReport = ({ patientId }) => {
   const [consumptionData, setConsumptionData] = useState([])
@@ -47,7 +47,8 @@ const PatientConsumptionReport = ({ patientId }) => {
   const loadConsumptionData = async () => {
     setIsLoading(true)
     try {
-      const data = await patientService.getPatientConsumption(patientId, filters)
+      const result = await firebasePatientService.getPatientConsumption(patientId, filters)
+      const data = result.success ? result.data : { consumption: [], summary: {} }
       setConsumptionData(data.consumption || [])
       setSummary(data.summary || {
         totalTreatments: 0,

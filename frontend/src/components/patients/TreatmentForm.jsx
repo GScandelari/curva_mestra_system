@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Save, AlertCircle, Plus, Trash2, Package } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { patientService, productService } from '../../services'
+import { firebasePatientService, productService } from '../../services'
 
 const TreatmentForm = ({ patient, treatment = null, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -176,10 +176,10 @@ const TreatmentForm = ({ patient, treatment = null, onSave, onCancel }) => {
 
       let result
       if (treatment) {
-        result = await patientService.updateTreatment(patient.id, treatment.id, treatmentData)
+        result = await firebasePatientService.updateTreatment(treatment.id, treatmentData)
         toast.success('Tratamento atualizado com sucesso!')
       } else {
-        result = await patientService.createTreatment(patient.id, treatmentData)
+        result = await firebasePatientService.createTreatment(patient.id, treatmentData)
         toast.success('Tratamento registrado com sucesso!')
       }
 

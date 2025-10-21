@@ -15,7 +15,7 @@ import {
   X
 } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { patientService, productService } from '../../services'
+import { firebasePatientService, productService } from '../../services'
 import { useAuth } from '../../contexts/AuthContext'
 import TreatmentForm from './TreatmentForm'
 import PatientConsumptionReport from './PatientConsumptionReport'
@@ -39,7 +39,8 @@ const PatientDetails = ({ patient, onEdit, onClose }) => {
   const loadTreatments = async () => {
     setIsLoadingTreatments(true)
     try {
-      const data = await patientService.getPatientTreatments(patient.id)
+      const result = await firebasePatientService.getPatientTreatments(patient.id)
+      const data = result.success ? result.data : []
       setTreatments(data || [])
     } catch (error) {
       console.error('Error loading treatments:', error)
@@ -65,7 +66,11 @@ const PatientDetails = ({ patient, onEdit, onClose }) => {
     }
 
     try {
-      await patientService.deleteTreatment(patient.id, treatment.id)
+      const result = await firebasePatientService.deleteTreatment(treatment.id)
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao excluir tratamento')
+      }
       toast.success('Tratamento excluído com sucesso!')
       loadTreatments()
     } catch (error) {
