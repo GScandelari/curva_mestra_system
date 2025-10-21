@@ -312,12 +312,12 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
         {/* Street and Number */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="md:col-span-2">
-            <label htmlFor="address.street" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="address-street" className="block text-sm font-medium text-gray-700">
               Rua *
             </label>
             <input
               type="text"
-              id="address.street"
+              id="address-street"
               name="address.street"
               value={formData.address.street}
               onChange={handleInputChange}
@@ -336,12 +336,12 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
           </div>
 
           <div>
-            <label htmlFor="address.number" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="address-number" className="block text-sm font-medium text-gray-700">
               Número
             </label>
             <input
               type="text"
-              id="address.number"
+              id="address-number"
               name="address.number"
               value={formData.address.number}
               onChange={handleInputChange}
@@ -355,12 +355,12 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
         {/* Complement and Neighborhood */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label htmlFor="address.complement" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="address-complement" className="block text-sm font-medium text-gray-700">
               Complemento
             </label>
             <input
               type="text"
-              id="address.complement"
+              id="address-complement"
               name="address.complement"
               value={formData.address.complement}
               onChange={handleInputChange}
@@ -371,12 +371,12 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
           </div>
 
           <div>
-            <label htmlFor="address.neighborhood" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="address-neighborhood" className="block text-sm font-medium text-gray-700">
               Bairro
             </label>
             <input
               type="text"
-              id="address.neighborhood"
+              id="address-neighborhood"
               name="address.neighborhood"
               value={formData.address.neighborhood}
               onChange={handleInputChange}
@@ -390,12 +390,12 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
         {/* City, State and ZIP */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-            <label htmlFor="address.city" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="address-city" className="block text-sm font-medium text-gray-700">
               Cidade *
             </label>
             <input
               type="text"
-              id="address.city"
+              id="address-city"
               name="address.city"
               value={formData.address.city}
               onChange={handleInputChange}
@@ -414,12 +414,12 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
           </div>
 
           <div>
-            <label htmlFor="address.state" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="address-state" className="block text-sm font-medium text-gray-700">
               Estado *
             </label>
             <input
               type="text"
-              id="address.state"
+              id="address-state"
               name="address.state"
               value={formData.address.state}
               onChange={handleInputChange}
@@ -439,12 +439,12 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
           </div>
 
           <div>
-            <label htmlFor="address.zipCode" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="address-zipCode" className="block text-sm font-medium text-gray-700">
               CEP *
             </label>
             <input
               type="text"
-              id="address.zipCode"
+              id="address-zipCode"
               name="address.zipCode"
               value={formData.address.zipCode}
               onChange={handleZipCodeChange}
