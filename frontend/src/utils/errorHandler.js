@@ -1,4 +1,5 @@
 // Frontend error handling utilities
+import logger, { LogCategory, ErrorType } from './logger.js';
 
 // Error codes mapping (should match backend)
 export const ErrorCodes = {
@@ -158,91 +159,94 @@ export const getErrorMessage = (error) => {
 
 // Parse API error response
 
-// Enhanced debug logging for SYS_001 errors
+// Enhanced debug logging for API errors using centralized logger
 const debugApiError = (error, context = {}) => {
   try {
-    // Only log in development or when explicitly enabled
-    if (import.meta.env.DEV || window.debugSYS001?.enabled) {
-      console.group('🔍 API Error Debug');
-      console.log('Error object:', error);
-      console.log('Error response:', error?.response);
-      console.log('Error status:', error?.response?.status);
-      console.log('Error data:', error?.response?.data);
-      console.log('Error code:', error?.code);
-      console.log('Context:', context);
-      console.groupEnd();
+    const errorContext = {
+      category: LogCategory.API,
+      errorType: ErrorType.UNKNOWN,
+      api: {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        code: error?.code,
+        type: error?.constructor?.name
+      },
+      ...context
+    };
+
+    // Determine error type based on error characteristics
+    if (error?.code?.startsWith('auth/')) {
+      errorContext.errorType = ErrorType.AUTHENTICATION;
+    } else if (error?.response?.status === 401) {
+      errorContext.errorType = ErrorType.AUTHENTICATION;
+    } else if (error?.response?.status === 403) {
+      errorContext.errorType = ErrorType.PERMISSION;
+    } else if (error?.response?.status === 400) {
+      errorContext.errorType = ErrorType.VALIDATION;
+    } else if (!error?.response) {
+      errorContext.errorType = ErrorType.NETWORK;
+    } else if (error?.response?.status >= 500) {
+      errorContext.errorType = ErrorType.SYSTEM;
     }
+
+    // Log using centralized logger
+    logger.error(`API Error: ${error?.message || 'Unknown API error'}`, errorContext);
     
-    // Log to localStorage for persistence (only in browser environment)
-    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-      try {
-        const errorLog = {
-          timestamp: new Date().toISOString(),
-          error: {
-            message: error?.message,
-            code: error?.code,
-            status: error?.response?.status,
-            data: error?.response?.data,
-            type: error?.constructor?.name
-          },
-          context,
-          url: window.location?.href || 'unknown',
-          userAgent: navigator?.userAgent || 'unknown'
-        };
-        
-        const existingLogs = JSON.parse(localStorage.getItem('errorLogs') || '[]');
-        existingLogs.push(errorLog);
-        
-        // Keep only last 10 errors
-        if (existingLogs.length > 10) {
-          existingLogs.splice(0, existingLogs.length - 10);
-        }
-        
-        localStorage.setItem('errorLogs', JSON.stringify(existingLogs));
-      } catch (storageError) {
-        console.warn('Could not save error log to localStorage:', storageError);
-      }
-    }
   } catch (debugError) {
-    console.warn('Error in debugApiError:', debugError);
+    logger.warn('Error in debugApiError function', {
+      category: LogCategory.ERROR,
+      error: debugError.message
+    });
   }
 };
 
 export const parseApiError = (error) => {
   try {
-    // Debug logging
+    // Enhanced debug logging with centralized logger
     debugApiError(error, { function: 'parseApiError' });
     
-    // Handle Firebase Auth errors specifically
+    // Handle Firebase Auth errors specifically with enhanced error handler
     if (error.code && error.code.startsWith('auth/')) {
-      return new AppError(
-        error.message || 'Erro de autenticação',
-        ErrorCodes.INVALID_CREDENTIALS,
-        ErrorTypes.AUTHENTICATION,
-        ErrorSeverity.HIGH
-      );
+      // Import Firebase error handler dynamically to avoid circular dependency
+      const { parseFirebaseAuthError } = await import('./firebaseErrorHandler.js');
+      return parseFirebaseAuthError(error, { source: 'parseApiError' });
     }
     
     // Network errors (no response received)
     if (!error.response) {
+      let networkError;
+      
       if (error.code === 'ECONNABORTED') {
-        return new AppError(
+        networkError = new AppError(
           'Tempo limite excedido',
           ErrorCodes.TIMEOUT_ERROR,
           ErrorTypes.NETWORK,
           ErrorSeverity.MEDIUM
         );
+      } else {
+        networkError = new AppError(
+          'Erro de conexão',
+          ErrorCodes.NETWORK_ERROR,
+          ErrorTypes.NETWORK,
+          ErrorSeverity.HIGH
+        );
       }
       
-      return new AppError(
-        'Erro de conexão',
-        ErrorCodes.NETWORK_ERROR,
-        ErrorTypes.NETWORK,
-        ErrorSeverity.HIGH
-      );
+      logger.error('Network error detected', {
+        category: LogCategory.API,
+        errorType: ErrorType.NETWORK,
+        networkCode: error.code,
+        appError: networkError
+      });
+      
+      return networkError;
     }
   } catch (debugError) {
-    console.warn('Error in parseApiError debug:', debugError);
+    logger.warn('Error in parseApiError debug section', {
+      category: LogCategory.ERROR,
+      error: debugError.message,
+      stack: debugError.stack
+    });
   }
 
   const { status, data } = error.response;
@@ -341,33 +345,60 @@ export const getRetryDelay = (retryCount) => {
   return Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
 };
 
-// Log error for debugging
+// Enhanced error logging using centralized logger
 export const logError = (error, context = {}) => {
   try {
-    const errorLog = {
-      message: error?.message || 'Unknown error',
-      code: error?.code || 'UNKNOWN',
-      type: error?.type || 'UNKNOWN',
-      severity: error?.severity || 'MEDIUM',
-      details: error?.details || null,
-      timestamp: error?.timestamp || new Date().toISOString(),
-      context,
-      stack: error?.stack || null,
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      url: typeof window !== 'undefined' ? window.location.href : 'unknown'
+    const errorContext = {
+      category: LogCategory.ERROR,
+      errorType: ErrorType.UNKNOWN,
+      appError: {
+        message: error?.message || 'Unknown error',
+        code: error?.code || 'UNKNOWN',
+        type: error?.type || 'UNKNOWN',
+        severity: error?.severity || 'MEDIUM',
+        details: error?.details || null,
+        timestamp: error?.timestamp || new Date().toISOString(),
+        stack: error?.stack || null
+      },
+      ...context
     };
-    
-    // Log to console in development
-    if (import.meta.env.DEV) {
-      console.error('Error occurred:', errorLog);
+
+    // Determine error type based on error characteristics
+    if (error?.type) {
+      switch (error.type) {
+        case ErrorTypes.AUTHENTICATION:
+          errorContext.errorType = ErrorType.AUTHENTICATION;
+          break;
+        case ErrorTypes.AUTHORIZATION:
+          errorContext.errorType = ErrorType.PERMISSION;
+          break;
+        case ErrorTypes.VALIDATION:
+          errorContext.errorType = ErrorType.VALIDATION;
+          break;
+        case ErrorTypes.NETWORK:
+          errorContext.errorType = ErrorType.NETWORK;
+          break;
+        case ErrorTypes.SYSTEM:
+          errorContext.errorType = ErrorType.SYSTEM;
+          break;
+        case ErrorTypes.BUSINESS:
+          errorContext.errorType = ErrorType.BUSINESS_LOGIC;
+          break;
+      }
     }
+
+    // Use appropriate log level based on severity
+    const logLevel = error?.severity === ErrorSeverity.CRITICAL ? 'critical' :
+                     error?.severity === ErrorSeverity.HIGH ? 'error' :
+                     error?.severity === ErrorSeverity.MEDIUM ? 'warn' : 'info';
+
+    return logger[logLevel](error?.message || 'Application error occurred', errorContext);
     
-    // Here you could send to external logging service
-    // logToExternalService(errorLog);
-    
-    return errorLog;
   } catch (logError) {
-    console.warn('Error in logError function:', logError);
+    logger.warn('Error in logError function', {
+      category: LogCategory.ERROR,
+      error: logError.message
+    });
     return {
       message: 'Error in logging system',
       timestamp: new Date().toISOString()
@@ -375,7 +406,7 @@ export const logError = (error, context = {}) => {
   }
 };
 
-// Error boundary helper
+// Error boundary helper with enhanced logging
 export const handleErrorBoundary = (error, errorInfo) => {
   const appError = new AppError(
     error.message,
@@ -385,7 +416,21 @@ export const handleErrorBoundary = (error, errorInfo) => {
     { componentStack: errorInfo.componentStack }
   );
   
-  logError(appError, { errorBoundary: true });
+  // Log with React-specific context
+  logger.critical('React Error Boundary triggered', {
+    category: LogCategory.UI,
+    errorType: ErrorType.SYSTEM,
+    react: {
+      componentStack: errorInfo.componentStack,
+      errorBoundary: true
+    },
+    appError: {
+      message: appError.message,
+      code: appError.code,
+      type: appError.type,
+      severity: appError.severity
+    }
+  });
   
   return appError;
 };

@@ -1,17 +1,55 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+
+// Log levels with numeric values for comparison
+const LogLevel = {
+  DEBUG: 0,
+  INFO: 1,
+  WARN: 2,
+  ERROR: 3,
+  CRITICAL: 4
+};
+
+// Log categories for better organization
+const LogCategory = {
+  AUTH: 'auth',
+  API: 'api',
+  DATABASE: 'database',
+  SECURITY: 'security',
+  SYSTEM: 'system',
+  BUSINESS: 'business',
+  PERFORMANCE: 'performance',
+  ERROR: 'error'
+};
+
+// Error types for classification
+const ErrorType = {
+  AUTHENTICATION: 'authentication',
+  AUTHORIZATION: 'authorization',
+  VALIDATION: 'validation',
+  DATABASE: 'database',
+  NETWORK: 'network',
+  CONFIGURATION: 'configuration',
+  BUSINESS_LOGIC: 'business_logic',
+  SYSTEM: 'system',
+  UNKNOWN: 'unknown'
+};
 
 /**
- * Structured Logger for Production Environment
- * Provides different log levels and structured output
+ * Enhanced Structured Logger for Backend
+ * Provides centralized logging with context capture and sanitization
  */
 class Logger {
   constructor() {
-    this.logLevel = process.env.LOG_LEVEL || 'info';
+    this.logLevel = this.getLogLevel();
     this.logFile = process.env.LOG_FILE || path.join(__dirname, '../logs/app.log');
+    this.errorLogFile = process.env.ERROR_LOG_FILE || path.join(__dirname, '../logs/error.log');
     this.maxFileSize = this.parseSize(process.env.LOG_MAX_SIZE || '10m');
     this.maxFiles = parseInt(process.env.LOG_MAX_FILES) || 5;
     this.isProduction = process.env.NODE_ENV === 'production';
+    this.isDevelopment = process.env.NODE_ENV === 'development';
+    this.sessionId = this.generateSessionId();
     
     // Ensure log directory exists
     const logDir = path.dirname(this.logFile);
@@ -19,15 +57,64 @@ class Logger {
       fs.mkdirSync(logDir, { recursive: true });
     }
 
-    // Log levels with numeric values for comparison
-    this.levels = {
-      error: 0,
-      warn: 1,
-      info: 2,
-      debug: 3
-    };
+    // Setup process event handlers
+    this.setupProcessHandlers();
+  }
 
-    this.currentLevel = this.levels[this.logLevel] || this.levels.info;
+  /**
+   * Get current log level from environment
+   */
+  getLogLevel() {
+    const envLevel = (process.env.LOG_LEVEL || 'info').toUpperCase();
+    return LogLevel[envLevel] || LogLevel.INFO;
+  }
+
+  /**
+   * Generate unique session ID for this process
+   */
+  generateSessionId() {
+    return `backend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Setup process event handlers for logging
+   */
+  setupProcessHandlers() {
+    // Unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      this.critical('Unhandled promise rejection', {
+        category: LogCategory.ERROR,
+        errorType: ErrorType.SYSTEM,
+        reason: reason?.toString(),
+        stack: reason?.stack
+      });
+    });
+
+    // Uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      this.critical('Uncaught exception', {
+        category: LogCategory.ERROR,
+        errorType: ErrorType.SYSTEM,
+        error: error.message,
+        stack: error.stack
+      });
+      
+      // Give time for log to be written before exiting
+      setTimeout(() => process.exit(1), 1000);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      this.info('Received SIGTERM, shutting down gracefully', {
+        category: LogCategory.SYSTEM
+      });
+    });
+
+    process.on('SIGINT', () => {
+      this.info('Received SIGINT, shutting down gracefully', {
+        category: LogCategory.SYSTEM
+      });
+    });
   }
 
   /**
@@ -52,19 +139,106 @@ class Logger {
 
   /**
    * Create structured log entry
-   * @param {string} level Log level
+   * @param {number} level Log level (numeric)
    * @param {string} message Log message
-   * @param {Object} meta Additional metadata
+   * @param {Object} context Additional context
    * @returns {Object} Structured log entry
    */
-  createLogEntry(level, message, meta = {}) {
+  createLogEntry(level, message, context = {}) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      level: this.getLevelName(level),
+      message: this.sanitizeMessage(message),
+      sessionId: this.sessionId,
+      context: this.sanitizeContext(context),
+      environment: {
+        nodeVersion: process.version,
+        platform: process.platform,
+        hostname: os.hostname(),
+        pid: process.pid,
+        memory: this.getMemoryUsage(),
+        uptime: Math.round(process.uptime())
+      }
+    };
+
+    return logEntry;
+  }
+
+  /**
+   * Get level name from numeric value
+   */
+  getLevelName(level) {
+    const levelNames = {
+      [LogLevel.DEBUG]: 'DEBUG',
+      [LogLevel.INFO]: 'INFO',
+      [LogLevel.WARN]: 'WARN',
+      [LogLevel.ERROR]: 'ERROR',
+      [LogLevel.CRITICAL]: 'CRITICAL'
+    };
+    return levelNames[level] || 'UNKNOWN';
+  }
+
+  /**
+   * Sanitize log message to remove sensitive data
+   */
+  sanitizeMessage(message) {
+    if (typeof message !== 'string') {
+      return String(message);
+    }
+
+    // Remove potential sensitive patterns
+    return message
+      .replace(/password[=:]\s*[^\s&]+/gi, 'password=***')
+      .replace(/token[=:]\s*[^\s&]+/gi, 'token=***')
+      .replace(/key[=:]\s*[^\s&]+/gi, 'key=***')
+      .replace(/secret[=:]\s*[^\s&]+/gi, 'secret=***')
+      .replace(/authorization:\s*[^\s&]+/gi, 'authorization: ***');
+  }
+
+  /**
+   * Sanitize context object to remove sensitive data
+   */
+  sanitizeContext(context) {
+    if (!context || typeof context !== 'object') {
+      return context;
+    }
+
+    const sensitiveKeys = ['password', 'token', 'key', 'secret', 'authorization', 'cookie'];
+
+    const sanitizeObject = (obj) => {
+      if (!obj || typeof obj !== 'object') return obj;
+      
+      const result = Array.isArray(obj) ? [] : {};
+      
+      for (const [key, value] of Object.entries(obj)) {
+        const lowerKey = key.toLowerCase();
+        
+        if (sensitiveKeys.some(sensitive => lowerKey.includes(sensitive))) {
+          result[key] = '***';
+        } else if (typeof value === 'object' && value !== null) {
+          result[key] = sanitizeObject(value);
+        } else {
+          result[key] = value;
+        }
+      }
+      
+      return result;
+    };
+
+    return sanitizeObject({ ...context });
+  }
+
+  /**
+   * Get current memory usage
+   */
+  getMemoryUsage() {
+    const usage = process.memoryUsage();
     return {
-      timestamp: new Date().toISOString(),
-      level: level.toUpperCase(),
-      message,
-      pid: process.pid,
-      hostname: require('os').hostname(),
-      ...meta
+      rss: Math.round(usage.rss / 1024 / 1024), // MB
+      heapTotal: Math.round(usage.heapTotal / 1024 / 1024), // MB
+      heapUsed: Math.round(usage.heapUsed / 1024 / 1024), // MB
+      external: Math.round(usage.external / 1024 / 1024) // MB
     };
   }
 
@@ -75,17 +249,23 @@ class Logger {
   writeLog(logEntry) {
     const logLine = JSON.stringify(logEntry) + '\n';
 
-    // Write to console in development or for errors
-    if (!this.isProduction || logEntry.level === 'ERROR') {
+    // Write to console in development or for errors/critical
+    if (this.isDevelopment || logEntry.level === 'ERROR' || logEntry.level === 'CRITICAL') {
       const coloredOutput = this.colorizeOutput(logEntry);
       console.log(coloredOutput);
     }
 
-    // Write to file
+    // Write to appropriate log file
     try {
-      // Check file size and rotate if necessary
-      this.rotateLogFile();
+      // Write to main log file
+      this.rotateLogFile(this.logFile);
       fs.appendFileSync(this.logFile, logLine);
+
+      // Write errors and critical to separate error log
+      if (logEntry.level === 'ERROR' || logEntry.level === 'CRITICAL') {
+        this.rotateLogFile(this.errorLogFile);
+        fs.appendFileSync(this.errorLogFile, logLine);
+      }
     } catch (error) {
       console.error('Failed to write to log file:', error.message);
     }
@@ -112,22 +292,23 @@ class Logger {
 
   /**
    * Rotate log file if it exceeds maximum size
+   * @param {string} logFile Path to log file to rotate
    */
-  rotateLogFile() {
+  rotateLogFile(logFile) {
     try {
-      if (!fs.existsSync(this.logFile)) {
+      if (!fs.existsSync(logFile)) {
         return;
       }
 
-      const stats = fs.statSync(this.logFile);
+      const stats = fs.statSync(logFile);
       if (stats.size < this.maxFileSize) {
         return;
       }
 
       // Rotate existing files
       for (let i = this.maxFiles - 1; i > 0; i--) {
-        const oldFile = `${this.logFile}.${i}`;
-        const newFile = `${this.logFile}.${i + 1}`;
+        const oldFile = `${logFile}.${i}`;
+        const newFile = `${logFile}.${i + 1}`;
 
         if (fs.existsSync(oldFile)) {
           if (i === this.maxFiles - 1) {
@@ -139,58 +320,71 @@ class Logger {
       }
 
       // Move current log file
-      fs.renameSync(this.logFile, `${this.logFile}.1`);
+      fs.renameSync(logFile, `${logFile}.1`);
     } catch (error) {
       console.error('Failed to rotate log file:', error.message);
     }
   }
 
   /**
-   * Log error message
-   * @param {string} message Error message
-   * @param {Object} meta Additional metadata
+   * Main logging method
+   * @param {number} level Log level
+   * @param {string} message Log message
+   * @param {Object} context Additional context
    */
-  error(message, meta = {}) {
-    if (this.currentLevel >= this.levels.error) {
-      const logEntry = this.createLogEntry('error', message, meta);
-      this.writeLog(logEntry);
+  log(level, message, context = {}) {
+    if (level < this.logLevel) {
+      return;
     }
+
+    const logEntry = this.createLogEntry(level, message, context);
+    this.writeLog(logEntry);
+    return logEntry;
   }
 
   /**
-   * Log warning message
-   * @param {string} message Warning message
-   * @param {Object} meta Additional metadata
-   */
-  warn(message, meta = {}) {
-    if (this.currentLevel >= this.levels.warn) {
-      const logEntry = this.createLogEntry('warn', message, meta);
-      this.writeLog(logEntry);
-    }
-  }
-
-  /**
-   * Log info message
-   * @param {string} message Info message
-   * @param {Object} meta Additional metadata
-   */
-  info(message, meta = {}) {
-    if (this.currentLevel >= this.levels.info) {
-      const logEntry = this.createLogEntry('info', message, meta);
-      this.writeLog(logEntry);
-    }
-  }
-
-  /**
-   * Log debug message
+   * Debug level logging
    * @param {string} message Debug message
-   * @param {Object} meta Additional metadata
+   * @param {Object} context Additional context
    */
-  debug(message, meta = {}) {
-    if (this.currentLevel >= this.levels.debug) {
-      const logEntry = this.createLogEntry('debug', message, meta);
-      this.writeLog(logEntry);
-    }
+  debug(message, context = {}) {
+    return this.log(LogLevel.DEBUG, message, { ...context, category: context.category || LogCategory.SYSTEM });
+  }
+
+  /**
+   * Info level logging
+   * @param {string} message Info message
+   * @param {Object} context Additional context
+   */
+  info(message, context = {}) {
+    return this.log(LogLevel.INFO, message, { ...context, category: context.category || LogCategory.SYSTEM });
+  }
+
+  /**
+   * Warning level logging
+   * @param {string} message Warning message
+   * @param {Object} context Additional context
+   */
+  warn(message, context = {}) {
+    return this.log(LogLevel.WARN, message, { ...context, category: context.category || LogCategory.SYSTEM });
+  }
+
+  /**
+   * Error level logging
+   * @param {string} message Error message
+   * @param {Object} context Additional context
+   */
+  error(message, context = {}) {
+    return this.log(LogLevel.ERROR, message, { ...context, category: context.category || LogCategory.ERROR });
+  }
+
+  /**
+   * Critical level logging
+   * @param {string} message Critical message
+   * @param {Object} context Additional context
+   */
+  critical(message, context = {}) {
+    return this.log(LogLevel.CRITICAL, message, { ...context, category: context.category || LogCategory.ERROR });
   }
 
   /**
@@ -200,67 +394,118 @@ class Logger {
    * @param {number} responseTime Response time in milliseconds
    */
   logRequest(req, res, responseTime) {
-    const meta = {
-      method: req.method,
-      url: req.originalUrl,
-      statusCode: res.statusCode,
-      responseTime: `${responseTime}ms`,
-      userAgent: req.get('User-Agent'),
-      ip: req.ip || req.connection.remoteAddress,
-      userId: req.user?.id
+    const context = {
+      category: LogCategory.API,
+      api: {
+        method: req.method,
+        url: req.originalUrl,
+        statusCode: res.statusCode,
+        responseTime: `${responseTime}ms`,
+        userAgent: req.get('User-Agent'),
+        ip: req.ip || req.connection.remoteAddress,
+        userId: req.user?.id,
+        contentLength: res.get('Content-Length')
+      }
     };
 
-    const level = res.statusCode >= 400 ? 'warn' : 'info';
+    const level = res.statusCode >= 500 ? LogLevel.ERROR : 
+                  res.statusCode >= 400 ? LogLevel.WARN : LogLevel.INFO;
     const message = `${req.method} ${req.originalUrl} ${res.statusCode} - ${responseTime}ms`;
 
-    this[level](message, meta);
+    return this.log(level, message, context);
   }
 
   /**
    * Log database operation
    * @param {string} operation Database operation
    * @param {string} table Table name
-   * @param {Object} meta Additional metadata
+   * @param {Object} context Additional context
    */
-  logDatabase(operation, table, meta = {}) {
-    const logMeta = {
-      operation,
-      table,
-      ...meta
-    };
-
-    this.info(`Database ${operation} on ${table}`, logMeta);
+  logDatabase(operation, table, context = {}) {
+    const message = `Database ${operation} on ${table}`;
+    return this.info(message, {
+      ...context,
+      category: LogCategory.DATABASE,
+      database: {
+        operation,
+        table,
+        ...context.database
+      }
+    });
   }
 
   /**
    * Log authentication event
    * @param {string} event Authentication event
    * @param {string} userId User ID
-   * @param {Object} meta Additional metadata
+   * @param {Object} context Additional context
    */
-  logAuth(event, userId, meta = {}) {
-    const logMeta = {
-      event,
-      userId,
-      ...meta
-    };
-
-    const level = event.includes('failed') || event.includes('blocked') ? 'warn' : 'info';
-    this[level](`Authentication ${event}`, logMeta);
+  logAuth(event, userId, context = {}) {
+    const level = event.includes('failed') || event.includes('blocked') ? LogLevel.WARN : LogLevel.INFO;
+    const message = `Authentication ${event}`;
+    
+    return this.log(level, message, {
+      ...context,
+      category: LogCategory.AUTH,
+      auth: {
+        event,
+        userId,
+        ...context.auth
+      }
+    });
   }
 
   /**
    * Log security event
    * @param {string} event Security event
-   * @param {Object} meta Additional metadata
+   * @param {Object} context Additional context
    */
-  logSecurity(event, meta = {}) {
-    const logMeta = {
-      event,
-      ...meta
-    };
+  logSecurity(event, context = {}) {
+    const message = `Security event: ${event}`;
+    return this.warn(message, {
+      ...context,
+      category: LogCategory.SECURITY,
+      security: {
+        event,
+        ...context.security
+      }
+    });
+  }
 
-    this.warn(`Security event: ${event}`, logMeta);
+  /**
+   * Log business logic event
+   * @param {string} event Business event
+   * @param {Object} context Additional context
+   */
+  logBusiness(event, context = {}) {
+    const message = `Business event: ${event}`;
+    return this.info(message, {
+      ...context,
+      category: LogCategory.BUSINESS,
+      business: {
+        event,
+        ...context.business
+      }
+    });
+  }
+
+  /**
+   * Log performance metric
+   * @param {string} metric Performance metric name
+   * @param {number} value Metric value
+   * @param {Object} context Additional context
+   */
+  logPerformance(metric, value, context = {}) {
+    const message = `Performance: ${metric} = ${value}`;
+    return this.info(message, {
+      ...context,
+      category: LogCategory.PERFORMANCE,
+      performance: {
+        metric,
+        value,
+        ...context.performance
+      }
+    });
   }
 
   /**
@@ -268,14 +513,17 @@ class Logger {
    * @param {Object} config Application configuration
    */
   logStartup(config = {}) {
-    const meta = {
-      nodeVersion: process.version,
-      platform: process.platform,
-      environment: process.env.NODE_ENV,
-      ...config
+    const context = {
+      category: LogCategory.SYSTEM,
+      startup: {
+        nodeVersion: process.version,
+        platform: process.platform,
+        environment: process.env.NODE_ENV,
+        ...config
+      }
     };
 
-    this.info('Application started', meta);
+    return this.info('Application started', context);
   }
 
   /**
@@ -283,12 +531,48 @@ class Logger {
    * @param {string} reason Shutdown reason
    */
   logShutdown(reason = 'Unknown') {
-    const meta = {
-      reason,
-      uptime: process.uptime()
+    const context = {
+      category: LogCategory.SYSTEM,
+      shutdown: {
+        reason,
+        uptime: Math.round(process.uptime())
+      }
     };
 
-    this.info('Application shutting down', meta);
+    return this.info('Application shutting down', context);
+  }
+
+  /**
+   * Log error with full context
+   * @param {Error} error Error object
+   * @param {Object} context Additional context
+   */
+  logError(error, context = {}) {
+    const errorContext = {
+      ...context,
+      category: LogCategory.ERROR,
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        ...context.error
+      }
+    };
+
+    return this.error(error.message, errorContext);
+  }
+
+  /**
+   * Create child logger with additional context
+   * @param {Object} additionalContext Context to add to all logs
+   */
+  child(additionalContext) {
+    const childLogger = Object.create(this);
+    childLogger.log = (level, message, context = {}) => {
+      return this.log(level, message, { ...additionalContext, ...context });
+    };
+    return childLogger;
   }
 }
 
@@ -296,3 +580,7 @@ class Logger {
 const logger = new Logger();
 
 module.exports = logger;
+module.exports.Logger = Logger;
+module.exports.LogLevel = LogLevel;
+module.exports.LogCategory = LogCategory;
+module.exports.ErrorType = ErrorType;

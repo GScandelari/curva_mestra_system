@@ -1,4 +1,62 @@
 import firebaseService from './firebaseService'
+import { ErrorHandler } from '../../../shared/utils/ErrorHandler.js'
+import { AuthErrorStrategy } from '../../../shared/strategies/AuthErrorStrategy.js'
+import { NetworkErrorStrategy } from '../../../shared/strategies/NetworkErrorStrategy.js'
+import { ValidationErrorStrategy } from '../../../shared/strategies/ValidationErrorStrategy.js'
+import { FallbackStrategy } from '../../../shared/strategies/FallbackStrategy.js'
+import { ErrorType } from '../../../shared/types/errorTypes.js'
+import logger, { LogCategory, ErrorType as LogErrorType } from '../utils/logger.js'
+
+// Initialize error handler for service
+const errorHandler = new ErrorHandler({
+  logLevel: import.meta.env.PROD ? 'error' : 'debug',
+  enableRetry: true,
+  maxRetries: 3,
+  enableFallback: true
+})
+
+// Register strategies
+errorHandler.registerStrategy(ErrorType.AUTHENTICATION, new AuthErrorStrategy())
+errorHandler.registerStrategy(ErrorType.NETWORK, new NetworkErrorStrategy())
+errorHandler.registerStrategy(ErrorType.VALIDATION, new ValidationErrorStrategy())
+Object.values(ErrorType).forEach(type => {
+  errorHandler.registerStrategy(type, new FallbackStrategy())
+})
+
+const handleServiceError = async (error, context) => {
+  const errorContext = {
+    component: 'invoiceService',
+    action: context.action,
+    timestamp: new Date(),
+    environment: import.meta.env.PROD ? 'production' : 'development',
+    additionalData: context.additionalData
+  }
+
+  const processedError = errorHandler.captureError(error, errorContext)
+  
+  logger.error(`Invoice service error: ${context.action}`, {
+    category: LogCategory.API,
+    errorType: LogErrorType.BUSINESS_LOGIC,
+    processedError: {
+      id: processedError.id,
+      type: processedError.type,
+      severity: processedError.severity,
+      message: processedError.message
+    },
+    context: errorContext
+  })
+
+  // Try recovery
+  const strategy = errorHandler.getRecoveryStrategy(processedError)
+  if (strategy && processedError.recoverable) {
+    const recoveryResult = await errorHandler.executeRecovery(strategy, processedError)
+    if (recoveryResult.success) {
+      return { recovered: true, result: recoveryResult }
+    }
+  }
+
+  throw processedError
+}
 
 export const invoiceService = {
   // Get all invoices with optional filters
@@ -55,8 +113,10 @@ export const invoiceService = {
         totalPages: Math.ceil(invoices.length / (filters.limit || 10))
       }
     } catch (error) {
-      console.error('Error getting invoices:', error)
-      throw error
+      await handleServiceError(error, {
+        action: 'getInvoices',
+        additionalData: { filters }
+      })
     }
   },
 
@@ -71,8 +131,10 @@ export const invoiceService = {
 
       return { invoice: result.data }
     } catch (error) {
-      console.error('Error getting invoice:', error)
-      throw error
+      await handleServiceError(error, {
+        action: 'getInvoice',
+        additionalData: { id }
+      })
     }
   },
 
@@ -93,8 +155,10 @@ export const invoiceService = {
 
       return { invoice: result.data }
     } catch (error) {
-      console.error('Error creating invoice:', error)
-      throw error
+      await handleServiceError(error, {
+        action: 'createInvoice',
+        additionalData: { invoiceData }
+      })
     }
   },
 
@@ -114,8 +178,10 @@ export const invoiceService = {
 
       return { invoice: result.data }
     } catch (error) {
-      console.error('Error updating invoice:', error)
-      throw error
+      await handleServiceError(error, {
+        action: 'updateInvoice',
+        additionalData: { id, invoiceData }
+      })
     }
   },
 
@@ -130,8 +196,10 @@ export const invoiceService = {
 
       return { success: true }
     } catch (error) {
-      console.error('Error deleting invoice:', error)
-      throw error
+      await handleServiceError(error, {
+        action: 'deleteInvoice',
+        additionalData: { id }
+      })
     }
   },
 
@@ -160,8 +228,10 @@ export const invoiceService = {
         products: productsResult.data
       }
     } catch (error) {
-      console.error('Error getting invoice products:', error)
-      throw error
+      await handleServiceError(error, {
+        action: 'getInvoiceProducts',
+        additionalData: { id }
+      })
     }
   },
 
@@ -217,8 +287,10 @@ export const invoiceService = {
         }
       }
     } catch (error) {
-      console.error('Error generating purchase report:', error)
-      throw error
+      await handleServiceError(error, {
+        action: 'getPurchaseReport',
+        additionalData: { startDate, endDate, supplier }
+      })
     }
   }
 }
