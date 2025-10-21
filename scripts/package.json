@@ -1,0 +1,24 @@
+{
+  "name": "documentation-manager-scripts",
+  "version": "1.0.0",
+  "description": "Documentation organization scripts and tests",
+  "main": "documentationManager.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/test/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "*.js",
+      "!test/**"
+    ]
+  }
+}

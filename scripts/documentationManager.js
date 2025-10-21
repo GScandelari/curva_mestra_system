@@ -59,16 +59,37 @@ class DocumentationManager {
       const content = await fs.readFile(filePath, 'utf8');
       const contentLower = content.toLowerCase();
       
-      // Check each category for matching keywords
-      for (const [category, keywords] of Object.entries(this.categories)) {
-        if (category === 'general') continue; // Skip general for now
-        
-        const hasKeywordInName = keywords.some(keyword => fileName.includes(keyword));
-        const hasKeywordInContent = keywords.some(keyword => contentLower.includes(keyword));
-        
-        if (hasKeywordInName || hasKeywordInContent) {
-          return category;
-        }
+      // Enhanced categorization with more specific rules
+      
+      // Admin category - more specific matching
+      if (fileName.includes('admin') || fileName.includes('user') || fileName.includes('role') || 
+          fileName.includes('claims') || fileName.includes('permission') ||
+          contentLower.includes('administrator') || contentLower.includes('user role') ||
+          contentLower.includes('custom claims') || contentLower.includes('permission')) {
+        return 'admin';
+      }
+      
+      // Migration category
+      if (fileName.includes('migration') || fileName.includes('upgrade') || fileName.includes('migrate') ||
+          contentLower.includes('migration') || contentLower.includes('upgrade') || 
+          contentLower.includes('backup') || contentLower.includes('restore')) {
+        return 'migration';
+      }
+      
+      // Deployment category
+      if (fileName.includes('deploy') || fileName.includes('production') || fileName.includes('hosting') ||
+          fileName.includes('build') || contentLower.includes('deployment') || 
+          contentLower.includes('production') || contentLower.includes('hosting') ||
+          contentLower.includes('firebase deploy')) {
+        return 'deployment';
+      }
+      
+      // Setup category
+      if (fileName.includes('setup') || fileName.includes('install') || fileName.includes('config') ||
+          fileName.includes('firebase') || fileName.includes('auth') || fileName.includes('firestore') ||
+          contentLower.includes('setup') || contentLower.includes('installation') ||
+          contentLower.includes('configuration') || contentLower.includes('firebase')) {
+        return 'setup';
       }
       
       return 'general';
@@ -300,12 +321,8 @@ General project documentation and miscellaneous files.
     const fileName = path.basename(filePath);
     const fileNameWithoutExt = path.basename(filePath, '.md');
     
-    // Patterns to match various markdown link formats
-    const linkPatterns = [
-      new RegExp(`\\[([^\\]]+)\\]\\(([^\\)]*${fileName.replace('.', '\\.')})\\)`, 'g'),
-      new RegExp(`\\[([^\\]]+)\\]\\(([^\\)]*${fileNameWithoutExt.replace('.', '\\.')})\\)`, 'g'),
-      new RegExp(`\\[([^\\]]+)\\]\\(([^\\)]*${filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\)`, 'g')
-    ];
+    // Single comprehensive pattern to avoid duplicates
+    const linkPattern = new RegExp(`\\[([^\\]]+)\\]\\(([^\\)]*(?:${fileName.replace('.', '\\.')}|${fileNameWithoutExt.replace('.', '\\.')}|${filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}))\\)`, 'g');
     
     for (const file of this.fileInventory) {
       if (file.originalPath === filePath) continue;
@@ -313,17 +330,15 @@ General project documentation and miscellaneous files.
       try {
         const content = await fs.readFile(file.originalPath, 'utf8');
         
-        for (const pattern of linkPatterns) {
-          let match;
-          while ((match = pattern.exec(content)) !== null) {
-            references.push({
-              referencingFile: file.originalPath,
-              linkText: match[1],
-              linkPath: match[2],
-              fullMatch: match[0],
-              position: match.index
-            });
-          }
+        let match;
+        while ((match = linkPattern.exec(content)) !== null) {
+          references.push({
+            referencingFile: file.originalPath,
+            linkText: match[1],
+            linkPath: match[2],
+            fullMatch: match[0],
+            position: match.index
+          });
         }
       } catch (error) {
         console.error(`Error reading file ${file.originalPath}:`, error.message);
@@ -387,11 +402,12 @@ General project documentation and miscellaneous files.
   async moveFilesToDocumentation(useGitMv = true) {
     const moveOperations = [];
     
-    // Only move files that are not already in the docs directory
+    // Only move files that are not already in the docs directory or in .kiro specs
     const filesToMove = this.fileInventory.filter(file => 
       !file.originalPath.startsWith('docs/') && 
       !file.originalPath.startsWith('docs\\') &&
-      !file.originalPath.includes('.kiro/specs') // Don't move spec files
+      !file.originalPath.includes('.kiro') && // Don't move any .kiro files
+      !file.originalPath.includes('node_modules') // Don't move node_modules files
     );
     
     console.log(`Moving ${filesToMove.length} files to documentation structure...`);

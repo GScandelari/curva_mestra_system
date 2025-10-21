@@ -4,7 +4,8 @@ This directory contains documentation related to admin.
 
 ## Files in this category:
 
-<!-- This section will be automatically updated when files are moved -->
+- [COMO_VIRAR_ADMIN.md](./COMO_VIRAR_ADMIN.md)
+- [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
 
 ## Quick Links
 
