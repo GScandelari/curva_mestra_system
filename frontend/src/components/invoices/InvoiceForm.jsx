@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Save, AlertCircle } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { invoiceService } from '../../services'
@@ -14,11 +14,12 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
   
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+  const formDataRef = useRef(formData)
 
   // Populate form when editing existing invoice
   useEffect(() => {
     if (invoice) {
-      setFormData({
+      const newFormData = {
         number: invoice.number || '',
         supplier: invoice.supplier || '',
         issueDate: invoice.issueDate ? 
@@ -26,16 +27,21 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
         receiptDate: invoice.receiptDate ? 
           new Date(invoice.receiptDate).toISOString().split('T')[0] : '',
         totalValue: invoice.totalValue?.toString() || ''
-      })
+      }
+      formDataRef.current = newFormData
+      setFormData(newFormData)
     }
   }, [invoice])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
+    const newFormData = {
+      ...formDataRef.current,
       [name]: value
-    }))
+    }
+    
+    formDataRef.current = newFormData
+    setFormData(newFormData)
     
     // Clear error when user starts typing
     setErrors(prev => {
@@ -48,7 +54,7 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
     })
   }
 
-  const validateForm = useCallback((dataToValidate = formData) => {
+  const validateForm = useCallback((dataToValidate) => {
     const newErrors = {}
 
     // Required fields
@@ -92,7 +98,7 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
     e.preventDefault()
     
     // Get current form data at submit time
-    const currentFormData = formData
+    const currentFormData = formDataRef.current
     
     if (!validateForm(currentFormData)) {
       return

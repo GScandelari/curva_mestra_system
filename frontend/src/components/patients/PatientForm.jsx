@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Save, AlertCircle } from 'lucide-react'
 import { toast } from 'react-toastify'
 import firebasePatientService from '../../services/firebasePatientService'
@@ -23,11 +23,12 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
   
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+  const formDataRef = useRef(formData)
 
   // Populate form when editing existing patient
   useEffect(() => {
     if (patient) {
-      setFormData({
+      const newFormData = {
         name: patient.name || '',
         email: patient.email || '',
         phone: patient.phone || '',
@@ -43,28 +44,34 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
           zipCode: patient.address?.zipCode || ''
         },
         medicalHistory: patient.medicalHistory || ''
-      })
+      }
+      formDataRef.current = newFormData
+      setFormData(newFormData)
     }
   }, [patient])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
     
+    let newFormData
     if (name.startsWith('address.')) {
       const addressField = name.split('.')[1]
-      setFormData(prev => ({
-        ...prev,
+      newFormData = {
+        ...formDataRef.current,
         address: {
-          ...prev.address,
+          ...formDataRef.current.address,
           [addressField]: value
         }
-      }))
+      }
     } else {
-      setFormData(prev => ({
-        ...prev,
+      newFormData = {
+        ...formDataRef.current,
         [name]: value
-      }))
+      }
     }
+    
+    formDataRef.current = newFormData
+    setFormData(newFormData)
     
     // Clear error when user starts typing
     setErrors(prev => {
