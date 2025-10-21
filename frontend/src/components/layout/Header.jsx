@@ -63,6 +63,11 @@ const Header = () => {
       name: 'Relatórios',
       href: '/reports',
       permission: 'view_reports'
+    },
+    {
+      name: 'Admin',
+      href: '/admin',
+      permission: 'system_admin'
     }
   ]
 

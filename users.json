@@ -1,13 +1,14 @@
 {"users": [
 {
-  "localId": "0vdFsTyia3di70080j9KG1vccLN2",
+  "localId": "gEjUSOsHF9QmS0Dvi0zB10GsxrD2",
   "email": "scandelari.guilherme@hotmail.com",
   "emailVerified": false,
-  "passwordHash": "P/rdd7YekfFBMqak4OmSl+ocmKqSS8242KvKwZoFq+sijptQsiyewjN92LlC3e4oS4AEXRJ1cvTrid4zI57OWw==",
-  "salt": "U8KYy5jPMab3Xw==",
-  "lastSignedInAt": "1761048850119",
-  "createdAt": "1761047416763",
+  "passwordHash": "8d35yFoxd4e9F/pwSqjpTmwhorGBx9I6A1TAB+ef134JkBQYcOLGmoXD5lpggMUooDxKM8MTzQFvXFaPEPDYkA==",
+  "salt": "mKFL0dzmtgwAmA==",
+  "displayName": "System Administrator",
+  "lastSignedInAt": "1761056631678",
+  "createdAt": "1761051666086",
   "disabled": false,
-  "providerUserInfo": [],
-  "customAttributes": "{\"role\":\"admin\",\"isAdmin\":true,\"clinicId\":\"default-clinic\",\"permissions\":[\"view_products\",\"manage_products\",\"view_requests\",\"approve_requests\",\"view_patients\",\"manage_patients\",\"view_invoices\",\"manage_invoices\",\"view_reports\",\"manage_users\",\"view_analytics\",\"manage_settings\"]}"
+  "customAttributes": "{\"admin\":true,\"role\":\"administrator\",\"permissions\":[\"view_products\",\"manage_products\",\"view_requests\",\"approve_requests\",\"view_patients\",\"manage_patients\",\"view_invoices\",\"manage_invoices\",\"view_reports\",\"manage_users\",\"view_analytics\",\"manage_settings\",\"system_admin\",\"initialize_system\"],\"assignedAt\":\"2025-10-21T14:18:25.598Z\",\"isDefaultAdmin\":true}",
+  "providerUserInfo": []
 }]}

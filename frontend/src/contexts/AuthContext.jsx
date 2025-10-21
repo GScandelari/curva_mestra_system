@@ -81,7 +81,7 @@ export const AuthProvider = ({ children }) => {
               role: user.role || 'receptionist',
               permissions: user.permissions || [],
               clinicId: user.clinicId,
-              isAdmin: user.isAdmin || user.role === 'admin',
+              isAdmin: user.isAdmin || user.role === 'admin' || user.role === 'administrator',
               emailVerified: user.emailVerified
             }
           }
@@ -196,9 +196,14 @@ export const AuthProvider = ({ children }) => {
     if (!state.user) return false
     
     // Admin has all permissions
-    if (state.user.role === 'admin') return true
+    if (state.user.isAdmin || state.user.role === 'admin' || state.user.role === 'administrator') return true
     
-    // Define role-based permissions
+    // Use Firebase Custom Claims permissions
+    if (state.user.permissions && Array.isArray(state.user.permissions)) {
+      return state.user.permissions.includes(permission)
+    }
+    
+    // Fallback to role-based permissions for backward compatibility
     const rolePermissions = {
       doctor: ['view_products', 'request_products', 'view_patients', 'manage_patients', 'view_invoices'],
       manager: ['view_products', 'manage_products', 'view_requests', 'approve_requests', 'view_reports', 'view_invoices', 'manage_invoices'],
