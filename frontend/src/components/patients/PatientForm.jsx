@@ -291,7 +291,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
             name="birthDate"
             value={formData.birthDate}
             onChange={handleInputChange}
-            autoComplete="bday"
+            autoComplete="off"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.birthDate ? 'border-red-300' : ''
             }`}
@@ -345,6 +345,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="address.number"
               value={formData.address.number}
               onChange={handleInputChange}
+              autoComplete="off"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="123"
             />
@@ -363,6 +364,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="address.complement"
               value={formData.address.complement}
               onChange={handleInputChange}
+              autoComplete="address-line2"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="Apto, sala, etc."
             />
@@ -378,6 +380,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="address.neighborhood"
               value={formData.address.neighborhood}
               onChange={handleInputChange}
+              autoComplete="off"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="Nome do bairro"
             />
@@ -420,6 +423,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
               name="address.state"
               value={formData.address.state}
               onChange={handleInputChange}
+              autoComplete="address-level1"
               className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
                 errors['address.state'] ? 'border-red-300' : ''
               }`}
@@ -472,6 +476,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
           rows={4}
           value={formData.medicalHistory}
           onChange={handleInputChange}
+          autoComplete="off"
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           placeholder="Informações relevantes sobre o histórico médico do paciente..."
         />
