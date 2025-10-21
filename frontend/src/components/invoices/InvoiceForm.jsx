@@ -30,7 +30,7 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
     }
   }, [invoice])
 
-  const handleInputChange = useCallback((e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -46,38 +46,38 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
       }
       return prev
     })
-  }, [])
+  }
 
-  const validateForm = useCallback(() => {
+  const validateForm = useCallback((dataToValidate = formData) => {
     const newErrors = {}
 
     // Required fields
-    if (!formData.number.trim()) {
+    if (!dataToValidate.number.trim()) {
       newErrors.number = 'Número da nota fiscal é obrigatório'
     }
     
-    if (!formData.supplier.trim()) {
+    if (!dataToValidate.supplier.trim()) {
       newErrors.supplier = 'Fornecedor é obrigatório'
     }
     
-    if (!formData.issueDate) {
+    if (!dataToValidate.issueDate) {
       newErrors.issueDate = 'Data de emissão é obrigatória'
     }
     
-    if (!formData.receiptDate) {
+    if (!dataToValidate.receiptDate) {
       newErrors.receiptDate = 'Data de recebimento é obrigatória'
     }
 
     // Numeric validations
-    const totalValue = parseFloat(formData.totalValue)
-    if (!formData.totalValue || totalValue < 0) {
+    const totalValue = parseFloat(dataToValidate.totalValue)
+    if (!dataToValidate.totalValue || totalValue < 0) {
       newErrors.totalValue = 'Valor total deve ser um número válido'
     }
 
     // Date validation
-    if (formData.issueDate && formData.receiptDate) {
-      const issueDate = new Date(formData.issueDate)
-      const receiptDate = new Date(formData.receiptDate)
+    if (dataToValidate.issueDate && dataToValidate.receiptDate) {
+      const issueDate = new Date(dataToValidate.issueDate)
+      const receiptDate = new Date(dataToValidate.receiptDate)
       
       if (receiptDate < issueDate) {
         newErrors.receiptDate = 'Data de recebimento não pode ser anterior à data de emissão'
@@ -86,12 +86,15 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }, [formData])
+  }, [])
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault()
     
-    if (!validateForm()) {
+    // Get current form data at submit time
+    const currentFormData = formData
+    
+    if (!validateForm(currentFormData)) {
       return
     }
 
@@ -99,8 +102,8 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
     
     try {
       const invoiceData = {
-        ...formData,
-        totalValue: parseFloat(formData.totalValue)
+        ...currentFormData,
+        totalValue: parseFloat(currentFormData.totalValue)
       }
 
       let result
@@ -120,7 +123,7 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
     } finally {
       setIsLoading(false)
     }
-  }, [formData, validateForm, invoice, onSave])
+  }, [validateForm, invoice, onSave])
 
   const FormContent = () => (
     <form onSubmit={handleSubmit} className="space-y-6">

@@ -47,7 +47,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
     }
   }, [patient])
 
-  const handleInputChange = useCallback((e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target
     
     if (name.startsWith('address.')) {
@@ -75,7 +75,7 @@ const PatientForm = ({ patient = null, onSave, onCancel, isModal = false }) => {
       }
       return prev
     })
-  }, [])
+  }
 
   const validateForm = () => {
     const newErrors = {}
