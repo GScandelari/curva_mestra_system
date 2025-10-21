@@ -193,6 +193,7 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
           name="name"
           value={formData.name}
           onChange={handleInputChange}
+          autoComplete="off"
           className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
             errors.name ? 'border-red-300' : ''
           }`}
@@ -263,6 +264,7 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
             name="unit"
             value={formData.unit}
             onChange={handleInputChange}
+            autoComplete="off"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.unit ? 'border-red-300' : ''
             }`}
@@ -290,6 +292,7 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
             min="0"
             value={formData.minimumStock}
             onChange={handleInputChange}
+            autoComplete="off"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.minimumStock ? 'border-red-300' : ''
             }`}
@@ -314,6 +317,7 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
             min="0"
             value={formData.currentStock}
             onChange={handleInputChange}
+            autoComplete="off"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.currentStock ? 'border-red-300' : ''
             }`}
@@ -340,6 +344,7 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
             name="invoiceNumber"
             value={formData.invoiceNumber}
             onChange={handleInputChange}
+            autoComplete="off"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.invoiceNumber ? 'border-red-300' : ''
             }`}
@@ -363,6 +368,7 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
             name="supplier"
             value={formData.supplier}
             onChange={handleInputChange}
+            autoComplete="organization"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Nome do fornecedor"
           />
@@ -381,6 +387,7 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
             name="expirationDate"
             value={formData.expirationDate}
             onChange={handleInputChange}
+            autoComplete="off"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.expirationDate ? 'border-red-300' : ''
             }`}
@@ -405,6 +412,7 @@ const ProductForm = ({ product = null, onSave, onCancel, isModal = false }) => {
             step="0.01"
             value={formData.unitPrice}
             onChange={handleInputChange}
+            autoComplete="off"
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.unitPrice ? 'border-red-300' : ''
             }`}

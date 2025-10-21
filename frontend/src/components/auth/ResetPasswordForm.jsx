@@ -101,6 +101,7 @@ const ResetPasswordForm = () => {
                     }
                   })}
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   className={`appearance-none relative block w-full px-3 py-2 pr-10 border ${
                     errors.password ? 'border-red-300' : 'border-gray-300'
                   } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
@@ -135,6 +136,7 @@ const ResetPasswordForm = () => {
                     validate: value => value === password || 'As senhas não coincidem'
                   })}
                   type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   className={`appearance-none relative block w-full px-3 py-2 pr-10 border ${
                     errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                   } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
