@@ -1,0 +1,28 @@
+{
+  "environment": "development",
+  "firebase": {
+    "projectId": "curva-mestra-dev",
+    "useEmulators": true,
+    "emulatorPorts": {
+      "auth": 9099,
+      "firestore": 8080,
+      "functions": 5001,
+      "hosting": 5000,
+      "storage": 9199
+    }
+  },
+  "deployment": {
+    "targets": ["hosting", "functions"],
+    "autoRollback": false,
+    "buildBeforeDeploy": false,
+    "skipTests": true
+  },
+  "logging": {
+    "level": "debug",
+    "console": true
+  },
+  "security": {
+    "requireAuthentication": false,
+    "auditLog": false
+  }
+}

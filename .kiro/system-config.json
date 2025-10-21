@@ -1,0 +1,96 @@
+{
+  "admin": {
+    "defaultUID": "gEjUSOsHF9QmS0Dvi0zB10GsxrD2",
+    "defaultEmail": "scandelari.guilherme@hotmail.com",
+    "autoInitialize": true,
+    "emergencyAdminEnabled": true,
+    "permissions": [
+      "view_products",
+      "manage_products", 
+      "view_requests",
+      "approve_requests",
+      "view_patients",
+      "manage_patients",
+      "view_invoices",
+      "manage_invoices",
+      "view_reports",
+      "manage_users",
+      "view_analytics",
+      "manage_settings",
+      "system_admin",
+      "initialize_system"
+    ]
+  },
+  "documentation": {
+    "autoOrganize": true,
+    "createBackup": true,
+    "updateReferences": true,
+    "useGitMv": true,
+    "excludeDirectories": [
+      "node_modules",
+      ".git",
+      "dist",
+      "build",
+      "lib",
+      ".kiro/specs"
+    ],
+    "categories": {
+      "setup": ["setup", "install", "config", "firebase", "auth", "hosting"],
+      "deployment": ["deploy", "production", "hosting", "build"],
+      "migration": ["migration", "upgrade", "migrate"],
+      "admin": ["admin", "claims", "role", "user", "permission"],
+      "general": []
+    }
+  },
+  "deployment": {
+    "autoCommit": true,
+    "targets": ["hosting", "functions", "firestore"],
+    "autoRollback": true,
+    "buildBeforeDeploy": true,
+    "timeout": 600000,
+    "retryAttempts": 2,
+    "environments": {
+      "development": {
+        "projectId": "curva-mestra-dev",
+        "targets": ["hosting", "functions"]
+      },
+      "production": {
+        "projectId": "curva-mestra",
+        "targets": ["hosting", "functions", "firestore", "storage"]
+      }
+    }
+  },
+  "git": {
+    "autoStage": true,
+    "commitMessageTemplate": "{type}: {description}",
+    "requireCleanWorkingDirectory": false,
+    "preserveHistory": true
+  },
+  "notifications": {
+    "console": true,
+    "logFile": true,
+    "email": {
+      "enabled": false,
+      "recipients": [],
+      "smtpConfig": {}
+    },
+    "slack": {
+      "enabled": false,
+      "webhookUrl": "",
+      "channel": "#deployments"
+    }
+  },
+  "logging": {
+    "level": "info",
+    "logPath": "logs/system-orchestrator.log",
+    "maxLogSize": "10MB",
+    "maxLogFiles": 5,
+    "logRotation": true
+  },
+  "security": {
+    "requireAuthentication": true,
+    "allowedUsers": [],
+    "encryptSensitiveData": true,
+    "auditLog": true
+  }
+}

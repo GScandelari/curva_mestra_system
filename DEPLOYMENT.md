@@ -1,354 +1,289 @@
-# Deployment Guide - Sistema de Gestão de Inventário para Clínicas
+# 🚀 System Deployment Guide
 
-Este documento fornece instruções completas para deploy em produção do Sistema de Gestão de Inventário para Clínicas de Harmonização.
+This guide covers how to deploy and publish the Admin System Organization components.
 
-## Pré-requisitos
+## 📋 Pre-Deployment Checklist
 
-### Software Necessário
-
-1. **Docker** (versão 20.10 ou superior)
-   - Windows: [Docker Desktop](https://www.docker.com/products/docker-desktop)
-   - Linux: [Docker Engine](https://docs.docker.com/engine/install/)
-
-2. **Docker Compose** (versão 2.0 ou superior)
-   - Geralmente incluído com Docker Desktop
-   - Linux: Instalar separadamente se necessário
-
-3. **OpenSSL** (para certificados SSL)
-   - Windows: [Win32/Win64 OpenSSL](https://slproweb.com/products/Win32OpenSSL.html)
-   - Linux: Geralmente pré-instalado
-
-### Requisitos do Sistema
-
-- **CPU**: 2 cores mínimo, 4 cores recomendado
-- **RAM**: 4GB mínimo, 8GB recomendado
-- **Armazenamento**: 20GB mínimo, 50GB recomendado
-- **Rede**: Portas 80, 443, 3001, 5432 disponíveis
-
-## Configuração Inicial
-
-### 1. Preparar Variáveis de Ambiente
-
+### 1. Environment Validation
 ```bash
-# Copiar arquivo de exemplo
-cp .env.production.example .env
+# Validate your environment
+cd scripts
+node validateEnvironment.js --verbose
 
-# Editar com suas configurações
-nano .env  # ou seu editor preferido
+# Check all dependencies are installed
+npm run install:all
 ```
 
-### Variáveis Importantes
-
-```env
-# Database
-DB_PASSWORD=sua-senha-segura-do-banco
-
-# JWT
-JWT_SECRET=sua-chave-jwt-super-secreta-com-pelo-menos-32-caracteres
-
-# Email
-EMAIL_HOST=smtp.seu-provedor.com
-EMAIL_USER=seu-email@dominio.com
-EMAIL_PASSWORD=sua-senha-email
-
-# Domínio
-ALLOWED_ORIGINS=https://seudominio.com
-VITE_API_BASE_URL=https://seudominio.com/api
-```
-
-### 2. Configurar SSL
-
-#### Opção A: Certificados Próprios (Recomendado)
+### 2. Run Tests
 ```bash
-# Colocar certificados na pasta ssl/
-cp seu-certificado.pem ssl/cert.pem
-cp sua-chave-privada.pem ssl/key.pem
+# Run comprehensive test suite
+cd scripts
+npm run test:all
+
+# Verify all components work
+npm test
 ```
 
-#### Opção B: Certificados Auto-assinados (Desenvolvimento)
+### 3. Configuration Setup
 ```bash
-# O script de deploy gerará automaticamente se não existirem
+# Review system configuration
+cd scripts
+node systemOrchestrator.js config --show
+
+# Set up environment-specific configs
+cp .kiro/config/development.json .kiro/config/production.json
+# Edit production.json with your production settings
 ```
 
-## Deploy
+## 🔧 System Configuration
 
-### Windows (PowerShell)
-
-```powershell
-# Deploy completo
-.\scripts\deploy.ps1 deploy
-
-# Verificar saúde dos serviços
-.\scripts\deploy.ps1 health
-
-# Ver logs
-.\scripts\deploy.ps1 logs
-```
-
-### Linux/macOS (Bash)
-
+### Required Environment Variables
 ```bash
-# Tornar script executável
-chmod +x scripts/deploy.sh
+# Firebase Configuration
+export FIREBASE_PROJECT_ID="curva-mestra"
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 
-# Deploy completo
-./scripts/deploy.sh deploy
+# Git Configuration (if not already set)
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
 
-# Verificar saúde dos serviços
-./scripts/deploy.sh health
-
-# Ver logs
-./scripts/deploy.sh logs
+# Optional: Encryption key for sensitive data
+export CONFIG_ENCRYPTION_KEY="your-32-character-encryption-key"
 ```
 
-## Estrutura dos Serviços
-
-### Serviços Docker
-
-1. **postgres** - Banco de dados PostgreSQL
-   - Porta: 5432
-   - Volume: dados persistentes em `postgres_data`
-
-2. **backend** - API Node.js
-   - Porta: 3001
-   - Volumes: logs, backups, uploads, SSL
-
-3. **nginx** - Proxy reverso e servidor web
-   - Portas: 80 (HTTP), 443 (HTTPS)
-   - Serve frontend e proxy para API
-
-4. **backup** - Serviço de backup automático
-   - Executa backups programados
-   - Mantém histórico de backups
-
-### Volumes e Diretórios
-
-```
-projeto/
-├── backups/          # Backups do banco de dados
-├── logs/             # Logs da aplicação
-│   └── nginx/        # Logs do Nginx
-├── ssl/              # Certificados SSL
-├── uploads/          # Arquivos enviados
-└── frontend/dist/    # Build do frontend
-```
-
-## Monitoramento
-
-### Script de Monitoramento
-
+### Firebase Setup
 ```bash
-# Linux/macOS
-./scripts/monitor.sh all
+# Install Firebase CLI if not already installed
+npm install -g firebase-tools
 
-# Windows (adaptar comandos manualmente)
-docker-compose -f docker-compose.production.yml ps
+# Login to Firebase
+firebase login
+
+# Set the project
+firebase use curva-mestra
 ```
 
-### Verificações Automáticas
+## 🚀 Deployment Steps
 
-- **Status dos serviços**
-- **Uso de recursos (CPU, memória, disco)**
-- **Conectividade do banco de dados**
-- **Endpoints da API**
-- **Certificados SSL**
-- **Status dos backups**
-
-### Health Checks
-
-Todos os serviços possuem health checks configurados:
-
-- **Database**: `pg_isready`
-- **Backend**: `GET /health`
-- **Nginx**: `GET /health` (proxy para backend)
-
-## Backup e Restauração
-
-### Backup Manual
-
+### Option 1: Complete System Setup (Recommended)
 ```bash
-# Criar backup
-node backend/scripts/backup-database.js create full
+# Navigate to scripts directory
+cd scripts
 
-# Listar backups
-node backend/scripts/backup-database.js list
+# Run complete system setup with interactive mode
+node systemOrchestrator.js setup --interactive --verbose
 
-# Verificar integridade
-node backend/scripts/backup-database.js verify /path/to/backup.sql.gz
+# Or run in dry-run mode first to preview changes
+node systemOrchestrator.js setup --dry-run --verbose
 ```
 
-### Backup Automático
-
-O serviço de backup executa automaticamente:
-- **Frequência**: Diariamente às 2:00 AM (configurável)
-- **Retenção**: 30 dias (configurável)
-- **Compressão**: Gzip automático
-- **Verificação**: Integridade automática
-
-### Restauração
-
+### Option 2: Step-by-Step Deployment
 ```bash
-# Restaurar do backup
-node backend/scripts/restore-database.js restore /path/to/backup.sql.gz --clean
+cd scripts
 
-# Criar banco se não existir
-node backend/scripts/restore-database.js create-db
+# 1. Initialize admin user
+node systemOrchestrator.js admin --verbose
+
+# 2. Organize documentation
+node systemOrchestrator.js docs --verbose
+
+# 3. Deploy to Firebase
+node systemOrchestrator.js deploy --verbose
 ```
 
-## Logs
-
-### Localização dos Logs
-
-- **Aplicação**: `logs/app.log`
-- **Nginx**: `logs/nginx/access.log`, `logs/nginx/error.log`
-- **Backup**: `logs/backup.log`
-
-### Rotação de Logs
-
-- **Aplicação**: Rotação automática (10MB, 5 arquivos)
-- **Nginx**: Rotação via logrotate (recomendado)
-
-### Visualização
-
+### Option 3: Individual Components
 ```bash
-# Logs em tempo real
-docker-compose -f docker-compose.production.yml logs -f
+# Admin setup only
+node systemOrchestrator.js admin
 
-# Logs específicos de um serviço
-docker-compose -f docker-compose.production.yml logs -f backend
+# Documentation organization only  
+node systemOrchestrator.js docs
 
-# Últimas 100 linhas
-docker-compose -f docker-compose.production.yml logs --tail=100
+# Deployment only
+node systemOrchestrator.js deploy --targets hosting,functions
 ```
 
-## Segurança
+## 📊 Monitoring and Verification
 
-### Configurações de Segurança
-
-1. **HTTPS obrigatório** em produção
-2. **Rate limiting** configurado
-3. **Headers de segurança** (CSP, HSTS, etc.)
-4. **Validação de entrada** em todos os endpoints
-5. **Logs de auditoria** para operações críticas
-
-### Firewall
-
-Portas que devem estar abertas:
-- **80** (HTTP - redireciona para HTTPS)
-- **443** (HTTPS)
-
-Portas internas (apenas para containers):
-- **3001** (Backend API)
-- **5432** (PostgreSQL)
-
-## Troubleshooting
-
-### Problemas Comuns
-
-#### 1. Serviços não iniciam
+### 1. Check Admin User Setup
 ```bash
-# Verificar logs
-docker-compose -f docker-compose.production.yml logs
-
-# Verificar recursos
-docker stats
-
-# Reiniciar serviços
-docker-compose -f docker-compose.production.yml restart
+# Verify admin user was initialized
+firebase functions:call validateAdminInitialization --project=curva-mestra
 ```
 
-#### 2. Banco de dados não conecta
+### 2. Verify Documentation Organization
 ```bash
-# Verificar status do PostgreSQL
-docker-compose -f docker-compose.production.yml exec postgres pg_isready -U postgres
-
-# Verificar logs do banco
-docker-compose -f docker-compose.production.yml logs postgres
+# Check that docs directory was created and populated
+ls -la docs/
+ls -la docs/admin/
+ls -la docs/setup/
+ls -la docs/deployment/
 ```
 
-#### 3. SSL não funciona
+### 3. Verify Deployment
 ```bash
-# Verificar certificados
-openssl x509 -in ssl/cert.pem -text -noout
+# Check Firebase hosting
+firebase hosting:sites:list --project=curva-mestra
 
-# Verificar configuração do Nginx
-docker-compose -f docker-compose.production.yml exec nginx nginx -t
+# Check Firebase functions
+firebase functions:list --project=curva-mestra
+
+# Check Firestore rules
+firebase firestore:rules:list --project=curva-mestra
 ```
 
-#### 4. API não responde
+## 🔄 Rollback Procedures
+
+### Automatic Rollback
+The system includes automatic rollback capabilities:
+- Git changes are automatically reverted on deployment failure
+- Firebase hosting can be rolled back to previous releases
+- Configuration backups are created before major changes
+
+### Manual Rollback
 ```bash
-# Verificar health check
-curl http://localhost:3001/health
+# Rollback Git changes
+git log --oneline -10  # Find the commit to rollback to
+git reset --hard <commit-hash>
 
-# Verificar logs do backend
-docker-compose -f docker-compose.production.yml logs backend
+# Rollback Firebase hosting
+firebase hosting:releases:list --project=curva-mestra
+firebase hosting:releases:rollback <release-id> --project=curva-mestra
+
+# Restore configuration from backup
+cp backup-docs-<timestamp>/.kiro/system-config.json .kiro/system-config.json
 ```
 
-### Comandos Úteis
+## 📝 Post-Deployment Tasks
 
+### 1. Update Documentation
+- Review generated documentation in `docs/` directory
+- Update any project-specific documentation
+- Commit documentation changes to Git
+
+### 2. Verify System Health
 ```bash
-# Parar todos os serviços
-docker-compose -f docker-compose.production.yml down
+# Run environment validation again
+cd scripts
+node validateEnvironment.js --environment production
 
-# Reiniciar serviço específico
-docker-compose -f docker-compose.production.yml restart backend
-
-# Executar comando no container
-docker-compose -f docker-compose.production.yml exec backend bash
-
-# Limpar volumes (CUIDADO: apaga dados)
-docker-compose -f docker-compose.production.yml down -v
-
-# Atualizar imagens
-docker-compose -f docker-compose.production.yml pull
-docker-compose -f docker-compose.production.yml up -d
+# Test admin functions
+firebase functions:call initializeDefaultAdmin --project=curva-mestra
 ```
 
-## Manutenção
+### 3. Set Up Monitoring
+- Configure Firebase monitoring and alerts
+- Set up log aggregation for system orchestrator logs
+- Configure notification handlers for deployment failures
 
-### Atualizações
+## 🔐 Security Considerations
 
-1. **Fazer backup** antes de qualquer atualização
-2. **Testar** em ambiente de desenvolvimento
-3. **Aplicar** em horário de menor uso
-4. **Verificar** funcionamento após atualização
+### 1. Credential Management
+- Store service account keys securely
+- Use environment variables for sensitive configuration
+- Enable encryption for sensitive config data:
+  ```bash
+  export CONFIG_ENCRYPTION_KEY="$(openssl rand -hex 32)"
+  ```
 
-### Rotina de Manutenção
+### 2. Access Control
+- Verify admin user has correct permissions
+- Review Firebase security rules
+- Audit user access and roles
 
-#### Diária
-- Verificar logs de erro
-- Confirmar execução dos backups
-- Monitorar uso de recursos
+### 3. Backup Strategy
+- System automatically creates backups before major operations
+- Store backups in secure, versioned storage
+- Test backup restoration procedures
 
-#### Semanal
-- Verificar integridade dos backups
-- Limpar logs antigos
-- Atualizar dependências de segurança
+## 🚨 Troubleshooting
 
-#### Mensal
-- Revisar certificados SSL
-- Analisar métricas de performance
-- Planejar atualizações
+### Common Issues
 
-## Suporte
+#### Firebase CLI Not Authenticated
+```bash
+firebase login
+firebase projects:list  # Verify access to curva-mestra
+```
 
-Para problemas ou dúvidas:
+#### Git Configuration Missing
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+```
 
-1. Verificar logs da aplicação
-2. Consultar este guia de troubleshooting
-3. Verificar documentação do Docker
-4. Contatar equipe de desenvolvimento
+#### Node.js Version Issues
+```bash
+# Check Node.js version (requires v16+)
+node --version
 
-## Checklist de Deploy
+# Update if necessary
+nvm install 18
+nvm use 18
+```
 
-- [ ] Variáveis de ambiente configuradas
-- [ ] Certificados SSL instalados
-- [ ] Firewall configurado
-- [ ] Backup inicial criado
-- [ ] Serviços iniciados com sucesso
-- [ ] Health checks passando
-- [ ] Frontend acessível via HTTPS
-- [ ] API respondendo corretamente
-- [ ] Logs sendo gerados
-- [ ] Backup automático configurado
-- [ ] Monitoramento ativo
+#### Missing Dependencies
+```bash
+# Install all dependencies
+npm run install:all
+
+# Or install individually
+cd scripts && npm install
+cd ../functions && npm install
+cd ../frontend && npm install
+cd ../backend && npm install
+```
+
+### Getting Help
+- Check system logs: `logs/system-orchestrator.log`
+- Run environment validation: `node validateEnvironment.js --verbose`
+- Review configuration: `node systemOrchestrator.js config --show`
+
+## 📈 Performance Optimization
+
+### 1. Build Optimization
+- Enable production builds: `NODE_ENV=production npm run build`
+- Optimize Firebase function cold starts
+- Configure CDN for static assets
+
+### 2. Monitoring
+- Set up Firebase Performance Monitoring
+- Configure log aggregation and analysis
+- Monitor deployment success rates
+
+### 3. Scaling
+- Configure Firebase function scaling limits
+- Set up load balancing for high traffic
+- Implement caching strategies
+
+## 🔄 Maintenance
+
+### Regular Tasks
+- Update dependencies monthly
+- Review and rotate encryption keys quarterly
+- Audit user permissions and access logs
+- Test backup and recovery procedures
+
+### Updates and Patches
+```bash
+# Update system components
+npm update
+
+# Test after updates
+npm run test:all
+
+# Deploy updates
+node systemOrchestrator.js setup --verbose
+```
+
+---
+
+## 📞 Support
+
+For issues or questions:
+1. Check the troubleshooting section above
+2. Review system logs in `logs/` directory
+3. Run environment validation for diagnostic information
+4. Check Firebase console for deployment status
+
+The system is designed to be self-healing and provides detailed error messages to help diagnose and resolve issues quickly.

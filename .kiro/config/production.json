@@ -1,0 +1,32 @@
+{
+  "environment": "production",
+  "firebase": {
+    "projectId": "curva-mestra",
+    "useEmulators": false,
+    "region": "us-central1"
+  },
+  "deployment": {
+    "targets": ["hosting", "functions", "firestore", "storage"],
+    "autoRollback": true,
+    "buildBeforeDeploy": true,
+    "skipTests": false,
+    "requireApproval": true,
+    "backupBeforeDeploy": true
+  },
+  "logging": {
+    "level": "info",
+    "console": false,
+    "logPath": "logs/production-orchestrator.log"
+  },
+  "security": {
+    "requireAuthentication": true,
+    "auditLog": true,
+    "encryptSensitiveData": true
+  },
+  "notifications": {
+    "email": {
+      "enabled": true,
+      "recipients": ["scandelari.guilherme@hotmail.com"]
+    }
+  }
+}
