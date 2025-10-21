@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { X, Save, AlertCircle } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { invoiceService } from '../../services'
@@ -30,7 +30,7 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
     }
   }, [invoice])
 
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -44,9 +44,9 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
         [name]: ''
       }))
     }
-  }
+  }, [errors])
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const newErrors = {}
 
     // Required fields
@@ -84,9 +84,9 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }
+  }, [formData])
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault()
     
     if (!validateForm()) {
@@ -113,12 +113,12 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
       onSave(result.invoice)
     } catch (error) {
       console.error('Error saving invoice:', error)
-      const message = error.response?.data?.message || 'Erro ao salvar nota fiscal'
+      const message = error.message || 'Erro ao salvar nota fiscal'
       toast.error(message)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [formData, validateForm, invoice, onSave])
 
   const FormContent = () => (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -137,6 +137,12 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.number ? 'border-red-300' : ''
             }`}
+            style={{ 
+              fontSize: '14px',
+              padding: '8px 12px',
+              backgroundColor: '#ffffff',
+              color: '#374151'
+            }}
             placeholder="Digite o número da nota fiscal"
           />
           {errors.number && (
@@ -160,6 +166,12 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.supplier ? 'border-red-300' : ''
             }`}
+            style={{ 
+              fontSize: '14px',
+              padding: '8px 12px',
+              backgroundColor: '#ffffff',
+              color: '#374151'
+            }}
             placeholder="Nome do fornecedor"
           />
           {errors.supplier && (
@@ -186,6 +198,12 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.issueDate ? 'border-red-300' : ''
             }`}
+            style={{ 
+              fontSize: '14px',
+              padding: '8px 12px',
+              backgroundColor: '#ffffff',
+              color: '#374151'
+            }}
           />
           {errors.issueDate && (
             <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -208,6 +226,12 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
             className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
               errors.receiptDate ? 'border-red-300' : ''
             }`}
+            style={{ 
+              fontSize: '14px',
+              padding: '8px 12px',
+              backgroundColor: '#ffffff',
+              color: '#374151'
+            }}
           />
           {errors.receiptDate && (
             <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -234,6 +258,12 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
           className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
             errors.totalValue ? 'border-red-300' : ''
           }`}
+          style={{ 
+            fontSize: '14px',
+            padding: '8px 12px',
+            backgroundColor: '#ffffff',
+            color: '#374151'
+          }}
           placeholder="0.00"
         />
         {errors.totalValue && (
