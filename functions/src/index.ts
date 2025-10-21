@@ -109,6 +109,12 @@ export const collectUsageMetrics = optimizationCostMonitoring.collectUsageMetric
 export const calculateCostEstimate = optimizationCostMonitoring.calculateCostEstimate;
 export const getOptimizationCostReport = optimizationCostMonitoring.getCostReport;
 
+// Import and export admin functions
+import * as adminFunctions from "./admin/userManagement";
+export const setAdminUserRole = adminFunctions.setUserRole;
+export const listAllUsers = adminFunctions.listUsers;
+export const getAdminUserInfo = adminFunctions.getUserInfo;
+
 // Health check endpoint
 export const healthCheck = onRequest((request, response) => {
   response.json({
