@@ -5,7 +5,7 @@ export const invoiceService = {
   getInvoices: async (filters = {}) => {
     try {
       const options = {}
-      
+
       // Apply filters
       if (filters.supplier || filters.search) {
         options.where = []
@@ -18,21 +18,21 @@ export const invoiceService = {
           options.where.push(['supplier', '<=', filters.search + '\uf8ff'])
         }
       }
-      
+
       // Apply ordering
       options.orderBy = [['receiptDate', 'desc']]
-      
+
       // Apply pagination
       if (filters.limit) {
         options.limit = parseInt(filters.limit)
       }
-      
+
       const result = await firebaseService.getAll('invoices', options)
-      
+
       if (!result.success) {
         throw new Error(result.error)
       }
-      
+
       // Filter by date range if specified
       let invoices = result.data
       if (filters.startDate || filters.endDate) {
@@ -47,7 +47,7 @@ export const invoiceService = {
           return true
         })
       }
-      
+
       return {
         invoices,
         total: invoices.length,
@@ -64,11 +64,11 @@ export const invoiceService = {
   getInvoice: async (id) => {
     try {
       const result = await firebaseService.getById('invoices', id)
-      
+
       if (!result.success) {
         throw new Error(result.error)
       }
-      
+
       return { invoice: result.data }
     } catch (error) {
       console.error('Error getting invoice:', error)
@@ -84,13 +84,13 @@ export const invoiceService = {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
-      
+
       const result = await firebaseService.create('invoices', invoiceWithTimestamp)
-      
+
       if (!result.success) {
         throw new Error(result.error)
       }
-      
+
       return { invoice: result.data }
     } catch (error) {
       console.error('Error creating invoice:', error)
@@ -105,13 +105,13 @@ export const invoiceService = {
         ...invoiceData,
         updatedAt: new Date().toISOString()
       }
-      
+
       const result = await firebaseService.update('invoices', id, updateData)
-      
+
       if (!result.success) {
         throw new Error(result.error)
       }
-      
+
       return { invoice: result.data }
     } catch (error) {
       console.error('Error updating invoice:', error)
@@ -123,11 +123,11 @@ export const invoiceService = {
   deleteInvoice: async (id) => {
     try {
       const result = await firebaseService.delete('invoices', id)
-      
+
       if (!result.success) {
         throw new Error(result.error)
       }
-      
+
       return { success: true }
     } catch (error) {
       console.error('Error deleting invoice:', error)
@@ -140,21 +140,21 @@ export const invoiceService = {
     try {
       // Get the invoice first
       const invoiceResult = await firebaseService.getById('invoices', id)
-      
+
       if (!invoiceResult.success) {
         throw new Error(invoiceResult.error)
       }
-      
+
       // Get products associated with this invoice
       const productsResult = await firebaseService.getAll('products', {
         where: [['invoiceId', '==', id]],
         orderBy: [['name', 'asc']]
       })
-      
+
       if (!productsResult.success) {
         throw new Error(productsResult.error)
       }
-      
+
       return {
         invoice: invoiceResult.data,
         products: productsResult.data
@@ -171,27 +171,27 @@ export const invoiceService = {
       const options = {
         orderBy: [['receiptDate', 'desc']]
       }
-      
+
       if (supplier) {
         options.where = [['supplier', '==', supplier]]
       }
-      
+
       const result = await firebaseService.getAll('invoices', options)
-      
+
       if (!result.success) {
         throw new Error(result.error)
       }
-      
+
       // Filter by date range
       const filteredInvoices = result.data.filter(invoice => {
         const receiptDate = new Date(invoice.receiptDate)
         return receiptDate >= new Date(startDate) && receiptDate <= new Date(endDate)
       })
-      
+
       // Calculate totals
       const totalValue = filteredInvoices.reduce((sum, invoice) => sum + (invoice.totalValue || 0), 0)
       const totalInvoices = filteredInvoices.length
-      
+
       // Group by supplier
       const supplierSummary = filteredInvoices.reduce((acc, invoice) => {
         const supplier = invoice.supplier
@@ -206,7 +206,7 @@ export const invoiceService = {
         acc[supplier].totalValue += invoice.totalValue || 0
         return acc
       }, {})
-      
+
       return {
         invoices: filteredInvoices,
         summary: {

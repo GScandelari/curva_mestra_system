@@ -38,13 +38,15 @@ const InvoiceForm = ({ invoice = null, onSave, onCancel, isModal = false }) => {
     }))
     
     // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }))
-    }
-  }, [errors])
+    setErrors(prev => {
+      if (prev[name]) {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      }
+      return prev
+    })
+  }, [])
 
   const validateForm = useCallback(() => {
     const newErrors = {}
