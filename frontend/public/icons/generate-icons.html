@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Icons</title>
+</head>
+<body>
+    <canvas id="canvas192" width="192" height="192" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    <canvas id="canvas512" width="512" height="512" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    
+    <div>
+        <button onclick="generateIcons()">Generate Icons</button>
+        <button onclick="downloadIcon(192)">Download 192x192</button>
+        <button onclick="downloadIcon(512)">Download 512x512</button>
+    </div>
+
+    <script>
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Background with rounded corners
+            const cornerRadius = size * 0.15;
+            const margin = size * 0.04;
+            
+            ctx.fillStyle = '#2c3e50';
+            ctx.beginPath();
+            ctx.roundRect(margin, margin, size - 2*margin, size - 2*margin, cornerRadius);
+            ctx.fill();
+            
+            // White border
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = size * 0.02;
+            ctx.stroke();
+            
+            // Draw stylized "M" logo
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const logoSize = size * 0.4;
+            
+            ctx.fillStyle = '#ffffff';
+            
+            // Left part of M
+            ctx.beginPath();
+            ctx.arc(centerX - logoSize/3, centerY, logoSize/2.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Right part of M  
+            ctx.beginPath();
+            ctx.arc(centerX + logoSize/3, centerY, logoSize/2.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Center connection
+            ctx.fillStyle = '#2c3e50';
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, logoSize/6, logoSize/3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Add "CM" text as fallback
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${size * 0.25}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('CM', centerX, centerY);
+        }
+        
+        function generateIcons() {
+            const canvas192 = document.getElementById('canvas192');
+            const canvas512 = document.getElementById('canvas512');
+            
+            drawIcon(canvas192, 192);
+            drawIcon(canvas512, 512);
+        }
+        
+        function downloadIcon(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Generate icons on load
+        window.onload = generateIcons;
+    </script>
+</body>
+</html>

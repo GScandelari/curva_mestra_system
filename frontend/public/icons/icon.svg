@@ -1,0 +1,19 @@
+<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with rounded corners -->
+  <rect x="8" y="8" width="176" height="176" rx="32" ry="32" fill="#2c3e50" stroke="#ffffff" stroke-width="4"/>
+  
+  <!-- Stylized M logo -->
+  <g transform="translate(96, 96)">
+    <!-- Left curve of M -->
+    <path d="M -45 -35 Q -45 -50 -30 -50 Q -15 -50 -15 -35 L -15 35 Q -15 50 -30 50 Q -45 50 -45 35 Z" fill="#ffffff"/>
+    
+    <!-- Right curve of M -->
+    <path d="M 15 -35 Q 15 -50 30 -50 Q 45 -50 45 -35 L 45 35 Q 45 50 30 50 Q 15 50 15 35 Z" fill="#ffffff"/>
+    
+    <!-- Center connection -->
+    <ellipse cx="0" cy="0" rx="12" ry="20" fill="#2c3e50"/>
+    
+    <!-- Inner highlight -->
+    <ellipse cx="0" cy="-5" rx="8" ry="12" fill="#ffffff" opacity="0.3"/>
+  </g>
+</svg>
