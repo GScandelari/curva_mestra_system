@@ -194,7 +194,7 @@ const unifiedErrorMiddleware = async (err, req, res, next) => {
     res.status(500).json({
       success: false,
       error: {
-        code: 'SYS_001',
+        code: 'CRITICAL_ERROR',
         message: process.env.NODE_ENV === 'production' 
           ? 'Erro interno do servidor' 
           : 'Critical error in error handling system',
@@ -343,7 +343,7 @@ const mapErrorTypeToCode = (errorType) => {
     [ErrorType.DATABASE]: 'DATABASE_ERROR',
     [ErrorType.BUSINESS_LOGIC]: 'BUSINESS_ERROR',
     [ErrorType.CONFIGURATION]: 'CONFIG_ERROR',
-    [ErrorType.SYSTEM]: 'SYS_001',
+    [ErrorType.SYSTEM]: 'SYSTEM_ERROR',
     [ErrorType.UNKNOWN]: 'UNKNOWN_ERROR'
   };
 
