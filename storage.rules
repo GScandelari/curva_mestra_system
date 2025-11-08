@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Função helper para verificar autenticação e status ativo
+    function isAuthenticated() {
+      return request.auth != null && request.auth.token.active == true;
+    }
+
+    // Função helper para verificar system_admin
+    function isSystemAdmin() {
+      return isAuthenticated() && request.auth.token.is_system_admin == true;
+    }
+
+    // Função helper para verificar tenant_id
+    function belongsToTenant(tenantId) {
+      return isAuthenticated() && request.auth.token.tenant_id == tenantId;
+    }
+
+    // Estrutura: /danfe/{tenant_id}/{nf_id}.pdf
+    match /danfe/{tenantId}/{nfId} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Usuários do tenant podem fazer upload e ler seus próprios DANFEs
+      allow read: if belongsToTenant(tenantId);
+      allow write: if belongsToTenant(tenantId)
+        && request.resource.size < 10 * 1024 * 1024  // máximo 10MB
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Estrutura: /avatars/{tenantId}/{userId}
+    match /avatars/{tenantId}/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if belongsToTenant(tenantId)
+        && request.auth.uid == userId
+        && request.resource.size < 2 * 1024 * 1024  // máximo 2MB
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Bloquear acesso a qualquer outro arquivo por padrão
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

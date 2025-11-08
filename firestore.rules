@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Função helper para verificar autenticação e status ativo
+    function isAuthenticated() {
+      return request.auth != null && request.auth.token.active == true;
+    }
+
+    // Função helper para verificar system_admin
+    function isSystemAdmin() {
+      return isAuthenticated() && request.auth.token.is_system_admin == true;
+    }
+
+    // Função helper para verificar tenant_id
+    function belongsToTenant(tenantId) {
+      return isAuthenticated() && request.auth.token.tenant_id == tenantId;
+    }
+
+    // Função helper para verificar role
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.role == role;
+    }
+
+    // REGRAS MULTI-TENANT - OBRIGATÓRIO
+    // Todos os dados de tenant são protegidos
+    match /tenants/{tenantId}/{document=**} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Usuários do tenant têm acesso apenas aos seus dados
+      allow read, write: if belongsToTenant(tenantId);
+    }
+
+    // Coleção de usuários do sistema (apenas system_admin)
+    match /users/{userId} {
+      allow read, write: if isSystemAdmin();
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Coleção de produtos master (apenas system_admin pode escrever)
+    match /produtos_master/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isSystemAdmin();
+    }
+
+    // Coleção de licenças (apenas system_admin)
+    match /licenses/{licenseId} {
+      allow read, write: if isSystemAdmin();
+      allow read: if isAuthenticated() && resource.data.tenant_id == request.auth.token.tenant_id;
+    }
+
+    // Bloquear acesso a qualquer outra coleção por padrão
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
