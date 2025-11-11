@@ -16,6 +16,22 @@ interface AuthState {
   claims: CustomClaims | null;
 }
 
+/**
+ * Extrai custom claims do Firebase Auth token de forma type-safe
+ */
+function extractCustomClaims(claims: Record<string, any>): CustomClaims | null {
+  if (!claims.tenant_id && !claims.is_system_admin) {
+    return null;
+  }
+
+  return {
+    tenant_id: claims.tenant_id || null,
+    role: claims.role || null,
+    is_system_admin: claims.is_system_admin || false,
+    active: claims.active || false,
+  };
+}
+
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -28,7 +44,7 @@ export function useAuth() {
       if (user) {
         // Obter custom claims
         const idTokenResult = await user.getIdTokenResult();
-        const claims = idTokenResult.claims as CustomClaims;
+        const claims = extractCustomClaims(idTokenResult.claims);
 
         setState({
           user,
@@ -94,7 +110,7 @@ export function useAuth() {
     if (state.user) {
       await state.user.getIdToken(true); // Force refresh
       const idTokenResult = await state.user.getIdTokenResult();
-      const claims = idTokenResult.claims as CustomClaims;
+      const claims = extractCustomClaims(idTokenResult.claims);
 
       setState((prev) => ({
         ...prev,

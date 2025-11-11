@@ -150,3 +150,23 @@ Projeto iniciado em: 07/11/2025
 Stack travada até v1.0 (Firebase only)
 Claude AI é o arquiteto oficial – siga este arquivo à risca.
 
+## Funcionalidades Temporariamente Desabilitadas
+
+### Importação de PDF (DANFE Rennova)
+**Status**: DESABILITADO temporariamente
+**Motivo**: Problemas com extração de texto via pdf-parse em ambiente Next.js API Routes
+**Arquivos Afetados**:
+- `src/app/(admin)/admin/products/page.tsx` (botão comentado linha 303-307)
+- `src/app/api/parse-nf/route.ts` (API route existente mas não funcional)
+
+**Problemas Identificados**:
+1. Biblioteca `pdf-parse` não compatível com Next.js 15 App Router
+2. Tentativas de usar require() com Node.js runtime não resolveram
+3. Necessário investigar alternativas: pdfjs-dist, pdf.js ou processar no servidor Python
+
+**Para Reativar**:
+1. Descomentar botão "Importar de NF" em `src/app/(admin)/admin/products/page.tsx:303-307`
+2. Implementar solução alternativa para extração de texto de PDF
+3. Testar com DANFE_RENNOVA_026229_OFICIAL.pdf
+4. Garantir extração de todos os 13 produtos do PDF de teste
+

@@ -33,13 +33,20 @@ export interface User {
 // TENANT
 // ============================================================================
 
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
 export interface Tenant {
   id: string;
   name: string;
   cnpj: string;
   email: string;
   phone?: string;
-  address?: string;
+  address?: string | Address;
   plan_id: string;
   active: boolean;
   created_at: Timestamp;

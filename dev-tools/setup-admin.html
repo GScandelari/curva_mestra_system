@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curva Mestra - Setup Desenvolvimento</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .code {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .instructions strong {
+            color: #664d03;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Setup de Desenvolvimento</h1>
+        <p class="subtitle">Configure custom claims e crie usuários admin para testes</p>
+
+        <div class="instructions">
+            <strong>⚠️ ATENÇÃO:</strong> Esta ferramenta deve ser usada apenas em ambiente de desenvolvimento com os emuladores Firebase.
+            Certifique-se de que os emuladores estão rodando em:
+            <br><br>
+            • <strong>Auth:</strong> http://localhost:9099<br>
+            • <strong>Functions:</strong> http://localhost:5001
+        </div>
+
+        <!-- Seção 1: Criar System Admin -->
+        <div class="section">
+            <h2>1️⃣ Criar System Admin</h2>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Crie o primeiro usuário administrador do sistema. Este usuário terá permissão total.
+            </p>
+
+            <div id="admin-message"></div>
+
+            <form id="createAdminForm">
+                <div class="form-group">
+                    <label>Nome</label>
+                    <input type="text" id="adminName" value="System Admin" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="adminEmail" value="admin@curva-mestra.dev" required>
+                </div>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="adminPassword" value="admin123" required>
+                </div>
+                <button type="submit">Criar System Admin</button>
+            </form>
+        </div>
+
+        <!-- Seção 2: Adicionar Custom Claims -->
+        <div class="section">
+            <h2>2️⃣ Adicionar Custom Claims Manualmente</h2>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Configure custom claims para usuários que já foram criados via interface de registro.
+            </p>
+
+            <div id="claims-message"></div>
+
+            <form id="setClaimsForm">
+                <div class="form-group">
+                    <label>User ID (UID) - Copie do Firebase Emulator UI</label>
+                    <input type="text" id="claimsUserId" placeholder="Ex: abc123def456..." required>
+                </div>
+                <div class="form-group">
+                    <label>Tenant ID (opcional)</label>
+                    <input type="text" id="claimsTenantId" placeholder="Ex: tenant_1234567890">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="claimsRole">
+                        <option value="">-- Sem role --</option>
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="user">User</option>
+                        <option value="system_admin">System Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="claimsSystemAdmin" style="width: auto;">
+                        É System Admin?
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="claimsActive" checked style="width: auto;">
+                        Usuário Ativo?
+                    </label>
+                </div>
+                <button type="submit">Configurar Custom Claims</button>
+            </form>
+        </div>
+
+        <!-- Seção 3: Criar Tenant -->
+        <div class="section">
+            <h2>3️⃣ Criar Tenant (Clínica)</h2>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Crie uma nova clínica/tenant no sistema. Requer estar autenticado como system admin.
+            </p>
+
+            <div id="tenant-message"></div>
+
+            <form id="createTenantForm">
+                <div class="form-group">
+                    <label>Nome da Clínica</label>
+                    <input type="text" id="tenantName" placeholder="Ex: Clínica Bella Vita" required>
+                </div>
+                <div class="form-group">
+                    <label>CNPJ</label>
+                    <input type="text" id="tenantCnpj" placeholder="Ex: 12.345.678/0001-90" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="tenantEmail" placeholder="Ex: contato@bellavita.com.br" required>
+                </div>
+                <button type="submit">Criar Tenant</button>
+            </form>
+        </div>
+
+        <!-- Seção 4: Como usar via Console -->
+        <div class="section">
+            <h2>4️⃣ Usar via Console do Navegador</h2>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Você também pode chamar as functions diretamente pelo console do navegador:
+            </p>
+
+            <div class="code">
+// 1. Primeiro, faça login como system admin no app
+// 2. Abra o console (F12)
+// 3. Execute os comandos abaixo:
+
+// Configurar custom claims
+const setUserClaims = httpsCallable(functions, 'setUserClaims');
+await setUserClaims({
+  userId: 'UID_DO_USUARIO',
+  tenantId: 'tenant_123',
+  role: 'admin',
+  isSystemAdmin: false,
+  active: true
+});
+
+// Criar tenant
+const createTenant = httpsCallable(functions, 'createTenant');
+await createTenant({
+  name: 'Clínica Teste',
+  cnpj: '12.345.678/0001-90',
+  email: 'teste@clinica.com'
+});
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
+        import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+        import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js';
+
+        // Configuração Firebase (mesmo do .env.local)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtP7vZ8L2nQXxK9mY3J5eR6wH8lN4pT0a",
+            authDomain: "curva-mestra.firebaseapp.com",
+            projectId: "curva-mestra",
+            storageBucket: "curva-mestra.firebasestorage.app",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdef1234567890"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const functions = getFunctions(app);
+
+        // Conectar aos emuladores
+        connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+        connectFunctionsEmulator(functions, "localhost", 5001);
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="message ${type}">${message}</div>`;
+            setTimeout(() => {
+                element.innerHTML = '';
+            }, 5000);
+        }
+
+        // Form 1: Criar System Admin
+        document.getElementById('createAdminForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = e.target.querySelector('button');
+            button.disabled = true;
+            button.textContent = 'Criando...';
+
+            try {
+                const setupSystemAdmin = httpsCallable(functions, 'setupSystemAdmin');
+                const result = await setupSystemAdmin({
+                    email: document.getElementById('adminEmail').value,
+                    password: document.getElementById('adminPassword').value,
+                    displayName: document.getElementById('adminName').value
+                });
+
+                showMessage('admin-message',
+                    `✅ ${result.data.message}<br>User ID: <code>${result.data.userId}</code><br>Email: ${result.data.email}`,
+                    'success'
+                );
+            } catch (error) {
+                showMessage('admin-message', `❌ Erro: ${error.message}`, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Criar System Admin';
+            }
+        });
+
+        // Form 2: Configurar Custom Claims
+        document.getElementById('setClaimsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = e.target.querySelector('button');
+            button.disabled = true;
+            button.textContent = 'Configurando...';
+
+            try {
+                const setUserClaims = httpsCallable(functions, 'setUserClaims');
+                const result = await setUserClaims({
+                    userId: document.getElementById('claimsUserId').value,
+                    tenantId: document.getElementById('claimsTenantId').value || undefined,
+                    role: document.getElementById('claimsRole').value || undefined,
+                    isSystemAdmin: document.getElementById('claimsSystemAdmin').checked,
+                    active: document.getElementById('claimsActive').checked
+                });
+
+                showMessage('claims-message',
+                    `✅ ${result.data.message}<br>Claims configurados para: ${result.data.userId}`,
+                    'success'
+                );
+            } catch (error) {
+                showMessage('claims-message', `❌ Erro: ${error.message}`, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Configurar Custom Claims';
+            }
+        });
+
+        // Form 3: Criar Tenant
+        document.getElementById('createTenantForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = e.target.querySelector('button');
+            button.disabled = true;
+            button.textContent = 'Criando...';
+
+            try {
+                const createTenant = httpsCallable(functions, 'createTenant');
+                const result = await createTenant({
+                    name: document.getElementById('tenantName').value,
+                    cnpj: document.getElementById('tenantCnpj').value,
+                    email: document.getElementById('tenantEmail').value
+                });
+
+                showMessage('tenant-message',
+                    `✅ ${result.data.message}<br>Tenant ID: <code>${result.data.tenantId}</code>`,
+                    'success'
+                );
+            } catch (error) {
+                showMessage('tenant-message',
+                    `❌ Erro: ${error.message}<br><small>Você precisa estar autenticado como system admin. Faça login no app primeiro.</small>`,
+                    'error'
+                );
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Criar Tenant';
+            }
+        });
+
+        console.log('🔧 Setup Dev Tool carregado!');
+        console.log('Auth:', auth);
+        console.log('Functions:', functions);
+    </script>
+</body>
+</html>

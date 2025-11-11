@@ -39,8 +39,20 @@ service cloud.firestore {
       allow read: if isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Coleção de produtos master Rennova (global, sem tenant)
+    match /master_products/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isSystemAdmin();
+    }
+
     // Coleção de produtos master (apenas system_admin pode escrever)
     match /produtos_master/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isSystemAdmin();
+    }
+
+    // Coleção de produtos Rennova (apenas system_admin pode escrever)
+    match /products/{productId} {
       allow read: if isAuthenticated();
       allow write: if isSystemAdmin();
     }
@@ -49,11 +61,6 @@ service cloud.firestore {
     match /licenses/{licenseId} {
       allow read, write: if isSystemAdmin();
       allow read: if isAuthenticated() && resource.data.tenant_id == request.auth.token.tenant_id;
-    }
-
-    // Bloquear acesso a qualquer outra coleção por padrão
-    match /{document=**} {
-      allow read, write: if false;
     }
   }
 }

@@ -47,23 +47,40 @@ if (getApps().length === 0) {
 auth = getAuth(app);
 db = getFirestore(app);
 storage = getStorage(app);
-functions = getFunctions(app, "southamerica-east1"); // São Paulo
 
-// Conectar aos emuladores se estiver em desenvolvimento
-if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+// Conectar aos emuladores ANTES de criar a instância de functions
+if (typeof window !== "undefined") {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true";
+
+  console.log("🔍 Verificando emuladores:", {
+    useEmulators,
+    NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_USE_FIREBASE_EMULATORS: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS
+  });
 
   if (useEmulators) {
     try {
       connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
       connectFirestoreEmulator(db, "localhost", 8080);
       connectStorageEmulator(storage, "localhost", 9199);
+
+      // Criar functions SEM região para desenvolvimento local
+      functions = getFunctions(app);
       connectFunctionsEmulator(functions, "localhost", 5001);
-      console.log("🔥 Firebase Emulators conectados");
+
+      console.log("✅ Firebase Emulators conectados com sucesso!");
     } catch (error) {
-      console.warn("Emuladores já conectados ou erro ao conectar:", error);
+      console.warn("⚠️ Emuladores já conectados ou erro ao conectar:", error);
+      functions = getFunctions(app);
     }
+  } else {
+    // Produção: usar região southamerica-east1
+    functions = getFunctions(app, "southamerica-east1");
+    console.log("🌍 Usando Firebase Functions em produção (southamerica-east1)");
   }
+} else {
+  // Server-side: criar instância padrão
+  functions = getFunctions(app, "southamerica-east1");
 }
 
 export { app, auth, db, storage, functions };

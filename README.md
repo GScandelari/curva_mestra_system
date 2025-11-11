@@ -81,6 +81,52 @@ curva_mestra/
 └── firebase.json
 ```
 
+## ✨ Funcionalidades Implementadas
+
+### Sistema de Autenticação (100% ✅)
+- ✅ Login com email/senha
+- ✅ Registro de novos usuários
+- ✅ Recuperação de senha
+- ✅ Proteção de rotas baseada em roles
+- ✅ Custom Claims (tenant_id, role, is_system_admin)
+- ✅ Página de aguardo de aprovação
+
+### Portal System Admin (98% ✅)
+- ✅ Dashboard com métricas do sistema
+- ✅ CRUD completo de clínicas
+- ✅ Gestão de usuários por clínica
+- ✅ **Catálogo de Produtos Master Rennova**
+- ✅ Criação e edição de produtos do catálogo
+- ✅ Ativação/Desativação de produtos e clínicas
+- ✅ Sistema de planos (Basic, Professional, Enterprise)
+- ✅ Perfil do administrador
+
+### Portal Clinic Admin (90% ✅)
+- ✅ Dashboard com métricas em tempo real
+- ✅ Sistema completo de inventário
+- ✅ Upload de DANFE (Nota Fiscal Eletrônica)
+- ✅ Alertas de vencimento de produtos
+- ✅ Filtros inteligentes (vencendo, estoque baixo, esgotado)
+- ✅ Busca em tempo real por código, nome, lote
+- ✅ Exportação de dados em CSV
+- ✅ Perfil do usuário da clínica
+
+### Gestão de Produtos
+- ✅ Catálogo Master centralizado (sem multi-tenant)
+- ✅ Validação de código único
+- ✅ Soft delete (ativação/desativação)
+- ✅ Busca e filtros em tempo real
+- ✅ Inventário por clínica com rastreamento completo
+
+### Gestão de Usuários
+- ✅ Criação de usuários por clínica
+- ✅ Limite de usuários baseado no plano
+- ✅ Roles (clinic_admin, clinic_user, system_admin)
+- ✅ Integração com Firebase Auth
+
+**📋 Veja [FEATURES.md](./FEATURES.md) para documentação completa (atualizada em 11/11/2025)**
+**📝 Veja [CHANGELOG.md](./CHANGELOG.md) para histórico de versões**
+
 ## 🔐 Multi-Tenant (CRÍTICO)
 
 **TODAS** as operações Firestore e Storage devem incluir `tenant_id`.
@@ -157,9 +203,27 @@ firebase functions:log
 
 ## 📚 Documentação
 
+- [FEATURES.md](./FEATURES.md) - **Funcionalidades implementadas** (✅ atualizado em 11/11/2025)
+- [CHANGELOG.md](./CHANGELOG.md) - **Histórico de versões** (✅ v0.3.0 - 11/11/2025)
+- [INITIAL.md](./INITIAL.md) - Configuração inicial do projeto
 - [CLAUDE.md](./CLAUDE.md) - Regras completas do projeto
 - [Firebase Console](https://console.firebase.google.com/project/curva-mestra)
 - [Next.js 15 Docs](https://nextjs.org/docs)
+
+## 📊 Status do Projeto
+
+**Versão Atual**: 0.3.0
+**Progresso Geral**: 80% Completo
+**Páginas**: 20
+**Serviços**: 7
+**Linhas de código**: ~8.000+
+
+**Sistema de Autenticação**: ✅ 100%
+**Portal System Admin**: ✅ 98%
+**Portal Clinic Admin**: ✅ 90%
+**Sistema de Inventário**: ✅ 100%
+**Sistema de Upload**: ✅ 85% (falta OCR real)
+**Sistema de Solicitações**: ⏳ 0%
 
 ## 🤝 Contribuição
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,12 +11,82 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users, Building2, CreditCard, LogOut } from "lucide-react";
+import { Users, Building2, CreditCard, LogOut, UserCog, Package } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+interface DashboardStats {
+  totalTenants: number;
+  activeTenants: number;
+  totalUsers: number;
+  activeUsers: number;
+  planCounts: {
+    basic: number;
+    professional: number;
+    enterprise: number;
+  };
+}
 
 export default function SystemAdminDashboard() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalTenants: 0,
+    activeTenants: 0,
+    totalUsers: 0,
+    activeUsers: 0,
+    planCounts: { basic: 0, professional: 0, enterprise: 0 }
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboardStats();
+  }, []);
+
+  const loadDashboardStats = async () => {
+    try {
+      setLoading(true);
+
+      // Buscar tenants
+      const tenantsSnapshot = await getDocs(collection(db, "tenants"));
+      const tenants = tenantsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      const totalTenants = tenants.length;
+      const activeTenants = tenants.filter((t: any) => t.active).length;
+
+      // Contar planos
+      const planCounts = {
+        basic: tenants.filter((t: any) => t.plan_id === 'basic').length,
+        professional: tenants.filter((t: any) => t.plan_id === 'professional').length,
+        enterprise: tenants.filter((t: any) => t.plan_id === 'enterprise').length
+      };
+
+      // Buscar usuários de todos os tenants
+      let totalUsers = 0;
+      let activeUsers = 0;
+
+      for (const tenant of tenants) {
+        const usersSnapshot = await getDocs(
+          collection(db, "tenants", tenant.id, "users")
+        );
+        totalUsers += usersSnapshot.size;
+        activeUsers += usersSnapshot.docs.filter((doc: any) => doc.data().active).length;
+      }
+
+      setStats({
+        totalTenants,
+        activeTenants,
+        totalUsers,
+        activeUsers,
+        planCounts
+      });
+    } catch (error) {
+      console.error("Erro ao carregar estatísticas:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -54,7 +125,7 @@ export default function SystemAdminDashboard() {
                 Bem-vindo de volta!
               </h2>
               <p className="text-muted-foreground">
-                Gerencie tenants, licenças e produtos master
+                Gerencie clínicas, licenças e produtos master
               </p>
             </div>
 
@@ -68,9 +139,11 @@ export default function SystemAdminDashboard() {
                   <Building2 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">1</div>
+                  <div className="text-2xl font-bold">
+                    {loading ? "..." : stats.totalTenants}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Clínicas ativas
+                    {stats.activeTenants} ativas
                   </p>
                 </CardContent>
               </Card>
@@ -78,14 +151,16 @@ export default function SystemAdminDashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Licenças Ativas
+                    Licenças por Plano
                   </CardTitle>
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">1</div>
+                  <div className="text-2xl font-bold">
+                    {loading ? "..." : stats.activeTenants}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Professional plan
+                    {stats.planCounts.basic} Basic · {stats.planCounts.professional} Pro · {stats.planCounts.enterprise} Ent
                   </p>
                 </CardContent>
               </Card>
@@ -98,9 +173,11 @@ export default function SystemAdminDashboard() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">2</div>
+                  <div className="text-2xl font-bold">
+                    {loading ? "..." : stats.totalUsers}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Usuários ativos
+                    {stats.activeUsers} ativos
                   </p>
                 </CardContent>
               </Card>
@@ -115,21 +192,33 @@ export default function SystemAdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Button variant="outline" className="h-auto flex-col py-4">
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4"
+                  onClick={() => router.push("/admin/tenants")}
+                >
                   <Building2 className="h-6 w-6 mb-2" />
-                  <span>Gerenciar Tenants</span>
+                  <span>Gerenciar Clínicas</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4"
+                  onClick={() => router.push("/admin/users")}
+                >
+                  <UserCog className="h-6 w-6 mb-2" />
+                  <span>Gerenciar Usuários</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4"
+                  onClick={() => router.push("/admin/products")}
+                >
+                  <Package className="h-6 w-6 mb-2" />
+                  <span>Gerenciar Produtos</span>
                 </Button>
                 <Button variant="outline" className="h-auto flex-col py-4">
                   <CreditCard className="h-6 w-6 mb-2" />
                   <span>Gerenciar Licenças</span>
-                </Button>
-                <Button variant="outline" className="h-auto flex-col py-4">
-                  <Users className="h-6 w-6 mb-2" />
-                  <span>Produtos Master</span>
-                </Button>
-                <Button variant="outline" className="h-auto flex-col py-4">
-                  <Users className="h-6 w-6 mb-2" />
-                  <span>Relatórios</span>
                 </Button>
               </CardContent>
             </Card>

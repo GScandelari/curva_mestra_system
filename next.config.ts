@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export", // Static export para Firebase Hosting
+  // Configuração para Next.js com Firebase
+  // Removido output: "export" porque temos páginas dinâmicas [id]
+  // Para produção, usar Firebase Functions com Next.js standalone
+
   images: {
-    unoptimized: true, // Necessário para static export
+    unoptimized: true,
   },
-  // Configurar trailing slash para melhor compatibilidade
-  trailingSlash: true,
 };
 
 export default nextConfig;

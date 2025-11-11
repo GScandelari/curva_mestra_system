@@ -2,16 +2,17 @@ import * as admin from "firebase-admin";
 import {onRequest} from "firebase-functions/v2/https";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
-import {setGlobalOptions} from "firebase-functions/v2";
+// import {setGlobalOptions} from "firebase-functions/v2";
 
 // Inicializar Firebase Admin
 admin.initializeApp();
 
 // Configurações globais para Functions 2nd gen
-setGlobalOptions({
-  region: "southamerica-east1", // São Paulo
-  maxInstances: 10,
-});
+// Comentado temporariamente para debug no emulator
+// setGlobalOptions({
+//   region: "southamerica-east1", // São Paulo
+//   maxInstances: 10,
+// });
 
 /**
  * Middleware para verificar autenticação e tenant
@@ -91,6 +92,149 @@ export const createTenant = onCall(async (request) => {
   });
 
   return {tenantId, message: "Tenant criado com sucesso"};
+});
+
+/**
+ * Atualizar tenant existente (apenas system_admin)
+ */
+export const updateTenant = onCall(async (request) => {
+  const auth = getAuthContext(request);
+
+  if (!auth.isSystemAdmin) {
+    throw new HttpsError(
+      "permission-denied",
+      "Apenas system_admin pode atualizar tenants"
+    );
+  }
+
+  const {tenantId, name, cnpj, email, phone, address, planId, active} = request.data;
+
+  if (!tenantId) {
+    throw new HttpsError("invalid-argument", "tenantId é obrigatório");
+  }
+
+  const updateData: any = {
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (name !== undefined) updateData.name = name;
+  if (cnpj !== undefined) updateData.cnpj = cnpj;
+  if (email !== undefined) updateData.email = email;
+  if (phone !== undefined) updateData.phone = phone;
+  if (address !== undefined) updateData.address = address;
+  if (planId !== undefined) updateData.plan_id = planId;
+  if (active !== undefined) updateData.active = active;
+
+  await admin.firestore().collection("tenants").doc(tenantId).update(updateData);
+
+  return {tenantId, message: "Tenant atualizado com sucesso"};
+});
+
+/**
+ * Listar todos os tenants (apenas system_admin)
+ */
+export const listTenants = onCall(async (request) => {
+  const auth = getAuthContext(request);
+
+  if (!auth.isSystemAdmin) {
+    throw new HttpsError(
+      "permission-denied",
+      "Apenas system_admin pode listar tenants"
+    );
+  }
+
+  const {limit = 50, activeOnly = false} = request.data;
+
+  let query = admin.firestore().collection("tenants").orderBy("created_at", "desc").limit(limit);
+
+  if (activeOnly) {
+    query = query.where("active", "==", true) as any;
+  }
+
+  const snapshot = await query.get();
+
+  const tenants = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  return {tenants, count: tenants.length};
+});
+
+/**
+ * Obter detalhes de um tenant específico (system_admin ou usuários do tenant)
+ */
+export const getTenant = onCall(async (request) => {
+  const auth = getAuthContext(request);
+  const {tenantId} = request.data;
+
+  if (!tenantId) {
+    throw new HttpsError("invalid-argument", "tenantId é obrigatório");
+  }
+
+  // System admin pode ver qualquer tenant, usuários normais só o próprio
+  if (!auth.isSystemAdmin && auth.tenantId !== tenantId) {
+    throw new HttpsError(
+      "permission-denied",
+      "Você não tem permissão para acessar este tenant"
+    );
+  }
+
+  const doc = await admin.firestore().collection("tenants").doc(tenantId).get();
+
+  if (!doc.exists) {
+    throw new HttpsError("not-found", "Tenant não encontrado");
+  }
+
+  return {
+    tenant: {
+      id: doc.id,
+      ...doc.data(),
+    },
+  };
+});
+
+/**
+ * Desativar tenant (soft delete - apenas system_admin)
+ */
+export const deactivateTenant = onCall(async (request) => {
+  const auth = getAuthContext(request);
+
+  if (!auth.isSystemAdmin) {
+    throw new HttpsError(
+      "permission-denied",
+      "Apenas system_admin pode desativar tenants"
+    );
+  }
+
+  const {tenantId} = request.data;
+
+  if (!tenantId) {
+    throw new HttpsError("invalid-argument", "tenantId é obrigatório");
+  }
+
+  await admin.firestore().collection("tenants").doc(tenantId).update({
+    active: false,
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // Também desativar todos os usuários do tenant
+  const usersSnapshot = await admin.firestore()
+    .collection("tenants")
+    .doc(tenantId)
+    .collection("users")
+    .get();
+
+  const batch = admin.firestore().batch();
+  usersSnapshot.docs.forEach((doc) => {
+    batch.update(doc.ref, {
+      active: false,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+  await batch.commit();
+
+  return {tenantId, message: "Tenant desativado com sucesso"};
 });
 
 /**
