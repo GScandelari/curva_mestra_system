@@ -461,24 +461,13 @@ export default function UploadPage() {
                     <Button
                       onClick={handleConfirmImport}
                       className="flex-1 bg-blue-600 hover:bg-blue-700"
-                      disabled={uploadStatus === "confirming"}
                     >
-                      {uploadStatus === "confirming" ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Adicionando ao Estoque...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Confirmar e Adicionar ao Estoque
-                        </>
-                      )}
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Confirmar e Adicionar ao Estoque
                     </Button>
                     <Button
                       variant="outline"
                       onClick={resetUpload}
-                      disabled={uploadStatus === "confirming"}
                     >
                       Cancelar
                     </Button>
