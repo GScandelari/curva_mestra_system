@@ -38,6 +38,8 @@ import {
   type InventoryItem,
 } from "@/lib/services/inventoryService";
 
+export const dynamic = 'force-dynamic';
+
 export default function InventoryPage() {
   const { claims } = useAuth();
   const router = useRouter();
