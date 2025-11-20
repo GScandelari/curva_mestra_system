@@ -1,0 +1,16 @@
+Ao criar uma solicitação:
+ - Se a data do procedimento for anterior a data atual, a solicitação deve ser considerada como "aprovada" e o produto deve ser consulmido na quantidade do estoque atual.
+ - Se a data do procedimento for a data atual, a solicitação deve ser considerada como "aprovada" e o produto deve ser consulmido na quantidade do estoque atual.
+ - Se a data do procedimento for futura a data atual, a solicitação deve ser considerada como "agendada" e o produto deve ser considerado como "reservado" na quantidade do estoque.
+
+Devemos implemente o fluxo de aprovação. 
+
+  1. Função updateSolicitacaoStatus() no serviço
+  2. Botões de ação na tela de detalhes:
+    - "Aprovar Solicitação"
+    - "Reprovar Solicitação"
+    - "Cancelar Solicitação"
+  3. Permissões (apenas clinic_admin pode aprovar/reprovar)
+  4. Histórico de mudanças de status (auditoria)
+
+Devemos ter a opção de editar a solicitação, tanto os produtos a serem utilizados quanto a data do procedimento (considerando casos de antecipação do procedimento).

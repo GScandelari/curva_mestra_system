@@ -68,7 +68,7 @@ async function setupCompleteEnvironment() {
     const bella1AdminUser = await auth.createUser({
       email: 'admin@bellavita.com',
       password: 'bella123',
-      displayName: 'Dr. João Silva',
+      displayName: 'Dr. Guilherme Scandelari',
       emailVerified: true,
     });
 
@@ -82,7 +82,7 @@ async function setupCompleteEnvironment() {
     await db.collection('tenants').doc(tenant1Id).collection('users').doc(bella1AdminUser.uid).set({
       uid: bella1AdminUser.uid,
       email: 'admin@bellavita.com',
-      displayName: 'Dr. João Silva',
+      displayName: 'Dr. Guilherme Scandelari',
       role: 'clinic_admin',
       active: true,
       created_at: admin.firestore.FieldValue.serverTimestamp(),

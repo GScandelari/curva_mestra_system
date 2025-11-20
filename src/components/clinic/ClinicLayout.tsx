@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Toaster } from "@/components/ui/toaster";
 
 interface ClinicLayoutProps {
   children: ReactNode;
@@ -118,6 +119,9 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
 
       {/* Main Content */}
       <main>{children}</main>
+
+      {/* Toast Notifications */}
+      <Toaster />
     </div>
   );
 }

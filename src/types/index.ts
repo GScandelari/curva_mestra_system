@@ -112,6 +112,7 @@ export interface InventoryItem {
   lote: string;
   quantidade_inicial: number;
   quantidade_disponivel: number;
+  quantidade_reservada: number; // Quantidade reservada para procedimentos agendados
   dt_validade: string; // formato: DD/MM/YYYY
   valor_unitario: number;
   nf_id: string;
@@ -131,28 +132,39 @@ export type SolicitacaoStatus =
   | "reprovada"
   | "cancelada";
 
+export interface StatusHistoryEntry {
+  status: SolicitacaoStatus;
+  changed_by: string; // UID do usuário
+  changed_by_name: string; // Nome do usuário
+  changed_at: Timestamp;
+  observacao?: string; // Motivo da mudança (ex: "Procedimento realizado", "Paciente cancelou")
+}
+
 export interface Solicitacao {
   id: string;
   tenant_id: string;
+  paciente_codigo: string; // Código único do paciente (obrigatório)
   paciente_nome: string;
-  paciente_id?: string;
-  procedimento: string;
-  data_agendamento?: Timestamp;
+  dt_procedimento: Timestamp; // Data do procedimento (obrigatório)
   produtos_solicitados: ProdutoSolicitado[];
   status: SolicitacaoStatus;
+  status_history?: StatusHistoryEntry[]; // Histórico de mudanças de status
   observacoes?: string;
-  created_by: string;
+  created_by: string; // UID do usuário que criou
+  created_by_name?: string; // Nome do usuário que criou
   updated_by?: string;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
 
 export interface ProdutoSolicitado {
+  inventory_item_id: string; // ID do item no inventário (obrigatório para consumo)
   produto_codigo: string;
   produto_nome: string;
-  quantidade: number;
-  lote?: string;
-  inventory_item_id?: string;
+  lote: string;
+  quantidade: number; // Quantidade consumida
+  quantidade_disponivel_antes: number; // Para auditoria
+  valor_unitario: number; // Valor no momento do consumo
 }
 
 // ============================================================================

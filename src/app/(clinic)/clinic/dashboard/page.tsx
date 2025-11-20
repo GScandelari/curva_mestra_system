@@ -25,6 +25,7 @@ import {
   Calendar,
   Clock,
   DollarSign,
+  Edit,
 } from "lucide-react";
 import {
   getInventoryStats,
@@ -254,14 +255,24 @@ export default function ClinicDashboard() {
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {isAdmin && (
-                  <Button
-                    variant="outline"
-                    className="h-auto flex-col py-6 gap-2"
-                    onClick={() => router.push("/clinic/upload")}
-                  >
-                    <Upload className="h-6 w-6" />
-                    <span>Upload DANFE</span>
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      className="h-auto flex-col py-6 gap-2"
+                      onClick={() => router.push("/clinic/upload")}
+                    >
+                      <Upload className="h-6 w-6" />
+                      <span>Upload DANFE</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-auto flex-col py-6 gap-2"
+                      onClick={() => router.push("/clinic/add-products")}
+                    >
+                      <Edit className="h-6 w-6" />
+                      <span>Adicionar Produtos</span>
+                    </Button>
+                  </>
                 )}
                 <Button
                   variant="outline"

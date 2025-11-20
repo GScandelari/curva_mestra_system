@@ -72,6 +72,23 @@ export default function UploadPage() {
     );
   }
 
+  // Função para extrair número da NF da chave de acesso
+  const extractNFNumber = (input: string): string => {
+    // Remove espaços e hífens
+    const clean = input.replace(/[\s-]/g, '');
+
+    // Se for a chave de acesso completa (44 dígitos)
+    if (clean.length === 44) {
+      // Número da NF está nas posições 25-33 (9 dígitos)
+      const nfNumber = clean.substring(25, 34);
+      // Remove zeros à esquerda
+      return parseInt(nfNumber, 10).toString();
+    }
+
+    // Se for um número curto, usa direto
+    return clean;
+  };
+
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     setError("");
@@ -129,33 +146,50 @@ export default function UploadPage() {
       setImportId(newImportId);
       setUploadStatus("processing");
 
-      // 3. Simular processamento OCR
-      // TODO: Substituir por chamada real ao OCR quando implementado
-      await simulateOCRProcessing();
+      // 3. Processar PDF usando a API real
+      const numeroNFExtraido = extractNFNumber(nfNumber);
 
-      const mockParsedData: ParsedNF = {
-        numero: nfNumber,
-        produtos: [
-          {
-            codigo: "3029055",
-            nome_produto: "TORNEIRA DESCARTAVEL 3VIAS LL",
-            lote: "SCTPAB002B",
-            quantidade: 5,
-            dt_validade: "01/06/2029",
-            valor_unitario: 1.55,
-          },
-          {
-            codigo: "3029056",
-            nome_produto: "SERINGA 3ML S/AGULHA LL",
-            lote: "SYRPAB001A",
-            quantidade: 100,
-            dt_validade: "15/12/2028",
-            valor_unitario: 0.45,
-          },
-        ],
-      };
+      try {
+        // Criar FormData com o arquivo
+        const formData = new FormData();
+        formData.append('files', selectedFile);
 
-      setParsedData(mockParsedData);
+        // Chamar API de parsing
+        const response = await fetch('/api/parse-nf', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro ao processar PDF: ${response.statusText}`);
+        }
+
+        const parseResult = await response.json();
+
+        if (!parseResult.products || parseResult.products.length === 0) {
+          throw new Error('Nenhum produto foi encontrado no PDF. Verifique se o arquivo é uma DANFE Rennova válida.');
+        }
+
+        // Converter produtos extraídos para formato esperado
+        const parsedData: ParsedNF = {
+          numero: numeroNFExtraido,
+          produtos: parseResult.products.map((product: any) => ({
+            codigo: product.code,
+            nome_produto: product.name,
+            lote: product.lote || 'NÃO_INFORMADO',
+            quantidade: product.quantidade || 1,
+            dt_validade: product.dt_validade || '31/12/2099',
+            valor_unitario: product.valor_unitario || 0.00,
+          })),
+        };
+
+        setParsedData(parsedData);
+      } catch (parseError: any) {
+        console.error('Erro ao parsear PDF:', parseError);
+        setError(parseError.message || 'Erro ao processar o PDF');
+        setUploadStatus("error");
+        return;
+      }
 
       // 4. Mostrar preview para confirmação do usuário
       setUploadStatus("preview");

@@ -1,7 +1,8 @@
 # Backlog de Features 📋
 
-**Última atualização**: 08/11/2025
+**Última atualização**: 16/11/2025
 **Versão alvo**: v1.0 (MVP - 5 semanas)
+**Progresso do MVP (P0)**: ~70% concluído
 
 ---
 
@@ -32,10 +33,10 @@
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Login com Email/Senha | `S` | 🔴 | Implementar formulário de login funcional com Firebase Auth |
-| Logout | `XS` | 🔴 | Botão de logout e limpeza de sessão |
-| Proteção de rotas | `M` | 🔴 | Middleware para proteger rotas por role (system_admin, clinic_admin, clinic_user) |
-| Recuperação de senha | `S` | 🔴 | Fluxo de reset de senha via email |
+| Login com Email/Senha | `S` | 🟢 Done | Implementar formulário de login funcional com Firebase Auth |
+| Logout | `XS` | 🟢 Done | Botão de logout e limpeza de sessão |
+| Proteção de rotas | `M` | 🟢 Done | Middleware para proteger rotas por role (system_admin, clinic_admin, clinic_user) |
+| Recuperação de senha | `S` | 🟢 Done | Fluxo de reset de senha via email |
 | Validação de email | `S` | 🔴 | Envio de email de verificação após cadastro |
 
 ### P1 - Importantes
@@ -44,7 +45,7 @@
 |---------|--------------|--------|-----------|
 | Magic Link Login | `M` | 🔴 | Login sem senha via link enviado por email |
 | 2FA (Two-Factor Auth) | `L` | 🔴 | Autenticação em dois fatores para system_admin |
-| Página de perfil | `S` | 🔴 | Editar nome, avatar, senha |
+| Página de perfil | `S` | 🟡 Parcial | Visualização implementada, edição pendente |
 | Avatar upload | `S` | 🔴 | Upload de foto de perfil para Storage |
 
 ### P2 - Nice to Have
@@ -63,20 +64,20 @@
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Dashboard System Admin | `M` | 🔴 | Visão geral: total de tenants, licenças ativas, usuários |
-| CRUD de Tenants | `L` | 🔴 | Criar, editar, visualizar, desativar tenants |
+| Dashboard System Admin | `M` | 🟢 Done | Visão geral: total de tenants, licenças ativas, usuários |
+| CRUD de Tenants | `L` | 🟢 Done | Criar, editar, visualizar, desativar tenants |
 | CRUD de Licenças | `M` | 🔴 | Criar, editar, visualizar licenças |
-| Associar licença a tenant | `S` | 🔴 | Vincular uma licença a um tenant específico |
-| Visualizar todos os tenants | `S` | 🔴 | Listagem paginada de tenants com filtros |
-| CRUD Produtos Master | `L` | 🔴 | Cadastro de produtos Rennova no catálogo master |
+| Associar licença a tenant | `S` | 🟡 Parcial | Sistema de planos implementado, mas não há gestão de licenças temporais |
+| Visualizar todos os tenants | `S` | 🟢 Done | Listagem paginada de tenants com filtros |
+| CRUD Produtos Master | `L` | 🟢 Done | Cadastro de produtos Rennova no catálogo master |
 
 ### P1 - Importantes
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Métricas globais | `M` | 🔴 | Total de NFs importadas, produtos cadastrados, alertas ativos |
+| Métricas globais | `M` | 🟡 Parcial | Dashboard tem estatísticas básicas, falta métricas avançadas |
 | Logs de atividades | `M` | 🔴 | Auditoria de ações de system_admin |
-| Gerenciar usuários de tenants | `M` | 🔴 | Criar/editar/desativar usuários de qualquer tenant |
+| Gerenciar usuários de tenants | `M` | 🟢 Done | Criar/editar/desativar usuários de qualquer tenant |
 | Suporte a tickets | `L` | 🔴 | Sistema de tickets para suporte aos tenants |
 | Notificações para tenants | `M` | 🔴 | Enviar avisos para tenants específicos |
 
@@ -96,11 +97,11 @@
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Dashboard Clinic | `L` | 🔴 | Visão geral: total produtos, vencimentos, solicitações pendentes |
-| Upload de DANFE (PDF) | `M` | 🔴 | Interface para upload de NF-e Rennova em PDF |
-| Visualizar inventário | `M` | 🔴 | Listagem de produtos com filtros (lote, validade, quantidade) |
-| Buscar produto no inventário | `S` | 🔴 | Search bar para buscar por código, nome, lote |
-| Alertas de vencimento | `M` | 🔴 | Notificações de produtos próximos ao vencimento (30 dias) |
+| Dashboard Clinic | `L` | 🟢 Done | Visão geral: total produtos, vencimentos, solicitações pendentes |
+| Upload de DANFE (PDF) | `M` | 🟡 Parcial | Interface completa, mas OCR simulado (85% - falta integração real) |
+| Visualizar inventário | `M` | 🟢 Done | Listagem de produtos com filtros (lote, validade, quantidade) |
+| Buscar produto no inventário | `S` | 🟢 Done | Search bar para buscar por código, nome, lote |
+| Alertas de vencimento | `M` | 🟢 Done | Notificações de produtos próximos ao vencimento (30 dias) |
 | Criar solicitação de produtos | `L` | 🔴 | Formulário para criar solicitação de consumo de produtos |
 
 ### P1 - Importantes
@@ -120,8 +121,8 @@
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
 | Relatório de consumo | `L` | 🔴 | Relatório de produtos consumidos por período |
-| Exportar inventário | `S` | 🔴 | Exportar inventário para Excel/CSV |
-| Histórico de movimentações | `M` | 🔴 | Log de entradas/saídas de produtos |
+| Exportar inventário | `S` | 🟢 Done | Exportar inventário para Excel/CSV |
+| Histórico de movimentações | `M` | 🟡 Parcial | Collection existe e é exibida, mas triggers não populam automaticamente |
 | Configurações da clínica | `S` | 🔴 | Editar nome, CNPJ, logo, etc |
 | Dashboard por profissional | `L` | 🔴 | Métricas de consumo por profissional |
 
@@ -133,21 +134,21 @@
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Trigger automático no upload | `S` | 🔴 | Cloud Function disparada ao upload de PDF |
-| OCR com pytesseract | `M` | 🔴 | Extração de texto do PDF com pytesseract + pdf2image |
-| Parser RegEx v4.0 | `S` | 🔴 | Aplicar RegEx para extrair produtos, lotes, validades |
-| Salvar produtos no Firestore | `M` | 🔴 | Inserir produtos extraídos no `inventory` do tenant |
-| Status de processamento | `S` | 🔴 | Atualizar status da NF: pending, processing, success, error |
+| Trigger automático no upload | `S` | 🟡 Parcial | Estrutura preparada, mas não integrada com OCR real |
+| OCR com pytesseract | `M` | 🟡 Parcial | Script Python implementado, falta integração + dependências |
+| Parser RegEx v4.0 | `S` | 🟢 Done | RegEx implementado em ocr-rennova.py (LOT, QTD, VAL, COD, VALOR) |
+| Salvar produtos no Firestore | `M` | 🟡 Parcial | Service implementado, mas usa mock data |
+| Status de processamento | `S` | 🟢 Done | Atualizar status da NF: pending, processing, success, error |
 | Validação de produtos novos | `M` | 🔴 | Se produto não existe no catálogo master, marcar como "novo_produto_pendente" |
 
 ### P1 - Importantes
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Fallback Vertex AI Gemini | `L` | 🔴 | Se pytesseract falhar, usar Gemini 1.5 Flash para OCR |
+| Fallback Vertex AI Gemini | `L` | 🟡 Parcial | Estrutura preparada em ocr-rennova.py, falta implementação |
 | Teste com NF-e 026229 | `S` | 🔴 | Validar 100% de acurácia com a NF de referência |
 | Detecção de duplicatas | `M` | 🔴 | Impedir importação de NF já processada (mesmo número) |
-| Preview de extração | `M` | 🔴 | Mostrar produtos extraídos antes de confirmar importação |
+| Preview de extração | `M` | 🟢 Done | Interface implementada no fluxo de upload |
 | Correção manual de erros | `M` | 🔴 | Interface para corrigir produtos extraídos incorretamente |
 
 ### P2 - Nice to Have
@@ -166,19 +167,19 @@
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Total de produtos no estoque | `XS` | 🔴 | Card com total de produtos em estoque |
-| Produtos vencendo em 30 dias | `S` | 🔴 | Card com alertas de vencimento |
-| Solicitações pendentes | `XS` | 🔴 | Card com total de solicitações aguardando aprovação |
+| Total de produtos no estoque | `XS` | 🟢 Done | Card com total de produtos em estoque |
+| Produtos vencendo em 30 dias | `S` | 🟢 Done | Card com alertas de vencimento |
+| Solicitações pendentes | `XS` | 🟡 Parcial | Card preparado, falta implementar sistema de solicitações |
 | Gráfico de vencimentos | `M` | 🔴 | Gráfico mostrando produtos por data de vencimento |
 
 ### P1 - Importantes
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Produtos com estoque baixo | `S` | 🔴 | Alerta para produtos com quantidade < X |
+| Produtos com estoque baixo | `S` | 🟢 Done | Alerta para produtos com quantidade < X |
 | Histórico de importações | `S` | 🔴 | Gráfico de NFs importadas por mês |
 | Top 10 produtos mais usados | `M` | 🔴 | Ranking de produtos mais consumidos |
-| Valor total do estoque | `S` | 🔴 | Somatório do valor total em R$ |
+| Valor total do estoque | `S` | 🟢 Done | Somatório do valor total em R$ |
 
 ### P2 - Nice to Have
 
@@ -186,7 +187,7 @@
 |---------|--------------|--------|-----------|
 | Relatórios personalizados | `L` | 🔴 | Criar relatórios customizados com filtros |
 | Exportar relatórios PDF | `M` | 🔴 | Gerar PDF de relatórios |
-| Dashboard em tempo real | `M` | 🔴 | Atualização automática com Firestore Realtime |
+| Dashboard em tempo real | `M` | 🟡 Parcial | Usa Firestore, mas não tem realtime listeners |
 | Comparativo mensal | `M` | 🔴 | Comparar consumo mês a mês |
 
 ---
@@ -197,15 +198,15 @@
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Alerta de vencimento (30 dias) | `M` | 🔴 | Notificação in-app quando produto está próximo do vencimento |
-| Alerta de produto vencido | `S` | 🔴 | Notificação quando produto venceu |
+| Alerta de vencimento (30 dias) | `M` | 🟡 Parcial | Exibido in-app no dashboard, falta notificações automáticas |
+| Alerta de produto vencido | `S` | 🟡 Parcial | Badge de "vencido" implementado, falta notificação ativa |
 
 ### P1 - Importantes
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
 | Email de alertas | `M` | 🔴 | Enviar email com Firebase Extensions (Trigger Email) |
-| Alerta de estoque baixo | `M` | 🔴 | Notificação quando estoque < limite configurado |
+| Alerta de estoque baixo | `M` | 🟡 Parcial | Exibido in-app no dashboard, falta notificações automáticas |
 | Notificação de nova solicitação | `S` | 🔴 | Admin recebe notificação quando há nova solicitação |
 | Configurar preferências | `M` | 🔴 | Usuário escolhe quais notificações quer receber |
 
@@ -225,16 +226,16 @@
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
-| Controle de lotes | `M` | 🔴 | Rastrear produtos por lote (entrada via DANFE) |
-| FIFO automático | `M` | 🔴 | Consumir produtos seguindo First In, First Out |
-| Visualizar por lote | `S` | 🔴 | Filtrar inventário por lote específico |
+| Controle de lotes | `M` | 🟢 Done | Rastrear produtos por lote (entrada via DANFE) |
+| FIFO automático | `M` | 🟡 Parcial | Estrutura preparada, mas não há consumo real ainda |
+| Visualizar por lote | `S` | 🟢 Done | Filtrar inventário por lote específico (busca implementada) |
 
 ### P1 - Importantes
 
 | Feature | Complexidade | Status | Descrição |
 |---------|--------------|--------|-----------|
 | Histórico de lotes | `M` | 🔴 | Ver todos os lotes já utilizados de um produto |
-| Bloquear lote vencido | `S` | 🔴 | Impedir consumo de produtos com lote vencido |
+| Bloquear lote vencido | `S` | 🟡 Parcial | Badge visual implementado, falta bloqueio em consumo |
 | Transferir entre lotes | `M` | 🔴 | Mover quantidade de um lote para outro (ajuste) |
 
 ### P2 - Nice to Have
@@ -338,19 +339,53 @@
 
 ## 📈 Resumo do Backlog
 
-| Prioridade | Total Features | Horas Estimadas |
-|------------|----------------|-----------------|
-| P0         | 42             | ~420h (~10 semanas) |
-| P1         | 48             | ~480h (~12 semanas) |
-| P2         | 35             | ~350h (~9 semanas) |
-| **TOTAL**  | **125**        | **~1250h (~31 semanas)** |
+| Prioridade | Total Features | Concluídas (🟢) | Parciais (🟡) | Pendentes (🔴) | % Completo |
+|------------|----------------|-----------------|---------------|----------------|------------|
+| P0         | 42             | 25              | 10            | 7              | **70%**    |
+| P1         | 48             | 4               | 6             | 38             | **12%**    |
+| P2         | 35             | 2               | 2             | 31             | **8%**     |
+| **TOTAL**  | **125**        | **31**          | **18**        | **76**         | **35%**    |
 
-**MVP (P0 apenas)**: ~10 semanas de desenvolvimento (2 devs = 5 semanas)
+### Horas Estimadas
+
+| Prioridade | Total Horas | Concluído | Pendente |
+|------------|-------------|-----------|----------|
+| P0         | ~420h       | ~294h     | ~126h    |
+| P1         | ~480h       | ~58h      | ~422h    |
+| P2         | ~350h       | ~28h      | ~322h    |
+| **TOTAL**  | **~1250h**  | **~380h** | **~870h**|
+
+**MVP (P0 restante)**: ~126h (~3 semanas com 2 devs, ~16 dias de trabalho)
+
+---
+
+## 🎯 Próximas Prioridades (P0 Restante)
+
+### Crítico - Semana 3 (Atual)
+1. ✅ **Integrar OCR real** - Conectar pytesseract com upload (M - 12h)
+2. ✅ **Validação contra catálogo master** - Marcar produtos novos (M - 6h)
+3. ✅ **Teste com NF-e 026229** - Validar 100% acurácia (S - 4h)
+
+### Crítico - Semana 4
+4. **Sistema de solicitações completo** (XL - ~40h)
+   - Criar solicitação (L - 16h)
+   - Aprovar/reprovar (M - 12h)
+   - Visualizar e filtrar (S - 8h)
+   - Histórico (S - 4h)
+
+### Crítico - Semana 5
+5. **Validação de email** - Envio automático (S - 4h)
+6. **Gráfico de vencimentos** - Dashboard analytics (M - 8h)
+7. **Histórico de NFs importadas** - Lista completa (S - 4h)
+8. **Detecção de duplicatas** - Impedir NF duplicada (M - 6h)
 
 ---
 
 **Observações**:
+- **70% do MVP (P0) está concluído** 🎉
+- Principais bloqueadores:
+  1. OCR real (integração Python + Cloud Functions)
+  2. Sistema de solicitações (feature principal faltando)
 - Estimativas são aproximadas e podem variar
 - Algumas features podem ser desenvolvidas em paralelo
-- Priorizar P0 para entregar MVP em 5 semanas
 - P1 e P2 são features pós-MVP

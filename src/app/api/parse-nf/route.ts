@@ -7,16 +7,48 @@ export const dynamic = 'force-dynamic';
 interface ExtractedProduct {
   code: string;
   name: string;
+  lote?: string;
+  quantidade?: number;
+  dt_validade?: string;
+  valor_unitario?: number;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Importar pdf-parse dinamicamente usando require
-    const pdfParse = require('pdf-parse');
-
     console.log('📄 Iniciando processamento de PDFs...');
-    console.log('📦 Tipo do pdf-parse:', typeof pdfParse);
-    console.log('📦 pdfParse.default existe?', typeof pdfParse.default);
+
+    // Importar pdf-parse - debugging completo
+    let pdfParse: any;
+    const pdfParseModule = require('pdf-parse');
+
+    console.log('📦 Tipo do módulo:', typeof pdfParseModule);
+    console.log('📦 Keys do módulo:', Object.keys(pdfParseModule));
+    console.log('📦 Tem default?', 'default' in pdfParseModule);
+    console.log('📦 Tipo do default:', typeof pdfParseModule.default);
+
+    // Tentar acessar de várias formas
+    if (typeof pdfParseModule === 'function') {
+      pdfParse = pdfParseModule;
+      console.log('✅ Módulo é a função');
+    } else if (typeof pdfParseModule.default === 'function') {
+      pdfParse = pdfParseModule.default;
+      console.log('✅ default é a função');
+    } else if (pdfParseModule.constructor && typeof pdfParseModule.constructor === 'function') {
+      pdfParse = pdfParseModule.constructor;
+      console.log('✅ constructor é a função');
+    } else {
+      // Tentar pegar a primeira key que seja função
+      for (const key of Object.keys(pdfParseModule)) {
+        if (typeof pdfParseModule[key] === 'function') {
+          pdfParse = pdfParseModule[key];
+          console.log(`✅ Encontrada função em: ${key}`);
+          break;
+        }
+      }
+    }
+
+    console.log('📦 pdfParse final - tipo:', typeof pdfParse);
+    console.log('📦 pdfParse final - é função?', typeof pdfParse === 'function');
 
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
@@ -43,8 +75,6 @@ export async function POST(request: NextRequest) {
 
       try {
         console.log('   🔄 Chamando pdf-parse...');
-        console.log('   📦 typeof pdfParse:', typeof pdfParse);
-        console.log('   📦 pdfParse é função?', typeof pdfParse === 'function');
 
         const data = await pdfParse(buffer);
         console.log('   📦 Dados retornados:', typeof data);
@@ -101,9 +131,12 @@ function extractProductsFromText(text: string): ExtractedProduct[] {
   const lines = text.split("\n");
   console.log(`\n   🔧 extractProductsFromText - Total de linhas: ${lines.length}`);
 
-  // Regex para identificar código do produto (7-8 dígitos no início da linha)
-  const codeRegex = /^(\d{7,8})\s+(.+)/;
-  console.log(`   🔧 Regex pattern: ${codeRegex}`);
+  // Regex conforme especificação Rennova no CLAUDE.md
+  const codeRegex = /^(\d{7,8})\s+(.+)/; // Código do produto no início da linha
+  const lotRegex = /Lt:\s*([A-Z0-9\-]+)/; // Lote
+  const qtdRegex = /Q:\s*([\d,]+)/; // Quantidade
+  const valRegex = /Dt\.\s*Val\.:\s*(\d{2}\/\d{2}\/\d{4})/; // Data de validade
+  const valorRegex = /R\$\s*([\d,.]+)/; // Valor unitário
 
   let matchCount = 0;
 
@@ -118,64 +151,114 @@ function extractProductsFromText(text: string): ExtractedProduct[] {
       const code = match[1];
       let name = match[2];
       console.log(`      Código: ${code}`);
-      console.log(`      Nome inicial: ${name.substring(0, 50)}...`);
 
-      // O nome do produto pode continuar nas próximas linhas até encontrar "Lt:" ou "Q:"
-      // Vamos coletar até encontrar esses marcadores
-      let j = i;
+      // Extrair lote, quantidade e validade da linha ou próximas linhas
+      let lote: string | undefined;
+      let quantidade: number | undefined;
+      let dt_validade: string | undefined;
+      let valor_unitario: number | undefined;
+
+      // Variável para acumular o contexto (linha atual + próximas)
+      let context = line;
+      let j = i + 1;
+
+      // Coletar mais linhas para buscar lote, quantidade e validade
+      while (j < lines.length && j < i + 10) { // Buscar nas próximas 10 linhas
+        const nextLine = lines[j].trim();
+
+        // Parar se encontrar outro código de produto
+        if (/^\d{7,8}\s/.test(nextLine)) {
+          break;
+        }
+
+        context += " " + nextLine;
+        j++;
+      }
+
+      // Extrair lote
+      const lotMatch = context.match(lotRegex);
+      if (lotMatch) {
+        lote = lotMatch[1];
+        console.log(`      Lote: ${lote}`);
+      }
+
+      // Extrair quantidade
+      const qtdMatch = context.match(qtdRegex);
+      if (qtdMatch) {
+        const qtdStr = qtdMatch[1].replace(',', '.');
+        quantidade = parseFloat(qtdStr);
+        console.log(`      Quantidade: ${quantidade}`);
+      }
+
+      // Extrair data de validade
+      const valMatch = context.match(valRegex);
+      if (valMatch) {
+        dt_validade = valMatch[1];
+        console.log(`      Validade: ${dt_validade}`);
+      }
+
+      // Extrair valor unitário
+      const valorMatch = context.match(valorRegex);
+      if (valorMatch) {
+        const valorStr = valorMatch[1].replace('.', '').replace(',', '.');
+        valor_unitario = parseFloat(valorStr);
+        console.log(`      Valor: R$ ${valor_unitario}`);
+      }
+
+      // Limpar o nome do produto
       let fullName = name;
 
-      // Limpar o nome - remover tudo após "Lt:" ou "Q:" se existir na mesma linha
-      if (fullName.includes("Lt:") || fullName.includes("Q:")) {
-        // Pegar apenas até o marcador
-        const ltIndex = fullName.indexOf("Lt:");
-        const qIndex = fullName.indexOf("Q:");
+      // Remover marcadores e dados após o nome
+      fullName = fullName
+        .replace(/Lt:.*$/, "")
+        .replace(/Q:.*$/, "")
+        .replace(/Dt\.\s*Val\..*$/, "")
+        .replace(/R\$.*$/, "")
+        .replace(/\s+/g, " ")
+        .trim();
 
-        let endIndex = fullName.length;
-        if (ltIndex !== -1) endIndex = Math.min(endIndex, ltIndex);
-        if (qIndex !== -1) endIndex = Math.min(endIndex, qIndex);
+      // Se o nome está muito curto, pode estar quebrado em várias linhas
+      // Vamos coletar as linhas até encontrar os marcadores
+      if (fullName.length < 20 && !context.includes("Lt:")) {
+        let k = i + 1;
+        while (k < lines.length && k < i + 5) {
+          const nextLine = lines[k].trim();
 
-        fullName = fullName.substring(0, endIndex).trim();
-      } else {
-        // Se não tem marcador na mesma linha, verificar próximas linhas
-        j++;
-        while (j < lines.length) {
-          const nextLine = lines[j].trim();
-
-          // Parar se encontrar marcadores de lote/quantidade
+          // Parar se encontrar marcadores
           if (nextLine.includes("Lt:") || nextLine.includes("Q:") || nextLine.includes("Dt. Val")) {
             break;
           }
 
-          // Parar se encontrar outro código de produto
+          // Parar se encontrar outro código
           if (/^\d{7,8}\s/.test(nextLine)) {
             break;
           }
 
-          // Parar se a linha estiver vazia
-          if (!nextLine) {
-            break;
+          if (nextLine && !nextLine.match(/^[A-Z]{2}\s*\d/)) { // Ignora linhas que parecem ser dados
+            fullName += " " + nextLine;
           }
-
-          // Adicionar a linha ao nome do produto
-          fullName += " " + nextLine;
-          j++;
+          k++;
         }
+
+        // Limpar novamente
+        fullName = fullName
+          .replace(/Lt:.*$/, "")
+          .replace(/Q:.*$/, "")
+          .replace(/Dt\.\s*Val\..*$/, "")
+          .replace(/R\$.*$/, "")
+          .replace(/\s+/g, " ")
+          .trim();
       }
 
-      // Limpar o nome final
-      fullName = fullName
-        .replace(/\s+/g, " ") // Normalizar espaços
-        .replace(/Lt:.*$/, "") // Remover tudo após Lt: se ainda existir
-        .replace(/Q:.*$/, "") // Remover tudo após Q: se ainda existir
-        .replace(/Dt\.\s*Val\..*$/, "") // Remover data de validade se existir
-        .trim();
-
       if (code && fullName) {
-        console.log(`      ✓ Produto adicionado: ${code} - ${fullName.substring(0, 50)}...`);
+        console.log(`      ✓ Produto completo: ${code} - ${fullName.substring(0, 50)}...`);
         products.push({
           code,
           name: fullName.toUpperCase(),
+          lote,
+          quantidade,
+          dt_validade,
+          valor_unitario,
         });
       } else {
         console.log(`      ✗ Produto ignorado (código ou nome vazio)`);

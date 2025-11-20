@@ -21,7 +21,7 @@ const products = [
   { code: '9274598', name: 'NABOTA 200U 1FR/AMP' },
   { code: '9089061', name: 'TORNEIRA DESCARTAVEL 3 VIAS SOLIDOR' },
   { code: '9192840', name: 'RENNOVA DIAMOND INTENSE C/ AGULHA TSK' },
-  { code: '3029055', name: 'TORNEIRA DESCARTAVEL 3VIAS LL' },
+  { code: '3029055', name: 'TORNEIRA DESCARTAVEL 3 VIAS LL' },
   { code: '9058322', name: 'RENNOVA ELLEVA' },
   { code: '9160508', name: 'RENNOVA ELLEVA X' },
   { code: '9252818', name: 'RENNOVA ELLEVA 150' },

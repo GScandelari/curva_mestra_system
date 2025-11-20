@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ClinicLayout } from "@/components/clinic/ClinicLayout";
@@ -40,7 +40,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export default function InventoryPage() {
+function InventoryContent() {
   const { claims } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -474,5 +474,13 @@ export default function InventoryPage() {
         </div>
       </ClinicLayout>
     </ProtectedRoute>
+  );
+}
+
+export default function InventoryPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <InventoryContent />
+    </Suspense>
   );
 }
