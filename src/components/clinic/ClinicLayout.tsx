@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 interface ClinicLayoutProps {
   children: ReactNode;
@@ -35,6 +36,7 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
     { href: "/clinic/inventory", label: "Estoque" },
     { href: "/clinic/requests", label: "Solicitações" },
     ...(isAdmin ? [{ href: "/clinic/users", label: "Usuários" }] : []),
+    ...(isAdmin ? [{ href: "/clinic/settings", label: "Configurações" }] : []),
   ];
 
   return (
@@ -66,7 +68,7 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
             </nav>
           </div>
 
-          {/* User Info e Logout */}
+          {/* User Info, Notifications e Logout */}
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium">{user?.displayName}</p>
@@ -74,6 +76,10 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
                 {isAdmin ? "Administrador" : "Usuário"}
               </p>
             </div>
+
+            {/* Notification Bell */}
+            <NotificationBell playSound={true} />
+
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
             </Button>

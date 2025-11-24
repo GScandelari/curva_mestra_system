@@ -33,6 +33,30 @@ service cloud.firestore {
       allow read, write: if belongsToTenant(tenantId);
     }
 
+    // Regras específicas para notificações (dentro de tenants)
+    match /tenants/{tenantId}/notifications/{notificationId} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Usuários do tenant podem ler e atualizar (marcar como lida) suas notificações
+      allow read, update: if belongsToTenant(tenantId);
+
+      // Apenas admins do tenant podem criar e deletar notificações
+      allow create, delete: if belongsToTenant(tenantId) && request.auth.token.role == 'clinic_admin';
+    }
+
+    // Regras específicas para configurações de notificações (dentro de tenants)
+    match /tenants/{tenantId}/settings/notifications {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Usuários do tenant podem ler as configurações
+      allow read: if belongsToTenant(tenantId);
+
+      // Apenas admins do tenant podem alterar configurações
+      allow write: if belongsToTenant(tenantId) && request.auth.token.role == 'clinic_admin';
+    }
+
     // Coleção de usuários do sistema (apenas system_admin)
     match /users/{userId} {
       allow read, write: if isSystemAdmin();
