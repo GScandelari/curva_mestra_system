@@ -18,9 +18,9 @@ async function setupTestUsers() {
     // 1. Criar System Admin
     console.log('📝 Criando System Admin...');
     const systemAdminUser = await auth.createUser({
-      email: 'admin@curvamestra.com',
+      email: 'scandelari.guilherme@curvamestra.com.br',
       password: 'admin123',
-      displayName: 'System Admin',
+      displayName: 'Guilherme Scandelari',
       emailVerified: true,
     });
 
@@ -31,7 +31,7 @@ async function setupTestUsers() {
     });
 
     console.log('✅ System Admin criado:');
-    console.log('   Email: admin@curvamestra.com');
+    console.log('   Email: scandelari.guilherme@curvamestra.com.br');
     console.log('   Senha: admin123');
     console.log('   UID:', systemAdminUser.uid);
     console.log('');
@@ -123,7 +123,7 @@ async function setupTestUsers() {
 
     console.log('🎉 Todos os usuários de teste foram criados com sucesso!\n');
     console.log('📋 Resumo:');
-    console.log('   System Admin: admin@curvamestra.com / admin123');
+    console.log('   System Admin: scandelari.guilherme@curvamestra.com.br / admin123');
     console.log('   Clinic Admin: admin@clinic.com / clinic123');
     console.log('   Clinic User:  user@clinic.com / user123');
     console.log('');

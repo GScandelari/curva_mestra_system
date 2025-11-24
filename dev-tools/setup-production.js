@@ -24,7 +24,7 @@ async function setupProduction() {
   try {
     // 1. Criar System Admin
     console.log('👤 Criando System Admin...');
-    const adminEmail = 'admin@curvamestra.com';
+    const adminEmail = 'scandelari.guilherme@curvamestra.com.br';
     const adminPassword = 'Admin@123456';
 
     let adminUser;

@@ -19,16 +19,16 @@ async function setupCompleteEnvironment() {
     console.log('👤 Verificando System Admin...');
     let systemAdminUser;
     try {
-      systemAdminUser = await auth.getUserByEmail('admin@curvamestra.com');
+      systemAdminUser = await auth.getUserByEmail('scandelari.guilherme@curvamestra.com.br');
       console.log('✅ System Admin já existe');
-      console.log('   Email: admin@curvamestra.com');
+      console.log('   Email: scandelari.guilherme@curvamestra.com.br');
       console.log('   Senha: admin123\n');
     } catch (error) {
       if (error.code === 'auth/user-not-found') {
         systemAdminUser = await auth.createUser({
-          email: 'admin@curvamestra.com',
+          email: 'scandelari.guilherme@curvamestra.com.br',
           password: 'admin123',
-          displayName: 'System Admin',
+          displayName: 'Guilherme Scandelari',
           emailVerified: true,
         });
 
@@ -39,7 +39,7 @@ async function setupCompleteEnvironment() {
         });
 
         console.log('✅ System Admin criado');
-        console.log('   Email: admin@curvamestra.com');
+        console.log('   Email: scandelari.guilherme@curvamestra.com.br');
         console.log('   Senha: admin123\n');
       } else {
         throw error;
@@ -196,7 +196,7 @@ async function setupCompleteEnvironment() {
     console.log('📋 CREDENCIAIS DE ACESSO\n');
 
     console.log('🔐 SYSTEM ADMIN');
-    console.log('   Email: admin@curvamestra.com');
+    console.log('   Email: scandelari.guilherme@curvamestra.com.br');
     console.log('   Senha: admin123');
     console.log('   Acesso: Portal Admin (todas as clínicas)\n');
 

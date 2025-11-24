@@ -25,16 +25,16 @@ async function setupTestUsers() {
     let systemAdmin;
     try {
       systemAdmin = await auth.createUser({
-        email: 'admin@curvamestra.com',
+        email: 'scandelari.guilherme@curvamestra.com.br',
         password: 'Admin@123',
-        displayName: 'System Administrator',
+        displayName: 'Guilherme Scandelari',
         emailVerified: true,
       });
       console.log('   ✓ Usuário criado:', systemAdmin.email);
     } catch (error) {
       if (error.code === 'auth/email-already-exists') {
         console.log('   ℹ Usuário já existe, buscando...');
-        systemAdmin = await auth.getUserByEmail('admin@curvamestra.com');
+        systemAdmin = await auth.getUserByEmail('scandelari.guilherme@curvamestra.com.br');
       } else {
         throw error;
       }
@@ -47,7 +47,7 @@ async function setupTestUsers() {
       active: true,
     });
     console.log('   ✓ Custom claims configurados');
-    console.log(`   📧 Email: admin@curvamestra.com`);
+    console.log(`   📧 Email: scandelari.guilherme@curvamestra.com.br`);
     console.log(`   🔑 Senha: Admin@123\n`);
 
     // 2. Criar Tenant de Teste
@@ -173,7 +173,7 @@ async function setupTestUsers() {
     console.log('✅ SETUP CONCLUÍDO COM SUCESSO!\n');
     console.log('📊 RESUMO DOS USUÁRIOS CRIADOS:\n');
     console.log('👑 SYSTEM ADMIN');
-    console.log('   Email: admin@curvamestra.com');
+    console.log('   Email: scandelari.guilherme@curvamestra.com.br');
     console.log('   Senha: Admin@123');
     console.log('   UID:', systemAdmin.uid);
     console.log('');
