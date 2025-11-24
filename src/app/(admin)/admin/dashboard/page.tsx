@@ -22,9 +22,8 @@ interface DashboardStats {
   totalUsers: number;
   activeUsers: number;
   planCounts: {
-    basic: number;
-    professional: number;
-    enterprise: number;
+    semestral: number;
+    anual: number;
   };
 }
 
@@ -36,7 +35,7 @@ export default function SystemAdminDashboard() {
     activeTenants: 0,
     totalUsers: 0,
     activeUsers: 0,
-    planCounts: { basic: 0, professional: 0, enterprise: 0 }
+    planCounts: { semestral: 0, anual: 0 }
   });
   const [loading, setLoading] = useState(true);
 
@@ -57,9 +56,8 @@ export default function SystemAdminDashboard() {
 
       // Contar planos
       const planCounts = {
-        basic: tenants.filter((t: any) => t.plan_id === 'basic').length,
-        professional: tenants.filter((t: any) => t.plan_id === 'professional').length,
-        enterprise: tenants.filter((t: any) => t.plan_id === 'enterprise').length
+        semestral: tenants.filter((t: any) => t.plan_id === 'semestral').length,
+        anual: tenants.filter((t: any) => t.plan_id === 'anual').length
       };
 
       // Buscar usuários de todos os tenants
@@ -160,7 +158,7 @@ export default function SystemAdminDashboard() {
                     {loading ? "..." : stats.activeTenants}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {stats.planCounts.basic} Basic · {stats.planCounts.professional} Pro · {stats.planCounts.enterprise} Ent
+                    {stats.planCounts.semestral} Semestral · {stats.planCounts.anual} Anual
                   </p>
                 </CardContent>
               </Card>

@@ -11,7 +11,7 @@ export interface Tenant {
   email: string;
   phone: string;
   address: string;
-  plan_id: "basic" | "professional" | "enterprise";
+  plan_id: "semestral" | "anual";
   active: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -27,7 +27,7 @@ export interface CreateTenantData {
   email: string;
   phone: string;
   address: string;
-  plan_id: "basic" | "professional" | "enterprise";
+  plan_id: "semestral" | "anual";
   active?: boolean; // Padrão: true
 }
 
@@ -41,7 +41,7 @@ export interface UpdateTenantData {
   email?: string;
   phone?: string;
   address?: string;
-  plan_id?: "basic" | "professional" | "enterprise";
+  plan_id?: "semestral" | "anual";
   active?: boolean;
 }
 
@@ -49,20 +49,19 @@ export interface UpdateTenantData {
  * Planos disponíveis no sistema
  */
 export const PLANS = {
-  basic: {
-    id: "basic",
-    name: "Básico",
-    description: "Plano inicial para pequenas clínicas",
+  semestral: {
+    id: "semestral",
+    name: "Plano Semestral",
+    description: "6 meses de acesso completo ao sistema",
+    price: 59.90,
+    period: "mês",
   },
-  professional: {
-    id: "professional",
-    name: "Profissional",
-    description: "Plano completo para clínicas em crescimento",
-  },
-  enterprise: {
-    id: "enterprise",
-    name: "Enterprise",
-    description: "Plano avançado para grandes clínicas",
+  anual: {
+    id: "anual",
+    name: "Plano Anual",
+    description: "12 meses de acesso completo ao sistema",
+    price: 59.90,
+    period: "mês",
   },
 } as const;
 

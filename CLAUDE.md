@@ -150,23 +150,21 @@ Projeto iniciado em: 07/11/2025
 Stack travada até v1.0 (Firebase only)
 Claude AI é o arquiteto oficial – siga este arquivo à risca.
 
-## Funcionalidades Temporariamente Desabilitadas
+## Funcionalidades Desabilitadas
 
 ### Importação de PDF (DANFE Rennova)
-**Status**: DESABILITADO temporariamente
-**Motivo**: Problemas com extração de texto via pdf-parse em ambiente Next.js API Routes
+**Status**: DESABILITADO permanentemente (por ora)
+**Motivo**: Decisão de simplificar o MVP e focar apenas em cadastro manual
 **Arquivos Afetados**:
-- `src/app/(admin)/admin/products/page.tsx` (botão comentado linha 303-307)
-- `src/app/api/parse-nf/route.ts` (API route existente mas não funcional)
+- `src/app/api/parse-nf/route.ts` (API route não utilizada - manter para referência futura)
 
-**Problemas Identificados**:
-1. Biblioteca `pdf-parse` não compatível com Next.js 15 App Router
-2. Tentativas de usar require() com Node.js runtime não resolveram
-3. Necessário investigar alternativas: pdfjs-dist, pdf.js ou processar no servidor Python
+**Decisão de Produto**:
+1. MVP irá operar APENAS com cadastro manual de produtos no Portal Admin
+2. Funcionalidade de importação via DANFE pode ser implementada no futuro
+3. API route `/api/parse-nf` permanece no código como referência, mas não está conectada à interface
 
-**Para Reativar**:
-1. Descomentar botão "Importar de NF" em `src/app/(admin)/admin/products/page.tsx:303-307`
-2. Implementar solução alternativa para extração de texto de PDF
-3. Testar com DANFE_RENNOVA_026229_OFICIAL.pdf
-4. Garantir extração de todos os 13 produtos do PDF de teste
+**Sistema Atual**:
+- System Admin cadastra produtos manualmente em `/admin/products/new`
+- Campos: código (7-8 dígitos) e nome do produto (uppercase automático)
+- Produtos ficam disponíveis no catálogo master para todas as clínicas
 

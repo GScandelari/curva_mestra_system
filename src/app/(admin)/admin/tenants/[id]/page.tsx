@@ -44,7 +44,7 @@ export default function EditTenantPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [planId, setPlanId] = useState("basic");
+  const [planId, setPlanId] = useState("semestral");
   const [active, setActive] = useState(true);
 
   const [loading, setLoading] = useState(false);
@@ -137,7 +137,7 @@ export default function EditTenantPage() {
         email: email.trim(),
         phone: phone.trim(),
         address: address.trim(),
-        plan_id: planId as "basic" | "professional" | "enterprise",
+        plan_id: planId as "semestral" | "anual",
         active,
       });
 
@@ -519,9 +519,8 @@ export default function EditTenantPage() {
                       disabled={loading}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <option value="basic">Basic</option>
-                      <option value="professional">Professional</option>
-                      <option value="enterprise">Enterprise</option>
+                      <option value="semestral">Plano Semestral - R$ 59,90/mês</option>
+                      <option value="anual">Plano Anual - R$ 59,90/mês</option>
                     </select>
                   </div>
 

@@ -11,40 +11,28 @@ export interface PlanConfig {
 }
 
 export const PLANS: Record<string, PlanConfig> = {
-  basic: {
-    id: "basic",
-    name: "Basic",
-    price: 49.90,
-    maxUsers: 5, // 4 usuários + 1 admin
+  semestral: {
+    id: "semestral",
+    name: "Plano Semestral",
+    price: 59.90,
+    maxUsers: 10, // 9 usuários + 1 admin
     features: [
-      "Gestão de estoque básica",
-      "Até 5 usuários",
+      "Gestão completa de estoque",
+      "Até 10 usuários",
+      "6 meses de acesso",
       "Suporte por email",
     ],
   },
-  professional: {
-    id: "professional",
-    name: "Professional",
-    price: 99.90,
-    maxUsers: 10, // 9 usuários + 1 admin (dobro do basic)
+  anual: {
+    id: "anual",
+    name: "Plano Anual",
+    price: 59.90,
+    maxUsers: 10, // 9 usuários + 1 admin
     features: [
-      "Gestão de estoque avançada",
+      "Gestão completa de estoque",
       "Até 10 usuários",
-      "Relatórios detalhados",
+      "12 meses de acesso",
       "Suporte prioritário",
-    ],
-  },
-  enterprise: {
-    id: "enterprise",
-    name: "Enterprise",
-    price: 199.90,
-    maxUsers: 20, // 19 usuários + 1 admin (dobro do professional)
-    features: [
-      "Recursos ilimitados",
-      "Até 20 usuários",
-      "Relatórios personalizados",
-      "Suporte 24/7",
-      "API dedicada",
     ],
   },
 };
@@ -67,7 +55,7 @@ export function formatPlanPrice(planId: string): string {
  */
 export function getPlanMaxUsers(planId: string): number {
   const plan = PLANS[planId];
-  return plan?.maxUsers || 5;
+  return plan?.maxUsers || 10;
 }
 
 /**

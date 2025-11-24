@@ -102,7 +102,7 @@ export async function getTenant(tenantId: string) {
 // Criar novo tenant
 export async function createTenant(data: CreateTenantData) {
   try {
-    const { name, cnpj, email, plan_id = "basic", phone, address, active = true } = data;
+    const { name, cnpj, email, plan_id = "semestral", phone, address, active = true } = data;
 
     const tenantData = {
       name,
