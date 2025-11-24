@@ -20,6 +20,10 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Solicitacao, ProdutoSolicitado, InventoryItem, StatusHistoryEntry, SolicitacaoStatus } from "@/types";
+import {
+  createRequestApprovedNotification,
+  createRequestRejectedNotification,
+} from "./notificationService";
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -516,6 +520,31 @@ export async function updateSolicitacaoStatus(
         updated_at: now,
       });
     });
+
+    // 4. Criar notificações após atualização bem-sucedida
+    try {
+      const requestNumber = `#${solicitacaoId.slice(-6).toUpperCase()}`;
+
+      if (newStatus === "aprovada") {
+        await createRequestApprovedNotification(
+          tenantId,
+          requestNumber,
+          solicitacaoId
+        );
+      } else if (newStatus === "reprovada") {
+        await createRequestRejectedNotification(
+          tenantId,
+          requestNumber,
+          solicitacaoId
+        );
+      }
+    } catch (notificationError: any) {
+      // Log erro mas não falha a operação principal
+      console.error(
+        "Erro ao criar notificação (operação de status foi concluída):",
+        notificationError
+      );
+    }
 
     return { success: true };
   } catch (error: any) {

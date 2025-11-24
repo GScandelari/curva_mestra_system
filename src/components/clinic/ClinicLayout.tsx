@@ -36,6 +36,7 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
     { href: "/clinic/inventory", label: "Estoque" },
     { href: "/clinic/requests", label: "Solicitações" },
     ...(isAdmin ? [{ href: "/clinic/users", label: "Usuários" }] : []),
+    ...(isAdmin ? [{ href: "/clinic/alerts", label: "Alertas" }] : []),
     ...(isAdmin ? [{ href: "/clinic/settings", label: "Configurações" }] : []),
   ];
 
