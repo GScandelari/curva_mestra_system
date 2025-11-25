@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatCNPJ } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -202,7 +203,7 @@ export default function TenantsListPage() {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <FileText className="h-4 w-4 text-muted-foreground" />
-                                {tenant.cnpj}
+                                {formatCNPJ(tenant.cnpj)}
                               </div>
                             </TableCell>
                             <TableCell>

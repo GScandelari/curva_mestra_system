@@ -50,11 +50,11 @@ async function setupCompleteEnvironment() {
     console.log('🏥 Criando Clínica 1: Bella Vita...');
     const tenant1Ref = await db.collection('tenants').add({
       name: 'Clínica Bella Vita',
-      cnpj: '12.345.678/0001-90',
+      cnpj: '34.028.316/0001-03',
       email: 'contato@bellavita.com',
       phone: '(11) 98765-4321',
       address: 'Av. Paulista, 1000 - São Paulo/SP',
-      plan_id: 'professional',
+      plan_id: 'anual',
       active: true,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -122,11 +122,11 @@ async function setupCompleteEnvironment() {
     console.log('🏥 Criando Clínica 2: Espaço Renova...');
     const tenant2Ref = await db.collection('tenants').add({
       name: 'Espaço Renova',
-      cnpj: '98.765.432/0001-10',
+      cnpj: '07.526.557/0001-00',
       email: 'contato@espacorenova.com',
       phone: '(21) 97654-3210',
       address: 'Rua das Flores, 500 - Rio de Janeiro/RJ',
-      plan_id: 'basic',
+      plan_id: 'semestral',
       active: true,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -200,13 +200,13 @@ async function setupCompleteEnvironment() {
     console.log('   Senha: admin123');
     console.log('   Acesso: Portal Admin (todas as clínicas)\n');
 
-    console.log('🏥 CLÍNICA 1: Bella Vita (Professional)');
-    console.log('   CNPJ: 12.345.678/0001-90');
+    console.log('🏥 CLÍNICA 1: Bella Vita (Anual)');
+    console.log('   CNPJ: 34.028.316/0001-03');
     console.log('   Admin: admin@bellavita.com / bella123');
     console.log('   User:  maria@bellavita.com / bella123\n');
 
-    console.log('🏥 CLÍNICA 2: Espaço Renova (Basic)');
-    console.log('   CNPJ: 98.765.432/0001-10');
+    console.log('🏥 CLÍNICA 2: Espaço Renova (Semestral)');
+    console.log('   CNPJ: 07.526.557/0001-00');
     console.log('   Admin: admin@espacorenova.com / renova123');
     console.log('   User:  carlos@espacorenova.com / renova123');
     console.log('═══════════════════════════════════════════════════════\n');

@@ -20,7 +20,7 @@ import { getTenant, updateTenant, deactivateTenant, reactivateTenant } from "@/l
 import { listClinicUsers, ClinicUser, createClinicUser } from "@/lib/services/clinicUserService";
 import { formatPlanPrice, getPlanMaxUsers } from "@/lib/constants/plans";
 import { Tenant } from "@/types";
-import { formatAddress } from "@/lib/utils";
+import { formatAddress, formatCNPJ } from "@/lib/utils";
 import { validateCNPJ } from "@/types/tenant";
 import {
   Dialog,
@@ -325,7 +325,7 @@ export default function EditTenantPage() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-muted-foreground">CNPJ</p>
-                      <p className="text-base font-semibold">{tenant.cnpj}</p>
+                      <p className="text-base font-semibold">{formatCNPJ(tenant.cnpj)}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-muted-foreground">Email</p>
