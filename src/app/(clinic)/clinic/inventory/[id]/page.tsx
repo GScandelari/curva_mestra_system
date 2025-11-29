@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -156,40 +154,32 @@ export default function InventoryItemPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-        <ClinicLayout>
-          <div className="container py-8">
-            <div className="space-y-6">
-              <Skeleton className="h-10 w-48" />
-              <div className="grid gap-6 md:grid-cols-2">
-                <Skeleton className="h-64" />
-                <Skeleton className="h-64" />
-              </div>
-            </div>
+      <div className="container py-8">
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <div className="grid gap-6 md:grid-cols-2">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
           </div>
-        </ClinicLayout>
-      </ProtectedRoute>
+        </div>
+      </div>
     );
   }
 
   if (error || !item) {
     return (
-      <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-        <ClinicLayout>
-          <div className="container py-8">
-            <div className="text-center space-y-4">
-              <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
-              <h2 className="text-2xl font-bold">
-                {error || "Produto não encontrado"}
-              </h2>
-              <Button onClick={() => router.push("/clinic/inventory")}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar ao Inventário
-              </Button>
-            </div>
-          </div>
-        </ClinicLayout>
-      </ProtectedRoute>
+      <div className="container py-8">
+        <div className="text-center space-y-4">
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
+          <h2 className="text-2xl font-bold">
+            {error || "Produto não encontrado"}
+          </h2>
+          <Button onClick={() => router.push("/clinic/inventory")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar ao Inventário
+          </Button>
+        </div>
+      </div>
     );
   }
 
@@ -202,10 +192,8 @@ export default function InventoryItemPage() {
   const StockIcon = stockStatus.icon;
 
   return (
-    <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-      <ClinicLayout>
-        <div className="container py-8">
-          <div className="space-y-6">
+    <div className="container py-8">
+      <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
               <Button
@@ -439,9 +427,7 @@ export default function InventoryItemPage() {
                 </CardContent>
               </Card>
             </div>
-          </div>
-        </div>
-      </ClinicLayout>
-    </ProtectedRoute>
+      </div>
+    </div>
   );
 }

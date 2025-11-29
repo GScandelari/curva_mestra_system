@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import type { UserRole } from "@/types";
+import { needsOnboarding, getNextOnboardingStep } from "@/lib/services/tenantOnboardingService";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
   requireAuth?: boolean;
+  skipOnboardingCheck?: boolean; // Para rotas de setup não verificarem
 }
 
 /**
  * Componente para proteger rotas
  * - Redireciona para login se não autenticado
+ * - Redireciona para onboarding se não completou setup
  * - Redireciona para dashboard apropriado se não tem permissão
  * - Permite acesso se role está na lista de allowedRoles
  */
@@ -21,42 +24,97 @@ export function ProtectedRoute({
   children,
   allowedRoles,
   requireAuth = true,
+  skipOnboardingCheck = false,
 }: ProtectedRouteProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading, claims, role } = useAuth();
+  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
   useEffect(() => {
-    if (loading) return;
+    async function checkAccess() {
+      if (loading) return;
 
-    // Se requer autenticação e não está autenticado
-    if (requireAuth && !user) {
-      router.push("/login");
-      return;
-    }
-
-    // Se está autenticado mas não tem claims (ainda não configurado)
-    if (user && !claims) {
-      router.push("/waiting-approval");
-      return;
-    }
-
-    // Se tem roles permitidos, verificar permissão
-    if (allowedRoles && allowedRoles.length > 0 && role) {
-      if (!allowedRoles.includes(role)) {
-        // Redirecionar para o dashboard apropriado baseado no role
-        redirectToDashboard(role, router);
+      // Se requer autenticação e não está autenticado
+      if (requireAuth && !user) {
+        router.push("/login");
         return;
       }
-    }
-  }, [user, loading, claims, role, allowedRoles, requireAuth, router]);
 
-  // Mostrar loading enquanto verifica autenticação
-  if (loading) {
+      // Se está autenticado mas não tem claims (ainda não configurado)
+      if (user && !claims) {
+        router.push("/waiting-approval");
+        return;
+      }
+
+      // Se tem claims mas não está ativo (aguardando aprovação)
+      if (user && claims && claims.active === false) {
+        router.push("/waiting-approval");
+        return;
+      }
+
+      // Verificar onboarding (apenas para clinic_admin e clinic_user)
+      if (
+        !skipOnboardingCheck &&
+        user &&
+        claims?.tenant_id &&
+        (role === "clinic_admin" || role === "clinic_user")
+      ) {
+        // Não verificar se já está em rota de setup
+        const isSetupRoute = pathname?.startsWith("/clinic/setup");
+
+        if (!isSetupRoute) {
+          setCheckingOnboarding(true);
+
+          try {
+            const needsSetup = await needsOnboarding(claims.tenant_id);
+
+            if (needsSetup) {
+              const nextStep = await getNextOnboardingStep(claims.tenant_id);
+
+              // Redirecionar para a etapa pendente
+              switch (nextStep) {
+                case "pending_setup":
+                  router.push("/clinic/setup");
+                  return;
+                case "pending_plan":
+                  router.push("/clinic/setup/plan");
+                  return;
+                case "pending_payment":
+                  router.push("/clinic/setup/payment");
+                  return;
+              }
+            }
+          } catch (error) {
+            console.error("Erro ao verificar onboarding:", error);
+          } finally {
+            setCheckingOnboarding(false);
+          }
+        }
+      }
+
+      // Se tem roles permitidos, verificar permissão
+      if (allowedRoles && allowedRoles.length > 0 && role) {
+        if (!allowedRoles.includes(role)) {
+          // Redirecionar para o dashboard apropriado baseado no role
+          redirectToDashboard(role, router);
+          return;
+        }
+      }
+    }
+
+    checkAccess();
+  }, [user, loading, claims, role, allowedRoles, requireAuth, skipOnboardingCheck, pathname, router]);
+
+  // Mostrar loading enquanto verifica autenticação ou onboarding
+  if (loading || checkingOnboarding) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Carregando...</p>
+          <p className="text-muted-foreground">
+            {checkingOnboarding ? "Verificando configuração..." : "Carregando..."}
+          </p>
         </div>
       </div>
     );
@@ -74,6 +132,11 @@ export function ProtectedRoute({
 
   // Se não tem claims, não mostrar nada (vai redirecionar)
   if (!claims) {
+    return null;
+  }
+
+  // Se não está ativo, não mostrar nada (vai redirecionar)
+  if (claims.active === false) {
     return null;
   }
 

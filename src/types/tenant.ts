@@ -1,5 +1,7 @@
 import { Timestamp } from "firebase/firestore";
 
+export type DocumentType = "cnpj" | "cpf";
+
 /**
  * Interface principal para Tenant (Clínica)
  * Representa uma clínica no sistema multi-tenant
@@ -7,11 +9,17 @@ import { Timestamp } from "firebase/firestore";
 export interface Tenant {
   id: string;
   name: string;
-  cnpj: string;
+  document_type: DocumentType;    // NOVO: tipo de documento
+  document_number: string;          // NOVO: CPF ou CNPJ unificado
+  cnpj?: string;                    // DEPRECATED: manter compatibilidade
   email: string;
   phone: string;
   address: string;
+  city?: string;                    // NOVO: cidade separada
+  state?: string;                   // NOVO: estado separado
+  cep?: string;                     // NOVO: CEP separado
   plan_id: "semestral" | "anual";
+  max_users: number;                // NOVO: 1 para CPF, 5 para CNPJ
   active: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -23,10 +31,16 @@ export interface Tenant {
  */
 export interface CreateTenantData {
   name: string;
-  cnpj: string;
+  document_type: DocumentType;  // NOVO
+  document_number: string;      // NOVO
+  cnpj?: string;                 // DEPRECATED: compatibilidade
+  max_users: number;             // NOVO
   email: string;
   phone: string;
   address: string;
+  city?: string;                 // NOVO: cidade separada
+  state?: string;                // NOVO: estado separado
+  cep?: string;                  // NOVO: CEP separado
   plan_id: "semestral" | "anual";
   active?: boolean; // Padrão: true
 }
@@ -37,10 +51,16 @@ export interface CreateTenantData {
  */
 export interface UpdateTenantData {
   name?: string;
-  cnpj?: string;
+  document_type?: DocumentType;   // NOVO
+  document_number?: string;       // NOVO
+  cnpj?: string;                  // DEPRECATED: compatibilidade
+  max_users?: number;             // NOVO
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;                  // NOVO: cidade separada
+  state?: string;                 // NOVO: estado separado
+  cep?: string;                   // NOVO: CEP separado
   plan_id?: "semestral" | "anual";
   active?: boolean;
 }
@@ -60,7 +80,7 @@ export const PLANS = {
     id: "anual",
     name: "Plano Anual",
     description: "12 meses de acesso completo ao sistema",
-    price: 59.90,
+    price: 49.90,
     period: "mês",
   },
 } as const;

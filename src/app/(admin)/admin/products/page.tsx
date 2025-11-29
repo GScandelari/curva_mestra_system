@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +28,6 @@ import {
   Edit,
   Power,
   PowerOff,
-  ArrowLeft,
 } from "lucide-react";
 import {
   listMasterProducts,
@@ -106,37 +104,24 @@ export default function ProductsPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["system_admin"]}>
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
-          <div className="container flex h-16 items-center justify-between">
-            <Link
-              href="/admin/dashboard"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar para Dashboard
-            </Link>
-
-            <Button asChild>
-              <Link href="/admin/products/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Produto
-              </Link>
-            </Button>
-          </div>
-        </header>
-
-        <main className="container py-8">
+    <div className="container py-8">
           <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                <Package className="h-8 w-8 text-primary" />
-                Catálogo de Produtos Rennova
-              </h1>
-              <p className="text-muted-foreground">
-                Gerencie os produtos do fornecedor Rennova
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                  <Package className="h-8 w-8 text-primary" />
+                  Catálogo de Produtos Rennova
+                </h1>
+                <p className="text-muted-foreground">
+                  Gerencie os produtos do fornecedor Rennova
+                </p>
+              </div>
+              <Button asChild>
+                <Link href="/admin/products/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Produto
+                </Link>
+              </Button>
             </div>
 
             <Card>
@@ -247,8 +232,6 @@ export default function ProductsPage() {
               </CardContent>
             </Card>
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

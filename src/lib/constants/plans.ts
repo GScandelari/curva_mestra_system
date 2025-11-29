@@ -5,7 +5,9 @@
 export interface PlanConfig {
   id: string;
   name: string;
+  description: string;
   price: number;
+  duration: string;
   maxUsers: number; // Total de usuários (incluindo admin)
   features: string[];
 }
@@ -14,24 +16,32 @@ export const PLANS: Record<string, PlanConfig> = {
   semestral: {
     id: "semestral",
     name: "Plano Semestral",
+    description: "6 meses de acesso completo ao sistema",
     price: 59.90,
-    maxUsers: 10, // 9 usuários + 1 admin
+    duration: "6 meses",
+    maxUsers: 5, // Máximo 5 usuários (incluindo admin)
     features: [
       "Gestão completa de estoque",
-      "Até 10 usuários",
-      "6 meses de acesso",
+      "Até 5 usuários",
+      "Controle de lotes e validades",
+      "Rastreamento por paciente",
+      "Relatórios e alertas",
       "Suporte por email",
     ],
   },
   anual: {
     id: "anual",
     name: "Plano Anual",
-    price: 59.90,
-    maxUsers: 10, // 9 usuários + 1 admin
+    description: "12 meses de acesso completo ao sistema",
+    price: 49.90,
+    duration: "12 meses",
+    maxUsers: 5, // Máximo 5 usuários (incluindo admin)
     features: [
       "Gestão completa de estoque",
-      "Até 10 usuários",
-      "12 meses de acesso",
+      "Até 5 usuários",
+      "Controle de lotes e validades",
+      "Rastreamento por paciente",
+      "Relatórios e alertas",
       "Suporte prioritário",
     ],
   },
@@ -55,7 +65,7 @@ export function formatPlanPrice(planId: string): string {
  */
 export function getPlanMaxUsers(planId: string): number {
   const plan = PLANS[planId];
-  return plan?.maxUsers || 10;
+  return plan?.maxUsers || 5;
 }
 
 /**

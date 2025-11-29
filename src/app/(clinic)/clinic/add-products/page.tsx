@@ -6,13 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Card,
   CardContent,
   CardDescription,
@@ -79,6 +72,9 @@ export default function ManualNFPage() {
 
   // Form fields para adicionar produto
   const [selectedProduct, setSelectedProduct] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredProducts, setFilteredProducts] = useState<MasterProduct[]>([]);
   const [lote, setLote] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [dtValidade, setDtValidade] = useState("");
@@ -93,6 +89,22 @@ export default function ManualNFPage() {
       loadMasterProducts();
     }
   }, [tipoNF]);
+
+  // Filtrar produtos conforme busca
+  useEffect(() => {
+    if (!productSearch) {
+      setFilteredProducts(masterProducts);
+      return;
+    }
+
+    const searchLower = productSearch.toLowerCase();
+    const filtered = masterProducts.filter(
+      (p) =>
+        p.code.toLowerCase().includes(searchLower) ||
+        p.name.toLowerCase().includes(searchLower)
+    );
+    setFilteredProducts(filtered);
+  }, [productSearch, masterProducts]);
 
   const handleSelectType = (type: "rennova" | "outra_marca") => {
     setTipoNF(type);
@@ -190,6 +202,8 @@ export default function ManualNFPage() {
 
     // Limpar campos
     setSelectedProduct("");
+    setProductSearch("");
+    setShowSuggestions(false);
     setCodigoOutraMarca("");
     setNomeOutraMarca("");
     setLote("");
@@ -519,21 +533,45 @@ export default function ManualNFPage() {
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="produto">Produto Rennova</Label>
-                        <Select
-                          value={selectedProduct}
-                          onValueChange={setSelectedProduct}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione um produto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {masterProducts.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.code} - {product.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="relative">
+                          <Input
+                            id="produto"
+                            placeholder="Digite para buscar produto (código ou nome)..."
+                            value={productSearch}
+                            onChange={(e) => {
+                              setProductSearch(e.target.value);
+                              setShowSuggestions(true);
+                              setSelectedProduct(""); // Limpar seleção ao editar
+                            }}
+                            onFocus={() => setShowSuggestions(true)}
+                            autoComplete="off"
+                          />
+                          {showSuggestions && productSearch && filteredProducts.length > 0 && (
+                            <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-60 overflow-y-auto">
+                              {filteredProducts.slice(0, 10).map((product) => (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  className="w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground transition-colors text-sm"
+                                  onClick={() => {
+                                    setSelectedProduct(product.id);
+                                    setProductSearch(`${product.code} - ${product.name}`);
+                                    setShowSuggestions(false);
+                                  }}
+                                >
+                                  <span className="font-mono font-semibold">{product.code}</span>
+                                  {" - "}
+                                  <span>{product.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {showSuggestions && productSearch && filteredProducts.length === 0 && (
+                            <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md p-3 text-sm text-muted-foreground">
+                              Nenhum produto encontrado
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </>
                   ) : (

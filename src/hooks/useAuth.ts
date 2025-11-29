@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   User,
   signInWithEmailAndPassword,
@@ -10,6 +10,9 @@ import {
 import { auth } from "@/lib/firebase";
 import type { CustomClaims } from "@/types";
 
+// Constante: tempo de expiração da sessão (30 minutos em milissegundos)
+const SESSION_TIMEOUT = 30 * 60 * 1000;
+
 interface AuthState {
   user: User | null;
   loading: boolean;
@@ -20,7 +23,9 @@ interface AuthState {
  * Extrai custom claims do Firebase Auth token de forma type-safe
  */
 function extractCustomClaims(claims: Record<string, any>): CustomClaims | null {
-  if (!claims.tenant_id && !claims.is_system_admin) {
+  // Usuário precisa ter pelo menos tenant_id OU ser system_admin
+  // E também precisa ter a propriedade 'role' definida
+  if (!claims.role) {
     return null;
   }
 
@@ -28,7 +33,7 @@ function extractCustomClaims(claims: Record<string, any>): CustomClaims | null {
     tenant_id: claims.tenant_id || null,
     role: claims.role || null,
     is_system_admin: claims.is_system_admin || false,
-    active: claims.active || false,
+    active: claims.active !== undefined ? claims.active : false,
   };
 }
 
@@ -38,6 +43,49 @@ export function useAuth() {
     loading: true,
     claims: null,
   });
+
+  const sessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
+
+  // Função para resetar o timeout de inatividade
+  const resetSessionTimeout = () => {
+    lastActivityRef.current = Date.now();
+
+    if (sessionTimeoutRef.current) {
+      clearTimeout(sessionTimeoutRef.current);
+    }
+
+    sessionTimeoutRef.current = setTimeout(async () => {
+      console.log("⏰ Sessão expirada após 30 minutos de inatividade");
+      await firebaseSignOut(auth);
+    }, SESSION_TIMEOUT);
+  };
+
+  // Monitorar atividade do usuário
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleActivity = () => {
+      if (state.user) {
+        resetSessionTimeout();
+      }
+    };
+
+    // Eventos que indicam atividade do usuário
+    const events = ["mousedown", "keydown", "scroll", "touchstart", "click"];
+    events.forEach((event) => {
+      window.addEventListener(event, handleActivity);
+    });
+
+    return () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, handleActivity);
+      });
+      if (sessionTimeoutRef.current) {
+        clearTimeout(sessionTimeoutRef.current);
+      }
+    };
+  }, [state.user]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -51,16 +99,29 @@ export function useAuth() {
           loading: false,
           claims,
         });
+
+        // Iniciar timeout de sessão
+        resetSessionTimeout();
       } else {
         setState({
           user: null,
           loading: false,
           claims: null,
         });
+
+        // Limpar timeout ao fazer logout
+        if (sessionTimeoutRef.current) {
+          clearTimeout(sessionTimeoutRef.current);
+        }
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (sessionTimeoutRef.current) {
+        clearTimeout(sessionTimeoutRef.current);
+      }
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

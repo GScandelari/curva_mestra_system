@@ -33,11 +33,14 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
 
   const navLinks = [
     { href: "/clinic/dashboard", label: "Dashboard" },
-    { href: "/clinic/inventory", label: "Estoque" },
+    { href: "/clinic/inventory", label: "Gerenciar Estoque" },
     { href: "/clinic/requests", label: "Solicitações" },
+    { href: "/clinic/patients", label: "Pacientes" },
+    { href: "/clinic/reports", label: "Relatórios" },
     ...(isAdmin ? [{ href: "/clinic/users", label: "Usuários" }] : []),
+    { href: "/clinic/license", label: "Licença" },
     ...(isAdmin ? [{ href: "/clinic/alerts", label: "Alertas" }] : []),
-    ...(isAdmin ? [{ href: "/clinic/settings", label: "Configurações" }] : []),
+    { href: "/clinic/profile", label: "Perfil" },
   ];
 
   return (

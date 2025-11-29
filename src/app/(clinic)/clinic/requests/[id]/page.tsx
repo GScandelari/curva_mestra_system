@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -171,49 +169,39 @@ export default function SolicitacaoDetalhesPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-        <ClinicLayout>
-          <div className="container py-8">
-            <div className="space-y-6">
-              <Skeleton className="h-10 w-64" />
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-96 w-full" />
-            </div>
-          </div>
-        </ClinicLayout>
-      </ProtectedRoute>
+      <div className="container py-8">
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-96 w-full" />
+        </div>
+      </div>
     );
   }
 
   if (error || !solicitacao) {
     return (
-      <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-        <ClinicLayout>
-          <div className="container py-8">
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Erro</AlertTitle>
-              <AlertDescription>{error || "Solicitação não encontrada"}</AlertDescription>
-            </Alert>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => router.push("/clinic/requests")}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar para Solicitações
-            </Button>
-          </div>
-        </ClinicLayout>
-      </ProtectedRoute>
+      <div className="container py-8">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription>{error || "Solicitação não encontrada"}</AlertDescription>
+        </Alert>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push("/clinic/requests")}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar para Solicitações
+        </Button>
+      </div>
     );
   }
 
   return (
-    <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-      <ClinicLayout>
-        <div className="container py-8">
-          <div className="space-y-6">
+    <div className="container py-8">
+      <div className="space-y-6">
             {/* Header */}
             <div>
               <Button
@@ -553,9 +541,7 @@ export default function SolicitacaoDetalhesPage() {
                 </AlertDescription>
               </Alert>
             )}
-          </div>
-        </div>
-      </ClinicLayout>
-    </ProtectedRoute>
+      </div>
+    </div>
   );
 }

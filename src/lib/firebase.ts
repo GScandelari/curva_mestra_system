@@ -1,5 +1,11 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getAuth, Auth, connectAuthEmulator } from "firebase/auth";
+import {
+  getAuth,
+  Auth,
+  connectAuthEmulator,
+  setPersistence,
+  browserSessionPersistence
+} from "firebase/auth";
 import {
   getFirestore,
   Firestore,
@@ -47,6 +53,13 @@ if (getApps().length === 0) {
 auth = getAuth(app);
 db = getFirestore(app);
 storage = getStorage(app);
+
+// Configurar persistência de sessão (limpa ao fechar browser)
+if (typeof window !== "undefined") {
+  setPersistence(auth, browserSessionPersistence).catch((error) => {
+    console.error("❌ Erro ao configurar persistência de sessão:", error);
+  });
+}
 
 // Conectar aos emuladores ANTES de criar a instância de functions
 if (typeof window !== "undefined") {

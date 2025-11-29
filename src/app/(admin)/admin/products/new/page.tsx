@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Save, Package } from "lucide-react";
+import { Save, Package } from "lucide-react";
 import { createMasterProduct } from "@/lib/services/masterProductService";
 import { validateProductCode, normalizeProductName } from "@/types/masterProduct";
 
@@ -68,21 +67,7 @@ export default function NewProductPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["system_admin"]}>
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
-          <div className="container flex h-16 items-center">
-            <Link
-              href="/admin/products"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar para Produtos
-            </Link>
-          </div>
-        </header>
-
-        <main className="container max-w-2xl py-8">
+    <div className="container max-w-2xl py-8">
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -166,8 +151,6 @@ export default function NewProductPage() {
               </CardContent>
             </Card>
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

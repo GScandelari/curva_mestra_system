@@ -1,0 +1,48 @@
+/**
+ * Types para Pacientes
+ */
+
+import { Timestamp } from "firebase/firestore";
+
+export interface Patient {
+  id: string;
+  tenant_id: string;
+  codigo: string; // Código único do paciente (gerado automaticamente ou manual)
+  nome: string;
+  telefone?: string;
+  email?: string;
+  data_nascimento?: string; // formato: DD/MM/YYYY
+  cpf?: string; // opcional
+  observacoes?: string;
+  active: boolean;
+  created_by: string;
+  created_by_name?: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface PatientWithStats extends Patient {
+  total_procedimentos: number;
+  ultimo_procedimento?: Timestamp;
+  total_gasto?: number;
+}
+
+export interface CreatePatientInput {
+  codigo?: string; // Opcional - se não fornecido, será gerado automaticamente
+  nome: string;
+  telefone?: string;
+  email?: string;
+  data_nascimento?: string;
+  cpf?: string;
+  observacoes?: string;
+}
+
+export interface UpdatePatientInput {
+  nome?: string;
+  telefone?: string;
+  email?: string;
+  data_nascimento?: string;
+  cpf?: string;
+  observacoes?: string;
+  active?: boolean;
+}

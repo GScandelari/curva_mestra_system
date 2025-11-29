@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCNPJ } from "@/lib/utils";
+import { formatDocumentAuto } from "@/lib/utils/documentValidation";
 import {
   Card,
   CardContent,
@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft,
   Plus,
   Search,
   Building2,
@@ -80,45 +79,32 @@ export default function TenantsListPage() {
 
   const filteredTenants = tenants.filter((tenant) => {
     const search = searchTerm.toLowerCase();
+    const documentNumber = tenant.document_number || tenant.cnpj || "";
     return (
       tenant.name.toLowerCase().includes(search) ||
       tenant.email.toLowerCase().includes(search) ||
-      tenant.cnpj.includes(search)
+      documentNumber.includes(search)
     );
   });
 
   return (
-    <ProtectedRoute allowedRoles={["system_admin"]}>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b">
-          <div className="container flex h-16 items-center justify-between">
-            <Link
-              href="/admin/dashboard"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar ao Dashboard
-            </Link>
-            <Button onClick={() => router.push("/admin/tenants/new")}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Clínica
-            </Button>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="container py-8">
+    <div className="container py-8">
           <div className="space-y-6">
             {/* Page Title */}
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                <Building2 className="h-8 w-8 text-primary" />
-                Gerenciar Clínicas
-              </h1>
-              <p className="text-muted-foreground">
-                Visualize e gerencie todas as clínicas cadastradas no sistema
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                  <Building2 className="h-8 w-8 text-primary" />
+                  Gerenciar Clínicas
+                </h1>
+                <p className="text-muted-foreground">
+                  Visualize e gerencie todas as clínicas cadastradas no sistema
+                </p>
+              </div>
+              <Button onClick={() => router.push("/admin/tenants/new")}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Clínica
+              </Button>
             </div>
 
             {/* Filters */}
@@ -132,7 +118,7 @@ export default function TenantsListPage() {
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Buscar por nome, email ou CNPJ..."
+                        placeholder="Buscar por nome, email, CPF ou CNPJ..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"
@@ -183,7 +169,7 @@ export default function TenantsListPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nome</TableHead>
-                          <TableHead>CNPJ</TableHead>
+                          <TableHead>CPF/CNPJ</TableHead>
                           <TableHead>Contato</TableHead>
                           <TableHead>Plano</TableHead>
                           <TableHead>Status</TableHead>
@@ -203,7 +189,7 @@ export default function TenantsListPage() {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <FileText className="h-4 w-4 text-muted-foreground" />
-                                {formatCNPJ(tenant.cnpj)}
+                                {formatDocumentAuto(tenant.document_number || tenant.cnpj || "")}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -266,8 +252,6 @@ export default function TenantsListPage() {
               </CardContent>
             </Card>
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

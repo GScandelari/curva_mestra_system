@@ -29,6 +29,38 @@
       ]
     },
     {
+      "collectionGroup": "inventory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dt_validade",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "quantidade_disponivel",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "inventory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nome_produto",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "nf_imports",
       "queryScope": "COLLECTION",
       "fields": [

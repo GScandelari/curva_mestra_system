@@ -2,8 +2,6 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +30,7 @@ import {
   AlertTriangle,
   Calendar,
   TrendingDown,
+  Plus,
 } from "lucide-react";
 import {
   listInventory,
@@ -44,6 +43,8 @@ function InventoryContent() {
   const { claims } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const isAdmin = claims?.role === "clinic_admin";
 
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [filteredInventory, setFilteredInventory] = useState<InventoryItem[]>(
@@ -222,24 +223,30 @@ function InventoryContent() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-      <ClinicLayout>
-        <div className="container py-8">
-          <div className="space-y-6">
+    <div className="container py-8">
+      <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-bold tracking-tight">
-                  Inventário
+                  Gerenciar Estoque
                 </h2>
                 <p className="text-muted-foreground">
-                  Gerencie seus produtos e estoques
+                  Visualize e gerencie seus produtos e estoques
                 </p>
               </div>
-              <Button onClick={exportToCSV} disabled={loading}>
-                <Download className="mr-2 h-4 w-4" />
-                Exportar CSV
-              </Button>
+              <div className="flex gap-2">
+                {isAdmin && (
+                  <Button onClick={() => router.push("/clinic/add-products")}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar Produtos
+                  </Button>
+                )}
+                <Button variant="outline" onClick={exportToCSV} disabled={loading}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Exportar CSV
+                </Button>
+              </div>
             </div>
 
             {/* Stats Cards */}
@@ -470,10 +477,8 @@ function InventoryContent() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </div>
-      </ClinicLayout>
-    </ProtectedRoute>
+      </div>
+    </div>
   );
 }
 

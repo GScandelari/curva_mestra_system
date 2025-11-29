@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,8 +110,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="border-b">
           <div className="container flex h-16 items-center">
@@ -221,6 +219,7 @@ export default function ProfilePage() {
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       disabled={passwordLoading}
                       required
+                      autoComplete="current-password"
                     />
                   </div>
 
@@ -234,6 +233,7 @@ export default function ProfilePage() {
                       disabled={passwordLoading}
                       required
                       minLength={6}
+                      autoComplete="new-password"
                     />
                     <p className="text-xs text-muted-foreground">
                       Mínimo de 6 caracteres
@@ -249,6 +249,7 @@ export default function ProfilePage() {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       disabled={passwordLoading}
                       required
+                      autoComplete="new-password"
                     />
                   </div>
 
@@ -273,7 +274,6 @@ export default function ProfilePage() {
             </Card>
           </div>
         </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

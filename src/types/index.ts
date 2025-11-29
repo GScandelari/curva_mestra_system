@@ -33,6 +33,8 @@ export interface User {
 // TENANT
 // ============================================================================
 
+export type DocumentType = "cnpj" | "cpf";
+
 export interface Address {
   street: string;
   city: string;
@@ -43,11 +45,14 @@ export interface Address {
 export interface Tenant {
   id: string;
   name: string;
-  cnpj: string;
+  document_type: DocumentType;    // NOVO: tipo de documento
+  document_number: string;          // NOVO: CPF ou CNPJ unificado
+  cnpj?: string;                    // DEPRECATED: manter compatibilidade
   email: string;
   phone?: string;
   address?: string | Address;
   plan_id: string;
+  max_users: number;                // NOVO: 1 para CPF, 5 para CNPJ
   active: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -206,6 +211,50 @@ export interface AlertaVencimento {
   dt_validade: string;
   dias_restantes: number;
   quantidade_disponivel: number;
+}
+
+// ============================================================================
+// SOLICITAÇÕES DE ACESSO
+// ============================================================================
+
+export type AccessRequestStatus =
+  | "pendente" // Aguardando aprovação
+  | "aprovada" // Aprovada, aguardando ativação por código
+  | "ativa" // Conta ativada com sucesso
+  | "rejeitada" // Recusada por admin
+  | "expirada"; // Código de ativação expirou
+
+export interface AccessRequest {
+  id: string;
+  document_type: DocumentType; // NOVO: tipo de documento (CPF ou CNPJ)
+  document_number: string; // NOVO: CPF ou CNPJ unificado
+  cnpj?: string; // DEPRECATED: manter compatibilidade
+  tenant_id?: string; // Preenchido se o documento já existe
+  tenant_name?: string; // Nome da clínica/pessoa (se encontrada)
+  full_name: string; // Nome completo do solicitante
+  email: string; // Email do solicitante
+  password_hash?: string; // Hash da senha (temporário até ativação)
+  status: AccessRequestStatus;
+  activation_code?: string; // Código de 8 dígitos
+  activation_code_expires_at?: Timestamp; // Expiração do código (24h)
+  has_available_slots?: boolean; // Se tem vagas disponíveis
+  approved_by?: string; // UID do admin que aprovou
+  approved_by_name?: string; // Nome do admin que aprovou
+  approved_at?: Timestamp;
+  rejected_by?: string;
+  rejected_by_name?: string;
+  rejected_at?: Timestamp;
+  rejection_reason?: string;
+  activated_at?: Timestamp;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface TenantLimits {
+  tenant_id: string;
+  max_users: number; // Limite do plano
+  current_users: number; // Usuários ativos
+  available_slots: number; // Vagas disponíveis
 }
 
 // ============================================================================

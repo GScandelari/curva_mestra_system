@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,9 +9,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users, Building2, CreditCard, LogOut, UserCog, Package } from "lucide-react";
+import { Users, Building2, CreditCard, UserCog, Package } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 interface DashboardStats {
@@ -28,7 +26,6 @@ interface DashboardStats {
 }
 
 export default function SystemAdminDashboard() {
-  const { user, signOut } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     totalTenants: 0,
@@ -86,46 +83,18 @@ export default function SystemAdminDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    router.push("/login");
-  };
-
   return (
-    <ProtectedRoute allowedRoles={["system_admin"]}>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b">
-          <div className="container flex h-16 items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Curva Mestra</h1>
-              <p className="text-sm text-muted-foreground">System Admin</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-medium">{user?.displayName}</p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
-              </div>
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sair
-              </Button>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="container py-8">
-          <div className="space-y-8">
-            {/* Welcome */}
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">
-                Bem-vindo de volta!
-              </h2>
-              <p className="text-muted-foreground">
-                Gerencie clínicas, licenças e produtos master
-              </p>
-            </div>
+    <div className="container py-8">
+      <div className="space-y-8">
+        {/* Welcome */}
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Bem-vindo de volta!
+          </h2>
+          <p className="text-muted-foreground">
+            Gerencie clínicas, licenças e produtos master
+          </p>
+        </div>
 
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-3">
@@ -214,7 +183,11 @@ export default function SystemAdminDashboard() {
                   <Package className="h-6 w-6 mb-2" />
                   <span>Gerenciar Produtos</span>
                 </Button>
-                <Button variant="outline" className="h-auto flex-col py-4">
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4"
+                  onClick={() => router.push("/admin/licenses")}
+                >
                   <CreditCard className="h-6 w-6 mb-2" />
                   <span>Gerenciar Licenças</span>
                 </Button>
@@ -236,8 +209,6 @@ export default function SystemAdminDashboard() {
               </CardContent>
             </Card>
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

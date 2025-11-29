@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,12 +18,11 @@ import {
   Package,
   AlertTriangle,
   FileText,
-  Upload,
   TrendingUp,
   Calendar,
   Clock,
   DollarSign,
-  Edit,
+  Users,
 } from "lucide-react";
 import {
   getInventoryStats,
@@ -111,19 +108,17 @@ export default function ClinicDashboard() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-      <ClinicLayout>
-        <div className="container py-8">
-          <div className="space-y-8">
-            {/* Welcome */}
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">
-                Olá, {user?.displayName?.split(" ")[0]}!
-              </h2>
-              <p className="text-muted-foreground">
-                Visão geral do seu estoque e operações
-              </p>
-            </div>
+    <div className="container py-8">
+      <div className="space-y-8">
+        {/* Welcome */}
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Olá, {user?.displayName?.split(" ")[0]}!
+          </h2>
+          <p className="text-muted-foreground">
+            Visão geral do seu estoque e operações
+          </p>
+        </div>
 
             {/* Error Alert */}
             {error && (
@@ -254,33 +249,13 @@ export default function ClinicDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {isAdmin && (
-                  <>
-                    <Button
-                      variant="outline"
-                      className="h-auto flex-col py-6 gap-2"
-                      onClick={() => router.push("/clinic/upload")}
-                    >
-                      <Upload className="h-6 w-6" />
-                      <span>Upload DANFE</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-auto flex-col py-6 gap-2"
-                      onClick={() => router.push("/clinic/add-products")}
-                    >
-                      <Edit className="h-6 w-6" />
-                      <span>Adicionar Produtos</span>
-                    </Button>
-                  </>
-                )}
                 <Button
                   variant="outline"
                   className="h-auto flex-col py-6 gap-2"
                   onClick={() => router.push("/clinic/inventory")}
                 >
                   <Package className="h-6 w-6" />
-                  <span>Ver Estoque</span>
+                  <span>Gerenciar Estoque</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -289,6 +264,14 @@ export default function ClinicDashboard() {
                 >
                   <FileText className="h-6 w-6" />
                   <span>Solicitações</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-6 gap-2"
+                  onClick={() => router.push("/clinic/patients")}
+                >
+                  <Users className="h-6 w-6" />
+                  <span>Pacientes</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -405,16 +388,6 @@ export default function ClinicDashboard() {
                       <p className="text-sm text-muted-foreground">
                         Nenhuma movimentação recente
                       </p>
-                      {isAdmin && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => router.push("/clinic/upload")}
-                        >
-                          Fazer upload de DANFE
-                        </Button>
-                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -458,8 +431,6 @@ export default function ClinicDashboard() {
               </Card>
             </div>
           </div>
-        </div>
-      </ClinicLayout>
-    </ProtectedRoute>
+    </div>
   );
 }

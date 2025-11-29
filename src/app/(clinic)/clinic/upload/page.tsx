@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { FileUpload } from "@/components/upload/FileUpload";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -56,19 +54,15 @@ export default function UploadPage() {
   // Apenas admins podem fazer upload
   if (!isAdmin) {
     return (
-      <ProtectedRoute allowedRoles={["clinic_admin"]}>
-        <ClinicLayout>
-          <div className="container py-8">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Acesso Negado</AlertTitle>
-              <AlertDescription>
-                Apenas administradores podem fazer upload de DANFE
-              </AlertDescription>
-            </Alert>
-          </div>
-        </ClinicLayout>
-      </ProtectedRoute>
+      <div className="container py-8">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Acesso Negado</AlertTitle>
+          <AlertDescription>
+            Apenas administradores podem fazer upload de DANFE
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
@@ -247,10 +241,8 @@ export default function UploadPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["clinic_admin"]}>
-      <ClinicLayout>
-        <div className="container py-8">
-          <div className="max-w-3xl mx-auto space-y-6">
+    <div className="container py-8">
+      <div className="max-w-3xl mx-auto space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
               <Button
@@ -650,9 +642,7 @@ export default function UploadPage() {
                 </CardContent>
               </Card>
             )}
-          </div>
-        </div>
-      </ClinicLayout>
-    </ProtectedRoute>
+      </div>
+    </div>
   );
 }

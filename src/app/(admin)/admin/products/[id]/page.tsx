@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Save, Package } from "lucide-react";
+import { Save, Package } from "lucide-react";
 import {
   getMasterProduct,
   updateMasterProduct,
@@ -105,45 +104,27 @@ export default function EditProductPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={["system_admin"]}>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <p className="text-muted-foreground">Carregando produto...</p>
-        </div>
-      </ProtectedRoute>
+      <div className="container py-8 flex items-center justify-center">
+        <p className="text-muted-foreground">Carregando produto...</p>
+      </div>
     );
   }
 
   if (!product) {
     return (
-      <ProtectedRoute allowedRoles={["system_admin"]}>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <p className="text-destructive">Produto não encontrado</p>
-            <Button asChild>
-              <Link href="/admin/products">Voltar para Produtos</Link>
-            </Button>
-          </div>
+      <div className="container py-8 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-destructive">Produto não encontrado</p>
+          <Button asChild>
+            <Link href="/admin/products">Voltar para Produtos</Link>
+          </Button>
         </div>
-      </ProtectedRoute>
+      </div>
     );
   }
 
   return (
-    <ProtectedRoute allowedRoles={["system_admin"]}>
-      <div className="min-h-screen bg-background">
-        <header className="border-b">
-          <div className="container flex h-16 items-center">
-            <Link
-              href="/admin/products"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar para Produtos
-            </Link>
-          </div>
-        </header>
-
-        <main className="container max-w-2xl py-8">
+    <div className="container max-w-2xl py-8">
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -256,8 +237,6 @@ export default function EditProductPage() {
               </CardContent>
             </Card>
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

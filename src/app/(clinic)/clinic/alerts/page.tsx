@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,26 +113,20 @@ export default function AlertTriggersPage() {
 
   if (!isAdmin) {
     return (
-      <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-        <ClinicLayout>
-          <div className="container py-8">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Apenas administradores podem executar checks de alertas.
-              </AlertDescription>
-            </Alert>
-          </div>
-        </ClinicLayout>
-      </ProtectedRoute>
+      <div className="container py-8">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Apenas administradores podem executar checks de alertas.
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
   return (
-    <ProtectedRoute allowedRoles={["clinic_admin"]}>
-      <ClinicLayout>
-        <div className="container py-8">
-          {/* Header */}
+    <div className="container py-8">
+      {/* Header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">
               <Bell className="h-8 w-8 text-primary" />
@@ -335,8 +327,6 @@ export default function AlertTriggersPage() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </ClinicLayout>
-    </ProtectedRoute>
+    </div>
   );
 }

@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +36,7 @@ import {
   Calendar,
   User,
   Package,
+  Settings,
 } from "lucide-react";
 import {
   listSolicitacoes,
@@ -116,9 +115,7 @@ export default function SolicitacoesPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-      <ClinicLayout>
-        <div className="container py-8">
+    <div className="container py-8">
           <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -264,17 +261,12 @@ export default function SolicitacoesPage() {
                         <TableHead className="text-right">Valor Total</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Criado em</TableHead>
+                        <TableHead className="text-center">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredSolicitacoes.map((solicitacao) => (
-                        <TableRow
-                          key={solicitacao.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() =>
-                            router.push(`/clinic/requests/${solicitacao.id}`)
-                          }
-                        >
+                        <TableRow key={solicitacao.id}>
                           <TableCell>
                             <div>
                               <div className="font-medium">
@@ -304,6 +296,18 @@ export default function SolicitacoesPage() {
                           <TableCell className="text-muted-foreground text-sm">
                             {formatTimestamp(solicitacao.created_at)}
                           </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                router.push(`/clinic/requests/${solicitacao.id}`)
+                              }
+                            >
+                              <Settings className="mr-2 h-4 w-4" />
+                              Gerenciar
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -312,8 +316,6 @@ export default function SolicitacoesPage() {
               </CardContent>
             </Card>
           </div>
-        </div>
-      </ClinicLayout>
-    </ProtectedRoute>
+    </div>
   );
 }

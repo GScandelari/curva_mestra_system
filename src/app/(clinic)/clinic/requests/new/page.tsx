@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,12 +41,11 @@ import {
   Trash2,
   Plus,
 } from "lucide-react";
-import { listInventory } from "@/lib/services/inventoryService";
+import { listInventory, type InventoryItem } from "@/lib/services/inventoryService";
 import {
   createSolicitacaoWithConsumption,
   type CreateSolicitacaoInput,
 } from "@/lib/services/solicitacaoService";
-import type { InventoryItem } from "@/types";
 
 type Step = "dados_paciente" | "adicionar_produtos" | "revisao";
 
@@ -60,6 +57,14 @@ interface ProdutoSelecionado {
   quantidade_solicitada: number;
   quantidade_disponivel: number;
   valor_unitario: number;
+}
+
+// Interface para produto agrupado (soma de todos os lotes)
+interface ProdutoAgrupado {
+  codigo_produto: string;
+  nome_produto: string;
+  quantidade_total: number;
+  lotes: InventoryItem[]; // Ordenados por validade (FEFO)
 }
 
 export default function NovaSolicitacaoPage() {
@@ -77,9 +82,10 @@ export default function NovaSolicitacaoPage() {
   const [observacoes, setObservacoes] = useState("");
 
   // Estados de produtos
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedProductCode, setSelectedProductCode] = useState(""); // Mudou de ID para CODE
   const [quantidadeSolicitada, setQuantidadeSolicitada] = useState("1");
 
   // Estados de loading e erro
@@ -87,6 +93,50 @@ export default function NovaSolicitacaoPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // Função para agrupar produtos por código e ordenar lotes por FEFO
+  const agruparProdutosPorCodigo = (items: any[]): ProdutoAgrupado[] => {
+    const gruposPorCodigo = new Map<string, InventoryItem[]>();
+
+    // Agrupar por código
+    items.forEach((item) => {
+      const codigo = item.codigo_produto;
+      if (!gruposPorCodigo.has(codigo)) {
+        gruposPorCodigo.set(codigo, []);
+      }
+      gruposPorCodigo.get(codigo)!.push(item);
+    });
+
+    // Transformar em array e ordenar lotes por validade (FEFO)
+    const produtosAgrupados: ProdutoAgrupado[] = [];
+
+    gruposPorCodigo.forEach((lotes, codigo) => {
+      // Ordenar lotes por data de validade (mais próximo primeiro)
+      const lotesOrdenados = lotes.sort((a, b) => {
+        const dataA = new Date(a.dt_validade).getTime();
+        const dataB = new Date(b.dt_validade).getTime();
+        return dataA - dataB; // Crescente = mais próximo primeiro
+      });
+
+      // Calcular quantidade total
+      const quantidadeTotal = lotesOrdenados.reduce(
+        (sum, lote) => sum + lote.quantidade_disponivel,
+        0
+      );
+
+      produtosAgrupados.push({
+        codigo_produto: codigo,
+        nome_produto: lotesOrdenados[0].nome_produto,
+        quantidade_total: quantidadeTotal,
+        lotes: lotesOrdenados,
+      });
+    });
+
+    // Ordenar produtos por nome
+    return produtosAgrupados.sort((a, b) =>
+      a.nome_produto.localeCompare(b.nome_produto)
+    );
+  };
 
   // Carregar inventário ao iniciar
   useEffect(() => {
@@ -103,6 +153,10 @@ export default function NovaSolicitacaoPage() {
         );
 
         setInventoryItems(availableItems);
+
+        // Agrupar produtos por código
+        const agrupados = agruparProdutosPorCodigo(availableItems);
+        setProdutosAgrupados(agrupados);
       } catch (err: any) {
         console.error("Erro ao carregar inventário:", err);
         toast({
@@ -153,8 +207,47 @@ export default function NovaSolicitacaoPage() {
     }
   };
 
+  // Função para alocar quantidade usando FEFO (First Expired, First Out)
+  const alocarProdutoFEFO = (
+    codigoProduto: string,
+    quantidadeDesejada: number
+  ): ProdutoSelecionado[] => {
+    const produtoAgrupado = produtosAgrupados.find(
+      (p) => p.codigo_produto === codigoProduto
+    );
+
+    if (!produtoAgrupado) return [];
+
+    const alocacoes: ProdutoSelecionado[] = [];
+    let quantidadeRestante = quantidadeDesejada;
+
+    // Percorrer lotes ordenados por validade (mais próximo primeiro)
+    for (const lote of produtoAgrupado.lotes) {
+      if (quantidadeRestante <= 0) break;
+
+      const quantidadeDoLote = Math.min(
+        quantidadeRestante,
+        lote.quantidade_disponivel
+      );
+
+      alocacoes.push({
+        inventory_item_id: lote.id,
+        produto_codigo: lote.codigo_produto,
+        produto_nome: lote.nome_produto,
+        lote: lote.lote,
+        quantidade_solicitada: quantidadeDoLote,
+        quantidade_disponivel: lote.quantidade_disponivel,
+        valor_unitario: lote.valor_unitario,
+      });
+
+      quantidadeRestante -= quantidadeDoLote;
+    }
+
+    return alocacoes;
+  };
+
   const handleAdicionarProduto = () => {
-    if (!selectedProductId) {
+    if (!selectedProductCode) {
       toast({
         title: "Selecione um produto",
         description: "Escolha um produto do inventário",
@@ -173,16 +266,17 @@ export default function NovaSolicitacaoPage() {
       return;
     }
 
-    const produtoInventario = inventoryItems.find(
-      (item) => item.id === selectedProductId
+    const produtoAgrupado = produtosAgrupados.find(
+      (p) => p.codigo_produto === selectedProductCode
     );
 
-    if (!produtoInventario) return;
+    if (!produtoAgrupado) return;
 
-    if (quantidade > produtoInventario.quantidade_disponivel) {
+    // Verificar se há estoque suficiente
+    if (quantidade > produtoAgrupado.quantidade_total) {
       toast({
         title: "Estoque insuficiente",
-        description: `Disponível: ${produtoInventario.quantidade_disponivel} unidades`,
+        description: `Disponível: ${produtoAgrupado.quantidade_total} unidades`,
         variant: "destructive",
       });
       return;
@@ -190,7 +284,7 @@ export default function NovaSolicitacaoPage() {
 
     // Verificar se já foi adicionado
     const jaAdicionado = produtosSelecionados.some(
-      (p) => p.inventory_item_id === selectedProductId
+      (p) => p.produto_codigo === selectedProductCode
     );
 
     if (jaAdicionado) {
@@ -202,23 +296,31 @@ export default function NovaSolicitacaoPage() {
       return;
     }
 
-    const novoProduto: ProdutoSelecionado = {
-      inventory_item_id: produtoInventario.id,
-      produto_codigo: produtoInventario.codigo_produto,
-      produto_nome: produtoInventario.nome_produto,
-      lote: produtoInventario.lote,
-      quantidade_solicitada: quantidade,
-      quantidade_disponivel: produtoInventario.quantidade_disponivel,
-      valor_unitario: produtoInventario.valor_unitario,
-    };
+    // Alocar produto usando FEFO
+    const alocacoes = alocarProdutoFEFO(selectedProductCode, quantidade);
 
-    setProdutosSelecionados([...produtosSelecionados, novoProduto]);
-    setSelectedProductId("");
+    if (alocacoes.length === 0) {
+      toast({
+        title: "Erro ao alocar produto",
+        description: "Não foi possível alocar o produto",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Adicionar todas as alocações
+    setProdutosSelecionados([...produtosSelecionados, ...alocacoes]);
+    setSelectedProductCode("");
     setQuantidadeSolicitada("1");
+
+    // Mensagem detalhada sobre os lotes alocados
+    const lotesUsados = alocacoes.map((a) => `${a.lote} (${a.quantidade_solicitada} un)`).join(", ");
 
     toast({
       title: "Produto adicionado",
-      description: `${produtoInventario.nome_produto} adicionado à solicitação`,
+      description: alocacoes.length === 1
+        ? `${produtoAgrupado.nome_produto} - Lote: ${lotesUsados}`
+        : `${produtoAgrupado.nome_produto} - Lotes: ${lotesUsados}`,
     });
   };
 
@@ -304,9 +406,7 @@ export default function NovaSolicitacaoPage() {
   );
 
   return (
-    <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-      <ClinicLayout>
-        <div className="container py-8">
+    <div className="container py-8">
           <div className="space-y-6">
             {/* Header */}
             <div>
@@ -490,18 +590,17 @@ export default function NovaSolicitacaoPage() {
                       <div className="md:col-span-2 space-y-2">
                         <Label htmlFor="produto">Produto</Label>
                         <Select
-                          value={selectedProductId}
-                          onValueChange={setSelectedProductId}
+                          value={selectedProductCode}
+                          onValueChange={setSelectedProductCode}
                           disabled={loading}
                         >
                           <SelectTrigger id="produto">
                             <SelectValue placeholder="Selecione um produto" />
                           </SelectTrigger>
                           <SelectContent>
-                            {inventoryItems.map((item) => (
-                              <SelectItem key={item.id} value={item.id}>
-                                {item.nome_produto} (Lote: {item.lote}) -{" "}
-                                {item.quantidade_disponivel} disponíveis
+                            {produtosAgrupados.map((produto) => (
+                              <SelectItem key={produto.codigo_produto} value={produto.codigo_produto}>
+                                {produto.nome_produto} - {produto.quantidade_total} unidades disponíveis
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -746,8 +845,6 @@ export default function NovaSolicitacaoPage() {
               </div>
             )}
           </div>
-        </div>
-      </ClinicLayout>
-    </ProtectedRoute>
+    </div>
   );
 }

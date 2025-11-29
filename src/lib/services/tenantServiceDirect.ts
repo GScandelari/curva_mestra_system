@@ -23,6 +23,7 @@ import {
   CreateTenantData,
   UpdateTenantData,
 } from "@/types/tenant";
+import { initializeTenantOnboarding } from "./tenantOnboardingService";
 
 interface ListTenantsParams {
   limit?: number;
@@ -102,21 +103,35 @@ export async function getTenant(tenantId: string) {
 // Criar novo tenant
 export async function createTenant(data: CreateTenantData) {
   try {
-    const { name, cnpj, email, plan_id = "semestral", phone, address, active = true } = data;
+    const { name, document_type, document_number, cnpj, max_users, email, plan_id = "semestral", phone, address, city, state, cep, active = false } = data;
 
     const tenantData = {
       name,
-      cnpj,
+      document_type,
+      document_number,
+      cnpj: cnpj || document_number, // Manter compatibilidade
+      max_users,
       email,
       plan_id,
       phone: phone || "",
       address: address || "",
-      active,
+      city: city || "",          // Cidade separada
+      state: state || "",        // Estado separado
+      cep: cep || "",            // CEP separado
+      active, // Tenant inicia INATIVO até completar onboarding
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     };
 
     const docRef = await addDoc(collection(db, "tenants"), tenantData);
+
+    // Inicializa registro de onboarding
+    try {
+      await initializeTenantOnboarding(docRef.id);
+    } catch (onboardingError) {
+      console.error("Erro ao inicializar onboarding:", onboardingError);
+      // Não falhar a criação do tenant por erro no onboarding
+    }
 
     return {
       tenantId: docRef.id,
@@ -142,10 +157,16 @@ export async function updateTenant(tenantId: string, data: UpdateTenantData) {
     };
 
     if (data.name !== undefined) firestoreData.name = data.name;
+    if (data.document_type !== undefined) firestoreData.document_type = data.document_type;
+    if (data.document_number !== undefined) firestoreData.document_number = data.document_number;
     if (data.cnpj !== undefined) firestoreData.cnpj = data.cnpj;
+    if (data.max_users !== undefined) firestoreData.max_users = data.max_users;
     if (data.email !== undefined) firestoreData.email = data.email;
     if (data.phone !== undefined) firestoreData.phone = data.phone;
     if (data.address !== undefined) firestoreData.address = data.address;
+    if (data.city !== undefined) firestoreData.city = data.city;
+    if (data.state !== undefined) firestoreData.state = data.state;
+    if (data.cep !== undefined) firestoreData.cep = data.cep;
     if (data.plan_id !== undefined) firestoreData.plan_id = data.plan_id;
     if (data.active !== undefined) firestoreData.active = data.active;
 

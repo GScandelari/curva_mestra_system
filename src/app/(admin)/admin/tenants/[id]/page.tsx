@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { auth } from "@/lib/firebase";
 import {
   Card,
   CardContent,
@@ -15,13 +15,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Save, Building2, XCircle, CheckCircle, Users, UserPlus, Shield, User } from "lucide-react";
+import { Save, Building2, XCircle, CheckCircle, Users, UserPlus, Shield, User } from "lucide-react";
 import { getTenant, updateTenant, deactivateTenant, reactivateTenant } from "@/lib/services/tenantServiceDirect";
-import { listClinicUsers, ClinicUser, createClinicUser } from "@/lib/services/clinicUserService";
+import { listClinicUsers, ClinicUser } from "@/lib/services/clinicUserService";
 import { formatPlanPrice, getPlanMaxUsers } from "@/lib/constants/plans";
-import { Tenant } from "@/types";
+import { Tenant, DocumentType } from "@/types";
 import { formatAddress, formatCNPJ } from "@/lib/utils";
-import { validateCNPJ } from "@/types/tenant";
+import { validateDocument, formatDocumentAuto, getDocumentType } from "@/lib/utils/documentValidation";
 import {
   Dialog,
   DialogContent,
@@ -90,7 +90,9 @@ export default function EditTenantPage() {
 
       // Preencher formulário
       setName(tenantData.name);
-      setCnpj(formatCNPJInput(tenantData.cnpj));
+      // Usar document_number se disponível, senão usar cnpj para compatibilidade
+      const documentNumber = tenantData.document_number || tenantData.cnpj || "";
+      setCnpj(formatCNPJInput(documentNumber));
       setEmail(tenantData.email);
       setPhone(formatPhoneInput(tenantData.phone || ""));
       // Converter address de objeto para string se necessário
@@ -117,8 +119,8 @@ export default function EditTenantPage() {
       return;
     }
 
-    if (!validateCNPJ(cnpj)) {
-      setError("CNPJ inválido. Verifique os dígitos verificadores.");
+    if (!validateDocument(cnpj)) {
+      setError("CPF/CNPJ inválido. Verifique os dígitos verificadores.");
       return;
     }
 
@@ -128,12 +130,22 @@ export default function EditTenantPage() {
     }
 
     setLoading(true);
-    const cnpjNumbers = cnpj.replace(/\D/g, "");
+    const documentNumbers = cnpj.replace(/\D/g, "");
+    const docType = getDocumentType(documentNumbers);
+
+    if (!docType) {
+      setError("Tipo de documento inválido");
+      setLoading(false);
+      return;
+    }
 
     try {
       await updateTenant(tenantId, {
         name: name.trim(),
-        cnpj: cnpjNumbers,
+        document_type: docType,
+        document_number: documentNumbers,
+        cnpj: documentNumbers, // Manter compatibilidade
+        max_users: docType === "cpf" ? 1 : 5,
         email: email.trim(),
         phone: phone.trim(),
         address: address.trim(),
@@ -194,13 +206,34 @@ export default function EditTenantPage() {
       setCreatingUser(true);
       setError("");
 
-      await createClinicUser({
-        tenantId,
-        email: newUserEmail,
-        password: newUserPassword,
-        displayName: newUserName,
-        role: newUserRole,
+      // Obter token do usuário atual (system_admin)
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error("Erro de autenticação. Faça login novamente.");
+      }
+
+      // Chamar API para criar usuário (NÃO autentica automaticamente)
+      const response = await fetch("/api/users/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          email: newUserEmail,
+          password: newUserPassword,
+          displayName: newUserName,
+          role: newUserRole,
+          // Para system_admin, enviar tenant_id manualmente
+          tenant_id_override: tenantId,
+        }),
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao criar usuário");
+      }
 
       setSuccess("Usuário criado com sucesso!");
 
@@ -247,62 +280,44 @@ export default function EditTenantPage() {
 
   if (loadingTenant) {
     return (
-      <ProtectedRoute allowedRoles={["system_admin"]}>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <p className="text-muted-foreground">Carregando tenant...</p>
-        </div>
-      </ProtectedRoute>
+      <div className="container py-8 flex items-center justify-center">
+        <p className="text-muted-foreground">Carregando tenant...</p>
+      </div>
     );
   }
 
   if (error && !tenant) {
     return (
-      <ProtectedRoute allowedRoles={["system_admin"]}>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-destructive mb-4">{error}</p>
-            <Button onClick={() => router.push("/admin/tenants")}>
-              Voltar para Clínicas
-            </Button>
-          </div>
+      <div className="container py-8 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={() => router.push("/admin/tenants")}>
+            Voltar para Clínicas
+          </Button>
         </div>
-      </ProtectedRoute>
+      </div>
     );
   }
 
   return (
-    <ProtectedRoute allowedRoles={["system_admin"]}>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b">
-          <div className="container flex h-16 items-center justify-between">
-            <Link
-              href="/admin/tenants"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar para Clínicas
-            </Link>
-            {tenant && (
-              <Badge variant={tenant.active ? "default" : "destructive"}>
-                {tenant.active ? "Ativo" : "Inativo"}
-              </Badge>
-            )}
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="container max-w-2xl py-8">
+    <div className="container max-w-2xl py-8">
           <div className="space-y-6">
             {/* Page Title */}
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                <Building2 className="h-8 w-8 text-primary" />
-                Editar Clínica
-              </h1>
-              <p className="text-muted-foreground">
-                Atualize as informações da clínica
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                  <Building2 className="h-8 w-8 text-primary" />
+                  Editar Clínica
+                </h1>
+                <p className="text-muted-foreground">
+                  Atualize as informações da clínica
+                </p>
+              </div>
+              {tenant && (
+                <Badge variant={tenant.active ? "default" : "destructive"}>
+                  {tenant.active ? "Ativo" : "Inativo"}
+                </Badge>
+              )}
             </div>
 
             {/* Clinic Summary */}
@@ -324,8 +339,12 @@ export default function EditTenantPage() {
                       <p className="text-base font-semibold">{tenant.name}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">CNPJ</p>
-                      <p className="text-base font-semibold">{formatCNPJ(tenant.cnpj)}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {tenant.document_type === "cpf" ? "CPF" : "CNPJ"}
+                      </p>
+                      <p className="text-base font-semibold">
+                        {formatDocumentAuto(tenant.document_number || tenant.cnpj || "")}
+                      </p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-muted-foreground">Email</p>
@@ -366,12 +385,12 @@ export default function EditTenantPage() {
                         Usuários da Clínica
                       </CardTitle>
                       <CardDescription>
-                        {clinicUsers.length} de {getPlanMaxUsers(tenant.plan_id)} usuários
+                        {clinicUsers.length} de {tenant.max_users || 5} usuários
                       </CardDescription>
                     </div>
                     <Button
                       onClick={() => setShowAddUserDialog(true)}
-                      disabled={clinicUsers.length >= getPlanMaxUsers(tenant.plan_id)}
+                      disabled={clinicUsers.length >= (tenant.max_users || 5)}
                     >
                       <UserPlus className="mr-2 h-4 w-4" />
                       Adicionar Usuário
@@ -454,14 +473,14 @@ export default function EditTenantPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="cnpj">
-                      CNPJ <span className="text-destructive">*</span>
+                      CPF/CNPJ <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="cnpj"
                       type="text"
                       value={cnpj}
                       onChange={(e) => setCnpj(formatCNPJInput(e.target.value))}
-                      placeholder="00.000.000/0000-00"
+                      placeholder="000.000.000-00 ou 00.000.000/0000-00"
                       required
                       disabled={loading}
                       maxLength={18}
@@ -520,7 +539,7 @@ export default function EditTenantPage() {
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <option value="semestral">Plano Semestral - R$ 59,90/mês</option>
-                      <option value="anual">Plano Anual - R$ 59,90/mês</option>
+                      <option value="anual">Plano Anual - R$ 49,90/mês</option>
                     </select>
                   </div>
 
@@ -632,7 +651,6 @@ export default function EditTenantPage() {
               </Card>
             )}
           </div>
-        </main>
 
         {/* Dialog para adicionar usuário */}
         <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
@@ -677,6 +695,7 @@ export default function EditTenantPage() {
                   onChange={(e) => setNewUserPassword(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
                   disabled={creatingUser}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -714,7 +733,6 @@ export default function EditTenantPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

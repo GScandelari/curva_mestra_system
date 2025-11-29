@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, User, Mail, Key, Save, Shield } from "lucide-react";
+import { User, Mail, Key, Save, Shield } from "lucide-react";
 import Link from "next/link";
 import {
   updateProfile,
@@ -111,23 +110,7 @@ export default function AdminProfilePage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["system_admin"]}>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b">
-          <div className="container flex h-16 items-center">
-            <Link
-              href="/admin/dashboard"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar ao Dashboard
-            </Link>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="container max-w-2xl py-8">
+    <div className="container max-w-2xl py-8">
           <div className="space-y-8">
             {/* Page Title */}
             <div>
@@ -224,6 +207,7 @@ export default function AdminProfilePage() {
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       disabled={passwordLoading}
                       required
+                      autoComplete="current-password"
                     />
                   </div>
 
@@ -237,6 +221,7 @@ export default function AdminProfilePage() {
                       disabled={passwordLoading}
                       required
                       minLength={8}
+                      autoComplete="new-password"
                     />
                     <p className="text-xs text-muted-foreground">
                       Mínimo de 8 caracteres para system_admin
@@ -252,6 +237,7 @@ export default function AdminProfilePage() {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       disabled={passwordLoading}
                       required
+                      autoComplete="new-password"
                     />
                   </div>
 
@@ -275,8 +261,6 @@ export default function AdminProfilePage() {
               </CardContent>
             </Card>
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

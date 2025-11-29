@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Search, UserCog, Shield, User, Building2 } from "lucide-react";
+import { Search, UserCog, Shield, User, Building2 } from "lucide-react";
 import Link from "next/link";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -143,33 +142,14 @@ export default function UsersManagementPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["system_admin"]}>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b">
-          <div className="container flex h-16 items-center justify-between">
-            <Link
-              href="/admin/dashboard"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar para Dashboard
-            </Link>
-            <div className="flex items-center gap-2">
-              <UserCog className="h-5 w-5" />
-              <h1 className="text-xl font-semibold">Gerenciar Usuários</h1>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="container py-8">
+    <div className="container py-8">
           <div className="space-y-6">
             {/* Page Header */}
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">
+              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                <UserCog className="h-8 w-8 text-primary" />
                 Usuários do Sistema
-              </h2>
+              </h1>
               <p className="text-muted-foreground">
                 Gerencie todos os usuários de todas as clínicas
               </p>
@@ -340,8 +320,6 @@ export default function UsersManagementPage() {
               </CardContent>
             </Card>
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

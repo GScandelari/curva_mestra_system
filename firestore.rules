@@ -24,7 +24,17 @@ service cloud.firestore {
     }
 
     // REGRAS MULTI-TENANT - OBRIGATÓRIO
-    // Todos os dados de tenant são protegidos
+
+    // Documento raiz do tenant (necessário para update durante onboarding)
+    match /tenants/{tenantId} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Usuários do tenant podem ler e atualizar seu próprio tenant
+      allow read, update: if belongsToTenant(tenantId);
+    }
+
+    // Subcoleções do tenant
     match /tenants/{tenantId}/{document=**} {
       // System admins têm acesso total
       allow read, write: if isSystemAdmin();
@@ -57,6 +67,15 @@ service cloud.firestore {
       allow write: if belongsToTenant(tenantId) && request.auth.token.role == 'clinic_admin';
     }
 
+    // Coleção de solicitações de acesso (registro público)
+    match /access_requests/{requestId} {
+      // Qualquer pessoa pode criar uma solicitação (registro público)
+      allow create: if request.auth == null;
+
+      // Apenas system_admin pode ler, atualizar e deletar
+      allow read, update, delete: if isSystemAdmin();
+    }
+
     // Coleção de usuários do sistema (apenas system_admin)
     match /users/{userId} {
       allow read, write: if isSystemAdmin();
@@ -81,10 +100,28 @@ service cloud.firestore {
       allow write: if isSystemAdmin();
     }
 
-    // Coleção de licenças (apenas system_admin)
+    // Coleção de licenças
     match /licenses/{licenseId} {
+      // System admins têm acesso total
       allow read, write: if isSystemAdmin();
+
+      // Usuários podem ler suas próprias licenças
       allow read: if isAuthenticated() && resource.data.tenant_id == request.auth.token.tenant_id;
+
+      // Clinic_admin pode criar licença para seu próprio tenant durante onboarding
+      allow create: if isAuthenticated()
+        && request.auth.token.role == 'clinic_admin'
+        && request.resource.data.tenant_id == request.auth.token.tenant_id;
+    }
+
+    // Coleção de onboarding de tenants
+    match /tenant_onboarding/{tenantId} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Usuários do tenant podem ler, criar e atualizar seu próprio onboarding
+      // Precisa de create porque o documento pode não existir ainda
+      allow read, create, update: if belongsToTenant(tenantId);
     }
   }
 }
