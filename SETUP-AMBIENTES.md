@@ -21,12 +21,12 @@ O projeto utiliza diferentes arquivos `.env` para cada ambiente:
 **Arquivos usados:** `.env` ou `.env.production` ou `.env.local` (com `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false`)
 
 ```bash
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBtNXznf7cvdzGCcBym84ux-SjJrrKaSJU
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=curva-mestra.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=curva-mestra
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=curva-mestra.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=521885400577
-NEXT_PUBLIC_FIREBASE_APP_ID=1:521885400577:web:e4eed211455f2976618a00
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
 # Produção
 NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false
@@ -46,12 +46,12 @@ firebase deploy
 **Arquivo usado:** `.env.development`
 
 ```bash
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBtNXznf7cvdzGCcBym84ux-SjJrrKaSJU
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=curva-mestra.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=curva-mestra
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=curva-mestra.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=521885400577
-NEXT_PUBLIC_FIREBASE_APP_ID=1:521885400577:web:e4eed211455f2976618a00
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
 # Desenvolvimento com emuladores
 NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true
