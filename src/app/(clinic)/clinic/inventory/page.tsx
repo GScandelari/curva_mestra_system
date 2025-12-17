@@ -36,6 +36,16 @@ import {
   listInventory,
   type InventoryItem,
 } from "@/lib/services/inventoryService";
+import { exportToExcel, formatDecimalBR } from "@/lib/services/reportService";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  Timestamp,
+} from "firebase/firestore";
 
 export const dynamic = 'force-dynamic';
 
@@ -58,33 +68,80 @@ function InventoryContent() {
   const tenantId = claims?.tenant_id;
 
   useEffect(() => {
-    async function loadInventory() {
-      if (!tenantId) return;
+    if (!tenantId) return;
 
-      try {
-        setLoading(true);
+    // Usar listener em tempo real para atualização automática do inventário
+    setLoading(true);
+    setError("");
+
+    const inventoryRef = collection(db, "tenants", tenantId, "inventory");
+    const q = query(
+      inventoryRef,
+      where("active", "==", true),
+      orderBy("nome_produto", "asc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const items: InventoryItem[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          items.push({
+            id: doc.id,
+            tenant_id: data.tenant_id,
+            produto_id: data.produto_id,
+            codigo_produto: data.codigo_produto,
+            nome_produto: data.nome_produto,
+            lote: data.lote,
+            quantidade_inicial: data.quantidade_inicial,
+            quantidade_disponivel: data.quantidade_disponivel,
+            quantidade_reservada: data.quantidade_reservada,
+            dt_validade:
+              data.dt_validade instanceof Timestamp
+                ? data.dt_validade.toDate()
+                : new Date(data.dt_validade),
+            dt_entrada:
+              data.dt_entrada instanceof Timestamp
+                ? data.dt_entrada.toDate()
+                : new Date(data.dt_entrada),
+            valor_unitario: data.valor_unitario,
+            nf_numero: data.nf_numero,
+            nf_id: data.nf_id,
+            active: data.active,
+            created_at:
+              data.created_at instanceof Timestamp
+                ? data.created_at.toDate()
+                : new Date(data.created_at),
+            updated_at:
+              data.updated_at instanceof Timestamp
+                ? data.updated_at.toDate()
+                : new Date(data.updated_at),
+          });
+        });
+
+        setInventory(items);
+        setFilteredInventory(items);
+        setLoading(false);
         setError("");
-
-        const data = await listInventory(tenantId, true);
-        setInventory(data);
-        setFilteredInventory(data);
 
         // Aplicar filtro da URL se houver
         const urlFilter = searchParams.get("filter");
         if (urlFilter === "expiring") {
           setFilterBy("expiring");
-          applyFilter(data, "expiring", "");
+          applyFilter(items, "expiring", "");
         }
-      } catch (err: any) {
+      },
+      (err) => {
         console.error("Erro ao carregar inventário:", err);
         setError("Erro ao carregar inventário");
-      } finally {
         setLoading(false);
       }
-    }
+    );
 
-    loadInventory();
-  }, [tenantId, searchParams]);
+    // Cleanup: Desinscrever listener quando componente desmontar
+    return () => unsubscribe();
+  }, [tenantId]);
 
   useEffect(() => {
     applyFilter(inventory, filterBy, searchTerm);
@@ -188,38 +245,20 @@ function InventoryContent() {
     return <Badge variant="default">Normal</Badge>;
   };
 
-  const exportToCSV = () => {
-    const headers = [
-      "Código",
-      "Produto",
-      "Lote",
-      "Quantidade",
-      "Validade",
-      "Valor Unitário",
-      "NF",
-    ];
+  const handleExportInventory = () => {
+    const data = filteredInventory.map((item) => ({
+      "Código": item.codigo_produto,
+      "Produto": item.nome_produto,
+      "Lote": item.lote,
+      "Qtd. Total": item.quantidade_disponivel + (item.quantidade_reservada || 0),
+      "Reservado": item.quantidade_reservada || 0,
+      "Disponível": item.quantidade_disponivel,
+      "Validade": formatDate(item.dt_validade),
+      "Valor Unitário": formatDecimalBR(item.valor_unitario, 2),
+      "NF": item.nf_numero || "-",
+    }));
 
-    const rows = filteredInventory.map((item) => [
-      item.codigo_produto,
-      item.nome_produto,
-      item.lote,
-      item.quantidade_disponivel,
-      formatDate(item.dt_validade),
-      item.valor_unitario,
-      item.nf_numero || "-",
-    ]);
-
-    const csv = [
-      headers.join(","),
-      ...rows.map((row) => row.join(",")),
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `inventario-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
+    exportToExcel(data, "inventario");
   };
 
   return (
@@ -242,9 +281,9 @@ function InventoryContent() {
                     Adicionar Produtos
                   </Button>
                 )}
-                <Button variant="outline" onClick={exportToCSV} disabled={loading}>
+                <Button variant="outline" onClick={handleExportInventory} disabled={loading}>
                   <Download className="mr-2 h-4 w-4" />
-                  Exportar CSV
+                  Exportar Excel
                 </Button>
               </div>
             </div>
@@ -267,16 +306,23 @@ function InventoryContent() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Total em Estoque
+                    Produtos Disponíveis
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-green-600">
                     {inventory.reduce(
                       (acc, item) => acc + item.quantidade_disponivel,
                       0
                     )}
                   </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {inventory.reduce(
+                      (acc, item) => acc + (item.quantidade_reservada || 0),
+                      0
+                    )}{" "}
+                    reservados
+                  </p>
                 </CardContent>
               </Card>
 
@@ -420,7 +466,9 @@ function InventoryContent() {
                           <TableHead>Código</TableHead>
                           <TableHead>Produto</TableHead>
                           <TableHead>Lote</TableHead>
-                          <TableHead className="text-right">Qtd.</TableHead>
+                          <TableHead className="text-right">Qtd. Total</TableHead>
+                          <TableHead className="text-right">Reservado</TableHead>
+                          <TableHead className="text-right">Disponível</TableHead>
                           <TableHead>Validade</TableHead>
                           <TableHead className="text-right">
                             Valor Un.
@@ -446,7 +494,13 @@ function InventoryContent() {
                             <TableCell className="font-mono text-xs">
                               {item.lote}
                             </TableCell>
-                            <TableCell className="text-right font-semibold">
+                            <TableCell className="text-right font-semibold text-gray-900">
+                              {item.quantidade_disponivel + (item.quantidade_reservada || 0)}
+                            </TableCell>
+                            <TableCell className="text-right text-orange-600 font-medium">
+                              {item.quantidade_reservada || 0}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-green-600">
                               {item.quantidade_disponivel}
                             </TableCell>
                             <TableCell>

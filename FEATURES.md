@@ -735,6 +735,17 @@ OUTROS:
 - [ ] Matching inteligente de lotes e validades
 - [ ] Tratamento de erros de OCR
 
+### Sistema de Pagamentos e Vouchers (Prioridade Média)
+- [ ] **Sistema de Vouchers de Desconto**
+  - Criação de vouchers pelo system_admin
+  - Vouchers específicos por tenant ou públicos
+  - Aplicação durante onboarding (página de pagamento)
+  - Tipos de desconto (percentual ou valor fixo)
+  - Validação de uso único ou múltiplo
+  - Data de validade dos vouchers
+  - Histórico de uso de vouchers
+  - Relatório de vouchers ativos/usados
+
 ### Funcionalidades Avançadas (Prioridade Baixa)
 - [x] Sistema de alertas de vencimento ✅
 - [ ] Relatórios personalizados

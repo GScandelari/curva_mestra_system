@@ -20,11 +20,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, UserCog, Shield, User, Building2 } from "lucide-react";
+import { Search, UserCog, Shield, User, Building2, Edit } from "lucide-react";
 import Link from "next/link";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, getDocs, query, where, orderBy, doc, getDoc, updateDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
 import { formatTimestamp } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface UserWithTenant {
   uid: string;
@@ -44,6 +60,14 @@ export default function UsersManagementPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Edit dialog states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserWithTenant | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editRole, setEditRole] = useState<"clinic_admin" | "clinic_user">("clinic_user");
+  const [editActive, setEditActive] = useState(true);
+  const [updating, setUpdating] = useState(false);
+
   useEffect(() => {
     loadAllUsers();
   }, []);
@@ -57,33 +81,37 @@ export default function UsersManagementPage() {
       setLoading(true);
       const allUsers: UserWithTenant[] = [];
 
-      // Buscar todos os tenants
-      const tenantsRef = collection(db, "tenants");
-      const tenantsSnapshot = await getDocs(tenantsRef);
+      // Buscar todos os usuários da coleção raiz
+      const usersRef = collection(db, "users");
+      const usersQuery = query(usersRef, orderBy("created_at", "desc"));
+      const usersSnapshot = await getDocs(usersQuery);
 
-      // Para cada tenant, buscar seus usuários
-      for (const tenantDoc of tenantsSnapshot.docs) {
-        const tenantData = tenantDoc.data();
-        const tenantId = tenantDoc.id;
-        const tenantName = tenantData.name || "Sem nome";
+      // Para cada usuário, buscar o nome do tenant
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        const tenantId = userData.tenant_id;
+        let tenantName = "Sem clínica";
 
-        // Buscar usuários deste tenant
-        const usersRef = collection(db, "tenants", tenantId, "users");
-        const usersQuery = query(usersRef, orderBy("created_at", "desc"));
-        const usersSnapshot = await getDocs(usersQuery);
+        if (tenantId) {
+          try {
+            const tenantDoc = await getDoc(doc(db, "tenants", tenantId));
+            if (tenantDoc.exists()) {
+              tenantName = tenantDoc.data().name || "Sem nome";
+            }
+          } catch (err) {
+            console.error(`Erro ao buscar tenant ${tenantId}:`, err);
+          }
+        }
 
-        usersSnapshot.forEach((userDoc) => {
-          const userData = userDoc.data();
-          allUsers.push({
-            uid: userDoc.id,
-            email: userData.email || "",
-            displayName: userData.displayName || "",
-            role: userData.role || "clinic_user",
-            active: userData.active ?? true,
-            tenantId,
-            tenantName,
-            created_at: userData.created_at,
-          });
+        allUsers.push({
+          uid: userDoc.id,
+          email: userData.email || "",
+          displayName: userData.displayName || userData.full_name || "",
+          role: userData.role || "clinic_user",
+          active: userData.active ?? true,
+          tenantId: tenantId || "",
+          tenantName,
+          created_at: userData.created_at,
         });
       }
 
@@ -139,6 +167,40 @@ export default function UsersManagementPage() {
       return <Shield className="h-4 w-4 text-primary" />;
     }
     return <User className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const handleEditUser = (user: UserWithTenant) => {
+    setEditingUser(user);
+    setEditDisplayName(user.displayName);
+    setEditRole(user.role === "system_admin" ? "clinic_admin" : user.role);
+    setEditActive(user.active);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
+
+    try {
+      setUpdating(true);
+
+      // Atualizar no Firestore
+      const userRef = doc(db, "users", editingUser.uid);
+      await updateDoc(userRef, {
+        displayName: editDisplayName,
+        role: editRole,
+        active: editActive,
+        updated_at: new Date(),
+      });
+
+      alert("Usuário atualizado com sucesso!");
+      setEditDialogOpen(false);
+      loadAllUsers(); // Recarregar lista
+    } catch (error: any) {
+      console.error("Erro ao atualizar usuário:", error);
+      alert(`Erro ao atualizar usuário: ${error.message}`);
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return (
@@ -301,15 +363,27 @@ export default function UsersManagementPage() {
                               {formatTimestamp(user.created_at)}
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  router.push(`/admin/tenants/${user.tenantId}`)
-                                }
-                              >
-                                Ver Clínica
-                              </Button>
+                              <div className="flex justify-end gap-2">
+                                {user.role !== "system_admin" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditUser(user)}
+                                  >
+                                    <Edit className="h-4 w-4 mr-1" />
+                                    Editar
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    router.push(`/admin/tenants/${user.tenantId}`)
+                                  }
+                                >
+                                  Ver Clínica
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -319,6 +393,74 @@ export default function UsersManagementPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Edit User Dialog */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Editar Usuário</DialogTitle>
+                  <DialogDescription>
+                    Edite as informações do usuário {editingUser?.email}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="displayName">Nome de Exibição</Label>
+                    <Input
+                      id="displayName"
+                      value={editDisplayName}
+                      onChange={(e) => setEditDisplayName(e.target.value)}
+                      placeholder="Nome do usuário"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Função</Label>
+                    <Select value={editRole} onValueChange={(value: "clinic_admin" | "clinic_user") => setEditRole(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="clinic_admin">Admin da Clínica</SelectItem>
+                        <SelectItem value="clinic_user">Usuário da Clínica</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="active">Status</Label>
+                    <Select value={editActive ? "active" : "inactive"} onValueChange={(value) => setEditActive(value === "active")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Ativo</SelectItem>
+                        <SelectItem value="inactive">Inativo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p><strong>Email:</strong> {editingUser?.email}</p>
+                    <p><strong>Clínica:</strong> {editingUser?.tenantName}</p>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditDialogOpen(false)}
+                    disabled={updating}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleSaveUser} disabled={updating}>
+                    {updating ? "Salvando..." : "Salvar"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
     </div>
   );

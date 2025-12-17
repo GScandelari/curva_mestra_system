@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,13 @@ export default function NewPatientPage() {
     cpf: "",
     observacoes: "",
   });
+
+  // Verificar permissão - apenas clinic_admin pode criar pacientes
+  useEffect(() => {
+    if (claims && claims.role !== "clinic_admin") {
+      router.push("/clinic/patients");
+    }
+  }, [claims, router]);
 
   // Funções de formatação
   function formatPhone(value: string): string {
@@ -97,17 +104,18 @@ export default function NewPatientPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Novo Paciente</h1>
-          <p className="text-gray-600 mt-1">Cadastre um novo paciente</p>
+    <div className="container py-8">
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Novo Paciente</h1>
+            <p className="text-muted-foreground mt-1">Cadastre um novo paciente</p>
+          </div>
         </div>
-      </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -204,6 +212,7 @@ export default function NewPatientPage() {
             </Button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );

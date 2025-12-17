@@ -82,11 +82,10 @@ export async function POST(request: NextRequest) {
     // Obter limite de usuários do tenant (baseado em CPF=1 ou CNPJ=5)
     const maxUsers = tenantData?.max_users || 5;
 
-    // Contar usuários atuais (incluindo inativos)
+    // Contar usuários atuais (incluindo inativos) na coleção raiz users
     const usersSnapshot = await adminDb
-      .collection("tenants")
-      .doc(tenantId)
       .collection("users")
+      .where("tenant_id", "==", tenantId)
       .get();
 
     const currentUserCount = usersSnapshot.size;
@@ -119,10 +118,11 @@ export async function POST(request: NextRequest) {
       is_system_admin: false,
     });
 
-    // Criar documento do usuário no Firestore
+    // Criar documento do usuário no Firestore (coleção raiz users)
     const userDoc = {
       email,
-      displayName,
+      full_name: displayName, // Usar full_name para consistência
+      displayName, // Manter displayName também para compatibilidade
       role,
       active: true,
       tenant_id: tenantId,
@@ -131,8 +131,6 @@ export async function POST(request: NextRequest) {
     };
 
     await adminDb
-      .collection("tenants")
-      .doc(tenantId)
       .collection("users")
       .doc(userRecord.uid)
       .set(userDoc);

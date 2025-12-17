@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Users, UserCheck, UserX, Calendar } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Plus, Search, Users, Calendar } from "lucide-react";
 import { Patient } from "@/types/patient";
 import { listPatients, getPatientsStats } from "@/lib/services/patientService";
 import { Timestamp } from "firebase/firestore";
@@ -19,12 +26,11 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
-    ativos: 0,
-    inativos: 0,
     novos_mes: 0,
   });
 
   const tenantId = claims?.tenant_id;
+  const isAdmin = claims?.role === "clinic_admin";
 
   useEffect(() => {
     if (tenantId) {
@@ -42,7 +48,7 @@ export default function PatientsPage() {
     try {
       setLoading(true);
       const [patientsData, statsData] = await Promise.all([
-        listPatients(tenantId, { active: true }),
+        listPatients(tenantId),
         getPatientsStats(tenantId),
       ]);
 
@@ -80,30 +86,35 @@ export default function PatientsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="container py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Pacientes</h1>
-          <p className="text-gray-600 mt-1">
+    <div className="container py-8">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Pacientes</h1>
+            <p className="text-muted-foreground mt-1">
             Gerencie o cadastro de pacientes da clínica
           </p>
         </div>
-        <Button onClick={() => router.push("/clinic/patients/new")}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Paciente
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => router.push("/clinic/patients/new")}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Paciente
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
@@ -111,26 +122,6 @@ export default function PatientsPage() {
               <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
             </div>
             <Users className="w-8 h-8 text-gray-400" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Ativos</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{stats.ativos}</p>
-            </div>
-            <UserCheck className="w-8 h-8 text-green-400" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Inativos</p>
-              <p className="text-2xl font-bold text-gray-600 mt-1">{stats.inativos}</p>
-            </div>
-            <UserX className="w-8 h-8 text-gray-400" />
           </div>
         </div>
 
@@ -146,22 +137,39 @@ export default function PatientsPage() {
       </div>
 
       {/* Search */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Buscar por nome, código, CPF ou telefone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+          <CardDescription>
+            Busque pacientes por nome, código, CPF ou telefone
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Buscar por nome, código, CPF ou telefone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Pacientes ({filteredPatients.length})
+          </CardTitle>
+          <CardDescription>
+            Lista de todos os pacientes cadastrados
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
@@ -219,6 +227,8 @@ export default function PatientsPage() {
             </tbody>
           </table>
         </div>
+        </CardContent>
+      </Card>
       </div>
     </div>
   );

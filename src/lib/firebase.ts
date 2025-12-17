@@ -65,12 +65,6 @@ if (typeof window !== "undefined") {
 if (typeof window !== "undefined") {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true";
 
-  console.log("🔍 Verificando emuladores:", {
-    useEmulators,
-    NODE_ENV: process.env.NODE_ENV,
-    NEXT_PUBLIC_USE_FIREBASE_EMULATORS: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS
-  });
-
   if (useEmulators) {
     try {
       connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
@@ -89,7 +83,6 @@ if (typeof window !== "undefined") {
   } else {
     // Produção: usar região southamerica-east1
     functions = getFunctions(app, "southamerica-east1");
-    console.log("🌍 Usando Firebase Functions em produção (southamerica-east1)");
   }
 } else {
   // Server-side: criar instância padrão

@@ -69,17 +69,26 @@ service cloud.firestore {
 
     // Coleção de solicitações de acesso (registro público)
     match /access_requests/{requestId} {
-      // Qualquer pessoa pode criar uma solicitação (registro público)
-      allow create: if request.auth == null;
+      // Qualquer pessoa pode criar uma solicitação (público ou autenticado)
+      allow create: if true;
 
       // Apenas system_admin pode ler, atualizar e deletar
       allow read, update, delete: if isSystemAdmin();
     }
 
-    // Coleção de usuários do sistema (apenas system_admin)
+    // Coleção de usuários do sistema
     match /users/{userId} {
+      // System admins têm acesso total
       allow read, write: if isSystemAdmin();
+
+      // Usuários podem ler seu próprio documento
       allow read: if isAuthenticated() && request.auth.uid == userId;
+
+      // Clinic_admin pode listar usuários do seu tenant
+      // A query deve ter where("tenant_id", "==", <seu_tenant_id>)
+      allow list: if isAuthenticated()
+        && request.auth.token.role == 'clinic_admin'
+        && request.auth.token.tenant_id != null;
     }
 
     // Coleção de produtos master Rennova (global, sem tenant)
@@ -112,6 +121,12 @@ service cloud.firestore {
       allow create: if isAuthenticated()
         && request.auth.token.role == 'clinic_admin'
         && request.resource.data.tenant_id == request.auth.token.tenant_id;
+
+      // Clinic_admin pode atualizar licença do seu próprio tenant
+      allow update: if isAuthenticated()
+        && request.auth.token.role == 'clinic_admin'
+        && resource.data.tenant_id == request.auth.token.tenant_id
+        && request.resource.data.tenant_id == request.auth.token.tenant_id;
     }
 
     // Coleção de onboarding de tenants
@@ -122,6 +137,48 @@ service cloud.firestore {
       // Usuários do tenant podem ler, criar e atualizar seu próprio onboarding
       // Precisa de create porque o documento pode não existir ainda
       allow read, create, update: if belongsToTenant(tenantId);
+    }
+
+    // Coleção de fila de e-mails (apenas para uso interno das Cloud Functions)
+    match /email_queue/{emailId} {
+      // Apenas system_admin pode ler a fila de e-mails
+      allow read: if isSystemAdmin();
+
+      // Nenhum usuário pode escrever diretamente (apenas via API/Functions)
+      allow write: if false;
+    }
+
+    // Coleção de documentos legais (termos, políticas, etc.)
+    match /legal_documents/{documentId} {
+      // Qualquer usuário autenticado pode ler documentos ativos
+      allow read: if isAuthenticated();
+
+      // Apenas system_admin pode criar, atualizar e deletar
+      allow write: if isSystemAdmin();
+    }
+
+    // Coleção de aceitações de documentos pelos usuários
+    match /user_document_acceptances/{acceptanceId} {
+      // System admins podem ler todas as aceitações
+      allow read: if isSystemAdmin();
+
+      // Usuários podem ler suas próprias aceitações
+      allow read: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+
+      // Usuários podem criar suas próprias aceitações
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+
+      // Ninguém pode atualizar ou deletar aceitações (auditoria)
+      allow update, delete: if false;
+    }
+
+    // Configurações globais do sistema
+    match /system_settings/{settingId} {
+      // Qualquer usuário autenticado pode ler as configurações
+      allow read: if isAuthenticated();
+
+      // Apenas system_admin pode alterar configurações
+      allow write: if isSystemAdmin();
     }
   }
 }

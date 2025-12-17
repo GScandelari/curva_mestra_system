@@ -130,11 +130,11 @@ export async function generateStockValueReport(
       valorTotal += valorItem;
 
       // Agrupar por código de produto
-      const key = data.produto_codigo;
+      const key = data.codigo_produto;
       if (!produtosMap.has(key)) {
         produtosMap.set(key, {
-          codigo: data.produto_codigo,
-          nome: data.produto_nome,
+          codigo: data.codigo_produto,
+          nome: data.nome_produto,
           quantidade_total: 0,
           valor_unitario: valorUnitario,
           valor_total: 0,
@@ -189,29 +189,57 @@ export async function generateExpirationReport(
     let valorEmRisco = 0;
 
     snapshot.forEach((doc) => {
-      const data = doc.data() as InventoryItem;
+      const data = doc.data();
 
-      // Converter dt_validade (string DD/MM/YYYY) para Date
-      const [dia, mes, ano] = data.dt_validade.split("/");
-      const dtValidade = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+      // Converter dt_validade para Date (pode ser Timestamp, Date ou string)
+      let dtValidade: Date;
+      if (data.dt_validade instanceof Timestamp) {
+        dtValidade = data.dt_validade.toDate();
+      } else if (data.dt_validade instanceof Date) {
+        dtValidade = data.dt_validade;
+      } else if (typeof data.dt_validade === 'string') {
+        // Detectar formato da data e converter
+        if (data.dt_validade.includes('/')) {
+          // Formato DD/MM/YYYY
+          const [dia, mes, ano] = data.dt_validade.split("/");
+          dtValidade = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+        } else if (data.dt_validade.includes('-')) {
+          // Formato YYYY-MM-DD (ISO)
+          dtValidade = new Date(data.dt_validade);
+        } else {
+          console.warn(`[EXPIRATION REPORT] Formato de data desconhecido:`, data.dt_validade);
+          return;
+        }
+      } else {
+        // Pular este produto se não conseguir converter a data
+        console.warn(`[EXPIRATION REPORT] Data de validade inválida para produto ${doc.id}:`, data.dt_validade);
+        return;
+      }
+
+      const diasParaVencer = Math.ceil(
+        (dtValidade.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const quantidade = data.quantidade_disponivel || 0;
 
       // Verificar se está dentro do período
-      if (dtValidade <= limitDate && dtValidade >= now) {
-        const diasParaVencer = Math.ceil(
-          (dtValidade.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        const quantidade = data.quantidade_disponivel || 0;
+      // Range: produtos vencidos até produtos que vencem nos próximos X dias
+      // Exemplo: se hoje é 15/12/2025 e X=30, pega produtos vencidos + produtos que vencem até 14/01/2026
+      if (dtValidade <= limitDate) {
         const valorTotal = quantidade * (data.valor_unitario || 0);
 
         if (quantidade > 0) {
+          // Formatar data de volta para string DD/MM/YYYY
+          const dtValidadeStr = typeof data.dt_validade === 'string'
+            ? data.dt_validade
+            : dtValidade.toLocaleDateString('pt-BR');
+
           produtosVencendo.push({
             id: doc.id,
-            codigo: data.produto_codigo,
-            nome: data.produto_nome,
+            codigo: data.codigo_produto,
+            nome: data.nome_produto,
             lote: data.lote,
             quantidade,
-            dt_validade: data.dt_validade,
+            dt_validade: dtValidadeStr,
             dias_para_vencer: diasParaVencer,
             valor_total: valorTotal,
           });
@@ -250,9 +278,12 @@ export async function generateConsumptionReport(
 ): Promise<ConsumptionReport> {
   try {
     const solicitacoesRef = collection(db, "tenants", tenantId, "solicitacoes");
+
+    // Buscar procedimentos CONCLUÍDOS (produtos foram consumidos)
+    // Status "concluida" = produtos efetivamente consumidos do estoque
     const q = query(
       solicitacoesRef,
-      where("status", "==", "aprovada"),
+      where("status", "==", "concluida"),
       where("dt_procedimento", ">=", Timestamp.fromDate(dataInicio)),
       where("dt_procedimento", "<=", Timestamp.fromDate(dataFim)),
       orderBy("dt_procedimento", "desc")
@@ -280,11 +311,11 @@ export async function generateConsumptionReport(
         valorTotalConsumido += valorTotal;
 
         // Agrupar por produto
-        const keyProduto = produto.produto_codigo;
+        const keyProduto = produto.codigo_produto;
         if (!produtosMap.has(keyProduto)) {
           produtosMap.set(keyProduto, {
-            codigo: produto.produto_codigo,
-            nome: produto.produto_nome,
+            codigo: produto.codigo_produto,
+            nome: produto.nome_produto,
             quantidade_consumida: 0,
             valor_total: 0,
             procedimentos: 0,
@@ -407,8 +438,8 @@ export async function generatePatientConsumptionReport(
         valorProcedimento += valorTotalProduto;
 
         return {
-          codigo: produto.produto_codigo,
-          nome: produto.produto_nome,
+          codigo: produto.codigo_produto,
+          nome: produto.nome_produto,
           quantidade,
           valor_unitario: valorUnitario,
           valor_total: valorTotalProduto,
@@ -451,6 +482,28 @@ export async function generatePatientConsumptionReport(
 // ============================================================================
 
 /**
+ * Exporta relatório para Excel (XLSX)
+ */
+export function exportToExcel(data: any[], filename: string): void {
+  if (data.length === 0) return;
+
+  // Importar xlsx dinamicamente (client-side only)
+  import('xlsx').then((XLSX) => {
+    // Criar worksheet a partir dos dados
+    const worksheet = XLSX.utils.json_to_sheet(data);
+
+    // Criar workbook e adicionar worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório");
+
+    // Gerar arquivo e fazer download
+    const dateStr = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(workbook, `${filename}_${dateStr}.xlsx`);
+  });
+}
+
+/**
+ * @deprecated Use exportToExcel instead
  * Exporta relatório para CSV
  */
 export function exportToCSV(data: any[], filename: string): void {
@@ -486,4 +539,15 @@ export function formatCurrency(value: number): string {
     style: "currency",
     currency: "BRL",
   }).format(value);
+}
+
+/**
+ * Formata número decimal no padrão brasileiro (vírgula ao invés de ponto)
+ * Útil para exports de planilhas
+ */
+export function formatDecimalBR(value: number, decimals: number = 2): string {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }

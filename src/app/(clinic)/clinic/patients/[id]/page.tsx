@@ -4,14 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Edit, Trash2, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Calendar, FileText, List, Plus } from "lucide-react";
 import { Patient } from "@/types/patient";
 import {
   getPatientById,
   getPatientHistory,
   deletePatient,
-  deactivatePatient,
-  reactivatePatient,
 } from "@/lib/services/patientService";
 import { formatCurrency } from "@/lib/services/reportService";
 import { Timestamp } from "firebase/firestore";
@@ -78,30 +76,6 @@ export default function PatientDetailPage() {
     }
   }
 
-  async function handleToggleActive() {
-    if (!tenantId || !patient) return;
-
-    const action = patient.active ? "desativar" : "reativar";
-    if (!confirm(`Tem certeza que deseja ${action} este paciente?`)) return;
-
-    try {
-      setActionLoading(true);
-
-      if (patient.active) {
-        await deactivatePatient(tenantId, patientId);
-      } else {
-        await reactivatePatient(tenantId, patientId);
-      }
-
-      alert(`Paciente ${action === "desativar" ? "desativado" : "reativado"} com sucesso!`);
-      loadData();
-    } catch (error) {
-      alert(`Erro ao ${action} paciente`);
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
   function formatDate(timestamp: Timestamp | Date): string {
     const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
     return date.toLocaleDateString("pt-BR");
@@ -117,19 +91,23 @@ export default function PatientDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="container py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
       </div>
     );
   }
 
   if (!patient) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-600">Paciente não encontrado</p>
-        <Button onClick={() => router.back()} className="mt-4">
-          Voltar
-        </Button>
+      <div className="container py-8">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Paciente não encontrado</p>
+          <Button onClick={() => router.back()} className="mt-4">
+            Voltar
+          </Button>
+        </div>
       </div>
     );
   }
@@ -138,11 +116,12 @@ export default function PatientDetailPage() {
   const totalGasto = history.reduce((sum, proc) => sum + calculateTotalValue(proc), 0);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
+    <div className="container py-8">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
           Voltar
         </Button>
         <div className="flex-1">
@@ -156,14 +135,7 @@ export default function PatientDetailPage() {
             disabled={actionLoading}
           >
             <Edit className="w-4 h-4 mr-2" />
-            Editar
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleToggleActive}
-            disabled={actionLoading}
-          >
-            {patient.active ? "Desativar" : "Reativar"}
+            Editar Dados
           </Button>
           <Button
             variant="outline"
@@ -177,12 +149,35 @@ export default function PatientDetailPage() {
         </div>
       </div>
 
-      {/* Status Badge */}
-      {!patient.active && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <p className="text-red-700 font-medium">Paciente Inativo</p>
-        </div>
-      )}
+      {/* Ações Rápidas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Button
+          onClick={() => {
+            // Scroll para a seção de histórico
+            const historicoSection = document.getElementById("historico-procedimentos");
+            historicoSection?.scrollIntoView({ behavior: "smooth" });
+          }}
+          className="h-16"
+          variant="outline"
+        >
+          <List className="w-5 h-5 mr-2" />
+          Listar Procedimentos ({history.length})
+        </Button>
+        <Button
+          onClick={() => {
+            // Navegar para novo procedimento com dados pré-preenchidos
+            const params = new URLSearchParams({
+              patientCode: patient.codigo,
+              patientName: patient.nome,
+            });
+            router.push(`/clinic/requests/new?${params.toString()}`);
+          }}
+          className="h-16"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Novo Procedimento
+        </Button>
+      </div>
 
       {/* Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -270,7 +265,7 @@ export default function PatientDetailPage() {
       </div>
 
       {/* Histórico de Procedimentos */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div id="historico-procedimentos" className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">
           Histórico de Procedimentos
         </h2>
@@ -312,7 +307,7 @@ export default function PatientDetailPage() {
                           className="flex justify-between text-sm text-gray-600"
                         >
                           <span>
-                            {produto.produto_nome} (Lote: {produto.lote})
+                            {produto.nome_produto} (Lote: {produto.lote})
                           </span>
                           <span>
                             {produto.quantidade}x {formatCurrency(produto.valor_unitario)}
@@ -332,6 +327,7 @@ export default function PatientDetailPage() {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

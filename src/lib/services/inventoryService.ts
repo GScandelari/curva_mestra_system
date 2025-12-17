@@ -25,6 +25,7 @@ export interface InventoryItem {
   lote: string;
   quantidade_inicial: number;
   quantidade_disponivel: number;
+  quantidade_reservada?: number;
   dt_validade: Date;
   dt_entrada: Date;
   valor_unitario: number;
@@ -57,7 +58,7 @@ export interface RecentActivity {
   id: string;
   tipo: "entrada" | "saida" | "ajuste";
   descricao: string;
-  produto_nome: string;
+  nome_produto: string;
   quantidade: number;
   timestamp: Date;
   usuario?: string;
@@ -224,7 +225,7 @@ export async function getRecentActivity(
         id: doc.id,
         tipo: data.tipo,
         descricao: data.descricao,
-        produto_nome: data.produto_nome,
+        nome_produto: data.nome_produto,
         quantidade: data.quantidade,
         timestamp:
           data.timestamp instanceof Timestamp
@@ -281,6 +282,7 @@ export async function listInventory(
         lote: data.lote,
         quantidade_inicial: data.quantidade_inicial,
         quantidade_disponivel: data.quantidade_disponivel,
+        quantidade_reservada: data.quantidade_reservada,
         dt_validade:
           data.dt_validade instanceof Timestamp
             ? data.dt_validade.toDate()
@@ -336,6 +338,7 @@ export async function getInventoryItem(
       lote: data.lote,
       quantidade_inicial: data.quantidade_inicial,
       quantidade_disponivel: data.quantidade_disponivel,
+      quantidade_reservada: data.quantidade_reservada,
       dt_validade:
         data.dt_validade instanceof Timestamp
           ? data.dt_validade.toDate()

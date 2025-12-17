@@ -8,6 +8,7 @@ export interface MasterProduct {
   id: string;
   code: string; // Código do produto Rennova (7 dígitos)
   name: string; // Nome do produto
+  grupo?: string; // Grupo/categoria do produto (ex: "Preenchedores", "Bioestimuladores")
   active: boolean; // Produto ativo/descontinuado
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -20,6 +21,7 @@ export interface MasterProduct {
 export interface CreateMasterProductData {
   code: string;
   name: string;
+  grupo?: string; // Grupo/categoria do produto
   active?: boolean; // Padrão: true
 }
 
@@ -30,6 +32,7 @@ export interface CreateMasterProductData {
 export interface UpdateMasterProductData {
   code?: string;
   name?: string;
+  grupo?: string;
   active?: boolean;
 }
 

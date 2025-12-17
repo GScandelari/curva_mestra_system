@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   FileBarChart,
   DollarSign,
@@ -11,13 +12,16 @@ import {
   TrendingUp,
   Download,
   Calendar,
+  Eye,
+  X,
 } from "lucide-react";
 import {
   generateStockValueReport,
   generateExpirationReport,
   generateConsumptionReport,
-  exportToCSV,
+  exportToExcel,
   formatCurrency,
+  formatDecimalBR,
   type StockValueReport,
   type ExpirationReport,
   type ConsumptionReport,
@@ -109,28 +113,53 @@ export default function ReportsPage() {
 
   function handleExportStockReport() {
     if (!stockReport) return;
-    exportToCSV(stockReport.por_produto, "relatorio_valor_estoque");
+    const data = stockReport.por_produto.map((item) => ({
+      "Código": item.codigo,
+      "Nome": item.nome,
+      "Quantidade Total": item.quantidade_total,
+      "Valor Unitário": formatDecimalBR(item.valor_unitario, 2),
+      "Valor Total": formatDecimalBR(item.valor_total, 2),
+      "Lotes": item.lotes,
+    }));
+    exportToExcel(data, "relatorio_valor_estoque");
   }
 
   function handleExportExpirationReport() {
     if (!expirationReport) return;
-    exportToCSV(expirationReport.produtos_vencendo, "relatorio_produtos_vencendo");
+    const data = expirationReport.produtos_vencendo.map((item) => ({
+      "Código": item.codigo,
+      "Nome": item.nome,
+      "Lote": item.lote,
+      "Quantidade": item.quantidade,
+      "Validade": item.dt_validade,
+      "Dias para Vencer": item.dias_para_vencer,
+      "Valor Total": formatDecimalBR(item.valor_total, 2),
+    }));
+    exportToExcel(data, "relatorio_produtos_vencendo");
   }
 
   function handleExportConsumptionReport() {
     if (!consumptionReport) return;
-    exportToCSV(consumptionReport.por_produto, "relatorio_consumo_produtos");
+    const data = consumptionReport.por_produto.map((item) => ({
+      "Código": item.codigo,
+      "Nome": item.nome,
+      "Quantidade Consumida": item.quantidade_consumida,
+      "Valor Total": formatDecimalBR(item.valor_total, 2),
+      "Procedimentos": item.procedimentos,
+    }));
+    exportToExcel(data, "relatorio_consumo_produtos");
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
-        <p className="text-gray-600 mt-1">
-          Gere relatórios detalhados sobre estoque, vencimento e consumo
-        </p>
-      </div>
+    <div className="container py-8">
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Relatórios</h1>
+          <p className="text-muted-foreground mt-1">
+            Gere relatórios detalhados sobre estoque, vencimento e consumo
+          </p>
+        </div>
 
       {/* Report Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -225,13 +254,25 @@ export default function ReportsPage() {
 
       {/* Report Results */}
       {stockReport && activeReport === "stock" && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border-2 border-blue-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Relatório de Valor do Estoque</h2>
-            <Button onClick={handleExportStockReport} variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Exportar CSV
-            </Button>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold">Relatório de Valor do Estoque</h2>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                <Eye className="w-3 h-3 mr-1" />
+                Preview
+              </Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => setStockReport(null)} variant="ghost" size="sm">
+                <X className="w-4 h-4 mr-2" />
+                Fechar
+              </Button>
+              <Button onClick={handleExportStockReport} variant="default" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Exportar Excel
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -285,13 +326,25 @@ export default function ReportsPage() {
       )}
 
       {expirationReport && activeReport === "expiration" && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border-2 border-orange-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Produtos Próximos ao Vencimento</h2>
-            <Button onClick={handleExportExpirationReport} variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Exportar CSV
-            </Button>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold">Produtos Próximos ao Vencimento</h2>
+              <Badge variant="secondary" className="bg-orange-100 text-orange-700">
+                <Eye className="w-3 h-3 mr-1" />
+                Preview
+              </Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => setExpirationReport(null)} variant="ghost" size="sm">
+                <X className="w-4 h-4 mr-2" />
+                Fechar
+              </Button>
+              <Button onClick={handleExportExpirationReport} variant="default" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Exportar Excel
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -351,13 +404,25 @@ export default function ReportsPage() {
       )}
 
       {consumptionReport && activeReport === "consumption" && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border-2 border-green-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Relatório de Consumo</h2>
-            <Button onClick={handleExportConsumptionReport} variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Exportar CSV
-            </Button>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold">Relatório de Consumo</h2>
+              <Badge variant="secondary" className="bg-green-100 text-green-700">
+                <Eye className="w-3 h-3 mr-1" />
+                Preview
+              </Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => setConsumptionReport(null)} variant="ghost" size="sm">
+                <X className="w-4 h-4 mr-2" />
+                Fechar
+              </Button>
+              <Button onClick={handleExportConsumptionReport} variant="default" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Exportar Excel
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -430,6 +495,7 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

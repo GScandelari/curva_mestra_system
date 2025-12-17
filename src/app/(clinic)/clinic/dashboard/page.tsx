@@ -32,17 +32,34 @@ import {
   type ExpiringProduct,
   type RecentActivity as ActivityType,
 } from "@/lib/services/inventoryService";
+import { getPatientsStats } from "@/lib/services/patientService";
+import { getUpcomingProcedures } from "@/lib/services/solicitacaoService";
+import type { Solicitacao } from "@/types";
 import { formatTimestamp } from "@/lib/utils";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  Timestamp,
+} from "firebase/firestore";
 
 export default function ClinicDashboard() {
   const { user, claims } = useAuth();
   const router = useRouter();
 
   const [stats, setStats] = useState<InventoryStats | null>(null);
+  const [patientStats, setPatientStats] = useState<{
+    total: number;
+    novos_mes: number;
+    novos_3_meses: number;
+  } | null>(null);
   const [expiringProducts, setExpiringProducts] = useState<ExpiringProduct[]>(
     []
   );
   const [recentActivity, setRecentActivity] = useState<ActivityType[]>([]);
+  const [upcomingProcedures, setUpcomingProcedures] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -50,32 +67,117 @@ export default function ClinicDashboard() {
   const tenantId = claims?.tenant_id;
 
   useEffect(() => {
-    async function loadDashboardData() {
-      if (!tenantId) return;
+    if (!tenantId) return;
 
-      try {
-        setLoading(true);
-        setError("");
+    setLoading(true);
+    setError("");
 
-        // Carregar dados em paralelo
-        const [statsData, expiringData, activityData] = await Promise.all([
-          getInventoryStats(tenantId),
-          getExpiringProducts(tenantId, 30, 5),
-          getRecentActivity(tenantId, 5),
-        ]);
+    // Configurar listener em tempo real para o inventário
+    const inventoryRef = collection(db, "tenants", tenantId, "inventory");
+    const inventoryQuery = query(inventoryRef, where("active", "==", true));
 
-        setStats(statsData);
-        setExpiringProducts(expiringData);
-        setRecentActivity(activityData);
-      } catch (err: any) {
-        console.error("Erro ao carregar dashboard:", err);
+    const unsubscribeInventory = onSnapshot(
+      inventoryQuery,
+      async (snapshot) => {
+        try {
+          // Calcular estatísticas em tempo real a partir do snapshot
+          let totalProdutos = 0;
+          let totalValor = 0;
+          let produtosVencendo30dias = 0;
+          let produtosVencidos = 0;
+          let produtosEstoqueBaixo = 0;
+
+          const now = new Date();
+          const in30Days = new Date();
+          in30Days.setDate(now.getDate() + 30);
+
+          const expiringItems: ExpiringProduct[] = [];
+
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            const quantidade = data.quantidade_disponivel || 0;
+
+            if (quantidade > 0) {
+              totalProdutos += quantidade;
+              totalValor += quantidade * (data.valor_unitario || 0);
+
+              // Verificar vencimento
+              const dtValidade =
+                data.dt_validade instanceof Timestamp
+                  ? data.dt_validade.toDate()
+                  : new Date(data.dt_validade);
+
+              const diasParaVencer = Math.ceil(
+                (dtValidade.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+              );
+
+              if (dtValidade < now) {
+                produtosVencidos++;
+              } else if (dtValidade <= in30Days) {
+                produtosVencendo30dias++;
+
+                // Adicionar aos produtos vencendo (máximo 5)
+                if (expiringItems.length < 5) {
+                  expiringItems.push({
+                    id: doc.id,
+                    nome_produto: data.nome_produto,
+                    lote: data.lote,
+                    quantidade_disponivel: data.quantidade_disponivel,
+                    dt_validade: dtValidade,
+                    diasParaVencer,
+                  });
+                }
+              }
+
+              // Verificar estoque baixo (menos de 10 unidades)
+              if (quantidade < 10) {
+                produtosEstoqueBaixo++;
+              }
+            }
+          });
+
+          // Ordenar produtos vencendo por data
+          expiringItems.sort((a, b) => a.diasParaVencer - b.diasParaVencer);
+
+          setStats({
+            totalProdutos,
+            totalValor,
+            produtosVencendo30dias,
+            produtosVencidos,
+            produtosEstoqueBaixo,
+            ultimaAtualizacao: new Date(),
+          });
+
+          setExpiringProducts(expiringItems);
+
+          // Carregar dados não-realtime em paralelo
+          const [patientStatsData, activityData, upcomingData] = await Promise.all([
+            getPatientsStats(tenantId),
+            getRecentActivity(tenantId, 5),
+            getUpcomingProcedures(tenantId, 5),
+          ]);
+
+          setPatientStats(patientStatsData);
+          setRecentActivity(activityData);
+          setUpcomingProcedures(upcomingData);
+
+          setLoading(false);
+          setError("");
+        } catch (err: any) {
+          console.error("Erro ao processar dados do dashboard:", err);
+          setError("Erro ao carregar dados do dashboard");
+          setLoading(false);
+        }
+      },
+      (err) => {
+        console.error("Erro ao monitorar inventário:", err);
         setError("Erro ao carregar dados do dashboard");
-      } finally {
         setLoading(false);
       }
-    }
+    );
 
-    loadDashboardData();
+    // Cleanup: Desinscrever listener quando componente desmontar
+    return () => unsubscribeInventory();
   }, [tenantId]);
 
   const formatCurrency = (value: number) => {
@@ -107,6 +209,62 @@ export default function ClinicDashboard() {
     return `${diasParaVencer} dias`;
   };
 
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "criada":
+        return "secondary";
+      case "agendada":
+        return "default";
+      case "aprovada":
+        return "default";
+      case "concluida":
+        return "default";
+      case "reprovada":
+        return "destructive";
+      case "cancelada":
+        return "destructive";
+      default:
+        return "secondary";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "criada":
+        return "Criada";
+      case "agendada":
+        return "Agendada";
+      case "aprovada":
+        return "Aprovada";
+      case "concluida":
+        return "Concluída";
+      case "reprovada":
+        return "Reprovada";
+      case "cancelada":
+        return "Cancelada";
+      default:
+        return status;
+    }
+  };
+
+  const formatProcedureDate = (timestamp: any) => {
+    if (!timestamp) return "";
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffTime = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return "Atrasado";
+    if (diffDays === 0) return "Hoje";
+    if (diffDays === 1) return "Amanhã";
+    if (diffDays <= 7) return `Em ${diffDays} dias`;
+
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "short",
+    }).format(date);
+  };
+
   return (
     <div className="container py-8">
       <div className="space-y-8">
@@ -130,7 +288,7 @@ export default function ClinicDashboard() {
             )}
 
             {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               {/* Total em Estoque */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -238,6 +396,60 @@ export default function ClinicDashboard() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Total de Pacientes */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total de Pacientes
+                  </CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <>
+                      <Skeleton className="h-8 w-16 mb-1" />
+                      <Skeleton className="h-4 w-24" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {patientStats?.total || 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Cadastrados
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Novos Pacientes (3 meses) */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Novos (3 meses)
+                  </CardTitle>
+                  <Calendar className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <>
+                      <Skeleton className="h-8 w-16 mb-1" />
+                      <Skeleton className="h-4 w-24" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {patientStats?.novos_3_meses || 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {patientStats?.novos_mes || 0} neste mês
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Quick Actions */}
@@ -263,7 +475,7 @@ export default function ClinicDashboard() {
                   onClick={() => router.push("/clinic/requests")}
                 >
                   <FileText className="h-6 w-6" />
-                  <span>Solicitações</span>
+                  <span>Procedimentos</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -284,7 +496,77 @@ export default function ClinicDashboard() {
               </CardContent>
             </Card>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {/* Próximos Procedimentos */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-blue-600" />
+                    Próximos Procedimentos
+                  </CardTitle>
+                  <CardDescription>
+                    Procedimentos agendados nas próximas 2 semanas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="space-y-2">
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : upcomingProcedures.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum procedimento agendado nas próximas 2 semanas
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {upcomingProcedures.map((proc) => (
+                        <div
+                          key={proc.id}
+                          className="flex items-start gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                          onClick={() => router.push(`/clinic/requests?id=${proc.id}`)}
+                        >
+                          <div className="flex-1 space-y-1">
+                            <p className="font-medium text-sm leading-tight">
+                              {proc.paciente_nome}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>Cód: {proc.paciente_codigo}</span>
+                              <span>•</span>
+                              <span>{proc.produtos_solicitados?.length || 0} produtos</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <Calendar className="h-3 w-3" />
+                              <span>{formatProcedureDate(proc.dt_procedimento)}</span>
+                            </div>
+                          </div>
+                          <Badge variant={getStatusBadgeVariant(proc.status) as any}>
+                            {getStatusLabel(proc.status)}
+                          </Badge>
+                        </div>
+                      ))}
+                      {upcomingProcedures.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => router.push("/clinic/requests")}
+                        >
+                          Ver todos os procedimentos
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Alertas de Vencimento */}
               <Card>
                 <CardHeader>
@@ -416,7 +698,7 @@ export default function ClinicDashboard() {
                               {activity.descricao}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {activity.produto_nome} • {activity.quantidade}{" "}
+                              {activity.nome_produto} • {activity.quantidade}{" "}
                               unidades
                             </p>
                             <p className="text-xs text-muted-foreground">

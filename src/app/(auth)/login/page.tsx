@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -15,14 +15,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Clock } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, isAuthenticated, loading: authLoading, claims } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
+
+  // Verificar se foi redirecionado por timeout
+  useEffect(() => {
+    if (searchParams.get("timeout") === "true") {
+      setShowTimeoutMessage(true);
+    }
+  }, [searchParams]);
 
   // Redirecionar se já estiver autenticado
   useEffect(() => {
@@ -115,6 +126,14 @@ export default function LoginPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {showTimeoutMessage && (
+          <Alert className="mb-4">
+            <Clock className="h-4 w-4" />
+            <AlertDescription>
+              Sua sessão expirou por inatividade. Por favor, faça login novamente.
+            </AlertDescription>
+          </Alert>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -172,5 +191,19 @@ export default function LoginPage() {
         </div>
       </CardFooter>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <p className="text-muted-foreground">Carregando...</p>
+        </CardContent>
+      </Card>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

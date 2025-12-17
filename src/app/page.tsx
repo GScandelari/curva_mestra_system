@@ -172,7 +172,10 @@ export default function Home() {
                     <span className="text-white/70 text-sm">/mês</span>
                   </div>
                   <p className="text-white/60 text-sm">
-                    Total: R$ 359,40 a cada 6 meses
+                    Pagamento mensal da licença
+                  </p>
+                  <p className="text-white/50 text-xs mt-1">
+                    (6 meses de compromisso)
                   </p>
                 </div>
                 <div className="text-center pb-4">
@@ -184,17 +187,74 @@ export default function Home() {
                     <span className="text-white/70 text-sm">/mês</span>
                   </div>
                   <p className="text-white/60 text-sm">
-                    Total: R$ 598,80 por ano
+                    Pagamento mensal da licença
+                  </p>
+                  <p className="text-white/50 text-xs mt-1">
+                    (12 meses de compromisso)
                   </p>
                   <div className="mt-2">
                     <span className="inline-block px-3 py-1 bg-green-600/20 text-green-400 text-xs rounded-full border border-green-600/30">
-                      Economize R$ 120,00
+                      Economize R$ 120,00/ano
                     </span>
                   </div>
                 </div>
                 <p className="text-sm text-white/70 text-center mt-2 pt-4 border-t border-[#D4AF37]/30">
                   Preços promocionais de lançamento
                 </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Early Access Section */}
+        <section className="w-full max-w-4xl mt-12">
+          <div className="relative overflow-hidden">
+            {/* Background glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#FFD700]/10 via-[#D4AF37]/10 to-[#FFD700]/10 blur-3xl"></div>
+
+            <div className="relative bg-[#2d2d2d]/80 border-2 border-[#D4AF37] rounded-2xl shadow-[0_0_30px_rgba(212,175,55,0.6)] backdrop-blur-sm p-10 md:p-12">
+              <div className="text-center space-y-6">
+                <div className="inline-block px-4 py-1 bg-[#FFD700]/20 border border-[#FFD700]/50 rounded-full">
+                  <span className="text-[#FFD700] text-sm font-semibold uppercase tracking-wider">
+                    Acesso Antecipado
+                  </span>
+                </div>
+
+                <h3 className="text-3xl md:text-4xl font-bold text-white">
+                  Seja um dos Primeiros!
+                </h3>
+
+                <p className="text-lg text-white/80 max-w-2xl mx-auto leading-relaxed">
+                  Garanta seu acesso antecipado ao <span className="text-[#FFD700] font-semibold">Curva Mestra</span> e
+                  aproveite <span className="text-[#FFD700] font-semibold">condições especiais</span> de lançamento para
+                  clínicas e profissionais autônomos.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
+                  <Link href="/register">
+                    <Button
+                      size="lg"
+                      className="bg-gradient-to-r from-[#FFD700] to-[#D4AF37] text-black hover:from-[#D4AF37] hover:to-[#FFD700] font-bold text-lg px-8 py-6 shadow-xl shadow-[#D4AF37]/50 transition-all hover:scale-105 w-full sm:w-auto"
+                    >
+                      Solicitar Acesso Antecipado
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="flex items-center justify-center gap-8 pt-6 text-sm text-white/60">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span>Sem custo de adesão</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span>Configuração facilitada</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

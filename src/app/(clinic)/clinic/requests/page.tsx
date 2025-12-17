@@ -67,7 +67,7 @@ export default function SolicitacoesPage() {
         });
         setSolicitacoes(data);
       } catch (error) {
-        console.error("Erro ao carregar solicitações:", error);
+        console.error("Erro ao carregar procedimentos:", error);
       } finally {
         setLoading(false);
       }
@@ -85,17 +85,17 @@ export default function SolicitacoesPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive"> = {
-      criada: "default",
       agendada: "secondary",
       aprovada: "default",
+      concluida: "default",
       reprovada: "destructive",
       cancelada: "destructive",
     };
 
     const labels: Record<string, string> = {
-      criada: "Criada",
       agendada: "Agendada",
       aprovada: "Aprovada",
+      concluida: "Concluída",
       reprovada: "Reprovada",
       cancelada: "Cancelada",
     };
@@ -121,16 +121,18 @@ export default function SolicitacoesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-3xl font-bold tracking-tight">
-                  Solicitações de Produtos
+                  Procedimentos
                 </h2>
                 <p className="text-muted-foreground">
                   Histórico de consumo de produtos por procedimento
                 </p>
               </div>
-              <Button onClick={() => router.push("/clinic/requests/new")}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Solicitação
-              </Button>
+              {isAdmin && (
+                <Button onClick={() => router.push("/clinic/requests/new")}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Procedimento
+                </Button>
+              )}
             </div>
 
             {/* Stats Cards */}
@@ -147,20 +149,8 @@ export default function SolicitacoesPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Criadas</CardTitle>
-                  <FileText className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {solicitacoes.filter((s) => s.status === "criada").length}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Agendadas</CardTitle>
-                  <Calendar className="h-4 w-4 text-green-600" />
+                  <Calendar className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
@@ -172,11 +162,23 @@ export default function SolicitacoesPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Aprovadas</CardTitle>
-                  <Package className="h-4 w-4 text-purple-600" />
+                  <Package className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
                     {solicitacoes.filter((s) => s.status === "aprovada").length}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Concluídas</CardTitle>
+                  <Package className="h-4 w-4 text-purple-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {solicitacoes.filter((s) => s.status === "concluida").length}
                   </div>
                 </CardContent>
               </Card>
@@ -187,7 +189,7 @@ export default function SolicitacoesPage() {
               <CardHeader>
                 <CardTitle>Filtros</CardTitle>
                 <CardDescription>
-                  Busque e filtre as solicitações
+                  Busque e filtre os procedimentos
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -208,9 +210,10 @@ export default function SolicitacoesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os Status</SelectItem>
-                      <SelectItem value="criada">Criada</SelectItem>
                       <SelectItem value="agendada">Agendada</SelectItem>
                       <SelectItem value="aprovada">Aprovada</SelectItem>
+                      <SelectItem value="concluida">Concluída</SelectItem>
+                      <SelectItem value="reprovada">Reprovada</SelectItem>
                       <SelectItem value="cancelada">Cancelada</SelectItem>
                     </SelectContent>
                   </Select>
@@ -218,14 +221,14 @@ export default function SolicitacoesPage() {
               </CardContent>
             </Card>
 
-            {/* Lista de Solicitações */}
+            {/* Lista de Procedimentos */}
             <Card>
               <CardHeader>
                 <CardTitle>
-                  Solicitações ({filteredSolicitacoes.length})
+                  Procedimentos ({filteredSolicitacoes.length})
                 </CardTitle>
                 <CardDescription>
-                  Lista de todas as solicitações de produtos
+                  Lista de todos os procedimentos realizados
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -239,16 +242,16 @@ export default function SolicitacoesPage() {
                   <div className="text-center py-12">
                     <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                     <h3 className="text-lg font-semibold mb-2">
-                      Nenhuma solicitação encontrada
+                      Nenhum procedimento encontrado
                     </h3>
                     <p className="text-muted-foreground mb-4">
                       {searchTerm
                         ? "Tente ajustar os filtros de busca"
-                        : "Crie sua primeira solicitação de produtos"}
+                        : "Crie seu primeiro procedimento"}
                     </p>
                     <Button onClick={() => router.push("/clinic/requests/new")}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Nova Solicitação
+                      Novo Procedimento
                     </Button>
                   </div>
                 ) : (

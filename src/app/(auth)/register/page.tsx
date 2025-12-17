@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, AlertCircle } from "lucide-react";
-import { createAccessRequest } from "@/lib/services/accessRequestService";
 import { DocumentType } from "@/types";
 import { validateDocument, maskDocument } from "@/lib/utils/documentValidation";
 
@@ -29,6 +28,8 @@ export default function RegisterPage() {
     document: "",
     fullName: "",
     email: "",
+    phone: "",
+    businessName: "",
     password: "",
     confirmPassword: "",
   });
@@ -49,6 +50,16 @@ export default function RegisterPage() {
     // Formatar documento (CPF ou CNPJ) automaticamente
     if (e.target.id === "document") {
       value = maskDocument(value, documentType);
+    }
+
+    // Formatar telefone
+    if (e.target.id === "phone") {
+      const cleaned = value.replace(/\D/g, "");
+      if (cleaned.length <= 11) {
+        value = cleaned
+          .replace(/(\d{2})(\d)/, "($1) $2")
+          .replace(/(\d{5})(\d)/, "$1-$2");
+      }
     }
 
     setFormData({
@@ -78,6 +89,16 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!formData.phone || formData.phone.replace(/\D/g, "").length < 10) {
+      setError("Telefone inválido");
+      return;
+    }
+
+    if (!formData.businessName || formData.businessName.trim().length < 3) {
+      setError(documentType === "cnpj" ? "Nome da clínica é obrigatório" : "Nome profissional é obrigatório");
+      return;
+    }
+
     if (formData.password.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres");
       return;
@@ -91,21 +112,35 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const result = await createAccessRequest({
-        document: formData.document,
-        document_type: documentType,
-        full_name: formData.fullName,
-        email: formData.email,
-        password: formData.password,
+      // Chamar nova API
+      const response = await fetch("/api/access-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: documentType === "cnpj" ? "clinica" : "autonomo",
+          full_name: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          business_name: formData.businessName,
+          document_type: documentType,
+          document_number: formData.document,
+          password: formData.password,
+        }),
       });
 
-      if (result.success) {
-        setSuccess(result.message);
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess(data.message || "Solicitação enviada com sucesso! Nossa equipe irá analisar em breve.");
         // Limpar formulário
         setFormData({
           document: "",
           fullName: "",
           email: "",
+          phone: "",
+          businessName: "",
           password: "",
           confirmPassword: "",
         });
@@ -115,7 +150,7 @@ export default function RegisterPage() {
           router.push("/login");
         }, 3000);
       } else {
-        setError(result.message);
+        setError(data.error || "Erro ao enviar solicitação");
       }
     } catch (err: any) {
       setError(err.message || "Erro ao enviar solicitação");
@@ -248,6 +283,40 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="phone">Telefone *</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="(00) 00000-0000"
+                value={formData.phone}
+                onChange={handleChange}
+                autoComplete="tel"
+                maxLength={15}
+                required
+                disabled={loading || !!success}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="businessName">
+                {documentType === "cnpj" ? "Nome da Clínica *" : "Nome Profissional *"}
+              </Label>
+              <Input
+                id="businessName"
+                type="text"
+                placeholder={
+                  documentType === "cnpj"
+                    ? "Nome da sua clínica"
+                    : "Como você quer ser conhecido"
+                }
+                value={formData.businessName}
+                onChange={handleChange}
+                required
+                disabled={loading || !!success}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="password">Senha *</Label>
               <Input
                 id="password"
@@ -293,7 +362,7 @@ export default function RegisterPage() {
           </div>
           <div className="text-xs text-center text-muted-foreground">
             Após enviar, aguarde a aprovação do administrador. <br />
-            Você receberá um código de ativação por email.
+            Você receberá as credenciais de acesso por email.
           </div>
         </CardFooter>
       </Card>

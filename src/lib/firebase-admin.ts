@@ -35,11 +35,19 @@ if (!admin.apps.length) {
     console.log("✅ Firebase Admin configurado para emuladores");
   } else {
     // Configuração para produção
-    console.log("🌍 Inicializando Firebase Admin para produção...");
+    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
+
+    if (!isBuildTime) {
+      console.log("🌍 Inicializando Firebase Admin para produção...");
+    }
 
     // Verificar se temos service account key
     if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.FIREBASE_SERVICE_ACCOUNT) {
-      console.warn("⚠️ GOOGLE_APPLICATION_CREDENTIALS não configurado. Tentando Application Default Credentials...");
+      // Durante o build, não mostramos warning pois é comportamento esperado
+      // Em produção no Firebase Hosting, Application Default Credentials funcionam automaticamente
+      if (!isBuildTime) {
+        console.warn("⚠️ GOOGLE_APPLICATION_CREDENTIALS não configurado. Tentando Application Default Credentials...");
+      }
 
       adminApp = admin.initializeApp({
         projectId: projectId,
@@ -60,7 +68,9 @@ if (!admin.apps.length) {
       });
     }
 
-    console.log("✅ Firebase Admin configurado para produção");
+    if (!isBuildTime) {
+      console.log("✅ Firebase Admin configurado para produção");
+    }
   }
 } else {
   adminApp = admin.apps[0] as admin.app.App;
@@ -76,6 +86,17 @@ adminDb.settings({
 });
 
 export { adminApp, adminAuth, adminDb };
+
+/**
+ * Helper para obter instâncias do Firebase Admin
+ */
+export async function getFirebaseAdmin() {
+  return {
+    app: adminApp,
+    auth: adminAuth,
+    db: adminDb,
+  };
+}
 
 /**
  * Helper para verificar se um usuário tem permissão

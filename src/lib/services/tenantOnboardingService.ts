@@ -18,7 +18,7 @@ import {
   PaymentData,
 } from "@/types/onboarding";
 import { updateTenant } from "./tenantServiceDirect";
-import { createLicense } from "./licenseService";
+import { createLicense, getActiveLicenseByTenant, updateLicense } from "./licenseService";
 import { PLANS } from "@/lib/constants/plans";
 
 /**
@@ -211,22 +211,55 @@ export async function confirmPayment(
       updated_at: Timestamp.now(),
     });
 
-    // Cria licença automaticamente
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setMonth(
-      endDate.getMonth() + (onboarding.selected_plan_id === "anual" ? 12 : 6)
-    );
+    // Verifica se já existe licença ativa
+    const existingLicense = await getActiveLicenseByTenant(tenantId);
 
-    const licenseId = await createLicense({
-      tenant_id: tenantId,
-      plan_id: onboarding.selected_plan_id,
-      start_date: startDate,
-      end_date: endDate,
-      max_users: plan.maxUsers,
-      features: plan.features,
-      auto_renew: true, // Habilita renovação automática
-    });
+    let licenseId: string;
+
+    if (existingLicense) {
+      // Atualiza licença existente com dados do onboarding
+      console.log(`📝 Atualizando licença existente: ${existingLicense.id}`);
+      
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(
+        endDate.getMonth() + (onboarding.selected_plan_id === "anual" ? 12 : 6)
+      );
+
+      await updateLicense(existingLicense.id, {
+        plan_id: onboarding.selected_plan_id,
+        start_date: startDate,
+        end_date: endDate,
+        max_users: plan.maxUsers,
+        features: plan.features,
+        auto_renew: true, // Habilita renovação automática
+        status: "ativa",
+      });
+
+      licenseId = existingLicense.id;
+      console.log(`✅ Licença atualizada com sucesso`);
+    } else {
+      // Cria nova licença se não existir
+      console.log(`📝 Criando nova licença para tenant ${tenantId}`);
+      
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(
+        endDate.getMonth() + (onboarding.selected_plan_id === "anual" ? 12 : 6)
+      );
+
+      licenseId = await createLicense({
+        tenant_id: tenantId,
+        plan_id: onboarding.selected_plan_id,
+        start_date: startDate,
+        end_date: endDate,
+        max_users: plan.maxUsers,
+        features: plan.features,
+        auto_renew: true, // Habilita renovação automática
+      });
+
+      console.log(`✅ Nova licença criada: ${licenseId}`);
+    }
 
     // Ativa o tenant
     await updateTenant(tenantId, {

@@ -107,27 +107,27 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
           // Criar notificação
           await createExpiringProductNotification(
             tenantId,
-            item.produto_nome,
-            item.produto_codigo,
+            item.nome_produto,
+            item.codigo_produto,
             item.lote,
             item.dt_validade.toString(),
             daysUntilExpiry,
             item.id,
-            item.produto_codigo
+            item.codigo_produto
           );
 
           results.notificationsCreated++;
 
           console.log(
-            `✅ Alerta criado: ${item.produto_nome} vence em ${daysUntilExpiry} dias`
+            `✅ Alerta criado: ${item.nome_produto} vence em ${daysUntilExpiry} dias`
           );
         } catch (error: any) {
           console.error(
-            `Erro ao criar notificação para ${item.produto_nome}:`,
+            `Erro ao criar notificação para ${item.nome_produto}:`,
             error
           );
           results.errors.push(
-            `${item.produto_nome}: ${error.message || "Erro desconhecido"}`
+            `${item.nome_produto}: ${error.message || "Erro desconhecido"}`
           );
         }
       }
@@ -207,26 +207,26 @@ export async function checkLowStock(tenantId: string): Promise<{
           // Criar notificação
           await createLowStockNotification(
             tenantId,
-            item.produto_nome,
-            item.produto_codigo,
+            item.nome_produto,
+            item.codigo_produto,
             item.quantidade_disponivel,
             minQuantity,
             item.id,
-            item.produto_codigo
+            item.codigo_produto
           );
 
           results.notificationsCreated++;
 
           console.log(
-            `✅ Alerta criado: ${item.produto_nome} com ${item.quantidade_disponivel} unidades (mín: ${minQuantity})`
+            `✅ Alerta criado: ${item.nome_produto} com ${item.quantidade_disponivel} unidades (mín: ${minQuantity})`
           );
         } catch (error: any) {
           console.error(
-            `Erro ao criar notificação para ${item.produto_nome}:`,
+            `Erro ao criar notificação para ${item.nome_produto}:`,
             error
           );
           results.errors.push(
-            `${item.produto_nome}: ${error.message || "Erro desconhecido"}`
+            `${item.nome_produto}: ${error.message || "Erro desconhecido"}`
           );
         }
       }
@@ -325,15 +325,15 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
           results.notificationsCreated++;
 
           console.log(
-            `🚨 Alerta URGENTE criado: ${item.produto_nome} VENCIDO desde ${item.dt_validade}`
+            `🚨 Alerta URGENTE criado: ${item.nome_produto} VENCIDO desde ${item.dt_validade}`
           );
         } catch (error: any) {
           console.error(
-            `Erro ao criar notificação para ${item.produto_nome}:`,
+            `Erro ao criar notificação para ${item.nome_produto}:`,
             error
           );
           results.errors.push(
-            `${item.produto_nome}: ${error.message || "Erro desconhecido"}`
+            `${item.nome_produto}: ${error.message || "Erro desconhecido"}`
           );
         }
       }

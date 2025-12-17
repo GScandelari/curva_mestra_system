@@ -112,16 +112,22 @@ export interface NFImport {
 export interface InventoryItem {
   id: string;
   tenant_id: string;
-  produto_codigo: string;
-  produto_nome: string;
+  codigo_produto: string;
+  nome_produto: string;
   lote: string;
   quantidade_inicial: number;
   quantidade_disponivel: number;
   quantidade_reservada: number; // Quantidade reservada para procedimentos agendados
-  dt_validade: string; // formato: DD/MM/YYYY
+  dt_validade: string; // formato: DD/MM/YYYY ou YYYY-MM-DD
   valor_unitario: number;
-  nf_id: string;
+  nf_id?: string;
   nf_numero: string;
+  nf_import_id?: string;
+  master_product_id?: string;
+  produto_id?: string;
+  active?: boolean;
+  is_rennova?: boolean;
+  dt_entrada?: Timestamp;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -133,6 +139,7 @@ export interface InventoryItem {
 export type SolicitacaoStatus =
   | "criada"
   | "agendada"
+  | "concluida"
   | "aprovada"
   | "reprovada"
   | "cancelada";
@@ -219,33 +226,46 @@ export interface AlertaVencimento {
 
 export type AccessRequestStatus =
   | "pendente" // Aguardando aprovação
-  | "aprovada" // Aprovada, aguardando ativação por código
-  | "ativa" // Conta ativada com sucesso
-  | "rejeitada" // Recusada por admin
-  | "expirada"; // Código de ativação expirou
+  | "aprovada" // Aprovada e clínica criada
+  | "rejeitada"; // Recusada por admin
+
+export type AccessRequestType = "clinica" | "autonomo";
 
 export interface AccessRequest {
   id: string;
-  document_type: DocumentType; // NOVO: tipo de documento (CPF ou CNPJ)
-  document_number: string; // NOVO: CPF ou CNPJ unificado
-  cnpj?: string; // DEPRECATED: manter compatibilidade
-  tenant_id?: string; // Preenchido se o documento já existe
-  tenant_name?: string; // Nome da clínica/pessoa (se encontrada)
-  full_name: string; // Nome completo do solicitante
-  email: string; // Email do solicitante
-  password_hash?: string; // Hash da senha (temporário até ativação)
+  type: AccessRequestType; // Clínica ou Autônomo
+
+  // Dados do solicitante
+  full_name: string; // Nome completo
+  email: string;
+  phone: string;
+  password: string; // Senha para criar a conta
+
+  // Dados da empresa/pessoa
+  business_name: string; // Nome da clínica ou nome profissional
+  document_type: DocumentType; // cpf ou cnpj
+  document_number: string; // CPF ou CNPJ sem formatação
+
+  // Endereço
+  address?: string;
+  city?: string;
+  state?: string;
+  cep?: string;
+
+  // Status e aprovação
   status: AccessRequestStatus;
-  activation_code?: string; // Código de 8 dígitos
-  activation_code_expires_at?: Timestamp; // Expiração do código (24h)
-  has_available_slots?: boolean; // Se tem vagas disponíveis
   approved_by?: string; // UID do admin que aprovou
-  approved_by_name?: string; // Nome do admin que aprovou
+  approved_by_name?: string;
   approved_at?: Timestamp;
   rejected_by?: string;
   rejected_by_name?: string;
   rejected_at?: Timestamp;
   rejection_reason?: string;
-  activated_at?: Timestamp;
+
+  // Tenant criado
+  tenant_id?: string; // ID do tenant criado após aprovação
+  user_id?: string; // ID do usuário criado após aprovação
+
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -255,6 +275,52 @@ export interface TenantLimits {
   max_users: number; // Limite do plano
   current_users: number; // Usuários ativos
   available_slots: number; // Vagas disponíveis
+}
+
+// ============================================================================
+// DOCUMENTOS LEGAIS
+// ============================================================================
+
+export type DocumentStatus = "ativo" | "inativo" | "rascunho";
+
+export interface LegalDocument {
+  id: string;
+  title: string; // Ex: "Termos de Uso", "Política de Privacidade"
+  slug: string; // Ex: "termos-de-uso", "politica-privacidade"
+  content: string; // Conteúdo em Markdown
+  version: string; // Ex: "1.0", "2.1"
+  status: DocumentStatus;
+  required_for_registration: boolean; // Se obrigatório no cadastro
+  required_for_existing_users: boolean; // Se usuários existentes devem aceitar
+  order: number; // Ordem de exibição
+  created_by: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  published_at?: Timestamp;
+}
+
+export interface UserDocumentAcceptance {
+  id: string;
+  user_id: string;
+  document_id: string;
+  document_version: string;
+  accepted_at: Timestamp;
+  ip_address?: string;
+  user_agent?: string;
+}
+
+// ============================================================================
+// CONFIGURAÇÕES DO SISTEMA
+// ============================================================================
+
+export interface SystemSettings {
+  id: string; // sempre "global"
+  session_timeout_minutes: number; // Tempo de sessão em minutos (padrão: 15)
+  maintenance_mode: boolean; // Modo de manutenção
+  maintenance_message?: string;
+  registration_enabled: boolean; // Permitir novos registros
+  updated_by: string;
+  updated_at: Timestamp;
 }
 
 // ============================================================================

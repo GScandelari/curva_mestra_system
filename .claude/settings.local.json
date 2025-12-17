@@ -64,7 +64,20 @@
       "Bash(firebase use:*)",
       "Bash(firebase functions:secrets:access:*)",
       "Bash(npx next build)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(./cleanup-old-functions.sh)",
+      "Bash(firebase functions:delete:*)",
+      "Bash(firebase functions:list:*)",
+      "WebSearch",
+      "WebFetch(domain:dev.pagseguro.uol.com.br)",
+      "WebFetch(domain:faq.pagbank.com.br)",
+      "WebFetch(domain:developer.pagbank.com.br)",
+      "Bash(firebase functions:secrets:set:*)",
+      "Bash(wc:*)",
+      "Bash(xargs sed:*)",
+      "Bash(echo:*)",
+      "Bash(npx shadcn@latest add tabs)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

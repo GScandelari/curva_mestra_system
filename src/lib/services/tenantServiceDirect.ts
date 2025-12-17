@@ -103,6 +103,32 @@ export async function getTenant(tenantId: string) {
 // Criar novo tenant
 export async function createTenant(data: CreateTenantData) {
   try {
+    // Se tiver dados de admin, usar API route (que usa Firebase Admin)
+    if (data.admin_email && data.admin_name && data.temp_password) {
+      console.log("🔐 Criando tenant com admin via API route...");
+
+      const response = await fetch("/api/tenants/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao criar clínica");
+      }
+
+      const result = await response.json();
+      return {
+        tenantId: result.tenantId,
+        userId: result.userId,
+        message: result.message,
+      };
+    }
+
+    // Caso contrário, criar apenas o tenant (compatibilidade com fluxo antigo)
     const { name, document_type, document_number, cnpj, max_users, email, plan_id = "semestral", phone, address, city, state, cep, active = false } = data;
 
     const tenantData = {
@@ -139,7 +165,7 @@ export async function createTenant(data: CreateTenantData) {
     };
   } catch (error) {
     console.error("Erro ao criar tenant:", error);
-    throw new Error("Erro ao criar clínica no Firestore");
+    throw new Error(error instanceof Error ? error.message : "Erro ao criar clínica no Firestore");
   }
 }
 

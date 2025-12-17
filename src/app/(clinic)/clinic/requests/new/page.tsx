@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,11 @@ import {
 import { listInventory, type InventoryItem } from "@/lib/services/inventoryService";
 import {
   createSolicitacaoWithConsumption,
+  updateSolicitacaoAgendada,
   type CreateSolicitacaoInput,
 } from "@/lib/services/solicitacaoService";
+import { searchPatients } from "@/lib/services/patientService";
+import type { Patient } from "@/types/patient";
 
 type Step = "dados_paciente" | "adicionar_produtos" | "revisao";
 
@@ -70,16 +73,39 @@ interface ProdutoAgrupado {
 export default function NovaSolicitacaoPage() {
   const { user, claims } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const tenantId = claims?.tenant_id;
 
+  // Verificar permissão - apenas clinic_admin pode criar procedimentos
+  useEffect(() => {
+    if (claims && claims.role !== "clinic_admin") {
+      router.push("/clinic/requests");
+    }
+  }, [claims, router]);
+
+  // Modo de edição
+  const editId = searchParams.get("edit");
+  const isEditMode = !!editId;
+
+  // Pegar parâmetros da URL para pré-preenchimento
+  const patientCodeParam = searchParams.get("patientCode") || searchParams.get("pacienteCodigo");
+  const patientNameParam = searchParams.get("patientName") || searchParams.get("pacienteNome");
+
   // Estados do formulário
   const [step, setStep] = useState<Step>("dados_paciente");
-  const [codigoPaciente, setCodigoPaciente] = useState("");
-  const [nomePaciente, setNomePaciente] = useState("");
+  const [codigoPaciente, setCodigoPaciente] = useState(patientCodeParam || "");
+  const [nomePaciente, setNomePaciente] = useState(patientNameParam || "");
   const [dtProcedimento, setDtProcedimento] = useState("");
   const [observacoes, setObservacoes] = useState("");
+
+  // Estados do autocomplete
+  const [patientSearchTerm, setPatientSearchTerm] = useState("");
+  const [patientSearchFilter, setPatientSearchFilter] = useState<"all" | "codigo" | "nome" | "telefone">("all");
+  const [patientSuggestions, setPatientSuggestions] = useState<Patient[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchingPatients, setSearchingPatients] = useState(false);
 
   // Estados de produtos
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -93,6 +119,55 @@ export default function NovaSolicitacaoPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // Debounce para busca de pacientes
+  useEffect(() => {
+    if (!patientSearchTerm || patientSearchTerm.length < 2) {
+      setPatientSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const delaySearch = setTimeout(async () => {
+      if (!tenantId) return;
+
+      try {
+        setSearchingPatients(true);
+        const results = await searchPatients(tenantId, patientSearchTerm, 8, patientSearchFilter);
+        setPatientSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      } catch (error) {
+        console.error("Erro ao buscar pacientes:", error);
+        setPatientSuggestions([]);
+      } finally {
+        setSearchingPatients(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delaySearch);
+  }, [patientSearchTerm, patientSearchFilter, tenantId]);
+
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('#patient-search-container')) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Função para selecionar paciente do autocomplete
+  const handleSelectPatient = (patient: Patient) => {
+    setCodigoPaciente(patient.codigo);
+    setNomePaciente(patient.nome);
+    setPatientSearchTerm("");
+    setShowSuggestions(false);
+    setPatientSuggestions([]);
+  };
 
   // Função para agrupar produtos por código e ordenar lotes por FEFO
   const agruparProdutosPorCodigo = (items: any[]): ProdutoAgrupado[] => {
@@ -172,6 +247,76 @@ export default function NovaSolicitacaoPage() {
     loadInventory();
   }, [tenantId, toast]);
 
+  // Carregar dados para edição
+  useEffect(() => {
+    if (!isEditMode || !searchParams) return;
+
+    try {
+      // Data do procedimento
+      const dtParam = searchParams.get("dtProcedimento");
+      if (dtParam) {
+        setDtProcedimento(dtParam);
+      }
+
+      // Observações
+      const obsParam = searchParams.get("observacoes");
+      if (obsParam) {
+        setObservacoes(obsParam);
+      }
+
+      // Produtos
+      const produtosParam = searchParams.get("produtos");
+      if (produtosParam) {
+        try {
+          const produtos = JSON.parse(produtosParam);
+          const produtosSelecionados: ProdutoSelecionado[] = produtos.map((p: any) => ({
+            inventory_item_id: p.inventory_item_id,
+            produto_codigo: p.codigo_produto,
+            produto_nome: p.nome_produto,
+            lote: p.lote,
+            quantidade_solicitada: p.quantidade,
+            quantidade_disponivel: 0, // Será atualizado pelo próximo useEffect
+            valor_unitario: p.valor_unitario,
+          }));
+          setProdutosSelecionados(produtosSelecionados);
+        } catch (e) {
+          console.error("Erro ao parsear produtos:", e);
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados de edição:", error);
+    }
+  }, [isEditMode, searchParams]);
+
+  // Atualizar quantidade disponível dos produtos selecionados quando o inventário carregar
+  useEffect(() => {
+    if (!isEditMode || produtosSelecionados.length === 0 || inventoryItems.length === 0) return;
+
+    // Verificar se já tem quantidade_disponivel > 0 (já foi atualizado)
+    const jaAtualizado = produtosSelecionados.some(p => p.quantidade_disponivel > 0);
+    if (jaAtualizado) return;
+
+    const produtosAtualizados = produtosSelecionados.map((produtoSelecionado) => {
+      const itemInventario = inventoryItems.find(
+        (item) => item.id === produtoSelecionado.inventory_item_id
+      );
+
+      if (itemInventario) {
+        return {
+          ...produtoSelecionado,
+          quantidade_disponivel: itemInventario.quantidade_disponivel,
+          // Preservar nome do produto se veio da URL
+          produto_nome: produtoSelecionado.produto_nome || itemInventario.nome_produto,
+          produto_codigo: produtoSelecionado.produto_codigo || itemInventario.codigo_produto,
+        };
+      }
+
+      return produtoSelecionado;
+    });
+
+    setProdutosSelecionados(produtosAtualizados);
+  }, [inventoryItems, isEditMode, produtosSelecionados]); // Dependências corretas
+
   // Validações
   const validatePaciente = () => {
     if (!codigoPaciente.trim()) {
@@ -187,12 +332,15 @@ export default function NovaSolicitacaoPage() {
       return false;
     }
 
-    // Validar data não pode ser no passado
-    const dataSelecionada = new Date(dtProcedimento);
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
+    // Validar data não pode ser no passado (mas permite hoje)
+    // Usar comparação de strings YYYY-MM-DD para evitar problemas de timezone
+    const dataHoje = new Date();
+    const anoHoje = dataHoje.getFullYear();
+    const mesHoje = String(dataHoje.getMonth() + 1).padStart(2, '0');
+    const diaHoje = String(dataHoje.getDate()).padStart(2, '0');
+    const dataHojeString = `${anoHoje}-${mesHoje}-${diaHoje}`;
 
-    if (dataSelecionada < hoje) {
+    if (dtProcedimento < dataHojeString) {
       setError("Data do procedimento não pode ser no passado");
       return false;
     }
@@ -334,7 +482,7 @@ export default function NovaSolicitacaoPage() {
     if (produtosSelecionados.length === 0) {
       toast({
         title: "Adicione produtos",
-        description: "Adicione pelo menos um produto à solicitação",
+        description: "Adicione pelo menos um produto ao procedimento",
         variant: "destructive",
       });
       return;
@@ -351,47 +499,89 @@ export default function NovaSolicitacaoPage() {
       setSaving(true);
       setValidationErrors([]);
 
-      const input: CreateSolicitacaoInput = {
-        paciente_codigo: codigoPaciente,
-        paciente_nome: nomePaciente,
-        dt_procedimento: new Date(dtProcedimento),
-        produtos: produtosSelecionados.map((p) => ({
-          inventory_item_id: p.inventory_item_id,
-          quantidade: p.quantidade_solicitada,
-        })),
-        observacoes: observacoes || undefined,
-      };
+      if (isEditMode && editId) {
+        // Modo de edição: atualizar procedimento agendado
+        const updatePayload: any = {
+          paciente_codigo: codigoPaciente,
+          paciente_nome: nomePaciente,
+          dt_procedimento: new Date(dtProcedimento),
+          produtos: produtosSelecionados.map((p) => ({
+            inventory_item_id: p.inventory_item_id,
+            quantidade: p.quantidade_solicitada,
+          })),
+        };
 
-      const result = await createSolicitacaoWithConsumption(
-        tenantId,
-        user.uid,
-        user.displayName || user.email || "Usuário",
-        input
-      );
-
-      if (result.success) {
-        toast({
-          title: "Solicitação criada com sucesso!",
-          description: "Os produtos foram consumidos do inventário",
-        });
-
-        router.push(`/clinic/requests/${result.solicitacaoId}`);
-      } else {
-        if (result.validationErrors && result.validationErrors.length > 0) {
-          setValidationErrors(result.validationErrors);
-          setStep("revisao"); // Voltar para revisão
+        // Só adicionar observações se houver valor
+        if (observacoes) {
+          updatePayload.observacoes = observacoes;
         }
 
-        toast({
-          title: "Erro ao criar solicitação",
-          description: result.error || "Ocorreu um erro ao processar a solicitação",
-          variant: "destructive",
-        });
+        const result = await updateSolicitacaoAgendada(
+          tenantId,
+          editId,
+          user.uid,
+          user.displayName || user.email || "Usuário",
+          updatePayload
+        );
+
+        if (result.success) {
+          toast({
+            title: "Procedimento atualizado com sucesso!",
+            description: "As reservas de produtos foram ajustadas",
+          });
+
+          router.push(`/clinic/requests/${editId}`);
+        } else {
+          toast({
+            title: "Erro ao atualizar procedimento",
+            description: result.error || "Ocorreu um erro ao processar a atualização",
+            variant: "destructive",
+          });
+        }
+      } else {
+        // Modo de criação: criar novo procedimento
+        const input: CreateSolicitacaoInput = {
+          paciente_codigo: codigoPaciente,
+          paciente_nome: nomePaciente,
+          dt_procedimento: new Date(dtProcedimento),
+          produtos: produtosSelecionados.map((p) => ({
+            inventory_item_id: p.inventory_item_id,
+            quantidade: p.quantidade_solicitada,
+          })),
+          observacoes: observacoes || undefined,
+        };
+
+        const result = await createSolicitacaoWithConsumption(
+          tenantId,
+          user.uid,
+          user.displayName || user.email || "Usuário",
+          input
+        );
+
+        if (result.success) {
+          toast({
+            title: "Procedimento criado com sucesso!",
+            description: "Os produtos foram reservados no inventário",
+          });
+
+          router.push(`/clinic/requests/${result.solicitacaoId}`);
+        } else {
+          if (result.validationErrors && result.validationErrors.length > 0) {
+            setValidationErrors(result.validationErrors);
+            setStep("revisao"); // Voltar para revisão
+          }
+
+          toast({
+            title: "Erro ao criar procedimento",
+            description: result.error || "Ocorreu um erro ao processar o procedimento",
+            variant: "destructive",
+          });
+        }
       }
     } catch (err: any) {
-      console.error("Erro ao criar solicitação:", err);
+      console.error(`Erro ao ${isEditMode ? "atualizar" : "criar"} procedimento:`, err);
       toast({
-        title: "Erro ao criar solicitação",
+        title: `Erro ao ${isEditMode ? "atualizar" : "criar"} procedimento`,
         description: "Ocorreu um erro inesperado",
         variant: "destructive",
       });
@@ -405,16 +595,26 @@ export default function NovaSolicitacaoPage() {
     0
   );
 
+  // Helper para formatar data sem problemas de timezone
+  const formatarDataLocal = (dataString: string) => {
+    if (!dataString) return "";
+    const [ano, mes, dia] = dataString.split("-");
+    return `${dia}/${mes}/${ano}`;
+  };
+
   return (
     <div className="container py-8">
           <div className="space-y-6">
             {/* Header */}
             <div>
               <h2 className="text-3xl font-bold tracking-tight">
-                Nova Solicitação de Produtos
+                {isEditMode ? "Editar Procedimento" : "Novo Procedimento"}
               </h2>
               <p className="text-muted-foreground">
-                Registre o consumo de produtos para um procedimento
+                {isEditMode
+                  ? "Modifique os dados do procedimento agendado"
+                  : "Registre o consumo de produtos para um procedimento"
+                }
               </p>
             </div>
 
@@ -485,29 +685,159 @@ export default function NovaSolicitacaoPage() {
                     </Alert>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="codigo-paciente">
-                        Código do Paciente *
-                      </Label>
-                      <Input
-                        id="codigo-paciente"
-                        placeholder="Ex: P001"
-                        value={codigoPaciente}
-                        onChange={(e) => setCodigoPaciente(e.target.value.toUpperCase())}
-                      />
+                  {/* Campo de Busca de Paciente com Autocomplete */}
+                  <div className="space-y-2">
+                    <Label htmlFor="patient-search">
+                      Buscar Paciente *
+                    </Label>
+
+                    {/* Filtro de busca */}
+                    <div className="flex gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setPatientSearchFilter("all")}
+                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                          patientSearchFilter === "all"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        }`}
+                      >
+                        Todos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPatientSearchFilter("codigo")}
+                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                          patientSearchFilter === "codigo"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        }`}
+                      >
+                        Código
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPatientSearchFilter("nome")}
+                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                          patientSearchFilter === "nome"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        }`}
+                      >
+                        Nome
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPatientSearchFilter("telefone")}
+                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                          patientSearchFilter === "telefone"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                        }`}
+                      >
+                        Telefone
+                      </button>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="nome-paciente">Nome do Paciente *</Label>
+                    <div id="patient-search-container" className="relative">
                       <Input
-                        id="nome-paciente"
-                        placeholder="Nome completo"
-                        value={nomePaciente}
-                        onChange={(e) => setNomePaciente(e.target.value)}
+                        id="patient-search"
+                        placeholder={
+                          patientSearchFilter === "all"
+                            ? "Digite código, nome ou telefone..."
+                            : patientSearchFilter === "codigo"
+                            ? "Digite o código do paciente..."
+                            : patientSearchFilter === "nome"
+                            ? "Digite o nome do paciente..."
+                            : "Digite o telefone do paciente..."
+                        }
+                        value={patientSearchTerm}
+                        onChange={(e) => setPatientSearchTerm(e.target.value)}
+                        onFocus={() => {
+                          if (patientSuggestions.length > 0) {
+                            setShowSuggestions(true);
+                          }
+                        }}
                       />
+
+                      {/* Lista de Sugestões */}
+                      {showSuggestions && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                          {searchingPatients ? (
+                            <div className="p-3 text-center text-sm text-gray-500">
+                              Buscando...
+                            </div>
+                          ) : patientSuggestions.length === 0 ? (
+                            <div className="p-3 text-center text-sm text-gray-500">
+                              Nenhum paciente encontrado
+                            </div>
+                          ) : (
+                            patientSuggestions.map((patient) => (
+                              <button
+                                key={patient.id}
+                                type="button"
+                                onClick={() => handleSelectPatient(patient)}
+                                className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-gray-900">
+                                      {patient.nome}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      Código: {patient.codigo}
+                                    </p>
+                                    {patient.telefone && (
+                                      <p className="text-xs text-gray-500 mt-0.5">
+                                        Tel: {patient.telefone}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
+                    {patientSearchTerm.length > 0 && patientSearchTerm.length < 2 && (
+                      <p className="text-xs text-gray-500">
+                        Digite pelo menos 2 caracteres para buscar
+                      </p>
+                    )}
                   </div>
+
+                  {/* Paciente Selecionado */}
+                  {(codigoPaciente || nomePaciente) && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-900">
+                            Paciente Selecionado
+                          </p>
+                          <p className="text-lg font-bold text-blue-900 mt-1">
+                            {nomePaciente}
+                          </p>
+                          <p className="text-sm text-blue-700">
+                            Código: {codigoPaciente}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setCodigoPaciente("");
+                            setNomePaciente("");
+                            setPatientSearchTerm("");
+                          }}
+                          className="text-blue-700 hover:text-blue-900 hover:bg-blue-100"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="dt-procedimento">
@@ -561,7 +891,7 @@ export default function NovaSolicitacaoPage() {
                           Data do Procedimento
                         </Label>
                         <p className="font-medium">
-                          {new Date(dtProcedimento).toLocaleDateString("pt-BR")}
+                          {formatarDataLocal(dtProcedimento)}
                         </p>
                       </div>
                       {observacoes && (
@@ -702,7 +1032,7 @@ export default function NovaSolicitacaoPage() {
                         Voltar
                       </Button>
                       <Button onClick={handleIrParaRevisao}>
-                        Revisar Solicitação <Check className="ml-2 h-4 w-4" />
+                        Revisar Procedimento <Check className="ml-2 h-4 w-4" />
                       </Button>
                     </div>
                   </CardContent>
@@ -731,8 +1061,10 @@ export default function NovaSolicitacaoPage() {
                   <AlertTriangle className="h-4 w-4" />
                   <AlertTitle>Atenção!</AlertTitle>
                   <AlertDescription>
-                    Ao confirmar, os produtos serão imediatamente consumidos do inventário.
-                    Esta ação não pode ser desfeita automaticamente.
+                    {isEditMode
+                      ? "Ao confirmar, as reservas de produtos serão ajustadas automaticamente no inventário. Produtos removidos terão suas reservas liberadas, e novos produtos serão reservados."
+                      : "Ao confirmar, os produtos serão RESERVADOS no inventário e o procedimento será criado com status \"Agendado\". Os produtos só serão consumidos quando o procedimento for concluído."
+                    }
                   </AlertDescription>
                 </Alert>
 
@@ -756,7 +1088,7 @@ export default function NovaSolicitacaoPage() {
                           Data do Procedimento
                         </Label>
                         <p className="font-medium">
-                          {new Date(dtProcedimento).toLocaleDateString("pt-BR")}
+                          {formatarDataLocal(dtProcedimento)}
                         </p>
                       </div>
                       {observacoes && (
@@ -836,7 +1168,7 @@ export default function NovaSolicitacaoPage() {
                       ) : (
                         <>
                           <Check className="mr-2 h-4 w-4" />
-                          Confirmar e Consumir Produtos
+                          {isEditMode ? "Confirmar Alterações" : "Confirmar e Reservar Produtos"}
                         </>
                       )}
                     </Button>

@@ -24,6 +24,7 @@ import type {
   PatientWithStats,
   CreatePatientInput,
   UpdatePatientInput,
+  PatientEditLog,
 } from "@/types/patient";
 
 // ============================================================================
@@ -101,7 +102,6 @@ export async function createPatient(
         data_nascimento: input.data_nascimento?.trim() || null,
         cpf: cpf || null,
         observacoes: input.observacoes?.trim() || null,
-        active: true,
         created_by: userId,
         created_by_name: userName,
         created_at: serverTimestamp(),
@@ -185,7 +185,6 @@ export async function getPatientByCode(
 export async function listPatients(
   tenantId: string,
   options?: {
-    active?: boolean;
     limit?: number;
     searchTerm?: string;
   }
@@ -208,11 +207,6 @@ export async function listPatients(
       ...doc.data(),
     })) as Patient[];
 
-    // Filtro por active (aplicado em memória)
-    if (options?.active !== undefined) {
-      patients = patients.filter((p) => p.active === options.active);
-    }
-
     // Filtro por busca (nome, código, CPF)
     if (options?.searchTerm) {
       const term = options.searchTerm.toLowerCase();
@@ -233,12 +227,74 @@ export async function listPatients(
 }
 
 /**
+ * Busca pacientes por termo (autocomplete)
+ * Busca por código, nome, CPF e telefone
+ */
+export async function searchPatients(
+  tenantId: string,
+  searchTerm: string,
+  limit: number = 10,
+  searchFilter: "all" | "codigo" | "nome" | "telefone" = "all"
+): Promise<Patient[]> {
+  try {
+    if (!searchTerm || searchTerm.length < 2) {
+      return [];
+    }
+
+    // Buscar todos os pacientes (limite maior para filtrar depois)
+    const q = query(
+      collection(db, "tenants", tenantId, "patients"),
+      orderBy("created_at", "desc"),
+      firestoreLimit(100)
+    );
+
+    const snapshot = await getDocs(q);
+
+    const patients = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Patient[];
+
+    // Filtrar por termo de busca (includes = contém o texto em qualquer parte)
+    const term = searchTerm.toLowerCase();
+
+    // Remover formatação do termo se for numérico (para busca em telefone/CPF)
+    const termNumerico = term.replace(/\D/g, '');
+
+    const filtered = patients.filter(
+      (p) => {
+        // Busca em nome e código (case insensitive)
+        const matchNome = p.nome.toLowerCase().includes(term);
+        const matchCodigo = p.codigo.toLowerCase().includes(term);
+
+        // Busca em CPF e telefone (apenas dígitos)
+        const matchCPF = p.cpf && p.cpf.replace(/\D/g, '').includes(termNumerico);
+        const matchTelefone = p.telefone && p.telefone.replace(/\D/g, '').includes(termNumerico);
+
+        // Aplicar filtro específico
+        if (searchFilter === "codigo") return matchCodigo;
+        if (searchFilter === "nome") return matchNome;
+        if (searchFilter === "telefone") return matchTelefone;
+
+        // "all" - buscar em todos os campos
+        return matchNome || matchCodigo || matchCPF || matchTelefone;
+      }
+    );
+
+    // Retornar apenas o limite solicitado
+    return filtered.slice(0, limit);
+  } catch (error) {
+    console.error("Erro ao buscar pacientes:", error);
+    throw new Error("Falha ao buscar pacientes");
+  }
+}
+
+/**
  * Lista pacientes com estatísticas (total de procedimentos, etc.)
  */
 export async function listPatientsWithStats(
   tenantId: string,
   options?: {
-    active?: boolean;
     limit?: number;
   }
 ): Promise<PatientWithStats[]> {
@@ -292,18 +348,29 @@ export async function listPatientsWithStats(
 }
 
 /**
- * Atualiza dados de um paciente
+ * Atualiza dados de um paciente e cria log de edição
  */
 export async function updatePatient(
   tenantId: string,
   patientId: string,
-  updates: UpdatePatientInput
+  updates: UpdatePatientInput,
+  userId?: string,
+  userName?: string
 ): Promise<{
   success: boolean;
   error?: string;
 }> {
   try {
     const patientRef = doc(db, "tenants", tenantId, "patients", patientId);
+
+    // Buscar dados atuais do paciente para comparar
+    const currentPatient = await getPatientById(tenantId, patientId);
+    if (!currentPatient) {
+      return {
+        success: false,
+        error: "Paciente não encontrado",
+      };
+    }
 
     // Validar CPF se estiver sendo atualizado
     let cpf = updates.cpf?.trim();
@@ -321,15 +388,51 @@ export async function updatePatient(
       updated_at: serverTimestamp(),
     };
 
-    if (updates.nome !== undefined) updateData.nome = updates.nome.trim();
-    if (updates.telefone !== undefined) updateData.telefone = updates.telefone?.trim() || null;
-    if (updates.email !== undefined) updateData.email = updates.email?.trim().toLowerCase() || null;
-    if (updates.data_nascimento !== undefined) updateData.data_nascimento = updates.data_nascimento?.trim() || null;
-    if (cpf !== undefined) updateData.cpf = cpf || null;
-    if (updates.observacoes !== undefined) updateData.observacoes = updates.observacoes?.trim() || null;
-    if (updates.active !== undefined) updateData.active = updates.active;
+    // Rastrear mudanças para o log
+    const changes: Array<{ field: string; old_value: any; new_value: any }> = [];
 
+    if (updates.nome !== undefined && updates.nome.trim() !== currentPatient.nome) {
+      updateData.nome = updates.nome.trim();
+      changes.push({ field: "nome", old_value: currentPatient.nome, new_value: updates.nome.trim() });
+    }
+    if (updates.telefone !== undefined && (updates.telefone?.trim() || null) !== (currentPatient.telefone || null)) {
+      updateData.telefone = updates.telefone?.trim() || null;
+      changes.push({ field: "telefone", old_value: currentPatient.telefone, new_value: updates.telefone?.trim() || null });
+    }
+    if (updates.email !== undefined && (updates.email?.trim().toLowerCase() || null) !== (currentPatient.email || null)) {
+      updateData.email = updates.email?.trim().toLowerCase() || null;
+      changes.push({ field: "email", old_value: currentPatient.email, new_value: updates.email?.trim().toLowerCase() || null });
+    }
+    if (updates.data_nascimento !== undefined && (updates.data_nascimento?.trim() || null) !== (currentPatient.data_nascimento || null)) {
+      updateData.data_nascimento = updates.data_nascimento?.trim() || null;
+      changes.push({ field: "data_nascimento", old_value: currentPatient.data_nascimento, new_value: updates.data_nascimento?.trim() || null });
+    }
+    if (cpf !== undefined && (cpf || null) !== (currentPatient.cpf || null)) {
+      updateData.cpf = cpf || null;
+      changes.push({ field: "cpf", old_value: currentPatient.cpf, new_value: cpf || null });
+    }
+    if (updates.observacoes !== undefined && (updates.observacoes?.trim() || null) !== (currentPatient.observacoes || null)) {
+      updateData.observacoes = updates.observacoes?.trim() || null;
+      changes.push({ field: "observacoes", old_value: currentPatient.observacoes, new_value: updates.observacoes?.trim() || null });
+    }
+
+    // Atualizar paciente
     await updateDoc(patientRef, updateData);
+
+    // Criar log de edição se houver mudanças e userId fornecido
+    if (changes.length > 0 && userId && userName) {
+      await addDoc(
+        collection(db, "tenants", tenantId, "patient_edit_logs"),
+        {
+          patient_id: patientId,
+          patient_codigo: currentPatient.codigo,
+          changes,
+          edited_by: userId,
+          edited_by_name: userName,
+          edited_at: serverTimestamp(),
+        }
+      );
+    }
 
     return { success: true };
   } catch (error: any) {
@@ -341,35 +444,6 @@ export async function updatePatient(
   }
 }
 
-/**
- * Desativa um paciente (soft delete)
- */
-export async function deactivatePatient(
-  tenantId: string,
-  patientId: string
-): Promise<void> {
-  try {
-    await updatePatient(tenantId, patientId, { active: false });
-  } catch (error) {
-    console.error("Erro ao desativar paciente:", error);
-    throw new Error("Falha ao desativar paciente");
-  }
-}
-
-/**
- * Reativa um paciente
- */
-export async function reactivatePatient(
-  tenantId: string,
-  patientId: string
-): Promise<void> {
-  try {
-    await updatePatient(tenantId, patientId, { active: true });
-  } catch (error) {
-    console.error("Erro ao reativar paciente:", error);
-    throw new Error("Falha ao reativar paciente");
-  }
-}
 
 /**
  * Deleta um paciente permanentemente
@@ -430,21 +504,21 @@ export async function deletePatient(
  */
 export async function getPatientsStats(tenantId: string): Promise<{
   total: number;
-  ativos: number;
-  inativos: number;
   novos_mes: number; // Cadastrados no mês atual
+  novos_3_meses: number; // Cadastrados nos últimos 3 meses
 }> {
   try {
     const patients = await listPatients(tenantId);
 
-    const ativos = patients.filter((p) => p.active).length;
-    const inativos = patients.filter((p) => !p.active).length;
-
-    // Contar novos no mês
     const now = new Date();
     const mesAtual = now.getMonth();
     const anoAtual = now.getFullYear();
 
+    // Data de 3 meses atrás
+    const tresMesesAtras = new Date();
+    tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
+
+    // Contar novos no mês atual
     const novos_mes = patients.filter((p) => {
       const createdAt = (p.created_at as Timestamp).toDate();
       return (
@@ -453,11 +527,16 @@ export async function getPatientsStats(tenantId: string): Promise<{
       );
     }).length;
 
+    // Contar novos nos últimos 3 meses
+    const novos_3_meses = patients.filter((p) => {
+      const createdAt = (p.created_at as Timestamp).toDate();
+      return createdAt >= tresMesesAtras;
+    }).length;
+
     return {
       total: patients.length,
-      ativos,
-      inativos,
       novos_mes,
+      novos_3_meses,
     };
   } catch (error) {
     console.error("Erro ao obter estatísticas de pacientes:", error);
@@ -489,5 +568,32 @@ export async function getPatientHistory(
   } catch (error) {
     console.error("Erro ao buscar histórico do paciente:", error);
     throw new Error("Falha ao buscar histórico");
+  }
+}
+
+/**
+ * Busca logs de edição de um paciente
+ */
+export async function getPatientEditLogs(
+  tenantId: string,
+  patientId: string
+): Promise<PatientEditLog[]> {
+  try {
+    const logsRef = collection(db, "tenants", tenantId, "patient_edit_logs");
+    const q = query(
+      logsRef,
+      where("patient_id", "==", patientId),
+      orderBy("edited_at", "desc")
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as PatientEditLog[];
+  } catch (error) {
+    console.error("Erro ao buscar logs de edição:", error);
+    throw new Error("Falha ao buscar logs de edição");
   }
 }

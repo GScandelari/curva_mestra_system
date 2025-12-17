@@ -87,16 +87,15 @@ export async function createAccessRequest(data: {
 
     // Criar solicitação
     const accessRequest: Omit<AccessRequest, "id"> = {
+      type: data.document_type === "cnpj" ? "clinica" : "autonomo",
       document_type: data.document_type,
       document_number: documentClean,
-      cnpj: data.document_type === "cnpj" ? documentClean : undefined, // Compatibilidade
-      tenant_id,
-      tenant_name,
       full_name: data.full_name,
       email: data.email.toLowerCase(),
-      password_hash: data.password, // Será hashado no backend
+      phone: "",
+      password: "", // Senha será definida pelo usuário após aprovação
+      business_name: data.full_name,
       status: "pendente",
-      has_available_slots,
       created_at: serverTimestamp() as Timestamp,
       updated_at: serverTimestamp() as Timestamp,
     };
@@ -199,65 +198,17 @@ export async function getAccessRequest(
 }
 
 /**
+ * DEPRECATED: Usar API route /api/access-requests/[id]/approve
  * Aprova uma solicitação e gera código de ativação
  */
 export async function approveAccessRequest(
   requestId: string,
   approvedBy: { uid: string; name: string }
 ): Promise<{ success: boolean; message: string; activationCode?: string }> {
-  try {
-    const request = await getAccessRequest(requestId);
-
-    if (!request) {
-      return { success: false, message: "Solicitação não encontrada" };
-    }
-
-    if (request.status !== "pendente") {
-      return { success: false, message: "Solicitação já foi processada" };
-    }
-
-    // Verificar limites novamente
-    if (request.tenant_id) {
-      const limits = await getTenantLimits(request.tenant_id);
-      if (limits.available_slots <= 0) {
-        return {
-          success: false,
-          message: "Clínica atingiu o limite de usuários",
-        };
-      }
-    }
-
-    // Gerar código de 8 dígitos
-    const activationCode = Math.floor(10000000 + Math.random() * 90000000).toString();
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 horas para ativar
-
-    // Atualizar solicitação
-    const docRef = doc(db, ACCESS_REQUESTS_COLLECTION, requestId);
-    await updateDoc(docRef, {
-      status: "aprovada",
-      activation_code: activationCode,
-      activation_code_expires_at: Timestamp.fromDate(expiresAt),
-      approved_by: approvedBy.uid,
-      approved_by_name: approvedBy.name,
-      approved_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-
-    // TODO: Enviar email com código de ativação via Cloud Function
-
-    return {
-      success: true,
-      message: "Solicitação aprovada! Código de ativação enviado por email.",
-      activationCode, // Retorna para debug (remover em produção)
-    };
-  } catch (error) {
-    console.error("Erro ao aprovar solicitação:", error);
-    return {
-      success: false,
-      message: "Erro ao aprovar solicitação. Tente novamente.",
-    };
-  }
+  return {
+    success: false,
+    message: "Esta função foi depreciada. Use a API route /api/access-requests/[id]/approve",
+  };
 }
 
 /**
@@ -305,6 +256,7 @@ export async function rejectAccessRequest(
 }
 
 /**
+ * DEPRECATED: Fluxo antigo de ativação com código
  * Ativa uma conta com código
  */
 export async function activateAccountWithCode(
@@ -320,66 +272,10 @@ export async function activateAccountWithCode(
     tenant_id?: string;
   };
 }> {
-  try {
-    // Buscar solicitação
-    const requestsQuery = query(
-      collection(db, ACCESS_REQUESTS_COLLECTION),
-      where("email", "==", email.toLowerCase()),
-      where("status", "==", "aprovada"),
-      where("activation_code", "==", activationCode)
-    );
-    const requestsSnapshot = await getDocs(requestsQuery);
-
-    if (requestsSnapshot.empty) {
-      return {
-        success: false,
-        message: "Código de ativação inválido ou email não encontrado",
-      };
-    }
-
-    const requestDoc = requestsSnapshot.docs[0];
-    const request = requestDoc.data() as AccessRequest;
-
-    // Verificar expiração
-    if (
-      request.activation_code_expires_at &&
-      request.activation_code_expires_at.toDate() < new Date()
-    ) {
-      await updateDoc(doc(db, ACCESS_REQUESTS_COLLECTION, requestDoc.id), {
-        status: "expirada",
-        updated_at: serverTimestamp(),
-      });
-
-      return {
-        success: false,
-        message: "Código de ativação expirado. Solicite um novo.",
-      };
-    }
-
-    // Marcar como ativa (a criação da conta será feita pela API)
-    await updateDoc(doc(db, ACCESS_REQUESTS_COLLECTION, requestDoc.id), {
-      status: "ativa",
-      activated_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-
-    return {
-      success: true,
-      message: "Código validado! Criando sua conta...",
-      requestData: {
-        email: request.email,
-        password: request.password_hash!,
-        full_name: request.full_name,
-        tenant_id: request.tenant_id,
-      },
-    };
-  } catch (error) {
-    console.error("Erro ao ativar conta:", error);
-    return {
-      success: false,
-      message: "Erro ao ativar conta. Tente novamente.",
-    };
-  }
+  return {
+    success: false,
+    message: "Esta função foi depreciada. Use o novo fluxo de aprovação automática.",
+  };
 }
 
 /**

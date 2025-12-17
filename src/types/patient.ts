@@ -14,7 +14,6 @@ export interface Patient {
   data_nascimento?: string; // formato: DD/MM/YYYY
   cpf?: string; // opcional
   observacoes?: string;
-  active: boolean;
   created_by: string;
   created_by_name?: string;
   created_at: Timestamp;
@@ -44,5 +43,18 @@ export interface UpdatePatientInput {
   data_nascimento?: string;
   cpf?: string;
   observacoes?: string;
-  active?: boolean;
+}
+
+export interface PatientEditLog {
+  id: string;
+  patient_id: string;
+  patient_codigo: string;
+  changes: {
+    field: string;
+    old_value: any;
+    new_value: any;
+  }[];
+  edited_by: string;
+  edited_by_name: string;
+  edited_at: Timestamp;
 }

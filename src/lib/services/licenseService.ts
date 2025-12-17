@@ -55,6 +55,44 @@ export async function createLicense(licenseData: {
 }
 
 /**
+ * Atualizar licença existente
+ */
+export async function updateLicense(
+  licenseId: string,
+  updateData: {
+    plan_id?: string;
+    max_users?: number;
+    features?: string[];
+    start_date?: Date;
+    end_date?: Date;
+    auto_renew?: boolean;
+    status?: LicenseStatus;
+  }
+): Promise<void> {
+  try {
+    const licenseRef = doc(db, "licenses", licenseId);
+    
+    const dataToUpdate: any = {
+      ...updateData,
+      updated_at: serverTimestamp(),
+    };
+
+    // Converter datas para Timestamp se fornecidas
+    if (updateData.start_date) {
+      dataToUpdate.start_date = Timestamp.fromDate(updateData.start_date);
+    }
+    if (updateData.end_date) {
+      dataToUpdate.end_date = Timestamp.fromDate(updateData.end_date);
+    }
+
+    await updateDoc(licenseRef, dataToUpdate);
+  } catch (error) {
+    console.error("Erro ao atualizar licença:", error);
+    throw new Error("Falha ao atualizar licença");
+  }
+}
+
+/**
  * Buscar licença ativa de um tenant
  */
 export async function getActiveLicenseByTenant(

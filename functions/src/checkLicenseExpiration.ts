@@ -18,6 +18,7 @@ export const checkLicenseExpiration = functions.scheduler.onSchedule(
   {
     schedule: "0 0 * * *", // Todos os dias às 00:00 UTC
     timeZone: "America/Sao_Paulo",
+    region: "southamerica-east1",
     timeoutSeconds: 540,
     memory: "512MiB",
   },

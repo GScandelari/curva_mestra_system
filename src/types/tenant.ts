@@ -18,6 +18,7 @@ export interface Tenant {
   city?: string;                    // NOVO: cidade separada
   state?: string;                   // NOVO: estado separado
   cep?: string;                     // NOVO: CEP separado
+  timezone?: string;                // NOVO: timezone (ex: "America/Sao_Paulo")
   plan_id: "semestral" | "anual";
   max_users: number;                // NOVO: 1 para CPF, 5 para CNPJ
   active: boolean;
@@ -41,8 +42,20 @@ export interface CreateTenantData {
   city?: string;                 // NOVO: cidade separada
   state?: string;                // NOVO: estado separado
   cep?: string;                  // NOVO: CEP separado
+  timezone?: string;             // NOVO: timezone
   plan_id: "semestral" | "anual";
   active?: boolean; // Padrão: true
+  // NOVO: dados do administrador
+  admin_name?: string;
+  admin_email?: string;
+  admin_phone?: string;
+  temp_password?: string;
+  // NOVO: configuração de e-mail de boas-vindas
+  welcome_email?: {
+    subject: string;
+    body: string;
+    send: boolean;
+  };
 }
 
 /**
@@ -61,6 +74,7 @@ export interface UpdateTenantData {
   city?: string;                  // NOVO: cidade separada
   state?: string;                 // NOVO: estado separado
   cep?: string;                   // NOVO: CEP separado
+  timezone?: string;              // NOVO: timezone
   plan_id?: "semestral" | "anual";
   active?: boolean;
 }

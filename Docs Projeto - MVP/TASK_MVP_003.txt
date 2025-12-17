@@ -1,0 +1,15 @@
+A. Mudança importante. O modelo de pagamento será mensal, mesmo que a escolha seja semestral ou anual. ou seja, a clínica ou o autônomo deverá fazer o cadastro no pagamento recorrente do pagseguro.
+-> Fazer as devidas mudanças na homepage sobre o modelo de pagamento, informando "pagamento mensal da licensa".
+
+_______________
+
+B. O usuário geralmente precisa aceitar uma série de documentos legais para formalizar o acordo, proteger direitos e garantir conformidade com leis aplicáveis, como a LGPD no Brasil.
+ -> Elabore uma página de configurações gerais da plataforma para o system_admin em que ele possa configurar individualmente cada documento legal que o usuário deverá assindar.
+ -> Garanta que o usuário no processo de onboarding aceite os documentos;
+ -> Para o usuários já cadastrados e que ainda não aceitaram o termo, assim que se logarem novamente, acessem a página de aceitação de documentos.
+
+ ______________
+
+ C. Revisar o tempo da sessão ativa dos usuários. A sessão deve ficar ativa por 15 minutos no máximo.
+  -> Essa configuração deve estar na página de configurações gerais da plataforma para o system_admin.
+  

@@ -13,7 +13,7 @@ import { Patient } from "@/types/patient";
 export default function EditPatientPage() {
   const params = useParams();
   const router = useRouter();
-  const { claims } = useAuth();
+  const { claims, user } = useAuth();
   const patientId = params.id as string;
 
   const [loading, setLoading] = useState(false);
@@ -29,6 +29,13 @@ export default function EditPatientPage() {
   });
 
   const tenantId = claims?.tenant_id;
+
+  // Verificar permissão - apenas clinic_admin pode editar pacientes
+  useEffect(() => {
+    if (claims && claims.role !== "clinic_admin") {
+      router.push("/clinic/patients");
+    }
+  }, [claims, router]);
 
   useEffect(() => {
     if (tenantId && patientId) {
@@ -101,19 +108,25 @@ export default function EditPatientPage() {
       return;
     }
 
-    if (!tenantId) return;
+    if (!tenantId || !user) return;
 
     try {
       setLoading(true);
 
-      const result = await updatePatient(tenantId, patientId, {
-        nome: formData.nome,
-        telefone: formData.telefone || undefined,
-        email: formData.email || undefined,
-        data_nascimento: formData.data_nascimento || undefined,
-        cpf: formData.cpf || undefined,
-        observacoes: formData.observacoes || undefined,
-      });
+      const result = await updatePatient(
+        tenantId,
+        patientId,
+        {
+          nome: formData.nome,
+          telefone: formData.telefone || undefined,
+          email: formData.email || undefined,
+          data_nascimento: formData.data_nascimento || undefined,
+          cpf: formData.cpf || undefined,
+          observacoes: formData.observacoes || undefined,
+        },
+        user.uid,
+        user.displayName || "Usuário"
+      );
 
       if (result.success) {
         alert("Paciente atualizado com sucesso!");
@@ -131,32 +144,37 @@ export default function EditPatientPage() {
 
   if (loadingData) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="container py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
       </div>
     );
   }
 
   if (!patient) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-600">Paciente não encontrado</p>
-        <Button onClick={() => router.back()} className="mt-4">
-          Voltar
-        </Button>
+      <div className="container py-8">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Paciente não encontrado</p>
+          <Button onClick={() => router.back()} className="mt-4">
+            Voltar
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Editar Paciente</h1>
+    <div className="container py-8">
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Editar Paciente</h1>
           <p className="text-gray-600 mt-1">
             {patient.nome} • Código: {patient.codigo}
           </p>
@@ -266,6 +284,7 @@ export default function EditPatientPage() {
             </Button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );

@@ -12,39 +12,112 @@ import {
   Users,
   Package,
 } from "lucide-react";
-import { License } from "@/types";
+import { License, Tenant } from "@/types";
 import {
   getActiveLicenseByTenant,
   getDaysUntilExpiration,
   isLicenseExpiringSoon,
 } from "@/lib/services/licenseService";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function LicensePage() {
   const { user, tenantId } = useAuth();
   const [license, setLicense] = useState<License | null>(null);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (tenantId) {
-      loadLicense();
+      loadData();
     } else {
       setLoading(false);
     }
   }, [tenantId]);
 
-  async function loadLicense() {
+  async function loadData() {
     if (!tenantId) return;
 
     try {
       setLoading(true);
-      const data = await getActiveLicenseByTenant(tenantId);
-      setLicense(data);
+
+      // Carregar licença e tenant em paralelo
+      const [licenseData, tenantData] = await Promise.all([
+        getActiveLicenseByTenant(tenantId),
+        loadTenant(tenantId),
+      ]);
+
+      setLicense(licenseData);
+      setTenant(tenantData);
     } catch (error) {
-      console.error("Erro ao carregar licença:", error);
+      console.error("Erro ao carregar dados:", error);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadTenant(tenantId: string): Promise<Tenant | null> {
+    try {
+      const tenantRef = doc(db, "tenants", tenantId);
+      const tenantDoc = await getDoc(tenantRef);
+
+      if (tenantDoc.exists()) {
+        return { id: tenantDoc.id, ...tenantDoc.data() } as Tenant;
+      }
+      return null;
+    } catch (error) {
+      console.error("Erro ao carregar tenant:", error);
+      return null;
+    }
+  }
+
+  function getPlanName(): string {
+    if (!tenant) return "Standard";
+    return tenant.document_type === "cpf" ? "Autônomo" : "Clínica";
+  }
+
+  function getMaxUsers(): number {
+    if (!tenant) return 5;
+    return tenant.max_users || (tenant.document_type === "cpf" ? 1 : 5);
+  }
+
+  function getFeatures(): string[] {
+    if (!tenant) {
+      return [
+        "Gestão de Estoque com FEFO",
+        "Controle de Lotes e Validades",
+        "Cadastro de Pacientes",
+        "Histórico de Procedimentos",
+        "Solicitações de Produtos",
+        "Relatórios Básicos",
+      ];
+    }
+
+    const baseFeatures = [
+      "Gestão de Estoque com FEFO",
+      "Controle de Lotes e Validades",
+      "Cadastro de Pacientes",
+      "Histórico de Procedimentos",
+      "Solicitações de Produtos",
+      "Relatórios Básicos",
+      "Notificações de Vencimento",
+      "Alertas de Estoque Baixo",
+    ];
+
+    if (tenant.document_type === "cnpj") {
+      return [
+        ...baseFeatures,
+        "Gestão Multi-Usuário (até 5 usuários)",
+        "Controle de Permissões",
+        "Relatórios Avançados",
+        "Dashboard Executivo",
+      ];
+    }
+
+    return [
+      ...baseFeatures,
+      "Gestão Individual",
+    ];
   }
 
   function getStatusIcon(status: string) {
@@ -187,8 +260,11 @@ export default function LicensePage() {
             <Package className="w-6 h-6 text-blue-600" />
             <h3 className="font-bold text-gray-900">Plano</h3>
           </div>
-          <p className="text-2xl font-bold text-blue-600 capitalize">
-            {license.plan_id}
+          <p className="text-2xl font-bold text-blue-600">
+            {getPlanName()}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {tenant?.document_type === "cpf" ? "Profissional Autônomo" : "Clínica/Empresa"}
           </p>
         </div>
 
@@ -198,7 +274,10 @@ export default function LicensePage() {
             <h3 className="font-bold text-gray-900">Usuários</h3>
           </div>
           <p className="text-2xl font-bold text-purple-600">
-            Até {license.max_users}
+            Até {getMaxUsers()}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {tenant?.document_type === "cpf" ? "1 usuário" : "5 usuários"}
           </p>
         </div>
 
@@ -255,7 +334,7 @@ export default function LicensePage() {
             Funcionalidades Incluídas
           </h2>
           <div className="space-y-2">
-            {license.features.map((feature, index) => (
+            {getFeatures().map((feature, index) => (
               <div key={index} className="flex items-start gap-2">
                 <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <span className="text-sm text-gray-700">{feature}</span>

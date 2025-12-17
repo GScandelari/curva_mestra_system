@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,10 @@ import {
   LogOut,
   User,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +29,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useAuth();
+  const [collapsed, setCollapsed] = useState(false);
 
   const navigation = [
     {
@@ -48,7 +53,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       icon: CreditCard,
     },
     {
-      name: "Produtos Master",
+      name: "Produtos Rennova",
       href: "/admin/products",
       icon: Package,
     },
@@ -56,6 +61,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       name: "Solicitações de Acesso",
       href: "/admin/access-requests",
       icon: UserPlus,
+    },
+    {
+      name: "Documentos Legais",
+      href: "/admin/legal-documents",
+      icon: FileText,
+    },
+    {
+      name: "Configurações",
+      href: "/admin/settings",
+      icon: Settings,
     },
   ];
 
@@ -65,12 +80,25 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-[#f5f3ef]">
       {/* Sidebar */}
-      <aside className="w-64 bg-card border-r flex flex-col">
-        <div className="p-6">
-          <h2 className="text-xl font-bold">System Admin</h2>
-          <p className="text-sm text-muted-foreground">Curva Mestra</p>
+      <aside
+        className={cn(
+          "bg-card border-r flex flex-col transition-all duration-300",
+          collapsed ? "w-16" : "w-64"
+        )}
+      >
+        <div className={cn("p-6", collapsed && "p-4")}>
+          {!collapsed ? (
+            <>
+              <h2 className="text-xl font-bold">System Admin</h2>
+              <p className="text-sm text-muted-foreground">Curva Mestra</p>
+            </>
+          ) : (
+            <div className="text-center">
+              <h2 className="text-xl font-bold">SA</h2>
+            </div>
+          )}
         </div>
 
         <nav className="flex-1 px-4 space-y-1">
@@ -85,11 +113,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                     isActive
                       ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    collapsed && "justify-center"
                   )}
+                  title={collapsed ? item.name : undefined}
                 >
-                  <Icon className="h-5 w-5" />
-                  {item.name}
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {!collapsed && <span>{item.name}</span>}
                 </div>
               </Link>
             );
@@ -97,25 +127,62 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
 
         <div className="p-4 border-t space-y-2">
-          <Link href="/admin/profile">
-            <Button variant="ghost" className="w-full justify-start">
-              <User className="mr-2 h-4 w-4" />
-              Perfil
-            </Button>
-          </Link>
+          {!collapsed ? (
+            <>
+              <Link href="/admin/profile">
+                <Button variant="ghost" className="w-full justify-start">
+                  <User className="mr-2 h-4 w-4" />
+                  Perfil
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-destructive hover:text-destructive"
+                onClick={handleSignOut}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sair
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link href="/admin/profile">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-center p-2"
+                  title="Perfil"
+                >
+                  <User className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                className="w-full justify-center p-2 text-destructive hover:text-destructive"
+                onClick={handleSignOut}
+                title="Sair"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+
           <Button
             variant="ghost"
-            className="w-full justify-start text-destructive hover:text-destructive"
-            onClick={handleSignOut}
+            className="w-full justify-center p-2"
+            onClick={() => setCollapsed(!collapsed)}
+            title={collapsed ? "Expandir menu" : "Recolher menu"}
           >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sair
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto bg-[#f5f3ef] h-screen">{children}</main>
     </div>
   );
 }

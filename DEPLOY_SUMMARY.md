@@ -136,3 +136,62 @@ https://console.firebase.google.com/project/curva-mestra/overview
 - ✅ Deploy Firestore Rules: Sucesso
 - ✅ Deploy Storage Rules: Sucesso
 - ✅ Deploy Functions: 2 novas funções criadas
+
+
+### Deploy #3 - 28/11/2025 23:00
+- ✅ Build Next.js: 17.0s (43 páginas - +1 nova página: /api/tenants/create)
+- ✅ Build Functions: Sucesso
+- ✅ Deploy Hosting: Sucesso (156 arquivos - +1 arquivo)
+- ✅ Deploy Firestore Rules: Atualizado
+- ✅ Deploy Storage Rules: Sem alterações
+- ✅ Deploy Functions: Atualizadas (região alterada para southamerica-east1)
+  - checkLicenseExpiration: Movida de us-central1 para southamerica-east1
+  - placeholder: Movida de us-central1 para southamerica-east1
+- **Observação:** Deploy após correção de segurança (remoção de chaves expostas)
+- **Mudança importante:** Functions agora estão na região southamerica-east1 (mais próxima do Brasil)
+
+
+### Deploy #4 - 29/11/2025 00:15
+- ✅ Build Next.js: 9.3s (43 páginas)
+- ✅ Build Functions: Sucesso
+- ✅ Deploy Hosting: Sucesso (156 arquivos)
+- ✅ Deploy Firestore Rules: Sem alterações
+- ✅ Deploy Storage Rules: Sem alterações
+- ✅ Deploy Functions: Sem alterações
+- **🔧 CORREÇÃO APLICADA:** Problema de licença duplicada resolvido
+  - Nova função `updateLicense()` criada em `licenseService.ts`
+  - Função `confirmPayment()` modificada para verificar licença existente
+  - Licença agora é ATUALIZADA ao invés de criar nova
+  - Arquivos modificados: 
+    - `src/lib/services/licenseService.ts`
+    - `src/lib/services/tenantOnboardingService.ts`
+- **Observação:** Deploy com correção crítica do fluxo de onboarding
+
+
+### Deploy #5 - 29/11/2025 00:45
+- ✅ Build Next.js: 8.3s (43 páginas)
+- ✅ Build Functions: Sucesso
+- ✅ Deploy Hosting: Sucesso (156 arquivos)
+- ✅ Deploy Firestore Rules: Sem alterações
+- ✅ Deploy Storage Rules: Sem alterações
+- ✅ Deploy Functions: Sem alterações
+- **💰 NOVA FUNCIONALIDADE:** Dashboard de Faturamento Mensal
+  - Adicionados 4 novos cards no dashboard do system_admin
+  - Faturamento Mensal Total (soma de todos os planos)
+  - Plano Semestral (R$ 59,90/mês × quantidade)
+  - Plano Anual (R$ 49,90/mês × quantidade)
+  - Projeção Anual (faturamento total dos contratos)
+  - Arquivo modificado: `src/app/(admin)/admin/dashboard/page.tsx`
+- **Observação:** Deploy com nova funcionalidade de análise financeira
+
+
+### Deploy #6 - 29/11/2025 01:00
+- ✅ Deploy Firestore Indexes: Sucesso
+- **🔧 CORREÇÃO CRÍTICA:** Índice de licença adicionado
+  - Índice composto para query de licenças ativas
+  - Campos: `tenant_id` + `status` + `end_date`
+  - Resolve erro no onboarding ao buscar licença existente
+  - Arquivo modificado: `firestore.indexes.json`
+- **⚠️ IMPORTANTE:** Firestore pode levar alguns minutos para criar o índice
+- **Verificar status:** https://console.firebase.google.com/project/curva-mestra/firestore/indexes
+- **Observação:** Deploy crítico para corrigir fluxo de onboarding

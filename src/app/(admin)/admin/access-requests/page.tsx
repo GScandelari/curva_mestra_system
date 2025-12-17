@@ -90,21 +90,29 @@ export default function AccessRequestsPage() {
     setProcessingId(request.id);
 
     try {
-      const result = await approveAccessRequest(request.id, {
-        uid: user.uid,
-        name: user.displayName || user.email || "Admin",
+      const response = await fetch(`/api/access-requests/${request.id}/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          approved_by_uid: user.uid,
+          approved_by_name: user.displayName || user.email || "Admin",
+        }),
       });
 
-      if (result.success) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         toast({
-          title: "Solicitação aprovada",
-          description: `Código de ativação: ${result.activationCode}`,
+          title: "Solicitação aprovada!",
+          description: `Tenant e usuário criados com sucesso. Email: ${result.data.email}`,
         });
         loadRequests(); // Recarregar lista
       } else {
         toast({
           title: "Erro",
-          description: result.message,
+          description: result.error || "Erro ao aprovar solicitação",
           variant: "destructive",
         });
       }
@@ -165,28 +173,20 @@ export default function AccessRequestsPage() {
     }
   }
 
-  const getStatusInfo = (request: AccessRequest) => {
-    if (!request.tenant_id) {
+  const getStatusBadge = (type: "clinica" | "autonomo") => {
+    if (type === "clinica") {
       return {
-        icon: <AlertTriangle className="h-4 w-4" />,
-        text: "CNPJ não cadastrado",
-        variant: "destructive" as const,
+        icon: <Building2 className="h-4 w-4" />,
+        text: "Clínica (até 5 usuários)",
+        variant: "default" as const,
+      };
+    } else {
+      return {
+        icon: <UserPlus className="h-4 w-4" />,
+        text: "Autônomo (1 usuário)",
+        variant: "secondary" as const,
       };
     }
-
-    if (!request.has_available_slots) {
-      return {
-        icon: <AlertTriangle className="h-4 w-4" />,
-        text: "Sem vagas disponíveis",
-        variant: "destructive" as const,
-      };
-    }
-
-    return {
-      icon: <CheckCircle className="h-4 w-4" />,
-      text: "Pronto para aprovar",
-      variant: "default" as const,
-    };
   };
 
   return (
@@ -212,7 +212,7 @@ export default function AccessRequestsPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Pendentes
+                    Total Pendentes
                   </CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -224,13 +224,13 @@ export default function AccessRequestsPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Com vagas
+                    Clínicas
                   </CardTitle>
-                  <UserPlus className="h-4 w-4 text-green-600" />
+                  <Building2 className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {requests.filter((r) => r.has_available_slots).length}
+                    {requests.filter((r) => r.type === "clinica").length}
                   </div>
                 </CardContent>
               </Card>
@@ -238,13 +238,13 @@ export default function AccessRequestsPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    CNPJ não cadastrado
+                    Autônomos
                   </CardTitle>
-                  <Building2 className="h-4 w-4 text-orange-600" />
+                  <UserPlus className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {requests.filter((r) => !r.tenant_id).length}
+                    {requests.filter((r) => r.type === "autonomo").length}
                   </div>
                 </CardContent>
               </Card>
@@ -279,18 +279,27 @@ export default function AccessRequestsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Tipo</TableHead>
                         <TableHead>Solicitante</TableHead>
-                        <TableHead>Clínica</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Negócio</TableHead>
+                        <TableHead>Contato</TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {requests.map((request) => {
-                        const statusInfo = getStatusInfo(request);
+                        const typeBadge = getStatusBadge(request.type);
                         return (
                           <TableRow key={request.id}>
+                            <TableCell>
+                              <Badge variant={typeBadge.variant}>
+                                {typeBadge.icon}
+                                <span className="ml-1">
+                                  {request.type === "clinica" ? "Clínica" : "Autônomo"}
+                                </span>
+                              </Badge>
+                            </TableCell>
                             <TableCell>
                               <div>
                                 <div className="font-medium">
@@ -302,31 +311,25 @@ export default function AccessRequestsPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {request.tenant_name ? (
-                                <div>
-                                  <div className="font-medium">
-                                    {request.tenant_name}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {request.document_type === "cpf" ? "CPF" : "CNPJ"}: {formatDocumentAuto(request.document_number || request.cnpj || "")}
-                                  </div>
+                              <div>
+                                <div className="font-medium">
+                                  {request.business_name}
                                 </div>
-                              ) : (
-                                <div>
-                                  <div className="text-sm text-amber-600">
-                                    {request.document_type === "cpf" ? "CPF" : "CNPJ"} não cadastrado
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {formatDocumentAuto(request.document_number || request.cnpj || "")}
-                                  </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {request.document_type === "cpf" ? "CPF" : "CNPJ"}:{" "}
+                                  {formatDocumentAuto(request.document_number)}
                                 </div>
-                              )}
+                              </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={statusInfo.variant}>
-                                {statusInfo.icon}
-                                <span className="ml-1">{statusInfo.text}</span>
-                              </Badge>
+                              <div className="text-sm">
+                                {request.phone}
+                              </div>
+                              {request.city && request.state && (
+                                <div className="text-xs text-muted-foreground">
+                                  {request.city}/{request.state}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {request.created_at?.toDate
@@ -343,7 +346,7 @@ export default function AccessRequestsPage() {
                                 disabled={processingId === request.id}
                               >
                                 <CheckCircle className="mr-1 h-4 w-4" />
-                                Aprovar
+                                {processingId === request.id ? "Processando..." : "Aprovar"}
                               </Button>
                               <Button
                                 size="sm"

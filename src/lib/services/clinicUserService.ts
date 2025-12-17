@@ -5,6 +5,8 @@
 import {
   collection,
   getDocs,
+  query,
+  where,
   doc,
   setDoc,
   serverTimestamp,
@@ -35,8 +37,10 @@ export interface CreateClinicUserData {
  */
 export async function listClinicUsers(tenantId: string) {
   try {
-    const usersRef = collection(db, "tenants", tenantId, "users");
-    const snapshot = await getDocs(usersRef);
+    // Usar coleção raiz users com filtro por tenant_id
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("tenant_id", "==", tenantId));
+    const snapshot = await getDocs(q);
 
     const users: ClinicUser[] = snapshot.docs.map((doc) => ({
       uid: doc.id,
@@ -87,12 +91,14 @@ export async function createClinicUser(data: CreateClinicUserData) {
 
     const userId = userCredential.user.uid;
 
-    // Adicionar usuário à subcoleção da clínica
-    const userDocRef = doc(db, "tenants", tenantId, "users", userId);
+    // Adicionar usuário à coleção raiz users
+    const userDocRef = doc(db, "users", userId);
     await setDoc(userDocRef, {
       uid: userId,
+      tenant_id: tenantId,
       email,
       displayName,
+      full_name: displayName,
       role,
       active: true,
       created_at: serverTimestamp(),

@@ -327,6 +327,14 @@ Semana 5 (05-12 Dez): 🎯 Testes + Deploy + Documentação
 - Detecção de duplicatas de NF
 - Relatórios básicos
 - Configurar preferências de notificações
+- **Sistema de Vouchers de Desconto**
+  - Criação de vouchers pelo system_admin
+  - Vouchers específicos por tenant ou públicos
+  - Aplicação durante onboarding (página de pagamento)
+  - Tipos de desconto (percentual ou valor fixo)
+  - Validação de uso único ou múltiplo
+  - Data de validade dos vouchers
+  - Histórico de uso de vouchers
 
 ### v1.2 (Semanas 8-10): Features P1 Complementares
 - Logs de atividades

@@ -47,7 +47,7 @@ import {
   AlertTriangle,
   UserPlus,
 } from "lucide-react";
-import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { formatTimestamp } from "@/lib/utils";
 
@@ -82,6 +82,13 @@ export default function ClinicUsersPage() {
 
   const tenantId = claims?.tenant_id;
   const isAdmin = claims?.role === "clinic_admin";
+
+  // Verificar permissão - apenas clinic_admin pode acessar página de usuários
+  useEffect(() => {
+    if (claims && claims.role !== "clinic_admin") {
+      router.push("/clinic/dashboard");
+    }
+  }, [claims, router]);
 
   useEffect(() => {
     if (tenantId) {
@@ -119,8 +126,13 @@ export default function ClinicUsersPage() {
       setLoading(true);
       setError("");
 
-      const usersRef = collection(db, "tenants", tenantId, "users");
-      const usersQuery = query(usersRef, orderBy("created_at", "desc"));
+      // Ler da coleção raiz users com filtro por tenant_id
+      const usersRef = collection(db, "users");
+      const usersQuery = query(
+        usersRef,
+        where("tenant_id", "==", tenantId),
+        orderBy("created_at", "desc")
+      );
       const usersSnapshot = await getDocs(usersQuery);
 
       const loadedUsers: ClinicUser[] = [];
@@ -129,7 +141,7 @@ export default function ClinicUsersPage() {
         loadedUsers.push({
           uid: doc.id,
           email: data.email || "",
-          displayName: data.displayName || "",
+          displayName: data.displayName || data.full_name || "",
           role: data.role || "clinic_user",
           active: data.active ?? true,
           created_at: data.created_at,

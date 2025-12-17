@@ -34,6 +34,7 @@ import {
   CheckCircle,
   XCircle,
   Ban,
+  Edit,
 } from "lucide-react";
 import {
   getSolicitacao,
@@ -67,14 +68,14 @@ export default function SolicitacaoDetalhesPage() {
         const data = await getSolicitacao(tenantId, solicitacaoId);
 
         if (!data) {
-          setError("Solicitação não encontrada");
+          setError("Procedimento não encontrado");
           return;
         }
 
         setSolicitacao(data);
       } catch (err: any) {
-        console.error("Erro ao carregar solicitação:", err);
-        setError("Erro ao carregar detalhes da solicitação");
+        console.error("Erro ao carregar procedimento:", err);
+        setError("Erro ao carregar detalhes do procedimento");
       } finally {
         setLoading(false);
       }
@@ -85,17 +86,17 @@ export default function SolicitacaoDetalhesPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive"> = {
-      criada: "default",
       agendada: "secondary",
       aprovada: "default",
+      concluida: "default",
       reprovada: "destructive",
       cancelada: "destructive",
     };
 
     const labels: Record<string, string> = {
-      criada: "Criada",
       agendada: "Agendada",
       aprovada: "Aprovada",
+      concluida: "Concluída",
       reprovada: "Reprovada",
       cancelada: "Cancelada",
     };
@@ -115,7 +116,7 @@ export default function SolicitacaoDetalhesPage() {
   };
 
   const handleStatusUpdate = async (
-    newStatus: "aprovada" | "reprovada" | "cancelada",
+    newStatus: "aprovada" | "reprovada" | "cancelada" | "concluida",
     observacao?: string
   ) => {
     if (!tenantId || !user || !solicitacao) return;
@@ -134,12 +135,12 @@ export default function SolicitacaoDetalhesPage() {
       if (result.success) {
         toast({
           title: "Status atualizado",
-          description: `Solicitação ${
+          description: `Procedimento ${
             newStatus === "aprovada"
-              ? "aprovada"
+              ? "aprovado"
               : newStatus === "reprovada"
-              ? "reprovada"
-              : "cancelada"
+              ? "reprovado"
+              : "cancelado"
           } com sucesso.`,
         });
 
@@ -159,7 +160,7 @@ export default function SolicitacaoDetalhesPage() {
       console.error("Erro ao atualizar status:", err);
       toast({
         title: "Erro",
-        description: "Erro ao atualizar status da solicitação",
+        description: "Erro ao atualizar status do procedimento",
         variant: "destructive",
       });
     } finally {
@@ -185,7 +186,7 @@ export default function SolicitacaoDetalhesPage() {
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Erro</AlertTitle>
-          <AlertDescription>{error || "Solicitação não encontrada"}</AlertDescription>
+          <AlertDescription>{error || "Procedimento não encontrado"}</AlertDescription>
         </Alert>
         <Button
           variant="outline"
@@ -193,7 +194,7 @@ export default function SolicitacaoDetalhesPage() {
           onClick={() => router.push("/clinic/requests")}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar para Solicitações
+          Voltar para Procedimentos
         </Button>
       </div>
     );
@@ -216,7 +217,7 @@ export default function SolicitacaoDetalhesPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-3xl font-bold tracking-tight">
-                    Solicitação #{solicitacaoId.substring(0, 8)}
+                    Procedimento #{solicitacaoId.substring(0, 8)}
                   </h2>
                   <p className="text-muted-foreground">
                     Detalhes do consumo de produtos
@@ -228,44 +229,79 @@ export default function SolicitacaoDetalhesPage() {
               </div>
 
               {/* Action Buttons - Only for Admin and non-finalized requests */}
-              {isAdmin &&
-                solicitacao.status !== "aprovada" &&
-                solicitacao.status !== "reprovada" && (
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      onClick={() => handleStatusUpdate("aprovada")}
-                      disabled={updating}
-                      variant="default"
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Aprovar Solicitação
-                    </Button>
+              {isAdmin && solicitacao.status !== "concluida" && solicitacao.status !== "reprovada" && solicitacao.status !== "cancelada" && (
+                  <div className="flex gap-2 mt-4 flex-wrap">
+                    {/* AGENDADA → Editar, Aprovar, Reprovar ou Cancelar */}
+                    {solicitacao.status === "agendada" && (
+                      <>
+                        <Button
+                          onClick={() => router.push(`/clinic/requests/${solicitacao.id}/edit`)}
+                          variant="outline"
+                          className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Editar Procedimento
+                        </Button>
 
-                    {(solicitacao.status === "criada" ||
-                      solicitacao.status === "agendada") && (
-                      <Button
-                        onClick={() =>
-                          handleStatusUpdate("reprovada", "Reprovado pelo administrador")
-                        }
-                        disabled={updating}
-                        variant="destructive"
-                      >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        Reprovar Solicitação
-                      </Button>
+                        <Button
+                          onClick={() => handleStatusUpdate("aprovada", "Aprovado pelo administrador")}
+                          disabled={updating}
+                          variant="default"
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Aprovar Procedimento
+                        </Button>
+
+                        <Button
+                          onClick={() =>
+                            handleStatusUpdate("reprovada", "Reprovado pelo administrador")
+                          }
+                          disabled={updating}
+                          variant="destructive"
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reprovar Procedimento
+                        </Button>
+
+                        <Button
+                          onClick={() =>
+                            handleStatusUpdate("cancelada", "Cancelado pelo administrador")
+                          }
+                          disabled={updating}
+                          variant="outline"
+                        >
+                          <Ban className="mr-2 h-4 w-4" />
+                          Cancelar Procedimento
+                        </Button>
+                      </>
                     )}
 
-                    <Button
-                      onClick={() =>
-                        handleStatusUpdate("cancelada", "Cancelado pelo administrador")
-                      }
-                      disabled={updating}
-                      variant="outline"
-                    >
-                      <Ban className="mr-2 h-4 w-4" />
-                      Cancelar Solicitação
-                    </Button>
+                    {/* APROVADA → Concluir ou Cancelar */}
+                    {solicitacao.status === "aprovada" && (
+                      <>
+                        <Button
+                          onClick={() => handleStatusUpdate("concluida", "Procedimento concluído")}
+                          disabled={updating}
+                          variant="default"
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Concluir Procedimento
+                        </Button>
+
+                        <Button
+                          onClick={() =>
+                            handleStatusUpdate("cancelada", "Cancelado pelo administrador")
+                          }
+                          disabled={updating}
+                          variant="outline"
+                        >
+                          <Ban className="mr-2 h-4 w-4" />
+                          Cancelar Procedimento
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
             </div>
@@ -428,7 +464,7 @@ export default function SolicitacaoDetalhesPage() {
                 <CardHeader>
                   <CardTitle>Histórico de Status</CardTitle>
                   <CardDescription>
-                    Rastreamento de todas as mudanças de status desta solicitação
+                    Rastreamento de todas as mudanças de status deste procedimento
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -516,7 +552,7 @@ export default function SolicitacaoDetalhesPage() {
                 <AlertTitle>Estoque Reservado</AlertTitle>
                 <AlertDescription>
                   Os produtos estão reservados no inventário para este procedimento
-                  agendado. O consumo será efetivado quando a solicitação for aprovada.
+                  agendado. O consumo será efetivado quando o procedimento for aprovado.
                 </AlertDescription>
               </Alert>
             )}
@@ -524,9 +560,9 @@ export default function SolicitacaoDetalhesPage() {
             {solicitacao.status === "reprovada" && (
               <Alert variant="destructive">
                 <XCircle className="h-4 w-4" />
-                <AlertTitle>Solicitação Reprovada</AlertTitle>
+                <AlertTitle>Procedimento Reprovado</AlertTitle>
                 <AlertDescription>
-                  Esta solicitação foi reprovada. Qualquer reserva de estoque foi liberada.
+                  Este procedimento foi reprovado. Qualquer reserva de estoque foi liberada.
                 </AlertDescription>
               </Alert>
             )}
@@ -534,9 +570,9 @@ export default function SolicitacaoDetalhesPage() {
             {solicitacao.status === "cancelada" && (
               <Alert>
                 <Ban className="h-4 w-4" />
-                <AlertTitle>Solicitação Cancelada</AlertTitle>
+                <AlertTitle>Procedimento Cancelado</AlertTitle>
                 <AlertDescription>
-                  Esta solicitação foi cancelada. O estoque foi ajustado de acordo com o
+                  Este procedimento foi cancelado. O estoque foi ajustado de acordo com o
                   status anterior.
                 </AlertDescription>
               </Alert>
