@@ -4,17 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFunctions } from "firebase-admin/functions";
-import { getAuth } from "firebase-admin/auth";
-
-// Inicializar Firebase Admin se ainda não foi inicializado
-if (!getApps().length) {
-  const serviceAccount = require("../../../../../curva-mestra-firebase-adminsdk.json");
-  initializeApp({
-    credential: cert(serviceAccount),
-  });
-}
+import { getAdminAuth } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     // Verificar token
     try {
-      await getAuth().verifyIdToken(token);
+      await getAdminAuth().verifyIdToken(token);
     } catch (error) {
       console.error("[PagBank API] Token inválido:", error);
       return NextResponse.json(
