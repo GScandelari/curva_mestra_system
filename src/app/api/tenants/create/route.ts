@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getFirebaseAdmin } from "@/lib/firebase-admin";
+import { getAdminFirestore, getAdminAuth } from "@/lib/firebase-admin";
 import { CreateTenantData } from "@/types/tenant";
 
 export async function POST(request: NextRequest) {
@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { db, auth } = await getFirebaseAdmin();
+    const db = getAdminFirestore();
+    const auth = getAdminAuth();
 
     // 1. Criar o tenant (clínica)
     const tenantData = {
