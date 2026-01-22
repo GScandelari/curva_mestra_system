@@ -1,17 +1,17 @@
 /**
  * Firebase Functions - Curva Mestra
  *
- * NOTA: Algumas functions estão temporariamente desabilitadas
- * para permitir o deploy inicial. Serão habilitadas após
- * configuração dos secrets SMTP.
+ * IMPORTANTE: Para deploy das funções de email, configure os secrets primeiro:
+ * firebase functions:secrets:set SMTP_USER
+ * firebase functions:secrets:set SMTP_PASS
  */
 
 // Função de teste de e-mail
 export {sendTestEmail} from "./sendTestEmail";
 
 // Triggers automáticos de e-mail
-// export {onUserCreated} from "./onUserCreated";
-// export {onTenantCreated} from "./onTenantCreated";
+export {onUserCreated} from "./onUserCreated";
+export {onTenantCreated} from "./onTenantCreated";
 
 // Scheduled Functions - Licenças
 export { checkLicenseExpiration } from "./checkLicenseExpiration";
@@ -22,6 +22,8 @@ export { pagbankWebhook } from "./pagbankWebhook";
 
 // Callable Functions - E-mails personalizados
 export { sendCustomEmail } from "./sendCustomEmail";
+export { sendTempPasswordEmail } from "./sendTemporaryPasswordEmail";
+export { sendAccessRejectionEmail } from "./sendRejectionEmail";
 
 // Firestore Triggers - Fila de E-mails
 export { processEmailQueue } from "./processEmailQueue";

@@ -19,11 +19,7 @@ export async function POST(req: NextRequest) {
       holder_phone,
     } = body;
 
-    console.log("[PagBank API] Criando assinatura via Cloud Function:", {
-      tenant_id,
-      plan_id,
-      card_token: card_token?.substring(0, 10) + "...",
-    });
+    // Log removido - informação sensível de pagamento
 
     // Validações básicas
     if (!tenant_id || !plan_id || !card_token) {
@@ -62,8 +58,6 @@ export async function POST(req: NextRequest) {
     const functionUrl = process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_URL ||
       "https://southamerica-east1-curva-mestra.cloudfunctions.net";
 
-    console.log("[PagBank API] Chamando função:", `${functionUrl}/createPagBankSubscription`);
-
     const response = await fetch(`${functionUrl}/createPagBankSubscription`, {
       method: "POST",
       headers: {
@@ -90,11 +84,6 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await response.json();
-
-    console.log("[PagBank API] Resposta da Cloud Function:", {
-      success: !!result.result?.subscription_code,
-      subscription_code: result.result?.subscription_code,
-    });
 
     // Retornar resposta no formato esperado pelo frontend
     return NextResponse.json({

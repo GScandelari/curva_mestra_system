@@ -1,15 +1,21 @@
 /**
  * Trigger: Envia e-mail de boas-vindas quando um novo usuário é criado
- * Trigger: firestore document created em tenants/{tenantId}/users/{userId}
+ * Trigger: firestore document created em users/{userId}
  */
 
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import {sendWelcomeEmail} from "./services/emailService";
+import {defineSecret} from "firebase-functions/params";
+
+// Secrets do Firebase para credenciais SMTP
+const SMTP_USER = defineSecret("SMTP_USER");
+const SMTP_PASS = defineSecret("SMTP_PASS");
 
 export const onUserCreated = onDocumentCreated(
   {
-    document: "tenants/{tenantId}/users/{userId}",
+    document: "users/{userId}",
     region: "southamerica-east1",
+    secrets: [SMTP_USER, SMTP_PASS], // Adicionar secrets necessários
   },
   async (event) => {
     const snapshot = event.data;
@@ -19,9 +25,9 @@ export const onUserCreated = onDocumentCreated(
     }
 
     const userData = snapshot.data();
-    const {email, displayName, role} = userData;
+    const {email, full_name, role} = userData;
 
-    if (!email || !displayName) {
+    if (!email || !full_name) {
       console.log("Usuário sem e-mail ou nome, pulando envio");
       return;
     }
@@ -29,7 +35,7 @@ export const onUserCreated = onDocumentCreated(
     try {
       console.log(`📧 Enviando e-mail de boas-vindas para ${email}...`);
 
-      await sendWelcomeEmail(email, displayName, role);
+      await sendWelcomeEmail(email, full_name, role);
 
       console.log(`✅ E-mail enviado com sucesso para ${email}`);
     } catch (error) {

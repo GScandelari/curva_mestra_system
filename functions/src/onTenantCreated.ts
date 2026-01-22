@@ -5,11 +5,17 @@
 
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import {sendNewTenantNotification} from "./services/emailService";
+import {defineSecret} from "firebase-functions/params";
+
+// Secrets do Firebase para credenciais SMTP
+const SMTP_USER = defineSecret("SMTP_USER");
+const SMTP_PASS = defineSecret("SMTP_PASS");
 
 export const onTenantCreated = onDocumentCreated(
   {
     document: "tenants/{tenantId}",
     region: "southamerica-east1",
+    secrets: [SMTP_USER, SMTP_PASS], // Adicionar secrets necessários
   },
   async (event) => {
     const snapshot = event.data;

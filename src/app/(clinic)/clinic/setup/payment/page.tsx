@@ -109,8 +109,6 @@ export default function PaymentPage() {
 
   async function initPagSeguro() {
     try {
-      console.log("[PagSeguro] Inicializando...");
-
       // Obter session ID
       const response = await fetch("/api/pagseguro/session");
       const data = await response.json();
@@ -126,7 +124,7 @@ export default function PaymentPage() {
       // Configurar session no PagSeguro
       if (window.PagSeguroDirectPayment) {
         window.PagSeguroDirectPayment.setSessionId(data.sessionId);
-        console.log("[PagSeguro] Session configurada:", data.sessionId);
+        // Session configurada (log removido por segurança)
       } else {
         console.warn("[PagSeguro] SDK não disponível - modo MOCK");
       }
@@ -229,8 +227,6 @@ export default function PaymentPage() {
 
       // Verificar se SDK do PagSeguro está disponível
       if (window.PagSeguroDirectPayment && sessionId) {
-        console.log("[PagSeguro] Obtendo token do cartão via SDK...");
-
         // Obter bandeira do cartão
         const cardBin = cardNumber.replace(/\D/g, "").substring(0, 6);
 
@@ -238,7 +234,6 @@ export default function PaymentPage() {
           window.PagSeguroDirectPayment.getBrand({
             cardBin: cardBin,
             success: (response: any) => {
-              console.log("[PagSeguro] Bandeira:", response.brand.name);
               resolve(response.brand.name);
             },
             error: (error: any) => {
@@ -259,7 +254,7 @@ export default function PaymentPage() {
             expirationMonth: expiryParts[0],
             expirationYear: `20${expiryParts[1]}`,
             success: (response: any) => {
-              console.log("[PagSeguro] Token criado:", response.card.token);
+              // Token criado com sucesso (log removido por segurança)
               resolve(response.card.token);
             },
             error: (error: any) => {
@@ -274,8 +269,6 @@ export default function PaymentPage() {
         cardToken = `MOCK_TOKEN_${Date.now()}`;
       }
 
-      console.log("[Cloud Function] Criando assinatura...");
-
       // Chamar Cloud Function diretamente
       const createSubscription = httpsCallable(functions, "createPagBankSubscription");
 
@@ -288,8 +281,6 @@ export default function PaymentPage() {
         holder_cpf: holderCpf,
         holder_phone: holderPhone,
       });
-
-      console.log("[Cloud Function] Resultado:", result.data);
 
       // A resposta da Cloud Function vem em result.data
       const responseData = result.data as any;
@@ -350,16 +341,12 @@ export default function PaymentPage() {
         src="https://stc.sandbox.pagseguro.uol.com.br/pagseguro/api/v2/checkout/pagseguro.directpayment.js"
         strategy="afterInteractive"
         onLoad={() => {
-          console.log("[PagSeguro] Script carregado");
           setScriptLoaded(true);
         }}
         onError={(e) => {
-          console.error("[PagSeguro] Erro ao carregar script:", e);
-          // Tentar URL alternativa ou modo fallback
-          console.log("[PagSeguro] Tentando fallback...");
-          // Por enquanto, vamos permitir continuar sem o SDK (modo mock)
+          console.error("[PagSeguro] Erro ao carregar script - fallback para modo MOCK");
+          // Continuar sem o SDK (modo mock)
           setScriptLoaded(true);
-          console.warn("[PagSeguro] Modo MOCK ativado - para desenvolvimento");
         }}
       />
 

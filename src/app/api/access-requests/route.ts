@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { initializeApp, getApps } from "firebase/app";
+import bcrypt from "bcryptjs";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -97,6 +98,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Hash da senha antes de armazenar (segurança)
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
     // Criar solicitação
     const accessRequestData = {
       type: data.type,
@@ -106,7 +110,7 @@ export async function POST(req: NextRequest) {
       business_name: data.business_name,
       document_type: data.document_type,
       document_number: cleanDocument,
-      password: data.password, // Salvar senha para usar na aprovação
+      password: hashedPassword, // Senha hasheada com bcrypt (não será usada - geramos senha temporária na aprovação)
       address: data.address || null,
       city: data.city || null,
       state: data.state || null,
