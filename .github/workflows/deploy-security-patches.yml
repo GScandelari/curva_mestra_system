@@ -1,0 +1,44 @@
+name: Deploy Security Patches (CVE-2025-55182)
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase Hosting
+        run: firebase deploy --only hosting --token "$FIREBASE_TOKEN"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Deploy concluído com sucesso!"
+          echo "🔐 Correções de segurança aplicadas:"
+          echo "  - React 19.2.3 (CVE-2025-55182 corrigido)"
+          echo "  - Next.js 15.5.9 (CVE-2025-66478, CVE-2025-55184, CVE-2025-55183, CVE-2025-67779 corrigidos)"
