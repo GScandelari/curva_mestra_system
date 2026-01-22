@@ -6,6 +6,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { initializeApp, getApps } from "firebase/app";
 import bcrypt from "bcryptjs";
+import {
+  validateEmail,
+  validateDocument,
+  validatePhone,
+  validateCEP,
+  validatePassword,
+  validateFullName,
+  sanitizeString,
+} from "@/lib/validations/serverValidations";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -26,7 +35,7 @@ export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
 
-    // Validações
+    // Validações completas com mensagens específicas
     const requiredFields = [
       "type",
       "full_name",
@@ -38,19 +47,61 @@ export async function POST(req: NextRequest) {
       "password",
     ];
 
+    // Verificar campos obrigatórios
     for (const field of requiredFields) {
       if (!data[field]) {
+        const fieldNames: Record<string, string> = {
+          type: "Tipo de conta",
+          full_name: "Nome completo",
+          email: "E-mail",
+          phone: "Telefone",
+          business_name: "Nome da empresa/profissional",
+          document_type: "Tipo de documento",
+          document_number: "Número do documento",
+          password: "Senha",
+        };
         return NextResponse.json(
-          { error: `Campo obrigatório: ${field}` },
+          { error: `${fieldNames[field] || field} é obrigatório` },
           { status: 400 }
         );
       }
     }
 
-    // Validar senha
-    if (data.password.length < 6) {
+    // Validar nome completo
+    const nameValidation = validateFullName(data.full_name);
+    if (!nameValidation.valid) {
       return NextResponse.json(
-        { error: "A senha deve ter pelo menos 6 caracteres" },
+        { error: nameValidation.error },
+        { status: 400 }
+      );
+    }
+
+    // Validar email
+    const emailValidation = validateEmail(data.email);
+    if (!emailValidation.valid) {
+      return NextResponse.json(
+        { error: emailValidation.error },
+        { status: 400 }
+      );
+    }
+
+    // Validar telefone
+    const phoneValidation = validatePhone(data.phone);
+    if (!phoneValidation.valid) {
+      return NextResponse.json(
+        { error: phoneValidation.error },
+        { status: 400 }
+      );
+    }
+
+    // Validar senha
+    const passwordValidation = validatePassword(data.password, {
+      minLength: 6,
+      requireNumber: false,
+    });
+    if (!passwordValidation.valid) {
+      return NextResponse.json(
+        { error: passwordValidation.error },
         { status: 400 }
       );
     }
@@ -66,16 +117,19 @@ export async function POST(req: NextRequest) {
     // Validar document_type
     if (!["cpf", "cnpj"].includes(data.document_type)) {
       return NextResponse.json(
-        { error: "document_type deve ser 'cpf' ou 'cnpj'" },
+        { error: "Tipo de documento deve ser 'cpf' ou 'cnpj'" },
         { status: 400 }
       );
     }
 
-    // Validar email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.email)) {
+    // Validar documento (CPF ou CNPJ)
+    const documentValidation = validateDocument(
+      data.document_number,
+      data.document_type
+    );
+    if (!documentValidation.valid) {
       return NextResponse.json(
-        { error: "Email inválido" },
+        { error: documentValidation.error },
         { status: 400 }
       );
     }
@@ -83,19 +137,15 @@ export async function POST(req: NextRequest) {
     // Limpar documento (remover formatação)
     const cleanDocument = data.document_number.replace(/\D/g, "");
 
-    // Validar documento
-    if (data.document_type === "cpf" && cleanDocument.length !== 11) {
-      return NextResponse.json(
-        { error: "CPF deve ter 11 dígitos" },
-        { status: 400 }
-      );
-    }
-
-    if (data.document_type === "cnpj" && cleanDocument.length !== 14) {
-      return NextResponse.json(
-        { error: "CNPJ deve ter 14 dígitos" },
-        { status: 400 }
-      );
+    // Validar CEP se fornecido
+    if (data.cep) {
+      const cepValidation = validateCEP(data.cep);
+      if (!cepValidation.valid) {
+        return NextResponse.json(
+          { error: cepValidation.error },
+          { status: 400 }
+        );
+      }
     }
 
     // Hash da senha antes de armazenar (segurança)
