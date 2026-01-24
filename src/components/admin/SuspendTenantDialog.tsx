@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,6 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { AlertCircle, Ban, CheckCircle } from "lucide-react";
-import { toast } from "sonner";
 import type { SuspensionReason, Tenant } from "@/types";
 
 interface SuspendTenantDialogProps {
@@ -75,6 +75,7 @@ export function SuspendTenantDialog({
   children,
 }: SuspendTenantDialogProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [reason, setReason] = useState<SuspensionReason | "">("");
@@ -85,7 +86,11 @@ export function SuspendTenantDialog({
 
   const handleSuspend = async () => {
     if (!reason || !details.trim()) {
-      toast.error("Preencha todos os campos obrigatórios");
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -113,7 +118,8 @@ export function SuspendTenantDialog({
         throw new Error(data.error || "Erro ao suspender clínica");
       }
 
-      toast.success("Clínica suspensa com sucesso", {
+      toast({
+        title: "Clínica suspensa com sucesso",
         description: `${data.users_affected} usuário(s) desativado(s)`,
       });
 
@@ -126,8 +132,10 @@ export function SuspendTenantDialog({
       }
     } catch (error: any) {
       console.error("Erro ao suspender clínica:", error);
-      toast.error("Erro ao suspender clínica", {
+      toast({
+        title: "Erro ao suspender clínica",
         description: error.message,
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -276,6 +284,7 @@ export function ReactivateTenantDialog({
   children,
 }: ReactivateTenantDialogProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -298,7 +307,8 @@ export function ReactivateTenantDialog({
         throw new Error(data.error || "Erro ao reativar clínica");
       }
 
-      toast.success("Clínica reativada com sucesso", {
+      toast({
+        title: "Clínica reativada com sucesso",
         description: `${data.users_affected} usuário(s) reativado(s)`,
       });
 
@@ -309,8 +319,10 @@ export function ReactivateTenantDialog({
       }
     } catch (error: any) {
       console.error("Erro ao reativar clínica:", error);
-      toast.error("Erro ao reativar clínica", {
+      toast({
+        title: "Erro ao reativar clínica",
         description: error.message,
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
