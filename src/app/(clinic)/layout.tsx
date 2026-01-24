@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { ClinicLayout } from "@/components/clinic/ClinicLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { SuspensionInterceptor } from "@/components/auth/SuspensionInterceptor";
 
 export default function ClinicGroupLayout({
   children,
@@ -16,7 +17,9 @@ export default function ClinicGroupLayout({
 
   return (
     <ProtectedRoute allowedRoles={["clinic_admin", "clinic_user"]}>
-      {isSetupRoute ? children : <ClinicLayout>{children}</ClinicLayout>}
+      <SuspensionInterceptor>
+        {isSetupRoute ? children : <ClinicLayout>{children}</ClinicLayout>}
+      </SuspensionInterceptor>
     </ProtectedRoute>
   );
 }

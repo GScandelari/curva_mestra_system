@@ -35,6 +35,22 @@ export interface User {
 
 export type DocumentType = "cnpj" | "cpf";
 
+export type SuspensionReason =
+  | "payment_failure"      // Falta de pagamento
+  | "contract_breach"      // Quebra de contrato
+  | "terms_violation"      // Violação dos termos de uso
+  | "fraud_detected"       // Fraude detectada
+  | "other";               // Outro motivo
+
+export interface SuspensionInfo {
+  suspended: boolean;
+  reason: SuspensionReason;
+  details: string;                  // Detalhes adicionais do motivo
+  suspended_at: Timestamp;
+  suspended_by: string;             // UID do system_admin que suspendeu
+  contact_email: string;            // Email para contato (suporte)
+}
+
 export interface Address {
   street: string;
   city: string;
@@ -54,6 +70,7 @@ export interface Tenant {
   plan_id: string;
   max_users: number;                // NOVO: 1 para CPF, 5 para CNPJ
   active: boolean;
+  suspension?: SuspensionInfo;      // NOVO: Informações de suspensão
   created_at: Timestamp;
   updated_at: Timestamp;
 }
