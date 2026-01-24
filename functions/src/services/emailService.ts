@@ -3,23 +3,26 @@
  */
 
 import * as nodemailer from "nodemailer";
-import {defineSecret} from "firebase-functions/params";
-
-// Secrets do Firebase para credenciais SMTP
-const SMTP_USER = defineSecret("SMTP_USER");
-const SMTP_PASS = defineSecret("SMTP_PASS");
 
 /**
  * Configuração do transporter Nodemailer
+ * SMTP credentials são passados via variáveis de ambiente pelo Cloud Functions
  */
 function getEmailTransporter() {
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  if (!smtpUser || !smtpPass) {
+    throw new Error("SMTP credentials not configured. Set SMTP_USER and SMTP_PASS secrets.");
+  }
+
   return nodemailer.createTransport({
     host: "smtp.zoho.com",
     port: 587,
     secure: false, // true para 465, false para outros ports
     auth: {
-      user: SMTP_USER.value(),
-      pass: SMTP_PASS.value(),
+      user: smtpUser,
+      pass: smtpPass,
     },
   });
 }
@@ -535,6 +538,3 @@ function getPlanName(planId: string): string {
   };
   return plans[planId] || planId;
 }
-
-// Secrets disponíveis apenas internamente
-// Não exportar para evitar problemas de inicialização
