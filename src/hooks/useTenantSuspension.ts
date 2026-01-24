@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { SuspensionInfo } from "@/types";
@@ -16,7 +16,7 @@ interface TenantSuspensionState {
 }
 
 export function useTenantSuspension(): TenantSuspensionState {
-  const { user, customClaims } = useAuth();
+  const { user, claims } = useAuth();
   const [state, setState] = useState<TenantSuspensionState>({
     isSuspended: false,
     suspensionInfo: null,
@@ -25,7 +25,7 @@ export function useTenantSuspension(): TenantSuspensionState {
 
   useEffect(() => {
     // System admin nunca é bloqueado
-    if (customClaims?.is_system_admin) {
+    if (claims?.is_system_admin) {
       setState({
         isSuspended: false,
         suspensionInfo: null,
@@ -35,7 +35,7 @@ export function useTenantSuspension(): TenantSuspensionState {
     }
 
     // Se não tem tenant_id, não há o que verificar
-    if (!customClaims?.tenant_id) {
+    if (!claims?.tenant_id) {
       setState({
         isSuspended: false,
         suspensionInfo: null,
@@ -45,7 +45,7 @@ export function useTenantSuspension(): TenantSuspensionState {
     }
 
     // Listener em tempo real para mudanças no tenant
-    const tenantRef = doc(db, "tenants", customClaims.tenant_id);
+    const tenantRef = doc(db, "tenants", claims.tenant_id);
 
     const unsubscribe = onSnapshot(
       tenantRef,
@@ -79,7 +79,7 @@ export function useTenantSuspension(): TenantSuspensionState {
     );
 
     return () => unsubscribe();
-  }, [customClaims?.tenant_id, customClaims?.is_system_admin]);
+  }, [claims?.tenant_id, claims?.is_system_admin]);
 
   return state;
 }

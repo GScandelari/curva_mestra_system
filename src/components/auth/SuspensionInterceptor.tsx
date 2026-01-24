@@ -11,7 +11,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useTenantSuspension } from "@/hooks/useTenantSuspension";
 
 export function SuspensionInterceptor({
@@ -21,7 +21,7 @@ export function SuspensionInterceptor({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { customClaims } = useAuth();
+  const { claims } = useAuth();
   const { isSuspended, isLoading } = useTenantSuspension();
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function SuspensionInterceptor({
     if (isLoading) return;
 
     // System admin nunca é bloqueado
-    if (customClaims?.is_system_admin) return;
+    if (claims?.is_system_admin) return;
 
     // Se não está nas páginas de suspensão e está suspenso
     if (
@@ -38,9 +38,9 @@ export function SuspensionInterceptor({
       !pathname?.startsWith("/login")
     ) {
       // Redirecionar para página apropriada conforme role
-      if (customClaims?.role === "clinic_admin") {
+      if (claims?.role === "clinic_admin") {
         router.push("/suspended/admin");
-      } else if (customClaims?.role === "clinic_user") {
+      } else if (claims?.role === "clinic_user") {
         router.push("/suspended/user");
       }
     }
@@ -48,13 +48,13 @@ export function SuspensionInterceptor({
     // Se está nas páginas de suspensão mas não está mais suspenso
     if (!isSuspended && pathname?.startsWith("/suspended")) {
       // Redirecionar de volta para o dashboard
-      if (customClaims?.role === "clinic_admin") {
+      if (claims?.role === "clinic_admin") {
         router.push("/clinic");
-      } else if (customClaims?.role === "clinic_user") {
+      } else if (claims?.role === "clinic_user") {
         router.push("/clinic");
       }
     }
-  }, [isSuspended, isLoading, pathname, customClaims, router]);
+  }, [isSuspended, isLoading, pathname, claims, router]);
 
   // Mostrar loading enquanto verifica
   if (isLoading) {

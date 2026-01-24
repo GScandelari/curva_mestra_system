@@ -82,7 +82,11 @@
       "Bash(npx fix-react2shell-next --fix)",
       "Bash(NODE_ENV=production timeout 600 firebase deploy:*)",
       "Bash(rm:*)",
-      "Bash(firebase:*)"
+      "Bash(firebase:*)",
+      "Bash(gcloud secrets describe:*)",
+      "Bash(timeout 180 firebase deploy:*)",
+      "Bash(. \"$NML_DIR/nvm.sh\")",
+      "Bash(timeout 20 firebase deploy:*)"
     ],
     "deny": [],
     "ask": []

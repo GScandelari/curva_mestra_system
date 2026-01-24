@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useTenantSuspension } from "@/hooks/useTenantSuspension";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +40,7 @@ const REASON_LABELS: Record<SuspensionReason, { title: string; description: stri
 
 export default function SuspendedAdminPage() {
   const router = useRouter();
-  const { user, customClaims, signOut } = useAuth();
+  const { user, claims, signOut } = useAuth();
   const { isSuspended, suspensionInfo, isLoading } = useTenantSuspension();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -51,10 +51,10 @@ export default function SuspendedAdminPage() {
     }
 
     // Se não é clinic_admin, redirecionar para página de user
-    if (!isLoading && customClaims?.role !== "clinic_admin") {
+    if (!isLoading && claims?.role !== "clinic_admin") {
       router.push("/suspended/user");
     }
-  }, [isSuspended, isLoading, customClaims, router]);
+  }, [isSuspended, isLoading, claims, router]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);

@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useTenantSuspension } from "@/hooks/useTenantSuspension";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { AlertCircle, LogOut } from "lucide-react";
 
 export default function SuspendedUserPage() {
   const router = useRouter();
-  const { customClaims, signOut } = useAuth();
+  const { claims, signOut } = useAuth();
   const { isSuspended, isLoading } = useTenantSuspension();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -26,10 +26,10 @@ export default function SuspendedUserPage() {
     }
 
     // Se é clinic_admin, redirecionar para página de admin
-    if (!isLoading && customClaims?.role === "clinic_admin") {
+    if (!isLoading && claims?.role === "clinic_admin") {
       router.push("/suspended/admin");
     }
-  }, [isSuspended, isLoading, customClaims, router]);
+  }, [isSuspended, isLoading, claims, router]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
