@@ -16,6 +16,7 @@ export interface CustomClaims {
   role: UserRole;
   is_system_admin: boolean;
   active: boolean;
+  requirePasswordChange?: boolean;
 }
 
 export interface User {

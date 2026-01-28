@@ -31,6 +31,7 @@ function extractCustomClaims(claims: Record<string, any>): CustomClaims | null {
     role: claims.role || null,
     is_system_admin: claims.is_system_admin || false,
     active: claims.active !== undefined ? claims.active : false,
+    requirePasswordChange: claims.requirePasswordChange || false,
   };
 }
 
@@ -44,7 +45,8 @@ export function useAuth() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Obter custom claims
+        // Forçar refresh do token para obter custom claims atualizados
+        await user.getIdToken(true);
         const idTokenResult = await user.getIdTokenResult();
         const claims = extractCustomClaims(idTokenResult.claims);
 

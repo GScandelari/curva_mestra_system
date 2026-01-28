@@ -38,6 +38,12 @@ function LoginForm() {
   // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (!authLoading && isAuthenticated && claims) {
+      // Verificar se precisa trocar a senha primeiro
+      if (claims.requirePasswordChange) {
+        router.push("/change-password");
+        return;
+      }
+
       // Redirecionar baseado no role
       if (claims.is_system_admin) {
         router.push("/admin/dashboard");
