@@ -20,8 +20,7 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
 } from "firebase/auth";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -87,13 +86,19 @@ export default function ChangePasswordPage() {
       // Atualizar a senha
       await updatePassword(user, newPassword);
 
-      // Remover a flag de troca obrigatória no Firestore
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
-        requirePasswordChange: false,
-        passwordChangedAt: new Date(),
-        updated_at: new Date(),
+      // Chamar API para remover a flag de troca obrigatória (custom claim + Firestore)
+      const token = await user.getIdToken();
+      const response = await fetch("/api/users/clear-password-change-flag", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
+
+      if (!response.ok) {
+        console.error("Erro ao limpar flag de troca de senha");
+      }
 
       // Redirecionar para o dashboard apropriado
       if (claims?.is_system_admin) {

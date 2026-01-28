@@ -73,7 +73,17 @@ export async function POST(
       password: tempPassword,
     });
 
-    // Marcar no Firestore que o usuário precisa trocar a senha
+    // Obter custom claims atuais do usuário
+    const userRecord = await adminAuth.getUser(userId);
+    const currentClaims = userRecord.customClaims || {};
+
+    // Adicionar requirePasswordChange aos custom claims
+    await adminAuth.setCustomUserClaims(userId, {
+      ...currentClaims,
+      requirePasswordChange: true,
+    });
+
+    // Marcar no Firestore também (para histórico/auditoria)
     await adminDb.collection("users").doc(userId).update({
       requirePasswordChange: true,
       passwordResetAt: new Date(),
