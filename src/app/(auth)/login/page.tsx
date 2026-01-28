@@ -69,14 +69,20 @@ function LoginForm() {
         const idTokenResult = await result.user.getIdTokenResult();
         const claims = idTokenResult.claims;
 
+        // DEBUG: Log dos claims recebidos
+        console.log("[LOGIN DEBUG] Claims recebidos:", JSON.stringify(claims, null, 2));
+        console.log("[LOGIN DEBUG] requirePasswordChange:", claims.requirePasswordChange);
+
         // Verificar se usuário tem custom claims configurados
         if (!claims.role || !claims.active) {
+          console.log("[LOGIN DEBUG] Redirecionando para waiting-approval");
           router.push("/waiting-approval");
           return;
         }
 
         // Verificar se o usuário precisa trocar a senha (via custom claim)
         if (claims.requirePasswordChange === true) {
+          console.log("[LOGIN DEBUG] Redirecionando para change-password");
           router.push("/change-password");
           return;
         }
