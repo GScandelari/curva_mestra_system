@@ -48,14 +48,7 @@ export function useAuth() {
         // Forçar refresh do token para obter custom claims atualizados
         await user.getIdToken(true);
         const idTokenResult = await user.getIdTokenResult();
-
-        // DEBUG: Log dos claims brutos
-        console.log("[useAuth DEBUG] Raw claims:", JSON.stringify(idTokenResult.claims, null, 2));
-
         const claims = extractCustomClaims(idTokenResult.claims);
-
-        // DEBUG: Log dos claims extraídos
-        console.log("[useAuth DEBUG] Extracted claims:", JSON.stringify(claims, null, 2));
 
         setState({
           user,
