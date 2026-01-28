@@ -58,7 +58,8 @@ function LoginForm() {
       const result = await signIn(email, password);
 
       if (result.success && result.user) {
-        // Obter claims do usuário para redirecionar corretamente
+        // Forçar refresh do token para obter custom claims atualizados
+        await result.user.getIdToken(true);
         const idTokenResult = await result.user.getIdTokenResult();
         const claims = idTokenResult.claims;
 
