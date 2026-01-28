@@ -20,9 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, UserCog, Shield, User, Building2, Edit } from "lucide-react";
-import Link from "next/link";
-import { collection, getDocs, query, where, orderBy, doc, getDoc, updateDoc } from "firebase/firestore";
+import { Search, UserCog, Shield, User, Building2, Edit, KeyRound, Copy, CheckCircle2 } from "lucide-react";
+import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { formatTimestamp } from "@/lib/utils";
 import {
@@ -67,6 +66,11 @@ export default function UsersManagementPage() {
   const [editRole, setEditRole] = useState<"clinic_admin" | "clinic_user">("clinic_user");
   const [editActive, setEditActive] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  // Password reset states
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [passwordCopied, setPasswordCopied] = useState(false);
 
   useEffect(() => {
     loadAllUsers();
@@ -174,6 +178,8 @@ export default function UsersManagementPage() {
     setEditDisplayName(user.displayName);
     setEditRole(user.role === "system_admin" ? "clinic_admin" : user.role);
     setEditActive(user.active);
+    setTempPassword(null);
+    setPasswordCopied(false);
     setEditDialogOpen(true);
   };
 
@@ -200,6 +206,63 @@ export default function UsersManagementPage() {
       alert(`Erro ao atualizar usuário: ${error.message}`);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!editingUser) return;
+
+    if (!confirm(`Tem certeza que deseja redefinir a senha de ${editingUser.email}?\n\nUma senha temporária será gerada e o usuário deverá trocá-la no próximo login.`)) {
+      return;
+    }
+
+    try {
+      setResettingPassword(true);
+      setTempPassword(null);
+      setPasswordCopied(false);
+
+      // Obter token do usuário atual
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert("Você precisa estar autenticado para realizar esta ação");
+        return;
+      }
+
+      const token = await currentUser.getIdToken();
+
+      const response = await fetch(`/api/users/${editingUser.uid}/reset-password`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao redefinir senha");
+      }
+
+      setTempPassword(data.tempPassword);
+    } catch (error: any) {
+      console.error("Erro ao redefinir senha:", error);
+      alert(`Erro ao redefinir senha: ${error.message}`);
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const handleCopyPassword = async () => {
+    if (!tempPassword) return;
+
+    try {
+      await navigator.clipboard.writeText(tempPassword);
+      setPasswordCopied(true);
+      setTimeout(() => setPasswordCopied(false), 3000);
+    } catch (error) {
+      console.error("Erro ao copiar:", error);
+      alert("Erro ao copiar. Copie manualmente: " + tempPassword);
     }
   };
 
@@ -444,6 +507,70 @@ export default function UsersManagementPage() {
                   <div className="text-sm text-muted-foreground space-y-1">
                     <p><strong>Email:</strong> {editingUser?.email}</p>
                     <p><strong>Clínica:</strong> {editingUser?.tenantName}</p>
+                  </div>
+
+                  {/* Seção de Redefinir Senha */}
+                  <div className="pt-4 border-t space-y-3">
+                    <div className="flex items-center gap-2">
+                      <KeyRound className="h-4 w-4 text-muted-foreground" />
+                      <Label className="font-medium">Redefinir Senha</Label>
+                    </div>
+
+                    {tempPassword ? (
+                      <div className="space-y-2">
+                        <div className="p-3 rounded-md bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                              Senha redefinida com sucesso!
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Compartilhe esta senha temporária com o usuário. Ele deverá trocá-la no próximo login.
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 p-2 rounded bg-white dark:bg-gray-900 text-sm font-mono border">
+                              {tempPassword}
+                            </code>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleCopyPassword}
+                              className="shrink-0"
+                            >
+                              {passwordCopied ? (
+                                <>
+                                  <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
+                                  Copiado!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4 mr-1" />
+                                  Copiar
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          Gere uma senha temporária para o usuário. Ele será obrigado a definir uma nova senha no próximo login.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleResetPassword}
+                          disabled={resettingPassword || updating}
+                          className="w-full"
+                        >
+                          <KeyRound className="h-4 w-4 mr-2" />
+                          {resettingPassword ? "Redefinindo..." : "Redefinir Senha"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

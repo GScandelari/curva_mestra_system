@@ -25,6 +25,9 @@ export interface User {
   tenant_id: string;
   role: UserRole;
   active: boolean;
+  requirePasswordChange?: boolean; // Flag para forçar troca de senha no próximo login
+  passwordResetAt?: Timestamp;     // Data da última redefinição de senha pelo admin
+  passwordChangedAt?: Timestamp;   // Data da última troca de senha pelo próprio usuário
   created_at: Timestamp;
   updated_at: Timestamp;
 }

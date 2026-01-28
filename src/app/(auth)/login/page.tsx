@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Clock } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 function LoginForm() {
   const router = useRouter();
@@ -66,6 +68,16 @@ function LoginForm() {
         if (!claims.role || !claims.active) {
           router.push("/waiting-approval");
           return;
+        }
+
+        // Verificar se o usuário precisa trocar a senha
+        const userDoc = await getDoc(doc(db, "users", result.user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.requirePasswordChange === true) {
+            router.push("/change-password");
+            return;
+          }
         }
 
         // Redirecionar baseado no role
