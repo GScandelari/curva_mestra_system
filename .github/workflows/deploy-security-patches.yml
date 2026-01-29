@@ -42,15 +42,12 @@ jobs:
       - name: Enable Firebase Web Frameworks
         run: firebase experiments:enable webframeworks
 
-      - name: Install Functions dependencies
+      - name: Install Functions dependencies and build
         run: |
           cd functions
-          npm install --include=dev
-
-      - name: Build Functions
-        run: |
-          cd functions
-          npm run build
+          npm install
+          npx tsc --version
+          npx tsc
 
       - name: Deploy to Firebase Hosting
         run: firebase deploy --only hosting --token "$FIREBASE_TOKEN"

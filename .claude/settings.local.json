@@ -94,7 +94,8 @@
       "Bash(openssl genpkey:*)",
       "Bash(openssl rsa:*)",
       "WebFetch(domain:github.com)",
-      "Bash(npm ci:*)"
+      "Bash(npm ci:*)",
+      "Bash(xargs -I{} curl -s \"https://api.github.com/repos/GScandelari/curva_mestra_system/actions/runs/{}/jobs\")"
     ],
     "deny": [],
     "ask": []
