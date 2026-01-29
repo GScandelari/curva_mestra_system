@@ -1,7 +1,10 @@
-# Compiled JavaScript files
-lib/
+# Compiled JavaScript files (output directory)
+/lib/
 *.js
 *.js.map
+
+# Keep source lib directory
+!src/lib/
 
 # TypeScript cache
 *.tsbuildinfo
