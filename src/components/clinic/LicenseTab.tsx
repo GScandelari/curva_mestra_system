@@ -12,6 +12,7 @@ import {
   Package,
 } from "lucide-react";
 import { License, Tenant } from "@/types";
+import PaymentSection from "./PaymentSection";
 import {
   getActiveLicenseByTenant,
   getDaysUntilExpiration,
@@ -322,6 +323,9 @@ export default function LicenseTab() {
           </div>
         </div>
       </div>
+
+      {/* Seção de Pagamento */}
+      <PaymentSection />
 
       {/* Support Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">

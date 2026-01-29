@@ -94,3 +94,39 @@ export interface PaymentWebhookData {
   notificationType: string;
   // Dados adicionais do PagSeguro serão mapeados aqui
 }
+
+/**
+ * Método de pagamento (cartão de crédito)
+ */
+export interface PaymentMethod {
+  id: string;
+  tenant_id: string;
+  type: "credit_card";
+  card_first_digits: string;   // Primeiros 4 dígitos (ex: "4532")
+  card_last_digits: string;    // Últimos 4 dígitos (ex: "1234")
+  card_brand: string;          // Bandeira (visa, mastercard, elo, etc.)
+  card_holder_name: string;    // Nome do titular
+  expiry_month: string;        // Mês de expiração (01-12)
+  expiry_year: string;         // Ano de expiração (20XX)
+  is_default: boolean;         // Se é o método padrão
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/**
+ * Histórico de pagamentos
+ */
+export interface PaymentHistory {
+  id: string;
+  tenant_id: string;
+  payment_method_id?: string;
+  transaction_id: string;
+  description: string;         // Ex: "Assinatura Semestral - Curva Mestra"
+  amount: number;              // Valor em centavos
+  status: PaymentStatus;
+  card_first_digits?: string;  // Primeiros 4 dígitos do cartão usado
+  card_last_digits?: string;   // Últimos 4 dígitos do cartão usado
+  card_brand?: string;         // Bandeira do cartão usado
+  payment_date: Timestamp;
+  created_at: Timestamp;
+}

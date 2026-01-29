@@ -180,5 +180,33 @@ service cloud.firestore {
       // Apenas system_admin pode alterar configurações
       allow write: if isSystemAdmin();
     }
+
+    // Métodos de pagamento
+    match /payment_methods/{methodId} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Usuários podem ler e escrever métodos de pagamento do seu tenant
+      allow read, write: if isAuthenticated()
+        && resource.data.tenant_id == request.auth.token.tenant_id;
+
+      // Permitir criar novo método de pagamento para o próprio tenant
+      allow create: if isAuthenticated()
+        && request.resource.data.tenant_id == request.auth.token.tenant_id;
+    }
+
+    // Histórico de pagamentos
+    match /payment_history/{historyId} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Usuários podem ler histórico do seu tenant
+      allow read: if isAuthenticated()
+        && resource.data.tenant_id == request.auth.token.tenant_id;
+
+      // Apenas system_admin ou Cloud Functions podem criar histórico
+      // (via Admin SDK, sem passar pelas regras)
+      allow write: if isSystemAdmin();
+    }
   }
 }
