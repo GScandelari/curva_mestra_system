@@ -1,6 +1,6 @@
 /**
- * Hook: Verificar Suspensão de Clínica
- * Monitora em tempo real se a clínica do usuário foi suspensa
+ * Hook: Verificar Status da Clínica
+ * Monitora em tempo real se a clínica do usuário foi suspensa ou está inativa
  */
 
 import { useEffect, useState } from "react";
@@ -11,14 +11,16 @@ import type { SuspensionInfo } from "@/types";
 
 interface TenantSuspensionState {
   isSuspended: boolean;
+  isInactive: boolean; // Clínica com active: false
   suspensionInfo: SuspensionInfo | null;
   isLoading: boolean;
 }
 
 export function useTenantSuspension(): TenantSuspensionState {
-  const { user, claims } = useAuth();
+  const { claims } = useAuth();
   const [state, setState] = useState<TenantSuspensionState>({
     isSuspended: false,
+    isInactive: false,
     suspensionInfo: null,
     isLoading: true,
   });
@@ -28,6 +30,7 @@ export function useTenantSuspension(): TenantSuspensionState {
     if (claims?.is_system_admin) {
       setState({
         isSuspended: false,
+        isInactive: false,
         suspensionInfo: null,
         isLoading: false,
       });
@@ -38,6 +41,7 @@ export function useTenantSuspension(): TenantSuspensionState {
     if (!claims?.tenant_id) {
       setState({
         isSuspended: false,
+        isInactive: false,
         suspensionInfo: null,
         isLoading: false,
       });
@@ -53,6 +57,7 @@ export function useTenantSuspension(): TenantSuspensionState {
         if (!snapshot.exists()) {
           setState({
             isSuspended: false,
+            isInactive: false,
             suspensionInfo: null,
             isLoading: false,
           });
@@ -61,17 +66,20 @@ export function useTenantSuspension(): TenantSuspensionState {
 
         const tenantData = snapshot.data();
         const suspension = tenantData.suspension as SuspensionInfo | undefined;
+        const isActive = tenantData.active !== false; // default true se não definido
 
         setState({
           isSuspended: suspension?.suspended || false,
+          isInactive: !isActive,
           suspensionInfo: suspension || null,
           isLoading: false,
         });
       },
       (error) => {
-        console.error("Erro ao verificar suspensão:", error);
+        console.error("Erro ao verificar status da clínica:", error);
         setState({
           isSuspended: false,
+          isInactive: false,
           suspensionInfo: null,
           isLoading: false,
         });

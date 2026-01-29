@@ -16,17 +16,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock } from "lucide-react";
+import { Clock, AlertTriangle } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, isAuthenticated, loading: authLoading, claims } = useAuth();
+  const { signIn, signOut, isAuthenticated, loading: authLoading, claims } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
+  const [clinicInactiveMessage, setClinicInactiveMessage] = useState(false);
 
   // Verificar se foi redirecionado por timeout
   useEffect(() => {
@@ -81,6 +84,33 @@ function LoginForm() {
           return;
         }
 
+        // Verificar status da clínica para usuários não-admin
+        if (!claims.is_system_admin && claims.tenant_id) {
+          const tenantDoc = await getDoc(doc(db, "tenants", claims.tenant_id as string));
+          if (tenantDoc.exists()) {
+            const tenantData = tenantDoc.data();
+            const isClinicActive = tenantData.active !== false;
+
+            // Se a clínica está inativa
+            if (!isClinicActive) {
+              // clinic_user: mostrar mensagem e não permitir acesso
+              if (claims.role === "clinic_user") {
+                // Fazer logout para não manter sessão ativa
+                await signOut();
+                setClinicInactiveMessage(true);
+                setLoading(false);
+                return;
+              }
+
+              // clinic_admin: redirecionar para my-clinic (acesso restrito)
+              if (claims.role === "clinic_admin") {
+                router.push("/clinic/my-clinic");
+                return;
+              }
+            }
+          }
+        }
+
         // Redirecionar baseado no role
         if (claims.is_system_admin) {
           router.push("/admin/dashboard");
@@ -127,6 +157,53 @@ function LoginForm() {
       <div className="flex items-center justify-center">
         <p className="text-muted-foreground">Carregando...</p>
       </div>
+    );
+  }
+
+  // Se a clínica está inativa e é clinic_user, mostrar mensagem
+  if (clinicInactiveMessage) {
+    return (
+      <Card>
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-center mb-2">
+            <div className="p-3 rounded-full bg-amber-100 dark:bg-amber-950/30">
+              <AlertTriangle className="h-8 w-8 text-amber-600" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl text-center">Sistema Indisponível</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-700 dark:text-amber-400">
+              O sistema encontra-se indisponível no momento. Procure o administrador
+              da clínica ou entre em contato com o suporte técnico Curva Mestra.
+            </AlertDescription>
+          </Alert>
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            <p>Suporte técnico:</p>
+            <a
+              href="mailto:suporte@curvamestra.com.br"
+              className="text-primary hover:underline font-medium"
+            >
+              suporte@curvamestra.com.br
+            </a>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              setClinicInactiveMessage(false);
+              setEmail("");
+              setPassword("");
+            }}
+          >
+            Voltar ao login
+          </Button>
+        </CardFooter>
+      </Card>
     );
   }
 
