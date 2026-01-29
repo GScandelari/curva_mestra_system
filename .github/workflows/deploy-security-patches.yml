@@ -46,11 +46,15 @@ jobs:
         run: |
           cd functions
           npm ci
+        env:
+          NODE_ENV: development
 
       - name: Build Functions
         run: |
           cd functions
           npm run build
+        env:
+          NODE_ENV: development
 
       - name: Deploy to Firebase Hosting
         run: firebase deploy --only hosting --token "$FIREBASE_TOKEN"
