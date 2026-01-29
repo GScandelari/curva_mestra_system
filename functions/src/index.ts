@@ -12,6 +12,7 @@ export {sendTestEmail} from "./sendTestEmail";
 // Triggers automáticos de e-mail
 export {onUserCreated} from "./onUserCreated";
 export {onTenantCreated} from "./onTenantCreated";
+export {onAccessRequestCreated} from "./onAccessRequestCreated";
 
 // Scheduled Functions - Licenças
 export { checkLicenseExpiration } from "./checkLicenseExpiration";
