@@ -22,6 +22,7 @@ import { formatPlanPrice, getPlanMaxUsers } from "@/lib/constants/plans";
 import { Tenant, DocumentType } from "@/types";
 import { formatAddress, formatCNPJ } from "@/lib/utils";
 import { validateDocument, formatDocumentAuto, getDocumentType } from "@/lib/utils/documentValidation";
+import TenantPaymentInfo from "@/components/admin/TenantPaymentInfo";
 import {
   Dialog,
   DialogContent,
@@ -444,6 +445,11 @@ export default function EditTenantPage() {
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {/* Informações de Pagamento */}
+            {tenant && (
+              <TenantPaymentInfo tenantId={tenantId} tenantName={tenant.name} />
             )}
 
             {/* Form */}

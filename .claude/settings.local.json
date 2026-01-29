@@ -86,7 +86,13 @@
       "Bash(gcloud secrets describe:*)",
       "Bash(timeout 180 firebase deploy:*)",
       "Bash(. \"$NML_DIR/nvm.sh\")",
-      "Bash(timeout 20 firebase deploy:*)"
+      "Bash(timeout 20 firebase deploy:*)",
+      "Bash(gh workflow:*)",
+      "Bash(npx tsc:*)",
+      "Bash(indisponível no momento. Procure o administrador da clínica ou entre)",
+      "Bash(em contato com o suporte técnico Curva Mestra.\"\n- clinic_admin: Can only access /clinic/my-clinic and /clinic/profile\n- system_admin: Never blocked\n\nChanges:\n- useTenantSuspension: Added isInactive flag to monitor tenant.active\n- SuspensionInterceptor: Added logic to restrict clinic_admin routes\n  when clinic is inactive \\(not suspended\\)\n- login/page.tsx: Added check for clinic status, blocks clinic_user\n  with custom message and logs them out\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(openssl genpkey:*)",
+      "Bash(openssl rsa:*)"
     ],
     "deny": [],
     "ask": []
