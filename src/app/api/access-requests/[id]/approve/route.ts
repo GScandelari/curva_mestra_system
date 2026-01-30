@@ -75,19 +75,20 @@ export async function POST(
       document_number: request.document_number,
       email: request.email,
       phone: request.phone || "",
-      address: request.address
-        ? {
-            street: request.address,
-            city: request.city || "",
-            state: request.state || "",
-            zip: request.cep || "",
-          }
-        : undefined,
       plan_id: "early_access", // Plano de acesso antecipado
       max_users,
       active: true,
       created_at: FieldValue.serverTimestamp() as any,
       updated_at: FieldValue.serverTimestamp() as any,
+      // Adicionar address apenas se existir (Firestore não aceita undefined)
+      ...(request.address && {
+        address: {
+          street: request.address,
+          city: request.city || "",
+          state: request.state || "",
+          zip: request.cep || "",
+        },
+      }),
     };
 
     const tenantRef = await adminDb.collection("tenants").add(tenantData);
