@@ -1,21 +1,21 @@
 /**
  * API Route: Aprovar Solicitação de Acesso Antecipado
  * Cria automaticamente tenant + usuário admin em um clique
+ * Usa a senha que o usuário definiu no cadastro (não gera senha temporária)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import type { AccessRequest, Tenant, UserRole } from "@/types";
 import { FieldValue } from "firebase-admin/firestore";
-import crypto from "crypto";
 
 /**
- * Gera o HTML do e-mail de senha temporária
+ * Gera o HTML do e-mail de boas-vindas (aprovação)
+ * NÃO contém senha - usuário usa a senha que definiu no cadastro
  */
-function generateTemporaryPasswordEmailHtml(
+function generateWelcomeEmailHtml(
   displayName: string,
   email: string,
-  temporaryPassword: string,
   businessName: string
 ): string {
   return `
@@ -27,30 +27,22 @@ function generateTemporaryPasswordEmailHtml(
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="margin: 0;">🎉 Sua Solicitação foi Aprovada!</h1>
+          <h1 style="margin: 0;">Sua Solicitação foi Aprovada!</h1>
         </div>
         <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
           <p>Olá <strong>${displayName}</strong>,</p>
 
           <p>Sua solicitação de acesso ao <strong>Curva Mestra</strong> foi aprovada! A clínica <strong>${businessName}</strong> já está ativa no sistema.</p>
 
-          <div style="background: #fef3c7; border: 1px solid #fbbf24; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p style="margin: 0;"><strong>⚠️ Importante: Senha Temporária</strong></p>
-            <p style="margin: 10px 0 0 0;">Por segurança, geramos uma senha temporária para seu primeiro acesso. Você deverá alterá-la após o primeiro login.</p>
-          </div>
-
-          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0; text-align: center;">
-            <p style="margin: 0; font-size: 14px; color: #6b7280;">Sua senha temporária:</p>
-            <p style="font-size: 24px; font-weight: bold; color: #667eea; font-family: 'Courier New', monospace; letter-spacing: 2px; margin: 10px 0;">${temporaryPassword}</p>
-            <p style="margin: 10px 0 0 0; font-size: 12px; color: #6b7280;">
-              Esta senha é válida apenas para o primeiro acesso
-            </p>
+          <div style="background: #d1fae5; border: 1px solid #10b981; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="margin: 0; color: #065f46;"><strong>Conta Ativada com Sucesso!</strong></p>
+            <p style="margin: 10px 0 0 0; color: #065f46;">Você já pode fazer login com o email e senha que definiu no cadastro.</p>
           </div>
 
           <p><strong>Seus dados de acesso:</strong></p>
           <ul>
             <li><strong>E-mail:</strong> ${email}</li>
-            <li><strong>Senha:</strong> (veja acima)</li>
+            <li><strong>Senha:</strong> A senha que você definiu no cadastro</li>
           </ul>
 
           <div style="text-align: center;">
@@ -59,9 +51,8 @@ function generateTemporaryPasswordEmailHtml(
 
           <p><strong>Próximos passos:</strong></p>
           <ol>
-            <li>Faça login com seu e-mail e senha temporária</li>
-            <li>Altere sua senha no primeiro acesso</li>
-            <li>Complete o processo de configuração</li>
+            <li>Faça login com seu e-mail e senha</li>
+            <li>Complete o processo de configuração da clínica</li>
             <li>Comece a usar o sistema!</li>
           </ol>
 
@@ -70,7 +61,7 @@ function generateTemporaryPasswordEmailHtml(
           <p>Atenciosamente,<br><strong>Equipe Curva Mestra</strong></p>
         </div>
         <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-          <p>© ${new Date().getFullYear()} Curva Mestra - Gestão Inteligente de Estoque</p>
+          <p>&copy; ${new Date().getFullYear()} Curva Mestra - Gestão Inteligente de Estoque</p>
           <p><strong>IMPORTANTE:</strong> Nunca compartilhe sua senha com terceiros.</p>
         </div>
       </body>
@@ -119,20 +110,13 @@ export async function POST(
       );
     }
 
-    // 2. Gerar senha temporária segura (12 caracteres)
-    // Usamos crypto para garantir aleatoriedade criptográfica
-    const generateTempPassword = (): string => {
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%&*";
-      let password = "";
-      const randomBytes = crypto.randomBytes(12);
-      for (let i = 0; i < 12; i++) {
-        password += chars[randomBytes[i] % chars.length];
-      }
-      return password;
-    };
-
-    const temporaryPassword = generateTempPassword();
-    console.log(`🔐 Senha temporária gerada para ${request.email}: ${temporaryPassword}`);
+    // 2. Verificar se a senha foi definida no cadastro
+    if (!request.password) {
+      return NextResponse.json(
+        { error: "Senha não encontrada na solicitação. O usuário precisa refazer o cadastro." },
+        { status: 400 }
+      );
+    }
 
     // 3. Definir max_users baseado no tipo
     const max_users = request.type === "autonomo" ? 1 : 5;
@@ -165,13 +149,12 @@ export async function POST(
 
     console.log(`✅ Tenant criado: ${tenant_id} - ${request.business_name}`);
 
-    // 5. Criar usuário no Firebase Auth com senha temporária
+    // 5. Criar usuário no Firebase Auth com a senha que o usuário definiu no cadastro
     let user_id: string;
     try {
-      // Usar senha temporária gerada (não a senha original do formulário)
       const userRecord = await adminAuth.createUser({
         email: request.email,
-        password: temporaryPassword,
+        password: request.password,
         displayName: request.full_name,
         emailVerified: false,
       });
@@ -259,22 +242,21 @@ export async function POST(
           updated_at: FieldValue.serverTimestamp(),
         });
 
-      // 11. Enviar e-mail com senha temporária via fila de emails
+      // 11. Enviar e-mail de boas-vindas (sem senha) via fila de emails
       // A Cloud Function processEmailQueue irá processar e enviar automaticamente
       try {
-        const emailHtml = generateTemporaryPasswordEmailHtml(
+        const emailHtml = generateWelcomeEmailHtml(
           request.full_name,
           request.email,
-          temporaryPassword,
           request.business_name
         );
 
         await adminDb.collection("email_queue").add({
           to: request.email,
-          subject: "🔐 Sua Senha Temporária - Curva Mestra",
+          subject: "Sua Solicitação foi Aprovada - Curva Mestra",
           body: emailHtml,
           status: "pending",
-          type: "temporary_password",
+          type: "welcome_approval",
           metadata: {
             user_id,
             tenant_id,
@@ -282,16 +264,15 @@ export async function POST(
           created_at: FieldValue.serverTimestamp(),
         });
 
-        console.log(`✅ E-mail com senha temporária adicionado à fila para ${request.email}`);
+        console.log(`✅ E-mail de boas-vindas adicionado à fila para ${request.email}`);
       } catch (emailError) {
         // Não falhar a aprovação se o e-mail falhar
         console.warn(`⚠️ Erro ao adicionar e-mail à fila:`, emailError);
-        console.log(`📧 Senha temporária para ${request.email}: ${temporaryPassword}`);
       }
 
       return NextResponse.json({
         success: true,
-        message: "Solicitação aprovada! Um e-mail com a senha temporária foi enviado.",
+        message: "Solicitação aprovada! O usuário já pode fazer login com a senha que definiu no cadastro.",
         data: {
           tenant_id,
           user_id,

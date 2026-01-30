@@ -148,6 +148,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Coleção de tokens de reset de senha (apenas Admin SDK)
+    // NUNCA acessada diretamente pelo cliente - apenas via API routes
+    match /password_reset_tokens/{tokenId} {
+      allow read, write: if false;
+    }
+
     // Coleção de documentos legais (termos, políticas, etc.)
     match /legal_documents/{documentId} {
       // Qualquer usuário autenticado pode ler documentos ativos

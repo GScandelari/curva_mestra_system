@@ -354,3 +354,20 @@ export interface ApiResponse<T> {
   error?: string;
   message?: string;
 }
+
+// ============================================================================
+// PASSWORD RESET TOKENS
+// ============================================================================
+
+export interface PasswordResetToken {
+  id: string;                    // Document ID
+  token_hash: string;            // SHA-256 hash do token (nunca armazena raw)
+  user_id: string;               // Firebase Auth UID
+  user_email: string;            // Email do usuário
+  tenant_id?: string;            // Multi-tenant
+  expires_at: Timestamp;         // 30 minutos
+  created_at: Timestamp;
+  created_by: string;            // UID do admin que iniciou
+  used_at?: Timestamp;           // Marcado quando usado (one-time)
+  invalidated_at?: Timestamp;    // Se invalidado manualmente
+}

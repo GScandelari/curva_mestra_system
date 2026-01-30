@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, UserCog, Shield, User, Building2, Edit, KeyRound, Copy, CheckCircle2 } from "lucide-react";
+import { Search, UserCog, Shield, User, Building2, Edit, KeyRound, CheckCircle2, Mail } from "lucide-react";
 import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { formatTimestamp } from "@/lib/utils";
@@ -69,8 +69,8 @@ export default function UsersManagementPage() {
 
   // Password reset states
   const [resettingPassword, setResettingPassword] = useState(false);
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
-  const [passwordCopied, setPasswordCopied] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [resetEmailAddress, setResetEmailAddress] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllUsers();
@@ -178,8 +178,8 @@ export default function UsersManagementPage() {
     setEditDisplayName(user.displayName);
     setEditRole(user.role === "system_admin" ? "clinic_admin" : user.role);
     setEditActive(user.active);
-    setTempPassword(null);
-    setPasswordCopied(false);
+    setResetEmailSent(false);
+    setResetEmailAddress(null);
     setEditDialogOpen(true);
   };
 
@@ -212,14 +212,14 @@ export default function UsersManagementPage() {
   const handleResetPassword = async () => {
     if (!editingUser) return;
 
-    if (!confirm(`Tem certeza que deseja redefinir a senha de ${editingUser.email}?\n\nUma senha temporária será gerada e o usuário deverá trocá-la no próximo login.`)) {
+    if (!confirm(`Tem certeza que deseja redefinir a senha de ${editingUser.email}?\n\nUm email será enviado com um link seguro para o usuário definir uma nova senha.`)) {
       return;
     }
 
     try {
       setResettingPassword(true);
-      setTempPassword(null);
-      setPasswordCopied(false);
+      setResetEmailSent(false);
+      setResetEmailAddress(null);
 
       // Obter token do usuário atual
       const currentUser = auth.currentUser;
@@ -241,28 +241,16 @@ export default function UsersManagementPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao redefinir senha");
+        throw new Error(data.error || "Erro ao solicitar reset de senha");
       }
 
-      setTempPassword(data.tempPassword);
+      setResetEmailSent(true);
+      setResetEmailAddress(data.email || editingUser.email);
     } catch (error: any) {
-      console.error("Erro ao redefinir senha:", error);
-      alert(`Erro ao redefinir senha: ${error.message}`);
+      console.error("Erro ao solicitar reset de senha:", error);
+      alert(`Erro ao solicitar reset de senha: ${error.message}`);
     } finally {
       setResettingPassword(false);
-    }
-  };
-
-  const handleCopyPassword = async () => {
-    if (!tempPassword) return;
-
-    try {
-      await navigator.clipboard.writeText(tempPassword);
-      setPasswordCopied(true);
-      setTimeout(() => setPasswordCopied(false), 3000);
-    } catch (error) {
-      console.error("Erro ao copiar:", error);
-      alert("Erro ao copiar. Copie manualmente: " + tempPassword);
     }
   };
 
@@ -516,48 +504,28 @@ export default function UsersManagementPage() {
                       <Label className="font-medium">Redefinir Senha</Label>
                     </div>
 
-                    {tempPassword ? (
+                    {resetEmailSent ? (
                       <div className="space-y-2">
                         <div className="p-3 rounded-md bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
                           <div className="flex items-center gap-2 mb-2">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
                             <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                              Senha redefinida com sucesso!
+                              Email enviado com sucesso!
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground mb-2">
-                            Compartilhe esta senha temporária com o usuário. Ele deverá trocá-la no próximo login.
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <code className="flex-1 p-2 rounded bg-white dark:bg-gray-900 text-sm font-mono border">
-                              {tempPassword}
-                            </code>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleCopyPassword}
-                              className="shrink-0"
-                            >
-                              {passwordCopied ? (
-                                <>
-                                  <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
-                                  Copiado!
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-4 w-4 mr-1" />
-                                  Copiar
-                                </>
-                              )}
-                            </Button>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Mail className="h-3 w-3" />
+                            <span>Enviado para: <strong>{resetEmailAddress}</strong></span>
                           </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            O usuário receberá um link seguro para definir uma nova senha. O link expira em 30 minutos.
+                          </p>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <p className="text-xs text-muted-foreground">
-                          Gere uma senha temporária para o usuário. Ele será obrigado a definir uma nova senha no próximo login.
+                          Envie um email com link seguro para o usuário definir uma nova senha. O link expira em 30 minutos.
                         </p>
                         <Button
                           type="button"
@@ -567,7 +535,7 @@ export default function UsersManagementPage() {
                           className="w-full"
                         >
                           <KeyRound className="h-4 w-4 mr-2" />
-                          {resettingPassword ? "Redefinindo..." : "Redefinir Senha"}
+                          {resettingPassword ? "Enviando..." : "Enviar Link de Reset"}
                         </Button>
                       </div>
                     )}
