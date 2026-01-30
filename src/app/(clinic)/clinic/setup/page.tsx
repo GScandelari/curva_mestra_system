@@ -32,7 +32,7 @@ import { validateCNPJ } from "@/types/tenant";
 import { InfoIcon } from "lucide-react";
 
 export default function ClinicSetupPage() {
-  const { user, claims } = useAuth();
+  const { user, claims, signOut } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
@@ -308,7 +308,10 @@ export default function ClinicSetupPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push("/login")}
+            onClick={async () => {
+              await signOut();
+              router.push("/login");
+            }}
           >
             Sair
           </Button>
