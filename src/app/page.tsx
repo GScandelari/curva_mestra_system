@@ -15,8 +15,8 @@ export default function Home() {
   });
 
   useEffect(() => {
-    // Data de lançamento: 01/02/2026
-    const launchDate = new Date("2026-02-01T00:00:00").getTime();
+    // Data de lançamento: 01/03/2026
+    const launchDate = new Date("2026-03-01T00:00:00").getTime();
 
     const updateCountdown = () => {
       const now = new Date().getTime();
@@ -118,11 +118,13 @@ export default function Home() {
               </h3>
               <ul className="space-y-3 w-full">
                 {[
-                  "Controle de Estoque",
+                  "Controle de Notas Fiscais e Estoque",
                   "Gestão de Lotes",
                   "Rastreamento de Validade",
                   "Relatórios Detalhados",
-                  "Sistema Multi-Tenant",
+                  "Notificações e Alertas",
+                  "Agendamento e Histórico de Procedimentos",
+                  "Conexão com Consultor Rennova",
                 ].map((feature, index) => (
                   <li
                     key={index}
@@ -142,10 +144,10 @@ export default function Home() {
               <ul className="space-y-3 w-full">
                 {[
                   "Redução de Desperdício",
+                  "Visão Holística da Clínica",
+                  "Colaboração Interativa do Consultor Rennova",
                   "Maior Eficiência",
-                  "Conformidade Legal",
                   "Decisões Baseadas em Dados",
-                  "Interface Intuitiva",
                 ].map((benefit, index) => (
                   <li
                     key={index}
