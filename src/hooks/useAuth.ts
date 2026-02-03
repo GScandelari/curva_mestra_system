@@ -20,7 +20,7 @@ interface AuthState {
  * Extrai custom claims do Firebase Auth token de forma type-safe
  */
 function extractCustomClaims(claims: Record<string, any>): CustomClaims | null {
-  // Usuário precisa ter pelo menos tenant_id OU ser system_admin
+  // Usuário precisa ter pelo menos tenant_id OU ser system_admin OU ser consultor
   // E também precisa ter a propriedade 'role' definida
   if (!claims.role) {
     return null;
@@ -30,6 +30,9 @@ function extractCustomClaims(claims: Record<string, any>): CustomClaims | null {
     tenant_id: claims.tenant_id || null,
     role: claims.role || null,
     is_system_admin: claims.is_system_admin || false,
+    is_consultant: claims.is_consultant || false,
+    consultant_id: claims.consultant_id || undefined,
+    authorized_tenants: claims.authorized_tenants || undefined,
     active: claims.active !== undefined ? claims.active : false,
     requirePasswordChange: claims.requirePasswordChange || false,
   };
@@ -135,6 +138,9 @@ export function useAuth() {
     refreshClaims,
     isAuthenticated: !!state.user,
     isSystemAdmin: state.claims?.is_system_admin || false,
+    isConsultant: state.claims?.is_consultant || false,
+    consultantId: state.claims?.consultant_id || null,
+    authorizedTenants: state.claims?.authorized_tenants || [],
     tenantId: state.claims?.tenant_id || null,
     role: state.claims?.role || null,
   };

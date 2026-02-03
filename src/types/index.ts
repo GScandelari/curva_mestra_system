@@ -9,12 +9,15 @@ import { Timestamp } from "firebase/firestore";
 // USER & AUTH
 // ============================================================================
 
-export type UserRole = "clinic_admin" | "clinic_user" | "system_admin";
+export type UserRole = "clinic_admin" | "clinic_user" | "system_admin" | "clinic_consultant";
 
 export interface CustomClaims {
-  tenant_id: string;
+  tenant_id: string | null;           // null para consultores
   role: UserRole;
   is_system_admin: boolean;
+  is_consultant?: boolean;            // true para clinic_consultant
+  consultant_id?: string;             // ID do consultor
+  authorized_tenants?: string[];      // Tenants com acesso (para consultores)
   active: boolean;
   requirePasswordChange?: boolean;
 }
@@ -75,6 +78,9 @@ export interface Tenant {
   max_users: number;                // NOVO: 1 para CPF, 5 para CNPJ
   active: boolean;
   suspension?: SuspensionInfo;      // NOVO: Informações de suspensão
+  consultant_id?: string;           // ID do consultor atual
+  consultant_code?: string;         // Código 6 dígitos (desnormalizado)
+  consultant_name?: string;         // Nome do consultor (desnormalizado)
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -370,4 +376,47 @@ export interface PasswordResetToken {
   created_by: string;            // UID do admin que iniciou
   used_at?: Timestamp;           // Marcado quando usado (one-time)
   invalidated_at?: Timestamp;    // Se invalidado manualmente
+}
+
+// ============================================================================
+// CONSULTORES
+// ============================================================================
+
+export type ConsultantStatus = "active" | "inactive" | "suspended";
+
+export interface Consultant {
+  id: string;
+  user_id: string;                    // Firebase Auth UID
+  code: string;                       // 6 dígitos únicos (ex: "847291")
+  name: string;
+  email: string;
+  phone: string;
+  cpf: string;                        // Documento do consultor
+  status: ConsultantStatus;
+  authorized_tenants: string[];       // Lista de tenant_ids autorizados
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  created_by?: string;                // UID do admin que criou
+}
+
+export type ConsultantClaimStatus = "pending" | "approved" | "rejected";
+
+export interface ConsultantClaim {
+  id: string;
+  consultant_id: string;              // ID do consultor solicitante
+  consultant_name: string;            // Nome (desnormalizado)
+  consultant_code: string;            // Código (desnormalizado)
+  tenant_id: string;                  // ID da clínica solicitada
+  tenant_name: string;                // Nome da clínica (desnormalizado)
+  tenant_document: string;            // CNPJ/CPF da clínica (desnormalizado)
+  status: ConsultantClaimStatus;
+  approved_by?: string;               // UID do admin que aprovou
+  approved_by_name?: string;
+  approved_at?: Timestamp;
+  rejected_by?: string;
+  rejected_by_name?: string;
+  rejected_at?: Timestamp;
+  rejection_reason?: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
 }

@@ -23,6 +23,16 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.role == role;
     }
 
+    // Função helper para verificar consultor
+    function isConsultant() {
+      return isAuthenticated() && request.auth.token.is_consultant == true;
+    }
+
+    // Função helper para verificar se consultor tem acesso ao tenant
+    function consultantHasAccess(tenantId) {
+      return isConsultant() && tenantId in request.auth.token.authorized_tenants;
+    }
+
     // REGRAS MULTI-TENANT - OBRIGATÓRIO
 
     // Documento raiz do tenant (necessário para update durante onboarding)
@@ -32,6 +42,9 @@ service cloud.firestore {
 
       // Usuários do tenant podem ler e atualizar seu próprio tenant
       allow read, update: if belongsToTenant(tenantId);
+
+      // Consultores podem ler dados do tenant (read-only)
+      allow read: if consultantHasAccess(tenantId);
     }
 
     // Subcoleções do tenant
@@ -41,6 +54,9 @@ service cloud.firestore {
 
       // Usuários do tenant têm acesso apenas aos seus dados
       allow read, write: if belongsToTenant(tenantId);
+
+      // Consultores têm acesso READ-ONLY às subcoleções
+      allow read: if consultantHasAccess(tenantId);
     }
 
     // Regras específicas para notificações (dentro de tenants)
@@ -213,6 +229,33 @@ service cloud.firestore {
       // Apenas system_admin ou Cloud Functions podem criar histórico
       // (via Admin SDK, sem passar pelas regras)
       allow write: if isSystemAdmin();
+    }
+
+    // Coleção de consultores
+    match /consultants/{consultantId} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Consultor pode ler seu próprio perfil
+      allow read: if isConsultant() && request.auth.token.consultant_id == consultantId;
+
+      // Usuários autenticados podem buscar consultores por código (para transferência)
+      allow read: if isAuthenticated();
+    }
+
+    // Coleção de reivindicações de vínculo consultor-clínica
+    match /consultant_claims/{claimId} {
+      // System admins têm acesso total
+      allow read, write: if isSystemAdmin();
+
+      // Consultor pode criar reivindicação
+      allow create: if isConsultant();
+
+      // Consultor pode ler suas próprias reivindicações
+      allow read: if isConsultant() && resource.data.consultant_id == request.auth.token.consultant_id;
+
+      // Clinic_admin pode ler e atualizar reivindicações para seu tenant
+      allow read, update: if belongsToTenant(resource.data.tenant_id) && hasRole('clinic_admin');
     }
   }
 }

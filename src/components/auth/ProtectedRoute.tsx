@@ -163,6 +163,9 @@ function redirectToDashboard(role: UserRole, router: any) {
     case "clinic_user":
       router.push("/clinic/dashboard");
       break;
+    case "clinic_consultant":
+      router.push("/consultant/dashboard");
+      break;
     default:
       router.push("/dashboard");
   }

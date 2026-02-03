@@ -18,6 +18,7 @@ import {
   ChevronRight,
   FileText,
   Settings,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       name: "Usuários",
       href: "/admin/users",
       icon: Users,
+    },
+    {
+      name: "Consultores",
+      href: "/admin/consultants",
+      icon: UserCheck,
     },
     {
       name: "Licenças",
