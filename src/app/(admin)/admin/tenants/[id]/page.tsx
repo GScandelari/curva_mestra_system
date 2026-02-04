@@ -308,7 +308,7 @@ export default function EditTenantPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ consultant_id: consultant.id }),
+        body: JSON.stringify({ new_consultant_id: consultant.id }),
       });
 
       const data = await response.json();
@@ -973,32 +973,42 @@ export default function EditTenantPage() {
 
               {consultantResults.length > 0 && (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {consultantResults.map((consultant) => (
-                    <div
-                      key={consultant.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                      onClick={() => handleAssignConsultant(consultant)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-sky-100 flex items-center justify-center">
-                          <UserCheck className="h-5 w-5 text-sky-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{consultant.name}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span className="font-mono font-bold text-sky-600">
-                              {consultant.code}
-                            </span>
-                            <span>•</span>
-                            <span>{consultant.email}</span>
+                  {consultantResults.map((consultant) => {
+                    const isActive = consultant.status === "active";
+                    return (
+                      <div
+                        key={consultant.id}
+                        className={`flex items-center justify-between p-3 border rounded-lg ${
+                          isActive
+                            ? "hover:bg-muted/50 cursor-pointer"
+                            : "opacity-60 cursor-not-allowed bg-muted/30"
+                        }`}
+                        onClick={() => isActive && handleAssignConsultant(consultant)}
+                        title={!isActive ? "Consultor inativo não pode ser vinculado" : undefined}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                            isActive ? "bg-sky-100" : "bg-gray-200"
+                          }`}>
+                            <UserCheck className={`h-5 w-5 ${isActive ? "text-sky-600" : "text-gray-400"}`} />
+                          </div>
+                          <div>
+                            <p className="font-medium">{consultant.name}</p>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <span className={`font-mono font-bold ${isActive ? "text-sky-600" : "text-gray-400"}`}>
+                                {consultant.code}
+                              </span>
+                              <span>•</span>
+                              <span>{consultant.email}</span>
+                            </div>
                           </div>
                         </div>
+                        <Badge variant={isActive ? "default" : "destructive"}>
+                          {isActive ? "Ativo" : "Inativo"}
+                        </Badge>
                       </div>
-                      <Badge variant={consultant.status === "active" ? "default" : "destructive"}>
-                        {consultant.status === "active" ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
