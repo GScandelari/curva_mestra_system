@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, UserCog, Shield, User, Building2, Edit, KeyRound, CheckCircle2, Mail } from "lucide-react";
+import { Search, UserCog, Shield, User, Building2, Edit, KeyRound, CheckCircle2, Mail, UserCheck } from "lucide-react";
 import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { formatTimestamp } from "@/lib/utils";
@@ -45,7 +45,8 @@ interface UserWithTenant {
   uid: string;
   email: string;
   displayName: string;
-  role: "clinic_admin" | "clinic_user" | "system_admin";
+  phone?: string;
+  role: "clinic_admin" | "clinic_user" | "system_admin" | "clinic_consultant";
   active: boolean;
   tenantId: string;
   tenantName: string;
@@ -63,6 +64,8 @@ export default function UsersManagementPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithTenant | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState<"clinic_admin" | "clinic_user">("clinic_user");
   const [editActive, setEditActive] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -111,10 +114,11 @@ export default function UsersManagementPage() {
           uid: userDoc.id,
           email: userData.email || "",
           displayName: userData.displayName || userData.full_name || "",
+          phone: userData.phone || "",
           role: userData.role || "clinic_user",
           active: userData.active ?? true,
           tenantId: tenantId || "",
-          tenantName,
+          tenantName: userData.role === "clinic_consultant" ? "Consultor" : tenantName,
           created_at: userData.created_at,
         });
       }
@@ -152,6 +156,13 @@ export default function UsersManagementPage() {
         </Badge>
       );
     }
+    if (role === "clinic_consultant") {
+      return (
+        <Badge className="text-xs bg-sky-600 hover:bg-sky-700">
+          Consultor
+        </Badge>
+      );
+    }
     if (role === "clinic_admin") {
       return (
         <Badge variant="default" className="text-xs">
@@ -170,13 +181,18 @@ export default function UsersManagementPage() {
     if (role === "clinic_admin" || role === "system_admin") {
       return <Shield className="h-4 w-4 text-primary" />;
     }
+    if (role === "clinic_consultant") {
+      return <UserCheck className="h-4 w-4 text-sky-600" />;
+    }
     return <User className="h-4 w-4 text-muted-foreground" />;
   };
 
   const handleEditUser = (user: UserWithTenant) => {
     setEditingUser(user);
     setEditDisplayName(user.displayName);
-    setEditRole(user.role === "system_admin" ? "clinic_admin" : user.role);
+    setEditPhone(user.phone || "");
+    setEditEmail(user.email);
+    setEditRole(user.role === "system_admin" || user.role === "clinic_consultant" ? "clinic_admin" : user.role);
     setEditActive(user.active);
     setResetEmailSent(false);
     setResetEmailAddress(null);
@@ -189,14 +205,52 @@ export default function UsersManagementPage() {
     try {
       setUpdating(true);
 
-      // Atualizar no Firestore
-      const userRef = doc(db, "users", editingUser.uid);
-      await updateDoc(userRef, {
+      const isConsultant = editingUser.role === "clinic_consultant";
+
+      // Dados base para atualização
+      const updateData: Record<string, any> = {
         displayName: editDisplayName,
-        role: editRole,
+        full_name: editDisplayName,
         active: editActive,
         updated_at: new Date(),
-      });
+      };
+
+      // Para consultores, incluir telefone e email, mas não alterar role
+      if (isConsultant) {
+        updateData.phone = editPhone;
+        updateData.email = editEmail.toLowerCase();
+      } else {
+        // Para outros usuários, permitir alterar role
+        updateData.role = editRole;
+      }
+
+      // Atualizar no Firestore
+      const userRef = doc(db, "users", editingUser.uid);
+      await updateDoc(userRef, updateData);
+
+      // Se for consultor, atualizar também na collection consultants
+      if (isConsultant) {
+        try {
+          const consultantsRef = collection(db, "consultants");
+          const consultantQuery = query(consultantsRef);
+          const consultantsSnapshot = await getDocs(consultantQuery);
+
+          for (const consultantDoc of consultantsSnapshot.docs) {
+            const consultantData = consultantDoc.data();
+            if (consultantData.user_id === editingUser.uid) {
+              await updateDoc(doc(db, "consultants", consultantDoc.id), {
+                name: editDisplayName,
+                email: editEmail.toLowerCase(),
+                phone: editPhone,
+                updated_at: new Date(),
+              });
+              break;
+            }
+          }
+        } catch (err) {
+          console.error("Erro ao atualizar consultor:", err);
+        }
+      }
 
       alert("Usuário atualizado com sucesso!");
       setEditDialogOpen(false);
@@ -425,15 +479,27 @@ export default function UsersManagementPage() {
                                     Editar
                                   </Button>
                                 )}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    router.push(`/admin/tenants/${user.tenantId}`)
-                                  }
-                                >
-                                  Ver Clínica
-                                </Button>
+                                {user.role === "clinic_consultant" ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      router.push(`/admin/consultants`)
+                                    }
+                                  >
+                                    Ver Consultores
+                                  </Button>
+                                ) : user.tenantId && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      router.push(`/admin/tenants/${user.tenantId}`)
+                                    }
+                                  >
+                                    Ver Clínica
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -457,7 +523,7 @@ export default function UsersManagementPage() {
 
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="displayName">Nome de Exibição</Label>
+                    <Label htmlFor="displayName">Nome Completo</Label>
                     <Input
                       id="displayName"
                       value={editDisplayName}
@@ -466,18 +532,59 @@ export default function UsersManagementPage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Função</Label>
-                    <Select value={editRole} onValueChange={(value: "clinic_admin" | "clinic_user") => setEditRole(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="clinic_admin">Admin da Clínica</SelectItem>
-                        <SelectItem value="clinic_user">Usuário da Clínica</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Campos específicos para consultores */}
+                  {editingUser?.role === "clinic_consultant" ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="editEmail">Email</Label>
+                        <Input
+                          id="editEmail"
+                          type="email"
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          placeholder="email@exemplo.com"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="editPhone">Telefone</Label>
+                        <Input
+                          id="editPhone"
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          placeholder="(00) 00000-0000"
+                        />
+                      </div>
+
+                      <div className="text-sm text-muted-foreground space-y-1 p-3 bg-sky-50 rounded-md">
+                        <p className="flex items-center gap-2">
+                          <UserCheck className="h-4 w-4 text-sky-600" />
+                          <strong className="text-sky-700">Consultor Rennova</strong>
+                        </p>
+                        <p className="text-xs">Este usuário é um consultor e pode acessar múltiplas clínicas.</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="role">Função</Label>
+                        <Select value={editRole} onValueChange={(value: "clinic_admin" | "clinic_user") => setEditRole(value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="clinic_admin">Admin da Clínica</SelectItem>
+                            <SelectItem value="clinic_user">Usuário da Clínica</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <p><strong>Email:</strong> {editingUser?.email}</p>
+                        <p><strong>Clínica:</strong> {editingUser?.tenantName}</p>
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="active">Status</Label>
@@ -490,11 +597,6 @@ export default function UsersManagementPage() {
                         <SelectItem value="inactive">Inativo</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p><strong>Email:</strong> {editingUser?.email}</p>
-                    <p><strong>Clínica:</strong> {editingUser?.tenantName}</p>
                   </div>
 
                   {/* Seção de Redefinir Senha */}
