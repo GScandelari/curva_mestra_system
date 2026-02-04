@@ -16,7 +16,6 @@ import {
   Building2,
   Mail,
   Phone,
-  FileText,
   Calendar,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,10 +62,6 @@ export default function ConsultantProfilePage() {
       navigator.clipboard.writeText(consultant.code);
       toast({ title: "Código copiado" });
     }
-  };
-
-  const formatCPF = (cpf: string) => {
-    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   };
 
   if (loading) {
@@ -154,16 +149,6 @@ export default function ConsultantProfilePage() {
                   Telefone
                 </div>
                 <p className="font-medium">{consultant?.phone}</p>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <FileText className="h-4 w-4" />
-                  CPF
-                </div>
-                <p className="font-medium font-mono">
-                  {consultant?.cpf ? formatCPF(consultant.cpf) : "—"}
-                </p>
               </div>
 
               <div className="space-y-1">

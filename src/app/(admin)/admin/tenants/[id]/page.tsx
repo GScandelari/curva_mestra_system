@@ -15,11 +15,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Save, Building2, XCircle, CheckCircle, Users, UserPlus, Shield, User } from "lucide-react";
+import { Save, Building2, XCircle, CheckCircle, Users, UserPlus, Shield, User, UserCheck, Search, Copy, Loader2, X } from "lucide-react";
 import { getTenant, updateTenant, deactivateTenant, reactivateTenant } from "@/lib/services/tenantServiceDirect";
 import { listClinicUsers, ClinicUser } from "@/lib/services/clinicUserService";
 import { formatPlanPrice, getPlanMaxUsers } from "@/lib/constants/plans";
-import { Tenant, DocumentType } from "@/types";
+import { Tenant, DocumentType, Consultant } from "@/types";
 import { formatAddress, formatCNPJ } from "@/lib/utils";
 import { validateDocument, formatDocumentAuto, getDocumentType } from "@/lib/utils/documentValidation";
 import TenantPaymentInfo from "@/components/admin/TenantPaymentInfo";
@@ -63,6 +63,14 @@ export default function EditTenantPage() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<"clinic_admin" | "clinic_user">("clinic_user");
   const [creatingUser, setCreatingUser] = useState(false);
+
+  // Estado para consultor
+  const [showConsultantDialog, setShowConsultantDialog] = useState(false);
+  const [consultantSearch, setConsultantSearch] = useState("");
+  const [consultantResults, setConsultantResults] = useState<Consultant[]>([]);
+  const [searchingConsultant, setSearchingConsultant] = useState(false);
+  const [assigningConsultant, setAssigningConsultant] = useState(false);
+  const [removingConsultant, setRemovingConsultant] = useState(false);
 
   useEffect(() => {
     loadTenant();
@@ -253,6 +261,111 @@ export default function EditTenantPage() {
     } finally {
       setCreatingUser(false);
     }
+  };
+
+  const handleSearchConsultant = async () => {
+    if (!consultantSearch.trim()) return;
+
+    try {
+      setSearchingConsultant(true);
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Erro de autenticação");
+
+      const response = await fetch(
+        `/api/consultants/search?q=${encodeURIComponent(consultantSearch)}`,
+        {
+          headers: { Authorization: `Bearer ${idToken}` },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao buscar consultores");
+      }
+
+      setConsultantResults(data.data || []);
+    } catch (err: any) {
+      setError(err.message || "Erro ao buscar consultores");
+    } finally {
+      setSearchingConsultant(false);
+    }
+  };
+
+  const handleAssignConsultant = async (consultant: Consultant) => {
+    if (!confirm(`Deseja vincular o consultor "${consultant.name}" a esta clínica?`)) {
+      return;
+    }
+
+    try {
+      setAssigningConsultant(true);
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Erro de autenticação");
+
+      const response = await fetch(`/api/tenants/${tenantId}/consultant`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ consultant_id: consultant.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao vincular consultor");
+      }
+
+      setSuccess("Consultor vinculado com sucesso!");
+      setShowConsultantDialog(false);
+      setConsultantSearch("");
+      setConsultantResults([]);
+
+      // Recarregar tenant para atualizar dados do consultor
+      loadTenant();
+    } catch (err: any) {
+      setError(err.message || "Erro ao vincular consultor");
+    } finally {
+      setAssigningConsultant(false);
+    }
+  };
+
+  const handleRemoveConsultant = async () => {
+    if (!confirm("Tem certeza que deseja remover o consultor desta clínica?")) {
+      return;
+    }
+
+    try {
+      setRemovingConsultant(true);
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Erro de autenticação");
+
+      const response = await fetch(`/api/tenants/${tenantId}/consultant`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao remover consultor");
+      }
+
+      setSuccess("Consultor removido com sucesso!");
+
+      // Recarregar tenant para atualizar dados do consultor
+      loadTenant();
+    } catch (err: any) {
+      setError(err.message || "Erro ao remover consultor");
+    } finally {
+      setRemovingConsultant(false);
+    }
+  };
+
+  const copyConsultantCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setSuccess("Código copiado para a área de transferência");
   };
 
   const formatCNPJInput = (value: string) => {
@@ -450,6 +563,94 @@ export default function EditTenantPage() {
             {/* Informações de Pagamento */}
             {tenant && (
               <TenantPaymentInfo tenantId={tenantId} tenantName={tenant.name} />
+            )}
+
+            {/* Consultor Rennova */}
+            {tenant && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <UserCheck className="h-5 w-5 text-sky-600" />
+                        Consultor Rennova
+                      </CardTitle>
+                      <CardDescription>
+                        Consultor responsável por esta clínica
+                      </CardDescription>
+                    </div>
+                    {tenant.consultant_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowConsultantDialog(true)}
+                      >
+                        Alterar
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {tenant.consultant_id ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 border rounded-lg bg-sky-50/50">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-full bg-sky-100 flex items-center justify-center">
+                            <UserCheck className="h-6 w-6 text-sky-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-lg">{tenant.consultant_name}</p>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <span>Código:</span>
+                              <span className="font-mono font-bold text-sky-600">
+                                {tenant.consultant_code}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => copyConsultantCode(tenant.consultant_code || "")}
+                                title="Copiar código"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={handleRemoveConsultant}
+                          disabled={removingConsultant}
+                        >
+                          {removingConsultant ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <X className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="mx-auto h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                        <UserCheck className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground mb-4">
+                        Esta clínica não possui consultor vinculado
+                      </p>
+                      <Button
+                        onClick={() => setShowConsultantDialog(true)}
+                        className="bg-sky-600 hover:bg-sky-700"
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Configurar Consultor
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
             {/* Form */}
@@ -735,6 +936,90 @@ export default function EditTenantPage() {
               </Button>
               <Button onClick={handleCreateUser} disabled={creatingUser}>
                 {creatingUser ? "Criando..." : "Criar Usuário"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para buscar e vincular consultor */}
+        <Dialog open={showConsultantDialog} onOpenChange={setShowConsultantDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Configurar Consultor Rennova</DialogTitle>
+              <DialogDescription>
+                Busque um consultor por código, nome ou telefone para vincular a esta clínica
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Código, nome ou telefone do consultor"
+                  value={consultantSearch}
+                  onChange={(e) => setConsultantSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearchConsultant()}
+                />
+                <Button
+                  onClick={handleSearchConsultant}
+                  disabled={searchingConsultant || !consultantSearch.trim()}
+                >
+                  {searchingConsultant ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+
+              {consultantResults.length > 0 && (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {consultantResults.map((consultant) => (
+                    <div
+                      key={consultant.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                      onClick={() => handleAssignConsultant(consultant)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-sky-100 flex items-center justify-center">
+                          <UserCheck className="h-5 w-5 text-sky-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{consultant.name}</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="font-mono font-bold text-sky-600">
+                              {consultant.code}
+                            </span>
+                            <span>•</span>
+                            <span>{consultant.email}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant={consultant.status === "active" ? "default" : "destructive"}>
+                        {consultant.status === "active" ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {consultantResults.length === 0 && consultantSearch && !searchingConsultant && (
+                <div className="text-center py-6 text-muted-foreground">
+                  Nenhum consultor encontrado. Tente outro termo de busca.
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowConsultantDialog(false);
+                  setConsultantSearch("");
+                  setConsultantResults([]);
+                }}
+                disabled={assigningConsultant}
+              >
+                Cancelar
               </Button>
             </DialogFooter>
           </DialogContent>

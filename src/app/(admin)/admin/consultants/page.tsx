@@ -243,7 +243,6 @@ export default function ConsultantsListPage() {
                       <TableHead>Código</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Contato</TableHead>
-                      <TableHead>CPF</TableHead>
                       <TableHead>Clínicas</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Criado em</TableHead>
@@ -279,14 +278,6 @@ export default function ConsultantsListPage() {
                               {consultant.phone}
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-mono text-sm">
-                            {consultant.cpf.replace(
-                              /(\d{3})(\d{3})(\d{3})(\d{2})/,
-                              "$1.$2.$3-$4"
-                            )}
-                          </span>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">

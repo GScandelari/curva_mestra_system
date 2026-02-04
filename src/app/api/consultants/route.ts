@@ -36,41 +36,6 @@ async function generateUniqueCode(): Promise<string> {
 }
 
 /**
- * Limpa documento (remove formatação)
- */
-function cleanDocument(doc: string): string {
-  return doc.replace(/\D/g, "");
-}
-
-/**
- * Valida CPF
- */
-function validateCPF(cpf: string): boolean {
-  const cleanCpf = cleanDocument(cpf);
-
-  if (cleanCpf.length !== 11) return false;
-  if (/^(\d)\1+$/.test(cleanCpf)) return false;
-
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(cleanCpf.charAt(i)) * (10 - i);
-  }
-  let remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(cleanCpf.charAt(9))) return false;
-
-  sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(cleanCpf.charAt(i)) * (11 - i);
-  }
-  remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(cleanCpf.charAt(10))) return false;
-
-  return true;
-}
-
-/**
  * Gera o HTML do e-mail de boas-vindas para o consultor
  */
 function generateConsultantWelcomeEmail(
@@ -228,32 +193,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, email, phone, cpf } = body;
+    const { name, email, phone } = body;
 
     // Validar campos obrigatórios
-    if (!name || !email || !phone || !cpf) {
+    if (!name || !email || !phone) {
       return NextResponse.json(
-        { error: "Todos os campos são obrigatórios: name, email, phone, cpf" },
-        { status: 400 }
-      );
-    }
-
-    // Limpar e validar CPF
-    const cpfClean = cleanDocument(cpf);
-    if (!validateCPF(cpfClean)) {
-      return NextResponse.json({ error: "CPF inválido" }, { status: 400 });
-    }
-
-    // Verificar duplicidade de CPF
-    const existingByCpf = await adminDb
-      .collection("consultants")
-      .where("cpf", "==", cpfClean)
-      .limit(1)
-      .get();
-
-    if (!existingByCpf.empty) {
-      return NextResponse.json(
-        { error: "Já existe um consultor com este CPF" },
+        { error: "Todos os campos são obrigatórios: name, email, phone" },
         { status: 400 }
       );
     }
@@ -306,7 +251,6 @@ export async function POST(req: NextRequest) {
       name,
       email: emailLower,
       phone,
-      cpf: cpfClean,
       status: "active",
       authorized_tenants: [],
       created_at: FieldValue.serverTimestamp(),

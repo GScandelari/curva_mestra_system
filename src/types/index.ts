@@ -391,7 +391,6 @@ export interface Consultant {
   name: string;
   email: string;
   phone: string;
-  cpf: string;                        // Documento do consultor
   status: ConsultantStatus;
   authorized_tenants: string[];       // Lista de tenant_ids autorizados
   created_at: Timestamp;

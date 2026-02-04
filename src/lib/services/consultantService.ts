@@ -26,7 +26,7 @@ import type {
   ConsultantClaimStatus,
   Tenant,
 } from "@/types";
-import { cleanDocument, validateCPF } from "@/lib/utils/documentValidation";
+import { cleanDocument } from "@/lib/utils/documentValidation";
 
 const CONSULTANTS_COLLECTION = "consultants";
 const CONSULTANT_CLAIMS_COLLECTION = "consultant_claims";
@@ -69,29 +69,9 @@ export async function createConsultant(data: {
   name: string;
   email: string;
   phone: string;
-  cpf: string;
   created_by: string;
 }): Promise<{ success: boolean; message: string; consultant?: Consultant }> {
   try {
-    // Limpar e validar CPF
-    const cpfClean = cleanDocument(data.cpf);
-    if (!validateCPF(cpfClean)) {
-      return { success: false, message: "CPF inválido" };
-    }
-
-    // Verificar se já existe consultor com este CPF
-    const existingByCpf = await getDocs(
-      query(
-        collection(db, CONSULTANTS_COLLECTION),
-        where("cpf", "==", cpfClean),
-        limit(1)
-      )
-    );
-
-    if (!existingByCpf.empty) {
-      return { success: false, message: "Já existe um consultor com este CPF" };
-    }
-
     // Verificar se já existe consultor com este email
     const existingByEmail = await getDocs(
       query(
@@ -114,7 +94,6 @@ export async function createConsultant(data: {
       name: data.name,
       email: data.email.toLowerCase(),
       phone: data.phone,
-      cpf: cpfClean,
       status: "active",
       authorized_tenants: [],
       created_at: serverTimestamp() as Timestamp,

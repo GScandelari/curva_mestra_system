@@ -28,18 +28,9 @@ export default function NewConsultantPage() {
     name: "",
     email: "",
     phone: "",
-    cpf: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const formatCPF = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 11);
-    return digits
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d{1,2})/, "$1-$2");
-  };
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -56,9 +47,7 @@ export default function NewConsultantPage() {
   const handleChange = (field: string, value: string) => {
     let formattedValue = value;
 
-    if (field === "cpf") {
-      formattedValue = formatCPF(value);
-    } else if (field === "phone") {
+    if (field === "phone") {
       formattedValue = formatPhone(value);
     } else if (field === "name") {
       formattedValue = value.toUpperCase();
@@ -87,12 +76,6 @@ export default function NewConsultantPage() {
       newErrors.phone = "Telefone inválido";
     }
 
-    if (!formData.cpf.trim()) {
-      newErrors.cpf = "CPF é obrigatório";
-    } else if (formData.cpf.replace(/\D/g, "").length !== 11) {
-      newErrors.cpf = "CPF deve ter 11 dígitos";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -117,7 +100,6 @@ export default function NewConsultantPage() {
           name: formData.name,
           email: formData.email.toLowerCase(),
           phone: formData.phone,
-          cpf: formData.cpf.replace(/\D/g, ""),
         }),
       });
 
@@ -190,7 +172,7 @@ export default function NewConsultantPage() {
                 onClick={() => {
                   setSuccess(false);
                   setCreatedConsultant(null);
-                  setFormData({ name: "", email: "", phone: "", cpf: "" });
+                  setFormData({ name: "", email: "", phone: "" });
                 }}
               >
                 Cadastrar Outro
@@ -268,32 +250,17 @@ export default function NewConsultantPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone *</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => handleChange("phone", e.target.value)}
-                    placeholder="(00) 00000-0000"
-                  />
-                  {errors.phone && (
-                    <p className="text-sm text-destructive">{errors.phone}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cpf">CPF *</Label>
-                  <Input
-                    id="cpf"
-                    value={formData.cpf}
-                    onChange={(e) => handleChange("cpf", e.target.value)}
-                    placeholder="000.000.000-00"
-                  />
-                  {errors.cpf && (
-                    <p className="text-sm text-destructive">{errors.cpf}</p>
-                  )}
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Telefone *</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => handleChange("phone", e.target.value)}
+                  placeholder="(00) 00000-0000"
+                />
+                {errors.phone && (
+                  <p className="text-sm text-destructive">{errors.phone}</p>
+                )}
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4">

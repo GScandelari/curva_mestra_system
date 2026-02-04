@@ -240,15 +240,6 @@ export default function ConsultantDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">CPF:</span>
-                <span className="font-mono">
-                  {consultant.cpf.replace(
-                    /(\d{3})(\d{3})(\d{3})(\d{2})/,
-                    "$1.$2.$3-$4"
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Criado em:</span>
                 <span>{formatTimestamp(consultant.created_at)}</span>
               </div>
