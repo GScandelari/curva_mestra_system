@@ -9,12 +9,35 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Formata Firestore Timestamp ou Date para string legível
+ * Suporta: Timestamp instance, Date instance, serialized timestamp ({_seconds, _nanoseconds}), date string
  */
-export function formatTimestamp(timestamp: Timestamp | Date | undefined | null): string {
+export function formatTimestamp(timestamp: Timestamp | Date | { _seconds: number; _nanoseconds: number } | string | undefined | null): string {
   if (!timestamp) return "-";
 
   try {
-    const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
+    let date: Date;
+
+    if (timestamp instanceof Timestamp) {
+      // Firestore Timestamp instance
+      date = timestamp.toDate();
+    } else if (timestamp instanceof Date) {
+      // Date instance
+      date = timestamp;
+    } else if (typeof timestamp === "object" && "_seconds" in timestamp) {
+      // Serialized Firestore timestamp from API (JSON)
+      date = new Date(timestamp._seconds * 1000);
+    } else if (typeof timestamp === "string") {
+      // Date string
+      date = new Date(timestamp);
+    } else {
+      return "-";
+    }
+
+    // Verificar se a data é válida
+    if (isNaN(date.getTime())) {
+      return "-";
+    }
+
     return new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
       month: "2-digit",
