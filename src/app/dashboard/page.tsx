@@ -28,6 +28,8 @@ export default function DashboardPage() {
         router.push("/admin/dashboard");
       } else if (claims.role === "clinic_admin" || claims.role === "clinic_user") {
         router.push("/clinic/dashboard");
+      } else if (claims.role === "clinic_consultant") {
+        router.push("/consultant/dashboard");
       }
       // Se não tiver role, permanece nesta página de debug
     }
