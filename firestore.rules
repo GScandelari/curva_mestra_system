@@ -30,7 +30,9 @@ service cloud.firestore {
 
     // Função helper para verificar se consultor tem acesso ao tenant
     function consultantHasAccess(tenantId) {
-      return isConsultant() && tenantId in request.auth.token.authorized_tenants;
+      return isConsultant()
+        && request.auth.token.authorized_tenants != null
+        && tenantId in request.auth.token.authorized_tenants;
     }
 
     // REGRAS MULTI-TENANT - OBRIGATÓRIO
