@@ -48,6 +48,7 @@ export default function EditRequestPage() {
           pacienteCodigo: data.paciente_codigo,
           pacienteNome: data.paciente_nome,
           dtProcedimento: data.dt_procedimento.toDate().toISOString().split('T')[0],
+          createdAt: data.created_at.toDate().toISOString().split('T')[0],
           observacoes: data.observacoes || "",
           produtos: JSON.stringify(data.produtos_solicitados.map(p => ({
             inventory_item_id: p.inventory_item_id,

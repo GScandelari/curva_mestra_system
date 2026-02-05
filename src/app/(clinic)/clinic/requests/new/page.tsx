@@ -88,6 +88,7 @@ export default function NovaSolicitacaoPage() {
   // Modo de edição
   const editId = searchParams.get("edit");
   const isEditMode = !!editId;
+  const createdAtParam = searchParams.get("createdAt"); // Data de criação do procedimento original
 
   // Pegar parâmetros da URL para pré-preenchimento
   const patientCodeParam = searchParams.get("patientCode") || searchParams.get("pacienteCodigo");
@@ -341,6 +342,19 @@ export default function NovaSolicitacaoPage() {
     const dataHojeString = `${anoHoje}-${mesHoje}-${diaHoje}`;
 
     if (dtProcedimento < dataHojeString) {
+      // Em modo de edição, permitir data no passado APENAS se a data de criação
+      // do procedimento for anterior à data do procedimento.
+      // Isso permite fazer correções na lista de produtos de procedimentos
+      // que já passaram, desde que foram agendados antes da data do procedimento.
+      if (isEditMode && createdAtParam) {
+        // Se a data de criação for anterior à data do procedimento, permitir edição
+        if (createdAtParam < dtProcedimento) {
+          // Permitido: foi agendado antes da data do procedimento
+          setError("");
+          return true;
+        }
+      }
+
       setError("Data do procedimento não pode ser no passado");
       return false;
     }
