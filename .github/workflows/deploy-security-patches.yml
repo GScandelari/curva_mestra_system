@@ -50,7 +50,7 @@ jobs:
           npx tsc
 
       - name: Deploy to Firebase Hosting
-        run: firebase deploy --only hosting --token "$FIREBASE_TOKEN"
+        run: firebase deploy --only hosting --token "$FIREBASE_TOKEN" --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           FIREBASE_ADMIN_CREDENTIALS: ${{ secrets.FIREBASE_ADMIN_CREDENTIALS }}
@@ -63,10 +63,26 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APP_ID: 1:521885400577:web:e4eed211455f2976618a00
           NEXT_PUBLIC_USE_FIREBASE_EMULATORS: false
 
+      - name: Upload Hosting Debug Log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-hosting-debug-log
+          path: firebase-hosting-debug.log
+          retention-days: 7
+
       - name: Deploy Firebase Functions
-        run: firebase deploy --only functions --token "$FIREBASE_TOKEN"
+        run: firebase deploy --only functions --token "$FIREBASE_TOKEN" --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Upload Functions Debug Log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-functions-debug-log
+          path: firebase-functions-debug.log
+          retention-days: 7
 
       - name: Deployment Summary
         run: |
