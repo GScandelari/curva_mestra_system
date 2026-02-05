@@ -27,7 +27,7 @@ interface Clinic {
 
 export default function ConsultantClinicsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshClaims } = useAuth();
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,6 +52,8 @@ export default function ConsultantClinicsPage() {
       const data = await response.json();
       if (response.ok) {
         setClinics(data.data || []);
+        // Refresh claims to sync authorized_tenants from server
+        await refreshClaims();
       }
     } catch (error) {
       console.error("Erro ao carregar clínicas:", error);

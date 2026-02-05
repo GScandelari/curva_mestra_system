@@ -31,7 +31,7 @@ interface ClinicSummary {
 
 export default function ConsultantDashboardPage() {
   const router = useRouter();
-  const { user, consultantId } = useAuth();
+  const { user, consultantId, refreshClaims } = useAuth();
   const { toast } = useToast();
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [clinics, setClinics] = useState<ClinicSummary[]>([]);
@@ -67,6 +67,8 @@ export default function ConsultantDashboardPage() {
       const clinicsData = await clinicsRes.json();
       if (clinicsRes.ok) {
         setClinics(clinicsData.data || []);
+        // Refresh claims to sync authorized_tenants from server
+        await refreshClaims();
       }
 
       // Load pending claims

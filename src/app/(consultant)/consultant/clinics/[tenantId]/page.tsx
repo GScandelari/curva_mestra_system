@@ -54,7 +54,7 @@ export default function ClinicDetailPage() {
   const router = useRouter();
   const params = useParams();
   const tenantId = params.tenantId as string;
-  const { user, authorizedTenants } = useAuth();
+  const { user, authorizedTenants, loading: authLoading, claims } = useAuth();
 
   const [tenant, setTenant] = useState<TenantDetails | null>(null);
   const [stats, setStats] = useState<InventoryStats>({
@@ -66,16 +66,21 @@ export default function ClinicDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check authorization
-    if (authorizedTenants && !authorizedTenants.includes(tenantId)) {
-      router.push("/consultant/clinics");
-      return;
-    }
+    // Wait for auth to load before checking authorization
+    if (authLoading) return;
 
-    if (user && tenantId) {
-      loadTenantData();
+    // Check authorization only after claims are loaded
+    if (claims) {
+      if (!authorizedTenants.includes(tenantId)) {
+        router.push("/consultant/clinics");
+        return;
+      }
+      // Authorized - load data
+      if (user && tenantId) {
+        loadTenantData();
+      }
     }
-  }, [user, tenantId, authorizedTenants]);
+  }, [user, tenantId, authorizedTenants, authLoading, claims]);
 
   const loadTenantData = async () => {
     if (!user) return;
@@ -206,7 +211,7 @@ export default function ClinicDetailPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="container py-8">
         <div className="flex items-center justify-center h-64">
