@@ -1,237 +1,155 @@
 # Curva Mestra
 
-Sistema SaaS Multi-Tenant para Clínicas de Harmonização Facial e Corporal
+Sistema SaaS Multi-Tenant para Clínicas de Harmonização Facial e Corporal.
 
-## 📋 Stack Tecnológica
+Gestão inteligente de estoque Rennova com controle de lotes, validades, licenças e consumo por paciente.
 
-- **Frontend**: Next.js 15 (App Router) + TypeScript + Tailwind CSS + Shadcn/ui
-- **Backend**: Firebase Functions 2nd gen (TypeScript + Python 3.11)
-- **Banco**: Firestore in Native Mode (multi-tenant com RLS)
-- **Auth**: Firebase Authentication + Custom Claims
-- **Storage**: Firebase Storage
-- **OCR + IA**: Python (pytesseract) + Vertex AI Gemini 1.5 Flash
+## Stack Tecnológica
 
-## 🚀 Início Rápido
+| Camada | Tecnologia |
+|--------|------------|
+| **Frontend** | Next.js 15 (App Router) + TypeScript + Tailwind CSS + Shadcn/ui |
+| **Backend** | Firebase Functions 2nd gen (TypeScript) |
+| **Banco de Dados** | Firestore (multi-tenant com RLS) |
+| **Autenticação** | Firebase Auth + Custom Claims |
+| **Storage** | Firebase Storage |
+| **Deploy** | Firebase Hosting + GitHub Actions |
+
+## Funcionalidades
+
+### Portal System Admin
+- Dashboard com métricas do sistema
+- Gestão completa de clínicas (CRUD)
+- Gestão de usuários por clínica
+- Catálogo de produtos master Rennova
+- Sistema de licenças e planos
+- Gestão de consultores
+
+### Portal Clinic Admin
+- Dashboard com métricas em tempo real
+- Gestão de inventário com alertas de vencimento
+- Sistema de procedimentos (agendamento, execução, histórico)
+- Gestão de pacientes
+- Relatórios (valor de estoque, vencimentos, consumo)
+- Onboarding guiado para novas clínicas
+- Vinculação com consultores
+
+### Portal do Consultor
+- Dashboard com clínicas vinculadas
+- Visualização read-only de dados das clínicas
+- Acesso a inventário, procedimentos e relatórios
+- Sistema de solicitação de vínculo com clínicas
+
+### Segurança Multi-Tenant
+- Isolamento completo de dados por clínica
+- Custom Claims para controle de acesso
+- Regras Firestore com RLS (Row Level Security)
+- Três níveis de acesso: system_admin, clinic_admin, clinic_user, clinic_consultant
+
+## Início Rápido
 
 ### Pré-requisitos
 
-- Node.js 22.x (instalado via nvm)
-- Python 3.11+
-- Firebase CLI
+- Node.js 20+
+- Firebase CLI (`npm install -g firebase-tools`)
 
 ### Instalação
 
-1. **Clone o repositório**
 ```bash
+# Clone o repositório
 git clone git@github.com:GScandelari/curva_mestra_system.git
 cd curva_mestra
-```
 
-2. **Instale as dependências do Next.js**
-```bash
+# Instale as dependências
 npm install
-```
 
-3. **Instale as dependências das Functions**
-```bash
-cd functions
-npm install
-cd ..
-```
+# Instale as dependências das Functions
+cd functions && npm install && cd ..
 
-4. **Configure as variáveis de ambiente**
-```bash
+# Configure as variáveis de ambiente
 cp .env.example .env.local
+# Edite .env.local com suas credenciais do Firebase
 ```
 
-Edite `.env.local` e adicione suas credenciais do Firebase (disponíveis em Firebase Console > Project Settings).
+### Desenvolvimento Local
 
-5. **Inicie os emuladores Firebase**
 ```bash
+# Inicie os emuladores Firebase
 firebase emulators:start
-```
 
-6. **Em outro terminal, inicie o Next.js**
-```bash
+# Em outro terminal, inicie o Next.js
 npm run dev
 ```
 
-Acesse `http://localhost:3000`
+Acesse http://localhost:3000
 
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 curva_mestra/
 ├── src/
-│   ├── app/              # Next.js 15 App Router
-│   │   ├── (auth)/       # Rotas públicas
-│   │   ├── (admin)/      # System admin
-│   │   └── (clinic)/     # Clinic admin + user
-│   ├── components/       # UI reutilizáveis (shadcn)
-│   ├── lib/              # firebase.ts, utils
-│   ├── hooks/            # React hooks customizados
-│   └── types/            # TypeScript types
-├── functions/
-│   └── src/
-│       ├── index.ts      # Cloud Functions TypeScript
-│       └── ocr-rennova.py # Parser DANFE Rennova
-├── firestore.rules       # Regras de segurança multi-tenant
-├── firestore.indexes.json
-├── storage.rules
-└── firebase.json
+│   ├── app/                    # Next.js 15 App Router
+│   │   ├── (auth)/             # Rotas públicas (login, registro)
+│   │   ├── (admin)/            # Portal System Admin
+│   │   ├── (clinic)/           # Portal Clinic Admin
+│   │   └── (consultant)/       # Portal do Consultor
+│   ├── components/             # Componentes UI (shadcn)
+│   ├── lib/                    # Utilitários e serviços
+│   ├── hooks/                  # React hooks customizados
+│   └── types/                  # TypeScript types
+├── functions/                  # Firebase Cloud Functions
+├── docs/                       # Documentação
+├── scripts/                    # Scripts de manutenção
+└── dev-tools/                  # Ferramentas de desenvolvimento
 ```
 
-## ✨ Funcionalidades Implementadas
+## Deploy
 
-### Sistema de Autenticação (100% ✅)
-- ✅ Login com email/senha
-- ✅ Registro de novos usuários
-- ✅ Recuperação de senha
-- ✅ Proteção de rotas baseada em roles
-- ✅ Custom Claims (tenant_id, role, is_system_admin)
-- ✅ Página de aguardo de aprovação
+O deploy é automatizado via GitHub Actions ao fazer push na branch `master`.
 
-### Portal System Admin (98% ✅)
-- ✅ Dashboard com métricas do sistema
-- ✅ CRUD completo de clínicas
-- ✅ Gestão de usuários por clínica
-- ✅ **Catálogo de Produtos Master Rennova**
-- ✅ Criação e edição de produtos do catálogo
-- ✅ Ativação/Desativação de produtos e clínicas
-- ✅ Sistema de planos (Basic, Professional, Enterprise)
-- ✅ Perfil do administrador
-
-### Portal Clinic Admin (90% ✅)
-- ✅ Dashboard com métricas em tempo real
-- ✅ Sistema completo de inventário
-- ✅ Upload de DANFE (Nota Fiscal Eletrônica)
-- ✅ Alertas de vencimento de produtos
-- ✅ Filtros inteligentes (vencendo, estoque baixo, esgotado)
-- ✅ Busca em tempo real por código, nome, lote
-- ✅ Exportação de dados em CSV
-- ✅ Perfil do usuário da clínica
-
-### Gestão de Produtos
-- ✅ Catálogo Master centralizado (sem multi-tenant)
-- ✅ Validação de código único
-- ✅ Soft delete (ativação/desativação)
-- ✅ Busca e filtros em tempo real
-- ✅ Inventário por clínica com rastreamento completo
-
-### Gestão de Usuários
-- ✅ Criação de usuários por clínica
-- ✅ Limite de usuários baseado no plano
-- ✅ Roles (clinic_admin, clinic_user, system_admin)
-- ✅ Integração com Firebase Auth
-
-**📋 Veja [FEATURES.md](./FEATURES.md) para documentação completa (atualizada em 11/11/2025)**
-**📝 Veja [CHANGELOG.md](./CHANGELOG.md) para histórico de versões**
-
-## 🔐 Multi-Tenant (CRÍTICO)
-
-**TODAS** as operações Firestore e Storage devem incluir `tenant_id`.
-
-### Custom Claims
-```typescript
-{
-  tenant_id: "clinic_abc123",
-  role: "clinic_admin" | "clinic_user" | "system_admin",
-  is_system_admin: boolean,
-  active: boolean
-}
-```
-
-### Regras Firestore
-```javascript
-match /tenants/{tenantId}/{document=**} {
-  allow read, write: if request.auth.token.tenant_id == tenantId
-    && request.auth.token.active == true;
-}
-```
-
-## 🧪 Testes
-
-### Testar Parser DANFE Rennova
-```bash
-python functions/src/ocr-rennova.py --text "..."
-```
-
-### Testar com NF-e 026229 (referência oficial)
-```bash
-python functions/src/ocr-rennova.py --file "samples/026229.pdf"
-```
-
-## 🚀 Deploy
-
-### Deploy completo
-```bash
-firebase deploy
-```
-
-### Deploy apenas Functions
-```bash
-firebase deploy --only functions
-```
-
-### Deploy apenas Hosting
-```bash
-npm run build
-firebase deploy --only hosting
-```
-
-## 📝 Regras Importantes
-
-⚠️ **NUNCA** quebre o multi-tenant
-⚠️ **NUNCA** altere as RegEx do parser Rennova sem testar com NF-e 026229
-⚠️ **NUNCA** faça deploy sem testar localmente nos emuladores
-
-## 🔧 Comandos Úteis
+Para deploy manual:
 
 ```bash
-# Desenvolvimento local com emuladores
-firebase emulators:start
-
 # Build do Next.js
 npm run build
 
-# Verificar tipos TypeScript
-npm run type-check
+# Deploy completo
+firebase deploy
 
-# Logs das Functions em produção
-firebase functions:log
+# Deploy apenas hosting
+firebase deploy --only hosting
+
+# Deploy apenas functions
+firebase deploy --only functions
+
+# Deploy apenas regras do Firestore
+firebase deploy --only firestore:rules
 ```
 
-## 📚 Documentação
+## Documentação
 
-- [FEATURES.md](./FEATURES.md) - **Funcionalidades implementadas** (✅ atualizado em 11/11/2025)
-- [CHANGELOG.md](./CHANGELOG.md) - **Histórico de versões** (✅ v0.3.0 - 11/11/2025)
-- [INITIAL.md](./INITIAL.md) - Configuração inicial do projeto
-- [CLAUDE.md](./CLAUDE.md) - Regras completas do projeto
-- [Firebase Console](https://console.firebase.google.com/project/curva-mestra)
-- [Next.js 15 Docs](https://nextjs.org/docs)
+- [docs/features/](./docs/features/) - Funcionalidades e roadmap
+- [docs/legal/](./docs/legal/) - Documentos legais (termos de uso)
+- [CLAUDE.md](./CLAUDE.md) - Instruções para desenvolvimento com IA
+- [CHANGELOG.md](./CHANGELOG.md) - Histórico de versões
 
-## 📊 Status do Projeto
+## Roles e Permissões
 
-**Versão Atual**: 0.3.0
-**Progresso Geral**: 80% Completo
-**Páginas**: 20
-**Serviços**: 7
-**Linhas de código**: ~8.000+
+| Role | Descrição |
+|------|-----------|
+| `system_admin` | Administrador do sistema, acesso total |
+| `clinic_admin` | Administrador da clínica, gestão completa |
+| `clinic_user` | Usuário da clínica, acesso limitado |
+| `clinic_consultant` | Consultor, acesso read-only a múltiplas clínicas |
 
-**Sistema de Autenticação**: ✅ 100%
-**Portal System Admin**: ✅ 98%
-**Portal Clinic Admin**: ✅ 90%
-**Sistema de Inventário**: ✅ 100%
-**Sistema de Upload**: ✅ 85% (falta OCR real)
-**Sistema de Solicitações**: ⏳ 0%
-
-## 🤝 Contribuição
+## Contribuição
 
 Este projeto segue Conventional Commits:
 - `feat:` nova funcionalidade
 - `fix:` correção de bug
 - `chore:` tarefas de manutenção
+- `docs:` documentação
 
-## 📄 Licença
+## Licença
 
-Projeto privado - Curva Mestra © 2025
+Projeto privado - Curva Mestra © 2025-2026
