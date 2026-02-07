@@ -89,8 +89,6 @@
       "Bash(timeout 20 firebase deploy:*)",
       "Bash(gh workflow:*)",
       "Bash(npx tsc:*)",
-      "Bash(indisponível no momento. Procure o administrador da clínica ou entre)",
-      "Bash(em contato com o suporte técnico Curva Mestra.\"\n- clinic_admin: Can only access /clinic/my-clinic and /clinic/profile\n- system_admin: Never blocked\n\nChanges:\n- useTenantSuspension: Added isInactive flag to monitor tenant.active\n- SuspensionInterceptor: Added logic to restrict clinic_admin routes\n  when clinic is inactive \\(not suspended\\)\n- login/page.tsx: Added check for clinic status, blocks clinic_user\n  with custom message and logs them out\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(openssl genpkey:*)",
       "Bash(openssl rsa:*)",
       "WebFetch(domain:github.com)",
@@ -104,7 +102,7 @@
       "Bash(python3:*)",
       "Bash(printf:*)",
       "WebFetch(domain:status.cloud.google.com)",
-      "Bash(gh issue create --repo firebase/firebase-tools --title \"Internal error during firebase deploy --only hosting with Next.js 15\" --body \"$\\(cat <<''EOF''\n## Environment info\n\n- **firebase-tools version:** latest \\(used in GitHub Actions\\)\n- **Platform:** GitHub Actions \\(ubuntu-latest\\)\n- **Node version:** 20\n- **Next.js version:** 15.5.9\n- **Firebase SDK version:** 11.1.0\n\n## Steps to reproduce\n\n1. Run `firebase deploy --only hosting` for a Next.js 15 project\n2. Build completes successfully\n3. Deploy fails at the final step\n\n## Expected behavior\n\nDeploy should complete successfully.\n\n## Actual behavior\n\nDeploy fails with:\n```\nError: An Internal error has occurred. Please try again in a few minutes. If this error persists, please open an issue at https://github.com/firebase/firebase-tools\n```\n\nThe error occurs after:\n```\ni  functions: generating the service identity for pubsub.googleapis.com...\ni  functions: generating the service identity for eventarc.googleapis.com...\n```\n\n## Additional context\n\n- The build phase completes successfully \\(74 static pages generated\\)\n- The error has persisted for several hours across multiple retry attempts\n- Previous deploys to the same project worked fine\n- The function being deployed is `ssrcurvamestra` \\(SSR for Next.js\\)\n\nFull log output shows the deploy reaches the final stage before failing:\n```\ni  functions: packaged .firebase/curva-mestra/functions \\(85.07 MB\\) for uploading\ni  functions: ensuring required API run.googleapis.com is enabled...\ni  functions: ensuring required API eventarc.googleapis.com is enabled...\ni  functions: ensuring required API pubsub.googleapis.com is enabled...\ni  functions: ensuring required API storage.googleapis.com is enabled...\n✔  functions: required API eventarc.googleapis.com is enabled\n✔  functions: required API storage.googleapis.com is enabled\n✔  functions: required API pubsub.googleapis.com is enabled\n✔  functions: required API run.googleapis.com is enabled\ni  functions: generating the service identity for pubsub.googleapis.com...\ni  functions: generating the service identity for eventarc.googleapis.com...\n\nError: An Internal error has occurred.\n```\nEOF\n\\)\")"
+      "WebFetch(domain:curvamestra.com.br)"
     ],
     "deny": [],
     "ask": []
