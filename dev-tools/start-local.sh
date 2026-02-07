@@ -150,8 +150,8 @@ echo ""
 echo -e "${YELLOW}⚠️  Pressione Ctrl+C para parar todos os serviços${NC}"
 echo ""
 
-# Iniciar Next.js (foreground)
-npm run dev
-
 # Cleanup ao sair
 trap "kill $FIREBASE_PID 2>/dev/null || true" EXIT
+
+# Iniciar Next.js (foreground)
+npm run dev
