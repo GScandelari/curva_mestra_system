@@ -68,3 +68,6 @@ keys/
 
 # Test files with credentials
 test-email.js
+
+# Docs obsoletos
+docs_old/
