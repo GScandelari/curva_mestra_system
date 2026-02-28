@@ -1,0 +1,7 @@
+licenses-new-documentation.md
+products-detail-documentation.md
+products-list-documentation.md
+products-new-documentation.md
+tenants-detail-documentation.md
+tenants-list-documentation.md
+tenants-new-documentation.md

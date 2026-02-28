@@ -3,8 +3,8 @@
 **Sistema:** Curva Mestra - Multi-Tenant SaaS para Clínicas de Harmonização
 **Módulo:** Administração do Sistema
 **Componente:** Solicitações de Acesso (`/admin/access-requests`)
-**Versão:** 1.1
-**Data:** 08/02/2026
+**Versão:** 1.2
+**Data:** 10/02/2026
 **Tipo:** Engenharia Reversa
 
 ---
@@ -651,6 +651,7 @@ export interface AccessRequest {
 |------|--------|-------|-----------|
 | 07/02/2026 | 1.0 | Engenharia Reversa | Documentação inicial |
 | 08/02/2026 | 1.1 | Engenharia Reversa | Reescrita completa seguindo template padrão (20 seções) |
+| 10/02/2026 | 1.2 | Engenharia Reversa | Revisão e atualização da documentação |
 
 ---
 
@@ -732,6 +733,6 @@ const result = await rejectAccessRequest(
 ---
 
 **Documento gerado por:** Engenharia Reversa (Claude)
-**Última atualização:** 08/02/2026
+**Última atualização:** 10/02/2026
 **Responsável:** Equipe de Desenvolvimento
 **Status:** Aprovado
