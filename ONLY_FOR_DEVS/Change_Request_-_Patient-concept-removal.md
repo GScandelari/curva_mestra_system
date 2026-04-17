@@ -5,6 +5,44 @@
 **Decisão Estratégica:** A clínica gerenciará apenas o consumo de produtos no inventário via procedimentos (solicitações). O cadastro e gestão de pacientes não é mais necessário.  
 **Status:** Aguardando execução  
 
+> **Processo:** Este change request deve ser executado seguindo os padrões definidos em [GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md](./GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md) — fonte única de verdade para Git Flow, commits e PRs do projeto.
+
+---
+
+## 0. Workflow de Execução (Git Flow)
+
+Antes de iniciar qualquer step, configure o ambiente conforme o SST:
+
+```bash
+# 1. Parta sempre do develop atualizado
+git checkout develop
+git pull origin develop
+
+# 2. Crie a branch de feature com nome padronizado
+git checkout -b feature/remove-patient-concept
+```
+
+**Convenção de commits durante a execução** (Conventional Commits):
+
+| Step | Tipo sugerido | Exemplo |
+|------|--------------|---------|
+| STEP 1 — Remover tipos e serviço | `refactor` | `refactor(types): remove patient types and patientService` |
+| STEP 2 — Adaptar solicitacaoService | `refactor` | `refactor(requests): remove patient fields from solicitacao model` |
+| STEP 3 — Wizard de criação | `refactor` | `refactor(requests): reduce wizard to 2 steps, remove patient selection` |
+| STEP 4 — Listagem | `refactor` | `refactor(requests): replace patient columns with description field` |
+| STEP 5 — Detalhe e edição | `refactor` | `refactor(requests): remove patient section from detail and edit pages` |
+| STEP 6 — Dashboard | `refactor` | `refactor(dashboard): remove patient stats cards and references` |
+| STEP 7 — Relatórios | `refactor` | `refactor(reports): remove por_paciente dimension from consumption report` |
+| STEP 8 — Módulo Consultor | `refactor` | `refactor(reports): remove patient columns from consultant views` |
+| STEP 9 — Menu e páginas | `refactor` | `refactor(ui): remove patients menu item and route` |
+| STEP 10 — Limpeza Firestore | `chore` | `chore(firebase): remove patient collections and obsolete indexes` |
+| STEP 11 — Documentação | `docs` | `docs: remove obsolete patient documentation` |
+
+**Abertura do PR:**
+- Target: branch `develop` (nunca diretamente para `master`)
+- Preencher o template de PR de `.github/pull_request_template.md`
+- Todos os status checks do CI devem passar antes do merge
+
 ---
 
 ## 1. Contexto e Objetivo

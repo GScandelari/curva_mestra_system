@@ -71,3 +71,6 @@ test-email.js
 
 # Docs obsoletos
 docs_old/
+
+#Claude
+.claude\settings.local.json
