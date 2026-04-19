@@ -19,10 +19,18 @@ if (!process.env.FIREBASE_AUTH_EMULATOR_HOST && !process.env.FIRESTORE_EMULATOR_
 
 const projectId = process.env.FIREBASE_PROJECT_ID || 'curva-mestra';
 
-// Senhas dos usuários de seed — lidas de .env.dev-tools, com defaults para emulador local
-const SEED_ADMIN_PASSWORD    = process.env.SEED_ADMIN_PASSWORD    || 'Admin123!';
-const SEED_ALPHA_PASSWORD    = process.env.SEED_ALPHA_PASSWORD    || 'Alpha123!';
-const SEED_BETA_PASSWORD     = process.env.SEED_BETA_PASSWORD     || 'Beta123!';
+const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+const SEED_ALPHA_PASSWORD = process.env.SEED_ALPHA_PASSWORD;
+const SEED_BETA_PASSWORD  = process.env.SEED_BETA_PASSWORD;
+
+if (!SEED_ADMIN_PASSWORD || !SEED_ALPHA_PASSWORD || !SEED_BETA_PASSWORD) {
+  console.error('\n❌ Variáveis de senha não definidas.');
+  console.error('   Configure em dev-tools/.env.dev-tools:');
+  console.error('   SEED_ADMIN_PASSWORD=...');
+  console.error('   SEED_ALPHA_PASSWORD=...');
+  console.error('   SEED_BETA_PASSWORD=...\n');
+  process.exit(1);
+}
 
 admin.initializeApp({ projectId });
 
