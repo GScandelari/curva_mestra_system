@@ -169,6 +169,64 @@ async function createTenant() {
   }
 }
 
+async function importRennovaProducts() {
+  console.log('── Importar Produtos Rennova (CSV) ─────────────────\n');
+
+  const defaultCsvPath = resolve(__dir, '../_lista_produtos_rennova_/lista_produtos_rennova.csv');
+  const inputPath = (await ask(`Caminho do CSV [${defaultCsvPath}]: `)).trim() || defaultCsvPath;
+
+  const { readFileSync: readFile } = await import('fs');
+  let csvContent;
+  try {
+    csvContent = readFile(inputPath, 'utf-8');
+  } catch {
+    console.error(`\n❌ Arquivo não encontrado: ${inputPath}`);
+    return;
+  }
+
+  const lines = csvContent.split('\n').filter((l) => l.trim());
+  const productLines = lines.slice(1); // pula cabeçalho
+  const validLines = productLines.filter((l) => {
+    const [codigo, nome] = l.split(';').map((s) => s.trim().replace(/"/g, ''));
+    return codigo && nome;
+  });
+
+  console.log(`\nAção: importar ${validLines.length} produtos para "produtos" no projeto "${serviceAccount.project_id}"`);
+  if (!(await confirmAction('Confirmar?'))) {
+    console.log('Cancelado.');
+    return;
+  }
+
+  const productsRef = db.collection('produtos');
+  let imported = 0;
+  let skipped = 0;
+
+  for (const line of validLines) {
+    const [codigo, nome] = line.split(';').map((s) => s.trim().replace(/"/g, ''));
+    const productRef = productsRef.doc(codigo);
+    const productDoc = await productRef.get();
+
+    if (!productDoc.exists) {
+      await productRef.set({
+        codigo,
+        nome,
+        ativo: true,
+        fornecedor: 'Rennova',
+        categoria: 'harmonizacao',
+        created_at: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
+      });
+      imported++;
+    } else {
+      skipped++;
+    }
+  }
+
+  console.log(`\n✅ Importação concluída!`);
+  console.log(`   Importados: ${imported}`);
+  console.log(`   Já existiam: ${skipped}`);
+}
+
 async function main() {
   header();
 
@@ -186,6 +244,7 @@ async function main() {
     console.log('Opções:');
     console.log('  1. Criar System Admin');
     console.log('  2. Criar Tenant inicial');
+    console.log('  3. Importar produtos Rennova (CSV)');
     console.log('  0. Sair\n');
 
     const choice = (await ask('Escolha: ')).trim();
@@ -193,6 +252,7 @@ async function main() {
 
     if (choice === '1') await createSystemAdmin();
     else if (choice === '2') await createTenant();
+    else if (choice === '3') await importRennovaProducts();
     else if (choice === '0') break;
     else console.log('Opção inválida.');
 
