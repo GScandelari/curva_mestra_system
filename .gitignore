@@ -69,5 +69,8 @@ keys/
 # Test files with credentials
 test-email.js
 
+# Dev tools local config (contains project ID — never commit)
+dev-tools/.env.dev-tools
+
 # Docs obsoletos
 docs_old/
