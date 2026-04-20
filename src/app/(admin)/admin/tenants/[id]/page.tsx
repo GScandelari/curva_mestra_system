@@ -134,43 +134,36 @@ export default function EditTenantPage() {
     }
   };
 
+  function validateTenantForm(): string | null {
+    if (!name.trim()) return 'Nome da clínica é obrigatório';
+    if (!validateDocument(cnpj)) return 'CPF/CNPJ inválido. Verifique os dígitos verificadores.';
+    if (!email.trim()) return 'Email é obrigatório';
+    const docType = getDocumentType(cnpj.replace(/\D/g, ''));
+    if (!docType) return 'Tipo de documento inválido';
+    return null;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    // Validações
-    if (!name.trim()) {
-      setError('Nome da clínica é obrigatório');
-      return;
-    }
-
-    if (!validateDocument(cnpj)) {
-      setError('CPF/CNPJ inválido. Verifique os dígitos verificadores.');
-      return;
-    }
-
-    if (!email.trim()) {
-      setError('Email é obrigatório');
+    const validationError = validateTenantForm();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setLoading(true);
     const documentNumbers = cnpj.replace(/\D/g, '');
-    const docType = getDocumentType(documentNumbers);
-
-    if (!docType) {
-      setError('Tipo de documento inválido');
-      setLoading(false);
-      return;
-    }
+    const docType = getDocumentType(documentNumbers)!;
 
     try {
       await updateTenant(tenantId, {
         name: name.trim(),
         document_type: docType,
         document_number: documentNumbers,
-        cnpj: documentNumbers, // Manter compatibilidade
+        cnpj: documentNumbers,
         max_users: docType === 'cpf' ? 1 : 5,
         email: email.trim(),
         phone: phone.trim(),
