@@ -86,7 +86,7 @@ function parseListaProdutos(filePath) {
       console.log(`📦 Grupo: ${grupoAtual}`);
     } else {
       // Produto: formato "CODIGO NOME DO PRODUTO"
-      const match = line.match(/^(\d+)\s+(.+)$/);
+      const match = line.match(/^(\d+)\s+([^\r\n]+)$/);
       if (match) {
         const codigo = match[1];
         const nome = match[2].trim();
