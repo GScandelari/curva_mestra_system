@@ -47,7 +47,7 @@ export const sendCustomEmail = functions.https.onCall(
     }
 
     // Validar formato de e-mail
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^@\s]+@[^@\s]+$/;
     if (!emailRegex.test(data.to)) {
       throw new functions.https.HttpsError('invalid-argument', 'Formato de e-mail inválido');
     }
