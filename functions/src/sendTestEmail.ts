@@ -24,6 +24,7 @@ export const sendTestEmail = onRequest(
         host: 'smtp.zoho.com',
         port: 587,
         secure: false,
+        requireTLS: true,
         auth: {
           user: smtpUser,
           pass: smtpPass,

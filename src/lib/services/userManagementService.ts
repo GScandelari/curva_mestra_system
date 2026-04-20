@@ -272,7 +272,9 @@ export async function createUserInvitation(
     }
 
     // 3. Gerar código de ativação (8 dígitos)
-    const activationCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+    const buf = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(buf);
+    const activationCode = String(10000000 + (buf[0] % 90000000));
 
     // 4. Criar convite na coleção de access_requests
     const invitationRef = await addDoc(collection(db, 'access_requests'), {

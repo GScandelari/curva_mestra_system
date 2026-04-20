@@ -4,6 +4,7 @@
  * POST - Criar consultor (system_admin)
  */
 
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import type { UserRole, Consultant } from '@/types';
@@ -17,7 +18,7 @@ async function generateUniqueCode(): Promise<string> {
   let attempts = 0;
 
   do {
-    code = String(Math.floor(100000 + Math.random() * 900000));
+    code = String(crypto.randomInt(100000, 1000000));
 
     const existing = await adminDb
       .collection('consultants')
@@ -106,7 +107,7 @@ function generateTempPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
   let password = '';
   for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
+    password += chars.charAt(crypto.randomInt(0, chars.length));
   }
   return password;
 }
