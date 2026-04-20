@@ -394,7 +394,7 @@ export default function NovaSolicitacaoPage() {
     produtoAgrupado: ProdutoAgrupado | undefined
   ): { title: string; description: string } | null {
     if (!code) return { title: 'Selecione um produto', description: 'Escolha um produto do inventário' };
-    if (isNaN(quantidade) || quantidade <= 0) return { title: 'Quantidade inválida', description: 'Informe uma quantidade válida' };
+    if (Number.isNaN(quantidade) || quantidade <= 0) return { title: 'Quantidade inválida', description: 'Informe uma quantidade válida' };
     if (!produtoAgrupado) return null;
     if (quantidade > produtoAgrupado.quantidade_total) return { title: 'Estoque insuficiente', description: `Disponível: ${produtoAgrupado.quantidade_total} unidades` };
     if (produtosSelecionados.some((p) => p.produto_codigo === code)) return { title: 'Produto já adicionado', description: 'Este produto já está na lista. Remova-o para adicionar novamente' };
