@@ -40,8 +40,9 @@ export async function generateUniqueCode(): Promise<string> {
   let attempts = 0;
 
   do {
-    // Gera número entre 100000 e 999999
-    code = String(Math.floor(100000 + Math.random() * 900000));
+    const buf = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(buf);
+    code = String(100000 + (buf[0] % 900000));
 
     const existing = await getDocs(
       query(collection(db, CONSULTANTS_COLLECTION), where('code', '==', code), limit(1))
