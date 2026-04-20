@@ -388,53 +388,31 @@ export default function NovaSolicitacaoPage() {
     return alocacoes;
   };
 
+  function validateProductSelection(
+    code: string,
+    quantidade: number,
+    produtoAgrupado: ProdutoAgrupado | undefined
+  ): { title: string; description: string } | null {
+    if (!code) return { title: 'Selecione um produto', description: 'Escolha um produto do inventário' };
+    if (Number.isNaN(quantidade) || quantidade <= 0) return { title: 'Quantidade inválida', description: 'Informe uma quantidade válida' };
+    if (!produtoAgrupado) return null;
+    if (quantidade > produtoAgrupado.quantidade_total) return { title: 'Estoque insuficiente', description: `Disponível: ${produtoAgrupado.quantidade_total} unidades` };
+    if (produtosSelecionados.some((p) => p.produto_codigo === code)) return { title: 'Produto já adicionado', description: 'Este produto já está na lista. Remova-o para adicionar novamente' };
+    return null;
+  }
+
   const handleAdicionarProduto = () => {
-    if (!selectedProductCode) {
-      toast({
-        title: 'Selecione um produto',
-        description: 'Escolha um produto do inventário',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     const quantidade = parseInt(quantidadeSolicitada);
-    if (isNaN(quantidade) || quantidade <= 0) {
-      toast({
-        title: 'Quantidade inválida',
-        description: 'Informe uma quantidade válida',
-        variant: 'destructive',
-      });
+    const produtoAgrupado = produtosAgrupados.find((p) => p.codigo_produto === selectedProductCode);
+
+    const validationError = validateProductSelection(selectedProductCode, quantidade, produtoAgrupado);
+    if (validationError) {
+      toast({ ...validationError, variant: 'destructive' });
       return;
     }
-
-    const produtoAgrupado = produtosAgrupados.find((p) => p.codigo_produto === selectedProductCode);
 
     if (!produtoAgrupado) return;
 
-    // Verificar se há estoque suficiente
-    if (quantidade > produtoAgrupado.quantidade_total) {
-      toast({
-        title: 'Estoque insuficiente',
-        description: `Disponível: ${produtoAgrupado.quantidade_total} unidades`,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Verificar se já foi adicionado
-    const jaAdicionado = produtosSelecionados.some((p) => p.produto_codigo === selectedProductCode);
-
-    if (jaAdicionado) {
-      toast({
-        title: 'Produto já adicionado',
-        description: 'Este produto já está na lista. Remova-o para adicionar novamente',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Alocar produto usando FEFO
     const alocacoes = alocarProdutoFEFO(selectedProductCode, quantidade);
 
     if (alocacoes.length === 0) {
@@ -485,99 +463,73 @@ export default function NovaSolicitacaoPage() {
     setStep('revisao');
   };
 
+  function buildProdutosPayload() {
+    return produtosSelecionados.map((p) => ({
+      inventory_item_id: p.inventory_item_id,
+      quantidade: p.quantidade_solicitada,
+    }));
+  }
+
+  async function submitEditMode(tenantId: string, editId: string, userName: string) {
+    const updatePayload: any = {
+      paciente_codigo: codigoPaciente,
+      paciente_nome: nomePaciente,
+      dt_procedimento: new Date(dtProcedimento),
+      produtos: buildProdutosPayload(),
+    };
+    if (observacoes) updatePayload.observacoes = observacoes;
+
+    const result = await updateSolicitacaoAgendada(tenantId, editId, user!.uid, userName, updatePayload);
+
+    if (result.success) {
+      toast({ title: 'Procedimento atualizado com sucesso!', description: 'As reservas de produtos foram ajustadas' });
+      router.push(`/clinic/requests/${editId}`);
+    } else {
+      toast({ title: 'Erro ao atualizar procedimento', description: result.error || 'Ocorreu um erro ao processar a atualização', variant: 'destructive' });
+    }
+  }
+
+  async function submitCreateMode(tenantId: string, userName: string) {
+    const input: CreateSolicitacaoInput = {
+      paciente_codigo: codigoPaciente,
+      paciente_nome: nomePaciente,
+      dt_procedimento: new Date(dtProcedimento),
+      produtos: buildProdutosPayload(),
+      observacoes: observacoes || undefined,
+    };
+
+    const result = await createSolicitacaoWithConsumption(tenantId, user!.uid, userName, input);
+
+    if (result.success) {
+      toast({ title: 'Procedimento criado com sucesso!', description: 'Os produtos foram reservados no inventário' });
+      router.push(`/clinic/requests/${result.solicitacaoId}`);
+    } else {
+      if (result.validationErrors && result.validationErrors.length > 0) {
+        setValidationErrors(result.validationErrors);
+        setStep('revisao');
+      }
+      toast({ title: 'Erro ao criar procedimento', description: result.error || 'Ocorreu um erro ao processar o procedimento', variant: 'destructive' });
+    }
+  }
+
   const handleConfirmarSolicitacao = async () => {
     if (!tenantId || !user) return;
+
+    const userName = user.displayName || user.email || 'Usuário';
 
     try {
       setSaving(true);
       setValidationErrors([]);
 
       if (isEditMode && editId) {
-        // Modo de edição: atualizar procedimento agendado
-        const updatePayload: any = {
-          paciente_codigo: codigoPaciente,
-          paciente_nome: nomePaciente,
-          dt_procedimento: new Date(dtProcedimento),
-          produtos: produtosSelecionados.map((p) => ({
-            inventory_item_id: p.inventory_item_id,
-            quantidade: p.quantidade_solicitada,
-          })),
-        };
-
-        // Só adicionar observações se houver valor
-        if (observacoes) {
-          updatePayload.observacoes = observacoes;
-        }
-
-        const result = await updateSolicitacaoAgendada(
-          tenantId,
-          editId,
-          user.uid,
-          user.displayName || user.email || 'Usuário',
-          updatePayload
-        );
-
-        if (result.success) {
-          toast({
-            title: 'Procedimento atualizado com sucesso!',
-            description: 'As reservas de produtos foram ajustadas',
-          });
-
-          router.push(`/clinic/requests/${editId}`);
-        } else {
-          toast({
-            title: 'Erro ao atualizar procedimento',
-            description: result.error || 'Ocorreu um erro ao processar a atualização',
-            variant: 'destructive',
-          });
-        }
+        await submitEditMode(tenantId, editId, userName);
       } else {
-        // Modo de criação: criar novo procedimento
-        const input: CreateSolicitacaoInput = {
-          paciente_codigo: codigoPaciente,
-          paciente_nome: nomePaciente,
-          dt_procedimento: new Date(dtProcedimento),
-          produtos: produtosSelecionados.map((p) => ({
-            inventory_item_id: p.inventory_item_id,
-            quantidade: p.quantidade_solicitada,
-          })),
-          observacoes: observacoes || undefined,
-        };
-
-        const result = await createSolicitacaoWithConsumption(
-          tenantId,
-          user.uid,
-          user.displayName || user.email || 'Usuário',
-          input
-        );
-
-        if (result.success) {
-          toast({
-            title: 'Procedimento criado com sucesso!',
-            description: 'Os produtos foram reservados no inventário',
-          });
-
-          router.push(`/clinic/requests/${result.solicitacaoId}`);
-        } else {
-          if (result.validationErrors && result.validationErrors.length > 0) {
-            setValidationErrors(result.validationErrors);
-            setStep('revisao'); // Voltar para revisão
-          }
-
-          toast({
-            title: 'Erro ao criar procedimento',
-            description: result.error || 'Ocorreu um erro ao processar o procedimento',
-            variant: 'destructive',
-          });
-        }
+        await submitCreateMode(tenantId, userName);
       }
     } catch (err: any) {
-      console.error(`Erro ao ${isEditMode ? 'atualizar' : 'criar'} procedimento:`, err);
-      toast({
-        title: `Erro ao ${isEditMode ? 'atualizar' : 'criar'} procedimento`,
-        description: 'Ocorreu um erro inesperado',
-        variant: 'destructive',
-      });
+      const action = isEditMode ? 'atualizar' : 'criar';
+      console.error(`Erro ao ${action} procedimento:`, err);
+      toast({ title: `Erro ao ${action} procedimento`, description: 'Ocorreu um erro inesperado', variant: 'destructive' });
     } finally {
       setSaving(false);
     }

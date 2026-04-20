@@ -58,6 +58,42 @@ function LoginForm() {
     }
   }, [isAuthenticated, authLoading, claims, router]);
 
+  async function handleInactiveClinic(role: unknown) {
+    if (role === 'clinic_user') {
+      await signOut();
+      setClinicInactiveMessage(true);
+      setLoading(false);
+      return true;
+    }
+    if (role === 'clinic_admin') {
+      router.push('/clinic/my-clinic');
+      return true;
+    }
+    return false;
+  }
+
+  async function checkClinicStatus(claims: Record<string, unknown>): Promise<boolean> {
+    if (claims.is_system_admin || !claims.tenant_id) return false;
+
+    const tenantDoc = await getDoc(doc(db, 'tenants', claims.tenant_id as string));
+    if (!tenantDoc.exists()) return false;
+
+    const isClinicActive = tenantDoc.data().active !== false;
+    if (isClinicActive) return false;
+
+    return handleInactiveClinic(claims.role);
+  }
+
+  function redirectByRole(claims: Record<string, unknown>) {
+    if (claims.is_system_admin) {
+      router.push('/admin/dashboard');
+    } else if (claims.role === 'clinic_admin' || claims.role === 'clinic_user') {
+      router.push('/clinic/dashboard');
+    } else {
+      router.push('/dashboard');
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -66,67 +102,31 @@ function LoginForm() {
     try {
       const result = await signIn(email, password);
 
-      if (result.success && result.user) {
-        // Forçar refresh do token para obter custom claims atualizados
-        await result.user.getIdToken(true);
-        const idTokenResult = await result.user.getIdTokenResult();
-        const claims = idTokenResult.claims;
-
-        // Verificar se usuário tem custom claims configurados
-        if (!claims.role || !claims.active) {
-          router.push('/waiting-approval');
-          return;
-        }
-
-        // Verificar se o usuário precisa trocar a senha (via custom claim)
-        if (claims.requirePasswordChange === true) {
-          router.push('/change-password');
-          return;
-        }
-
-        // Verificar status da clínica para usuários não-admin
-        if (!claims.is_system_admin && claims.tenant_id) {
-          const tenantDoc = await getDoc(doc(db, 'tenants', claims.tenant_id as string));
-          if (tenantDoc.exists()) {
-            const tenantData = tenantDoc.data();
-            const isClinicActive = tenantData.active !== false;
-
-            // Se a clínica está inativa
-            if (!isClinicActive) {
-              // clinic_user: mostrar mensagem e não permitir acesso
-              if (claims.role === 'clinic_user') {
-                // Fazer logout para não manter sessão ativa
-                await signOut();
-                setClinicInactiveMessage(true);
-                setLoading(false);
-                return;
-              }
-
-              // clinic_admin: redirecionar para my-clinic (acesso restrito)
-              if (claims.role === 'clinic_admin') {
-                router.push('/clinic/my-clinic');
-                return;
-              }
-            }
-          }
-        }
-
-        // Redirecionar baseado no role
-        if (claims.is_system_admin) {
-          router.push('/admin/dashboard');
-        } else if (claims.role === 'clinic_admin' || claims.role === 'clinic_user') {
-          router.push('/clinic/dashboard');
-        } else {
-          router.push('/dashboard');
-        }
-      } else {
-        // Traduzir erros comuns do Firebase
-        const errorMessage = translateFirebaseError(result.error || '');
-        setError(errorMessage);
+      if (!result.success || !result.user) {
+        setError(translateFirebaseError(result.error || ''));
+        return;
       }
+
+      await result.user.getIdToken(true);
+      const idTokenResult = await result.user.getIdTokenResult();
+      const claims = idTokenResult.claims;
+
+      if (!claims.role || !claims.active) {
+        router.push('/waiting-approval');
+        return;
+      }
+
+      if (claims.requirePasswordChange === true) {
+        router.push('/change-password');
+        return;
+      }
+
+      const redirectedForInactiveClinic = await checkClinicStatus(claims);
+      if (redirectedForInactiveClinic) return;
+
+      redirectByRole(claims);
     } catch (err: any) {
-      const errorMessage = translateFirebaseError(err.message);
-      setError(errorMessage);
+      setError(translateFirebaseError(err.message));
     } finally {
       setLoading(false);
     }

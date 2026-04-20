@@ -13,6 +13,55 @@ import {
 import { Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+async function fetchTenant(tenantId: string): Promise<Tenant | null> {
+  try {
+    const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
+    return tenantDoc.exists() ? ({ id: tenantDoc.id, ...tenantDoc.data() } as Tenant) : null;
+  } catch (error) {
+    console.error('Erro ao carregar tenant:', error);
+    return null;
+  }
+}
+
+function getPlanName(tenant: Tenant | null): string {
+  if (!tenant) return 'Standard';
+  return tenant.document_type === 'cpf' ? 'Autônomo' : 'Clínica';
+}
+
+function getMaxUsers(tenant: Tenant | null): number {
+  if (!tenant) return 5;
+  return tenant.max_users || (tenant.document_type === 'cpf' ? 1 : 5);
+}
+
+const BASE_FEATURES_NO_TENANT = [
+  'Gestão de Estoque com FEFO',
+  'Controle de Lotes e Validades',
+  'Cadastro de Pacientes',
+  'Histórico de Procedimentos',
+  'Solicitações de Produtos',
+  'Relatórios Básicos',
+];
+
+const BASE_FEATURES = [
+  ...BASE_FEATURES_NO_TENANT,
+  'Notificações de Vencimento',
+  'Alertas de Estoque Baixo',
+];
+
+function getFeatures(tenant: Tenant | null): string[] {
+  if (!tenant) return BASE_FEATURES_NO_TENANT;
+  if (tenant.document_type === 'cnpj') {
+    return [
+      ...BASE_FEATURES,
+      'Gestão Multi-Usuário (até 5 usuários)',
+      'Controle de Permissões',
+      'Relatórios Avançados',
+      'Dashboard Executivo',
+    ];
+  }
+  return [...BASE_FEATURES, 'Gestão Individual'];
+}
+
 export default function LicensePage() {
   const { user, tenantId } = useAuth();
   const [license, setLicense] = useState<License | null>(null);
@@ -32,13 +81,10 @@ export default function LicensePage() {
 
     try {
       setLoading(true);
-
-      // Carregar licença e tenant em paralelo
       const [licenseData, tenantData] = await Promise.all([
         getActiveLicenseByTenant(tenantId),
-        loadTenant(tenantId),
+        fetchTenant(tenantId),
       ]);
-
       setLicense(licenseData);
       setTenant(tenantData);
     } catch (error) {
@@ -46,67 +92,6 @@ export default function LicensePage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function loadTenant(tenantId: string): Promise<Tenant | null> {
-    try {
-      const tenantRef = doc(db, 'tenants', tenantId);
-      const tenantDoc = await getDoc(tenantRef);
-
-      if (tenantDoc.exists()) {
-        return { id: tenantDoc.id, ...tenantDoc.data() } as Tenant;
-      }
-      return null;
-    } catch (error) {
-      console.error('Erro ao carregar tenant:', error);
-      return null;
-    }
-  }
-
-  function getPlanName(): string {
-    if (!tenant) return 'Standard';
-    return tenant.document_type === 'cpf' ? 'Autônomo' : 'Clínica';
-  }
-
-  function getMaxUsers(): number {
-    if (!tenant) return 5;
-    return tenant.max_users || (tenant.document_type === 'cpf' ? 1 : 5);
-  }
-
-  function getFeatures(): string[] {
-    if (!tenant) {
-      return [
-        'Gestão de Estoque com FEFO',
-        'Controle de Lotes e Validades',
-        'Cadastro de Pacientes',
-        'Histórico de Procedimentos',
-        'Solicitações de Produtos',
-        'Relatórios Básicos',
-      ];
-    }
-
-    const baseFeatures = [
-      'Gestão de Estoque com FEFO',
-      'Controle de Lotes e Validades',
-      'Cadastro de Pacientes',
-      'Histórico de Procedimentos',
-      'Solicitações de Produtos',
-      'Relatórios Básicos',
-      'Notificações de Vencimento',
-      'Alertas de Estoque Baixo',
-    ];
-
-    if (tenant.document_type === 'cnpj') {
-      return [
-        ...baseFeatures,
-        'Gestão Multi-Usuário (até 5 usuários)',
-        'Controle de Permissões',
-        'Relatórios Avançados',
-        'Dashboard Executivo',
-      ];
-    }
-
-    return [...baseFeatures, 'Gestão Individual'];
   }
 
   function getStatusIcon(status: string) {
@@ -237,7 +222,7 @@ export default function LicensePage() {
               <Package className="w-6 h-6 text-blue-600" />
               <h3 className="font-bold text-gray-900">Plano</h3>
             </div>
-            <p className="text-2xl font-bold text-blue-600">{getPlanName()}</p>
+            <p className="text-2xl font-bold text-blue-600">{getPlanName(tenant)}</p>
             <p className="text-sm text-muted-foreground mt-1">
               {tenant?.document_type === 'cpf' ? 'Profissional Autônomo' : 'Clínica/Empresa'}
             </p>
@@ -248,7 +233,7 @@ export default function LicensePage() {
               <Users className="w-6 h-6 text-purple-600" />
               <h3 className="font-bold text-gray-900">Usuários</h3>
             </div>
-            <p className="text-2xl font-bold text-purple-600">Até {getMaxUsers()}</p>
+            <p className="text-2xl font-bold text-purple-600">Até {getMaxUsers(tenant)}</p>
             <p className="text-sm text-muted-foreground mt-1">
               {tenant?.document_type === 'cpf' ? '1 usuário' : '5 usuários'}
             </p>
@@ -301,7 +286,7 @@ export default function LicensePage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Funcionalidades Incluídas</h2>
             <div className="space-y-2">
-              {getFeatures().map((feature, index) => (
+              {getFeatures(tenant).map((feature, index) => (
                 <div key={index} className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">{feature}</span>
