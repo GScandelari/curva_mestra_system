@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,11 +8,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Building2, CheckCircle2, Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Building2, CheckCircle2, Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 interface Tenant {
   id: string;
@@ -49,10 +49,10 @@ export function ClaimClinicDialog({
     try {
       const token = await user.getIdToken();
 
-      const response = await fetch("/api/consultants/claims", {
-        method: "POST",
+      const response = await fetch('/api/consultants/claims', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -63,11 +63,11 @@ export function ClaimClinicDialog({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao enviar solicitação");
+        throw new Error(data.error || 'Erro ao enviar solicitação');
       }
 
       setSuccess(true);
-      toast({ title: "Solicitação enviada com sucesso!" });
+      toast({ title: 'Solicitação enviada com sucesso!' });
 
       // Aguardar um pouco antes de fechar
       setTimeout(() => {
@@ -76,7 +76,7 @@ export function ClaimClinicDialog({
         onSuccess?.();
       }, 2000);
     } catch (error: any) {
-      toast({ title: error.message || "Erro ao enviar solicitação", variant: "destructive" });
+      toast({ title: error.message || 'Erro ao enviar solicitação', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -103,8 +103,8 @@ export function ClaimClinicDialog({
           </DialogTitle>
           <DialogDescription>
             {hasConsultant
-              ? "Esta clínica já possui um consultor vinculado."
-              : "Confirme para enviar uma solicitação de vínculo para esta clínica."}
+              ? 'Esta clínica já possui um consultor vinculado.'
+              : 'Confirme para enviar uma solicitação de vínculo para esta clínica.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -133,9 +133,9 @@ export function ClaimClinicDialog({
               {hasConsultant && (
                 <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
                   <p className="text-sm text-amber-800">
-                    <strong>Atenção:</strong> Esta clínica já possui o consultor{" "}
-                    <strong>{tenant.consultant_name}</strong> vinculado.
-                    Não é possível solicitar vínculo.
+                    <strong>Atenção:</strong> Esta clínica já possui o consultor{' '}
+                    <strong>{tenant.consultant_name}</strong> vinculado. Não é possível solicitar
+                    vínculo.
                   </p>
                 </div>
               )}

@@ -28,10 +28,10 @@ Página de aceitação obrigatória de termos legais e condições de uso durant
 
 ## 2. Tipos de Usuários
 
-| Tipo | Acesso | Permissões |
-|------|--------|------------|
-| `clinic_admin` | Total | Visualiza, lê e aceita documentos legais |
-| `clinic_user` | N/A | Não acessa setup (fluxo de onboarding) |
+| Tipo           | Acesso | Permissões                               |
+| -------------- | ------ | ---------------------------------------- |
+| `clinic_admin` | Total  | Visualiza, lê e aceita documentos legais |
+| `clinic_user`  | N/A    | Não acessa setup (fluxo de onboarding)   |
 
 ---
 
@@ -39,26 +39,26 @@ Página de aceitação obrigatória de termos legais e condições de uso durant
 
 ### 3.1 Coleção — `legal_documents`
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `id` | `string` | ID do documento (auto-gerado) |
-| `title` | `string` | Título do documento legal |
-| `version` | `string` | Versão do documento |
-| `content` | `string` | Conteúdo completo em Markdown |
-| `status` | `string` | `"ativo"` para documentos vigentes |
+| Campo                       | Tipo      | Descrição                           |
+| --------------------------- | --------- | ----------------------------------- |
+| `id`                        | `string`  | ID do documento (auto-gerado)       |
+| `title`                     | `string`  | Título do documento legal           |
+| `version`                   | `string`  | Versão do documento                 |
+| `content`                   | `string`  | Conteúdo completo em Markdown       |
+| `status`                    | `string`  | `"ativo"` para documentos vigentes  |
 | `required_for_registration` | `boolean` | Se é obrigatório durante o registro |
-| `order` | `number` | Ordem de exibição (ascendente) |
+| `order`                     | `number`  | Ordem de exibição (ascendente)      |
 
 ### 3.2 Coleção — `user_document_acceptances`
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `user_id` | `string` | UID do usuário que aceitou |
-| `document_id` | `string` | ID do documento aceito |
-| `document_version` | `string` | Versão do documento no momento da aceitação |
-| `accepted_at` | `Timestamp` | Data/hora da aceitação (serverTimestamp) |
-| `ip_address` | `null` | Reservado (não implementado) |
-| `user_agent` | `string` | User-Agent do navegador |
+| Campo              | Tipo        | Descrição                                   |
+| ------------------ | ----------- | ------------------------------------------- |
+| `user_id`          | `string`    | UID do usuário que aceitou                  |
+| `document_id`      | `string`    | ID do documento aceito                      |
+| `document_version` | `string`    | Versão do documento no momento da aceitação |
+| `accepted_at`      | `Timestamp` | Data/hora da aceitação (serverTimestamp)    |
+| `ip_address`       | `null`      | Reservado (não implementado)                |
+| `user_agent`       | `string`    | User-Agent do navegador                     |
 
 ### 3.3 Estado do Componente (useState)
 
@@ -234,17 +234,17 @@ const [acceptances, setAcceptances] = useState<Record<string, boolean>>({});
 
 ## 7. Estados da Interface
 
-| Estado | Comportamento | Visual |
-|--------|---------------|--------|
-| Carregando | Spinner Loader2 centralizado + "Carregando..." | Tela com gradiente |
-| Documentos exibidos | Lista de cards com preview, botão leitura e checkbox | Cards em sequência |
-| Preview | 500 primeiros chars do Markdown renderizado + "..." | `max-h-48 overflow-y-auto` |
-| Dialog aberto | Modal com conteúdo completo | `max-w-4xl max-h-[85vh]`, ScrollArea `h-[65vh]` |
-| Todos aceitos | Botão "Aceitar e Continuar" habilitado | CheckCircle2 + texto |
-| Nem todos aceitos | Botão desabilitado | `disabled` |
-| Salvando | Botão com Loader2 + "Salvando..." | Spinner no botão |
-| Erro | Toast destructive | Toast vermelho |
-| Sucesso | Toast + redirect | Toast verde + navegação |
+| Estado              | Comportamento                                        | Visual                                          |
+| ------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| Carregando          | Spinner Loader2 centralizado + "Carregando..."       | Tela com gradiente                              |
+| Documentos exibidos | Lista de cards com preview, botão leitura e checkbox | Cards em sequência                              |
+| Preview             | 500 primeiros chars do Markdown renderizado + "..."  | `max-h-48 overflow-y-auto`                      |
+| Dialog aberto       | Modal com conteúdo completo                          | `max-w-4xl max-h-[85vh]`, ScrollArea `h-[65vh]` |
+| Todos aceitos       | Botão "Aceitar e Continuar" habilitado               | CheckCircle2 + texto                            |
+| Nem todos aceitos   | Botão desabilitado                                   | `disabled`                                      |
+| Salvando            | Botão com Loader2 + "Salvando..."                    | Spinner no botão                                |
+| Erro                | Toast destructive                                    | Toast vermelho                                  |
+| Sucesso             | Toast + redirect                                     | Toast verde + navegação                         |
 
 ---
 
@@ -252,59 +252,59 @@ const [acceptances, setAcceptances] = useState<Record<string, boolean>>({});
 
 ### 8.1 Validações no Frontend
 
-| Validação | Condição | Comportamento |
-|-----------|----------|---------------|
-| Usuário autenticado | `!user` | Toast "Você precisa estar autenticado" |
-| Todos aceitos | `!documents.every(doc => acceptances[doc.id])` | Botão desabilitado + toast se tentar clicar |
+| Validação           | Condição                                       | Comportamento                               |
+| ------------------- | ---------------------------------------------- | ------------------------------------------- |
+| Usuário autenticado | `!user`                                        | Toast "Você precisa estar autenticado"      |
+| Todos aceitos       | `!documents.every(doc => acceptances[doc.id])` | Botão desabilitado + toast se tentar clicar |
 
 ---
 
 ## 9. Integrações
 
-| Integração | Tipo | Descrição |
-|------------|------|-----------|
-| Firebase Auth | Autenticação | `useAuth()` — user.uid |
-| Firestore — legal_documents | Leitura | Query de documentos ativos e obrigatórios |
-| Firestore — user_document_acceptances | Leitura/Escrita | Verifica aceitações e registra novas |
-| `react-markdown` | Renderização | Converte Markdown para HTML no preview e dialog |
-| `useToast` | Feedback | Toast para sucesso e erros |
-| `navigator.userAgent` | Auditoria | Registrado na aceitação |
+| Integração                            | Tipo            | Descrição                                       |
+| ------------------------------------- | --------------- | ----------------------------------------------- |
+| Firebase Auth                         | Autenticação    | `useAuth()` — user.uid                          |
+| Firestore — legal_documents           | Leitura         | Query de documentos ativos e obrigatórios       |
+| Firestore — user_document_acceptances | Leitura/Escrita | Verifica aceitações e registra novas            |
+| `react-markdown`                      | Renderização    | Converte Markdown para HTML no preview e dialog |
+| `useToast`                            | Feedback        | Toast para sucesso e erros                      |
+| `navigator.userAgent`                 | Auditoria       | Registrado na aceitação                         |
 
 ---
 
 ## 10. Segurança
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Autenticação | `useAuth()` verifica se há usuário logado |
-| Auditoria legal | Registra user_id, document_version, user_agent, timestamp |
-| IP address | Reservado mas não implementado (`null`) |
-| Versionamento | Registra a versão exata do documento aceito |
+| Aspecto          | Implementação                                                |
+| ---------------- | ------------------------------------------------------------ |
+| Autenticação     | `useAuth()` verifica se há usuário logado                    |
+| Auditoria legal  | Registra user_id, document_version, user_agent, timestamp    |
+| IP address       | Reservado mas não implementado (`null`)                      |
+| Versionamento    | Registra a versão exata do documento aceito                  |
 | Firestore direto | Queries feitas diretamente no componente (sem service layer) |
 
 ---
 
 ## 11. Performance
 
-| Aspecto | Implementação |
-|---------|---------------|
+| Aspecto             | Implementação                                                    |
+| ------------------- | ---------------------------------------------------------------- |
 | 2 queries paralelas | Documentos e aceitações poderiam ser paralelas (são sequenciais) |
-| Aceitações em batch | `Promise.all` para salvar todas as aceitações em paralelo |
-| Preview truncado | Apenas 500 chars renderizados no preview |
-| Dialog lazy | Conteúdo completo renderizado apenas quando dialog abre |
+| Aceitações em batch | `Promise.all` para salvar todas as aceitações em paralelo        |
+| Preview truncado    | Apenas 500 chars renderizados no preview                         |
+| Dialog lazy         | Conteúdo completo renderizado apenas quando dialog abre          |
 
 ---
 
 ## 12. Acessibilidade
 
-| Aspecto | Status | Detalhes |
-|---------|--------|----------|
-| Checkbox com label | Sim | `htmlFor` vinculando checkbox + label |
-| Dialog modal | Sim | Componente Shadcn Dialog com ARIA correto |
-| ScrollArea | Sim | Componente acessível para conteúdo longo |
-| Markdown renderizado | Parcial | HTML semântico via `react-markdown` |
-| Toast notifications | Sim | Hook `useToast` com suporte nativo |
-| Loader | Parcial | Loader2 sem aria-label |
+| Aspecto              | Status  | Detalhes                                  |
+| -------------------- | ------- | ----------------------------------------- |
+| Checkbox com label   | Sim     | `htmlFor` vinculando checkbox + label     |
+| Dialog modal         | Sim     | Componente Shadcn Dialog com ARIA correto |
+| ScrollArea           | Sim     | Componente acessível para conteúdo longo  |
+| Markdown renderizado | Parcial | HTML semântico via `react-markdown`       |
+| Toast notifications  | Sim     | Hook `useToast` com suporte nativo        |
+| Loader               | Parcial | Loader2 sem aria-label                    |
 
 ---
 
@@ -312,31 +312,31 @@ const [acceptances, setAcceptances] = useState<Record<string, boolean>>({});
 
 ### 13.1 Cenários de Teste Recomendados
 
-| Cenário | Tipo | Descrição |
-|---------|------|-----------|
-| Documentos pendentes | E2E | Verificar listagem de cards com preview |
-| Nenhum documento pendente | E2E | Verificar redirect automático para /setup |
-| Preview de documento | E2E | Verificar truncamento em 500 chars |
-| Dialog completo | E2E | Abrir dialog e verificar conteúdo Markdown |
-| Checkbox individual | E2E | Marcar/desmarcar e verificar estado do botão |
-| Aceitar todos | E2E | Marcar todos e verificar botão habilitado |
-| Submit com sucesso | E2E | Verificar registros em user_document_acceptances |
-| Versionamento | Integração | Verificar que document_version é registrada |
-| User-Agent | Integração | Verificar que user_agent é registrado |
-| Erro ao carregar | Integração | Simular erro e verificar toast |
-| Erro ao salvar | Integração | Simular falha no addDoc e verificar toast |
+| Cenário                   | Tipo       | Descrição                                        |
+| ------------------------- | ---------- | ------------------------------------------------ |
+| Documentos pendentes      | E2E        | Verificar listagem de cards com preview          |
+| Nenhum documento pendente | E2E        | Verificar redirect automático para /setup        |
+| Preview de documento      | E2E        | Verificar truncamento em 500 chars               |
+| Dialog completo           | E2E        | Abrir dialog e verificar conteúdo Markdown       |
+| Checkbox individual       | E2E        | Marcar/desmarcar e verificar estado do botão     |
+| Aceitar todos             | E2E        | Marcar todos e verificar botão habilitado        |
+| Submit com sucesso        | E2E        | Verificar registros em user_document_acceptances |
+| Versionamento             | Integração | Verificar que document_version é registrada      |
+| User-Agent                | Integração | Verificar que user_agent é registrado            |
+| Erro ao carregar          | Integração | Simular erro e verificar toast                   |
+| Erro ao salvar            | Integração | Simular falha no addDoc e verificar toast        |
 
 ---
 
 ## 14. Melhorias Futuras
 
-| Melhoria | Prioridade | Descrição |
-|----------|------------|-----------|
-| Captura de IP | Média | Implementar captura de IP real do cliente |
-| Service layer | Média | Mover queries do componente para um serviço dedicado |
-| Re-aceitação por versão | Média | Exigir re-aceitação se versão do documento mudar |
-| Download de PDF | Baixa | Permitir download do documento em PDF |
-| Print view | Baixa | Versão para impressão do documento |
+| Melhoria                | Prioridade | Descrição                                            |
+| ----------------------- | ---------- | ---------------------------------------------------- |
+| Captura de IP           | Média      | Implementar captura de IP real do cliente            |
+| Service layer           | Média      | Mover queries do componente para um serviço dedicado |
+| Re-aceitação por versão | Média      | Exigir re-aceitação se versão do documento mudar     |
+| Download de PDF         | Baixa      | Permitir download do documento em PDF                |
+| Print view              | Baixa      | Versão para impressão do documento                   |
 
 ---
 
@@ -377,24 +377,24 @@ setup-terms (este doc)
 
 ## 17. Histórico de Mudanças
 
-| Data | Versão | Descrição |
-|------|--------|-----------|
-| 07/02/2026 | 1.0 | Documentação inicial (formato antigo) |
-| 09/02/2026 | 2.0 | Padronização para template de 20 seções |
+| Data       | Versão | Descrição                               |
+| ---------- | ------ | --------------------------------------- |
+| 07/02/2026 | 1.0    | Documentação inicial (formato antigo)   |
+| 09/02/2026 | 2.0    | Padronização para template de 20 seções |
 
 ---
 
 ## 18. Glossário
 
-| Termo | Descrição |
-|-------|-----------|
-| `legal_documents` | Coleção Firestore com documentos legais (termos, política de privacidade) |
-| `user_document_acceptances` | Coleção Firestore com registros de aceitação |
-| `required_for_registration` | Flag que indica se o documento é obrigatório no onboarding |
-| `document_version` | Versão do documento no momento da aceitação |
-| `react-markdown` | Biblioteca para renderizar Markdown como HTML |
-| `acceptances` | Estado (Record) que mapeia document_id → boolean de aceitação |
-| `saving` | Estado de loading durante salvamento das aceitações |
+| Termo                       | Descrição                                                                 |
+| --------------------------- | ------------------------------------------------------------------------- |
+| `legal_documents`           | Coleção Firestore com documentos legais (termos, política de privacidade) |
+| `user_document_acceptances` | Coleção Firestore com registros de aceitação                              |
+| `required_for_registration` | Flag que indica se o documento é obrigatório no onboarding                |
+| `document_version`          | Versão do documento no momento da aceitação                               |
+| `react-markdown`            | Biblioteca para renderizar Markdown como HTML                             |
+| `acceptances`               | Estado (Record) que mapeia document_id → boolean de aceitação             |
+| `saving`                    | Estado de loading durante salvamento das aceitações                       |
 
 ---
 

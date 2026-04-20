@@ -14,11 +14,13 @@
 Página para buscar clínicas por CNPJ/CPF e solicitar vínculo. O consultor informa o documento, a API retorna clínicas correspondentes, e o consultor pode solicitar vínculo via `ClaimClinicDialog`. Clínicas que já possuem consultor mostram status "Já possui consultor vinculado".
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(consultant)/consultant/clinics/search/page.tsx`
 - **Rota:** `/consultant/clinics/search`
 - **Layout:** Consultant Layout
 
 ### 1.2 Dependências
+
 - **API Routes:** `GET /api/tenants/search?document={cleanDoc}`
 - **Componentes:** `ClaimClinicDialog`
 - **Hooks:** `useAuth()`, `useToast()`
@@ -28,18 +30,21 @@ Página para buscar clínicas por CNPJ/CPF e solicitar vínculo. O consultor inf
 ## 2. Seções
 
 ### 2.1 Formulário de Busca
+
 - Input com máscara automática CPF/CNPJ (font-mono)
 - Formatação: CPF `XXX.XXX.XXX-XX`, CNPJ `XX.XXX.XXX/XXXX-XX`
 - Botão buscar (sky-600, desabilitado durante busca)
 - Validação: mínimo 11 dígitos (CPF)
 
 ### 2.2 Resultados
+
 - Card com contagem: "{N} clínica(s) encontrada(s)"
 - Cada resultado mostra: nome, tipo_documento, documento, email
 - **Sem consultor:** Botão "Solicitar Vínculo" → abre `ClaimClinicDialog`
 - **Com consultor:** Box verde "Já possui consultor vinculado" + nome do consultor
 
 ### 2.3 Card Informativo
+
 - "Como funciona?" com lista ordenada:
   1. Busque a clínica pelo CNPJ ou CPF
   2. Solicite o vínculo com a clínica
@@ -58,6 +63,7 @@ Página para buscar clínicas por CNPJ/CPF e solicitar vínculo. O consultor inf
 ---
 
 ## 4. Observações
+
 - Interface local `Tenant`: id, name, document_type, document_number, email, consultant_id, consultant_name
 - Max-width: `max-w-2xl`
 - Card informativo com fundo sky-50 (diferente do padrão muted)
@@ -67,9 +73,9 @@ Página para buscar clínicas por CNPJ/CPF e solicitar vínculo. O consultor inf
 
 ## 5. Histórico de Mudanças
 
-| Data | Versão | Autor | Descrição |
-|------|--------|-------|-----------
-| 07/02/2026 | 1.0 | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição            |
+| ---------- | ------ | ------------------ | -------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
 
 ---
 

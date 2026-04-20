@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import {
   CreditCard,
   Plus,
@@ -12,8 +12,8 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -21,10 +21,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import {
   collection,
   query,
@@ -36,84 +36,80 @@ import {
   doc,
   Timestamp,
   serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { PaymentMethod, PaymentHistory, PaymentStatus } from "@/types/onboarding";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { PaymentMethod, PaymentHistory, PaymentStatus } from '@/types/onboarding';
 
 // Mapeamento de bandeiras
 const CARD_BRANDS: Record<string, string> = {
-  visa: "Visa",
-  mastercard: "Mastercard",
-  elo: "Elo",
-  amex: "American Express",
-  hipercard: "Hipercard",
-  diners: "Diners Club",
+  visa: 'Visa',
+  mastercard: 'Mastercard',
+  elo: 'Elo',
+  amex: 'American Express',
+  hipercard: 'Hipercard',
+  diners: 'Diners Club',
 };
 
 // Detectar bandeira pelo primeiro dígito
 function detectCardBrand(firstDigit: string): string {
   switch (firstDigit) {
-    case "4":
-      return "visa";
-    case "5":
-      return "mastercard";
-    case "3":
-      return "amex";
-    case "6":
-      return "elo";
+    case '4':
+      return 'visa';
+    case '5':
+      return 'mastercard';
+    case '3':
+      return 'amex';
+    case '6':
+      return 'elo';
     default:
-      return "visa";
+      return 'visa';
   }
 }
 
 // Formatar valor em reais
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
   }).format(cents / 100);
 }
 
 // Formatar data
 function formatDate(timestamp: Timestamp): string {
-  return timestamp.toDate().toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+  return timestamp.toDate().toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   });
 }
 
 // Badge de status do pagamento
 function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
   switch (status) {
-    case "approved":
+    case 'approved':
       return (
         <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
           <CheckCircle className="w-3 h-3 mr-1" />
           Aprovado
         </Badge>
       );
-    case "rejected":
+    case 'rejected':
       return (
         <Badge variant="destructive">
           <XCircle className="w-3 h-3 mr-1" />
           Rejeitado
         </Badge>
       );
-    case "pending":
-    case "processing":
+    case 'pending':
+    case 'processing':
       return (
         <Badge variant="secondary">
           <Clock className="w-3 h-3 mr-1" />
           Pendente
         </Badge>
       );
-    case "refunded":
-      return (
-        <Badge variant="outline">
-          Reembolsado
-        </Badge>
-      );
+    case 'refunded':
+      return <Badge variant="outline">Reembolsado</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
@@ -129,11 +125,11 @@ export default function PaymentSection() {
   const [saving, setSaving] = useState(false);
 
   // Form states para novo cartão
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardHolder, setCardHolder] = useState("");
-  const [expiryMonth, setExpiryMonth] = useState("");
-  const [expiryYear, setExpiryYear] = useState("");
-  const [cvv, setCvv] = useState("");
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [expiryMonth, setExpiryMonth] = useState('');
+  const [expiryYear, setExpiryYear] = useState('');
+  const [cvv, setCvv] = useState('');
 
   useEffect(() => {
     if (tenantId) {
@@ -149,9 +145,9 @@ export default function PaymentSection() {
 
       // Carregar método de pagamento
       const methodsQuery = query(
-        collection(db, "payment_methods"),
-        where("tenant_id", "==", tenantId),
-        where("is_default", "==", true)
+        collection(db, 'payment_methods'),
+        where('tenant_id', '==', tenantId),
+        where('is_default', '==', true)
       );
       const methodsSnapshot = await getDocs(methodsQuery);
 
@@ -162,9 +158,9 @@ export default function PaymentSection() {
 
       // Carregar histórico de pagamentos
       const historyQuery = query(
-        collection(db, "payment_history"),
-        where("tenant_id", "==", tenantId),
-        orderBy("payment_date", "desc")
+        collection(db, 'payment_history'),
+        where('tenant_id', '==', tenantId),
+        orderBy('payment_date', 'desc')
       );
       const historySnapshot = await getDocs(historyQuery);
       const history = historySnapshot.docs.map((doc) => ({
@@ -174,7 +170,7 @@ export default function PaymentSection() {
 
       setPaymentHistory(history);
     } catch (error) {
-      console.error("Erro ao carregar dados de pagamento:", error);
+      console.error('Erro ao carregar dados de pagamento:', error);
     } finally {
       setLoading(false);
     }
@@ -182,11 +178,11 @@ export default function PaymentSection() {
 
   function maskCardNumber(value: string): string {
     // Remove tudo que não é número
-    const numbers = value.replace(/\D/g, "");
+    const numbers = value.replace(/\D/g, '');
     // Limita a 16 dígitos
     const limited = numbers.slice(0, 16);
     // Formata com espaços
-    return limited.replace(/(\d{4})/g, "$1 ").trim();
+    return limited.replace(/(\d{4})/g, '$1 ').trim();
   }
 
   function handleCardNumberChange(value: string) {
@@ -197,21 +193,21 @@ export default function PaymentSection() {
     if (!tenantId) return;
 
     // Validação básica
-    const cleanNumber = cardNumber.replace(/\D/g, "");
+    const cleanNumber = cardNumber.replace(/\D/g, '');
     if (cleanNumber.length < 13) {
-      alert("Número do cartão inválido");
+      alert('Número do cartão inválido');
       return;
     }
     if (!cardHolder.trim()) {
-      alert("Nome do titular é obrigatório");
+      alert('Nome do titular é obrigatório');
       return;
     }
     if (!expiryMonth || !expiryYear) {
-      alert("Data de validade é obrigatória");
+      alert('Data de validade é obrigatória');
       return;
     }
     if (cvv.length < 3) {
-      alert("CVV inválido");
+      alert('CVV inválido');
       return;
     }
 
@@ -224,7 +220,7 @@ export default function PaymentSection() {
 
       // Se já existe um método, desativar
       if (paymentMethod) {
-        await updateDoc(doc(db, "payment_methods", paymentMethod.id), {
+        await updateDoc(doc(db, 'payment_methods', paymentMethod.id), {
           is_default: false,
           updated_at: serverTimestamp(),
         });
@@ -233,19 +229,19 @@ export default function PaymentSection() {
       // Criar novo método de pagamento
       const newMethod = {
         tenant_id: tenantId,
-        type: "credit_card" as const,
+        type: 'credit_card' as const,
         card_first_digits: firstDigits,
         card_last_digits: lastDigits,
         card_brand: brand,
         card_holder_name: cardHolder.toUpperCase(),
-        expiry_month: expiryMonth.padStart(2, "0"),
+        expiry_month: expiryMonth.padStart(2, '0'),
         expiry_year: expiryYear,
         is_default: true,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, "payment_methods"), newMethod);
+      const docRef = await addDoc(collection(db, 'payment_methods'), newMethod);
 
       setPaymentMethod({
         id: docRef.id,
@@ -255,15 +251,15 @@ export default function PaymentSection() {
       } as PaymentMethod);
 
       // Limpar form
-      setCardNumber("");
-      setCardHolder("");
-      setExpiryMonth("");
-      setExpiryYear("");
-      setCvv("");
+      setCardNumber('');
+      setCardHolder('');
+      setExpiryMonth('');
+      setExpiryYear('');
+      setCvv('');
       setShowCardDialog(false);
     } catch (error) {
-      console.error("Erro ao salvar cartão:", error);
-      alert("Erro ao salvar cartão. Tente novamente.");
+      console.error('Erro ao salvar cartão:', error);
+      alert('Erro ao salvar cartão. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -290,11 +286,7 @@ export default function PaymentSection() {
             Método de Pagamento
           </h2>
           {paymentMethod && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCardDialog(true)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setShowCardDialog(true)}>
               <Edit2 className="w-4 h-4 mr-1" />
               Alterar
             </Button>
@@ -328,9 +320,7 @@ export default function PaymentSection() {
         ) : (
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Nenhum cartão cadastrado
-            </h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum cartão cadastrado</h3>
             <p className="text-sm text-gray-500 mb-4">
               Cadastre um cartão de crédito para gerenciar seus pagamentos
             </p>
@@ -375,9 +365,7 @@ export default function PaymentSection() {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900">
-                          {payment.description}
-                        </span>
+                        <span className="font-medium text-gray-900">{payment.description}</span>
                         <PaymentStatusBadge status={payment.status} />
                       </div>
                       <div className="text-sm text-gray-500">
@@ -419,9 +407,7 @@ export default function PaymentSection() {
       <Dialog open={showCardDialog} onOpenChange={setShowCardDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {paymentMethod ? "Alterar Cartão" : "Cadastrar Cartão"}
-            </DialogTitle>
+            <DialogTitle>{paymentMethod ? 'Alterar Cartão' : 'Cadastrar Cartão'}</DialogTitle>
             <DialogDescription>
               Os dados do cartão são armazenados de forma segura e mascarada.
             </DialogDescription>
@@ -456,7 +442,7 @@ export default function PaymentSection() {
                   id="expiryMonth"
                   placeholder="MM"
                   value={expiryMonth}
-                  onChange={(e) => setExpiryMonth(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                  onChange={(e) => setExpiryMonth(e.target.value.replace(/\D/g, '').slice(0, 2))}
                   maxLength={2}
                 />
               </div>
@@ -466,7 +452,7 @@ export default function PaymentSection() {
                   id="expiryYear"
                   placeholder="AAAA"
                   value={expiryYear}
-                  onChange={(e) => setExpiryYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onChange={(e) => setExpiryYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   maxLength={4}
                 />
               </div>
@@ -477,28 +463,24 @@ export default function PaymentSection() {
                   type="password"
                   placeholder="***"
                   value={cvv}
-                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   maxLength={4}
                 />
               </div>
             </div>
 
             <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-md">
-              <strong>Nota de segurança:</strong> Apenas os primeiros 4 e últimos 4 dígitos
-              do cartão são armazenados. O CVV nunca é salvo.
+              <strong>Nota de segurança:</strong> Apenas os primeiros 4 e últimos 4 dígitos do
+              cartão são armazenados. O CVV nunca é salvo.
             </div>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCardDialog(false)}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={() => setShowCardDialog(false)} disabled={saving}>
               Cancelar
             </Button>
             <Button onClick={handleSaveCard} disabled={saving}>
-              {saving ? "Salvando..." : "Salvar Cartão"}
+              {saving ? 'Salvando...' : 'Salvar Cartão'}
             </Button>
           </DialogFooter>
         </DialogContent>

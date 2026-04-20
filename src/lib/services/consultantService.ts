@@ -17,20 +17,20 @@ import {
   Timestamp,
   serverTimestamp,
   runTransaction,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type {
   Consultant,
   ConsultantStatus,
   ConsultantClaim,
   ConsultantClaimStatus,
   Tenant,
-} from "@/types";
-import { cleanDocument } from "@/lib/utils/documentValidation";
+} from '@/types';
+import { cleanDocument } from '@/lib/utils/documentValidation';
 
-const CONSULTANTS_COLLECTION = "consultants";
-const CONSULTANT_CLAIMS_COLLECTION = "consultant_claims";
-const TENANTS_COLLECTION = "tenants";
+const CONSULTANTS_COLLECTION = 'consultants';
+const CONSULTANT_CLAIMS_COLLECTION = 'consultant_claims';
+const TENANTS_COLLECTION = 'tenants';
 
 /**
  * Gera código único de 6 dígitos para o consultor
@@ -44,11 +44,7 @@ export async function generateUniqueCode(): Promise<string> {
     code = String(Math.floor(100000 + Math.random() * 900000));
 
     const existing = await getDocs(
-      query(
-        collection(db, CONSULTANTS_COLLECTION),
-        where("code", "==", code),
-        limit(1)
-      )
+      query(collection(db, CONSULTANTS_COLLECTION), where('code', '==', code), limit(1))
     );
 
     if (existing.empty) {
@@ -58,7 +54,7 @@ export async function generateUniqueCode(): Promise<string> {
     attempts++;
   } while (attempts < 10);
 
-  throw new Error("Falha ao gerar código único após 10 tentativas");
+  throw new Error('Falha ao gerar código único após 10 tentativas');
 }
 
 /**
@@ -76,35 +72,32 @@ export async function createConsultant(data: {
     const existingByEmail = await getDocs(
       query(
         collection(db, CONSULTANTS_COLLECTION),
-        where("email", "==", data.email.toLowerCase()),
+        where('email', '==', data.email.toLowerCase()),
         limit(1)
       )
     );
 
     if (!existingByEmail.empty) {
-      return { success: false, message: "Já existe um consultor com este email" };
+      return { success: false, message: 'Já existe um consultor com este email' };
     }
 
     // Gerar código único
     const code = await generateUniqueCode();
 
-    const consultantData: Omit<Consultant, "id"> = {
+    const consultantData: Omit<Consultant, 'id'> = {
       user_id: data.user_id,
       code,
       name: data.name,
       email: data.email.toLowerCase(),
       phone: data.phone,
-      status: "active",
+      status: 'active',
       authorized_tenants: [],
       created_at: serverTimestamp() as Timestamp,
       updated_at: serverTimestamp() as Timestamp,
       created_by: data.created_by,
     };
 
-    const docRef = await addDoc(
-      collection(db, CONSULTANTS_COLLECTION),
-      consultantData
-    );
+    const docRef = await addDoc(collection(db, CONSULTANTS_COLLECTION), consultantData);
 
     const consultant: Consultant = {
       id: docRef.id,
@@ -113,14 +106,14 @@ export async function createConsultant(data: {
 
     return {
       success: true,
-      message: "Consultor criado com sucesso",
+      message: 'Consultor criado com sucesso',
       consultant,
     };
   } catch (error) {
-    console.error("Erro ao criar consultor:", error);
+    console.error('Erro ao criar consultor:', error);
     return {
       success: false,
-      message: "Erro ao criar consultor. Tente novamente.",
+      message: 'Erro ao criar consultor. Tente novamente.',
     };
   }
 }
@@ -128,9 +121,7 @@ export async function createConsultant(data: {
 /**
  * Busca consultor por ID
  */
-export async function getConsultant(
-  consultantId: string
-): Promise<Consultant | null> {
+export async function getConsultant(consultantId: string): Promise<Consultant | null> {
   try {
     const docRef = doc(db, CONSULTANTS_COLLECTION, consultantId);
     const docSnap = await getDoc(docRef);
@@ -144,7 +135,7 @@ export async function getConsultant(
       ...docSnap.data(),
     } as Consultant;
   } catch (error) {
-    console.error("Erro ao buscar consultor:", error);
+    console.error('Erro ao buscar consultor:', error);
     return null;
   }
 }
@@ -152,15 +143,9 @@ export async function getConsultant(
 /**
  * Busca consultor por código de 6 dígitos
  */
-export async function getConsultantByCode(
-  code: string
-): Promise<Consultant | null> {
+export async function getConsultantByCode(code: string): Promise<Consultant | null> {
   try {
-    const q = query(
-      collection(db, CONSULTANTS_COLLECTION),
-      where("code", "==", code),
-      limit(1)
-    );
+    const q = query(collection(db, CONSULTANTS_COLLECTION), where('code', '==', code), limit(1));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -173,7 +158,7 @@ export async function getConsultantByCode(
       ...doc.data(),
     } as Consultant;
   } catch (error) {
-    console.error("Erro ao buscar consultor por código:", error);
+    console.error('Erro ao buscar consultor por código:', error);
     return null;
   }
 }
@@ -181,13 +166,11 @@ export async function getConsultantByCode(
 /**
  * Busca consultor por user_id do Firebase Auth
  */
-export async function getConsultantByUserId(
-  userId: string
-): Promise<Consultant | null> {
+export async function getConsultantByUserId(userId: string): Promise<Consultant | null> {
   try {
     const q = query(
       collection(db, CONSULTANTS_COLLECTION),
-      where("user_id", "==", userId),
+      where('user_id', '==', userId),
       limit(1)
     );
     const snapshot = await getDocs(q);
@@ -202,7 +185,7 @@ export async function getConsultantByUserId(
       ...doc.data(),
     } as Consultant;
   } catch (error) {
-    console.error("Erro ao buscar consultor por user_id:", error);
+    console.error('Erro ao buscar consultor por user_id:', error);
     return null;
   }
 }
@@ -215,13 +198,10 @@ export async function listConsultants(filters?: {
   search?: string;
 }): Promise<Consultant[]> {
   try {
-    let q = query(
-      collection(db, CONSULTANTS_COLLECTION),
-      orderBy("created_at", "desc")
-    );
+    let q = query(collection(db, CONSULTANTS_COLLECTION), orderBy('created_at', 'desc'));
 
     if (filters?.status) {
-      q = query(q, where("status", "==", filters.status));
+      q = query(q, where('status', '==', filters.status));
     }
 
     const snapshot = await getDocs(q);
@@ -244,7 +224,7 @@ export async function listConsultants(filters?: {
 
     return consultants;
   } catch (error) {
-    console.error("Erro ao listar consultores:", error);
+    console.error('Erro ao listar consultores:', error);
     return [];
   }
 }
@@ -255,18 +235,14 @@ export async function listConsultants(filters?: {
 export async function searchConsultants(searchTerm: string): Promise<Consultant[]> {
   try {
     // Buscar todos consultores ativos
-    const q = query(
-      collection(db, CONSULTANTS_COLLECTION),
-      where("status", "==", "active")
-    );
+    const q = query(collection(db, CONSULTANTS_COLLECTION), where('status', '==', 'active'));
     const snapshot = await getDocs(q);
 
     const searchLower = searchTerm.toLowerCase();
-    const consultants = snapshot.docs
-      .map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Consultant[];
+    const consultants = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Consultant[];
 
     // Filtrar em memória
     return consultants.filter(
@@ -277,7 +253,7 @@ export async function searchConsultants(searchTerm: string): Promise<Consultant[
         c.email.toLowerCase().includes(searchLower)
     );
   } catch (error) {
-    console.error("Erro ao buscar consultores:", error);
+    console.error('Erro ao buscar consultores:', error);
     return [];
   }
 }
@@ -287,14 +263,14 @@ export async function searchConsultants(searchTerm: string): Promise<Consultant[
  */
 export async function updateConsultant(
   consultantId: string,
-  data: Partial<Pick<Consultant, "name" | "phone" | "email" | "status">>
+  data: Partial<Pick<Consultant, 'name' | 'phone' | 'email' | 'status'>>
 ): Promise<{ success: boolean; message: string }> {
   try {
     const docRef = doc(db, CONSULTANTS_COLLECTION, consultantId);
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
-      return { success: false, message: "Consultor não encontrado" };
+      return { success: false, message: 'Consultor não encontrado' };
     }
 
     // Se mudando email, verificar duplicidade
@@ -302,13 +278,13 @@ export async function updateConsultant(
       const existingByEmail = await getDocs(
         query(
           collection(db, CONSULTANTS_COLLECTION),
-          where("email", "==", data.email.toLowerCase()),
+          where('email', '==', data.email.toLowerCase()),
           limit(1)
         )
       );
 
       if (!existingByEmail.empty && existingByEmail.docs[0].id !== consultantId) {
-        return { success: false, message: "Email já está em uso" };
+        return { success: false, message: 'Email já está em uso' };
       }
     }
 
@@ -318,10 +294,10 @@ export async function updateConsultant(
       updated_at: serverTimestamp(),
     });
 
-    return { success: true, message: "Consultor atualizado com sucesso" };
+    return { success: true, message: 'Consultor atualizado com sucesso' };
   } catch (error) {
-    console.error("Erro ao atualizar consultor:", error);
-    return { success: false, message: "Erro ao atualizar consultor" };
+    console.error('Erro ao atualizar consultor:', error);
+    return { success: false, message: 'Erro ao atualizar consultor' };
   }
 }
 
@@ -330,14 +306,14 @@ export async function updateConsultant(
  */
 export async function toggleConsultantStatus(
   consultantId: string,
-  newStatus: "active" | "suspended"
+  newStatus: 'active' | 'suspended'
 ): Promise<{ success: boolean; message: string }> {
   try {
     const docRef = doc(db, CONSULTANTS_COLLECTION, consultantId);
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
-      return { success: false, message: "Consultor não encontrado" };
+      return { success: false, message: 'Consultor não encontrado' };
     }
 
     await updateDoc(docRef, {
@@ -347,13 +323,14 @@ export async function toggleConsultantStatus(
 
     return {
       success: true,
-      message: newStatus === "suspended"
-        ? "Consultor suspenso com sucesso"
-        : "Consultor reativado com sucesso",
+      message:
+        newStatus === 'suspended'
+          ? 'Consultor suspenso com sucesso'
+          : 'Consultor reativado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao alterar status do consultor:", error);
-    return { success: false, message: "Erro ao alterar status do consultor" };
+    console.error('Erro ao alterar status do consultor:', error);
+    return { success: false, message: 'Erro ao alterar status do consultor' };
   }
 }
 
@@ -377,9 +354,9 @@ export async function createConsultantClaim(data: {
     const existingClaim = await getDocs(
       query(
         collection(db, CONSULTANT_CLAIMS_COLLECTION),
-        where("consultant_id", "==", data.consultant_id),
-        where("tenant_id", "==", data.tenant_id),
-        where("status", "==", "pending"),
+        where('consultant_id', '==', data.consultant_id),
+        where('tenant_id', '==', data.tenant_id),
+        where('status', '==', 'pending'),
         limit(1)
       )
     );
@@ -387,7 +364,7 @@ export async function createConsultantClaim(data: {
     if (!existingClaim.empty) {
       return {
         success: false,
-        message: "Já existe uma solicitação pendente para esta clínica",
+        message: 'Já existe uma solicitação pendente para esta clínica',
       };
     }
 
@@ -396,35 +373,32 @@ export async function createConsultantClaim(data: {
     if (tenantDoc.exists() && tenantDoc.data().consultant_id) {
       return {
         success: false,
-        message: "Esta clínica já possui um consultor vinculado",
+        message: 'Esta clínica já possui um consultor vinculado',
       };
     }
 
-    const claimData: Omit<ConsultantClaim, "id"> = {
+    const claimData: Omit<ConsultantClaim, 'id'> = {
       consultant_id: data.consultant_id,
       consultant_name: data.consultant_name,
       consultant_code: data.consultant_code,
       tenant_id: data.tenant_id,
       tenant_name: data.tenant_name,
       tenant_document: data.tenant_document,
-      status: "pending",
+      status: 'pending',
       created_at: serverTimestamp() as Timestamp,
       updated_at: serverTimestamp() as Timestamp,
     };
 
-    const docRef = await addDoc(
-      collection(db, CONSULTANT_CLAIMS_COLLECTION),
-      claimData
-    );
+    const docRef = await addDoc(collection(db, CONSULTANT_CLAIMS_COLLECTION), claimData);
 
     return {
       success: true,
-      message: "Solicitação de vínculo enviada com sucesso",
+      message: 'Solicitação de vínculo enviada com sucesso',
       claimId: docRef.id,
     };
   } catch (error) {
-    console.error("Erro ao criar reivindicação:", error);
-    return { success: false, message: "Erro ao criar solicitação de vínculo" };
+    console.error('Erro ao criar reivindicação:', error);
+    return { success: false, message: 'Erro ao criar solicitação de vínculo' };
   }
 }
 
@@ -437,21 +411,18 @@ export async function listConsultantClaims(filters?: {
   status?: ConsultantClaimStatus;
 }): Promise<ConsultantClaim[]> {
   try {
-    let q = query(
-      collection(db, CONSULTANT_CLAIMS_COLLECTION),
-      orderBy("created_at", "desc")
-    );
+    let q = query(collection(db, CONSULTANT_CLAIMS_COLLECTION), orderBy('created_at', 'desc'));
 
     if (filters?.consultant_id) {
-      q = query(q, where("consultant_id", "==", filters.consultant_id));
+      q = query(q, where('consultant_id', '==', filters.consultant_id));
     }
 
     if (filters?.tenant_id) {
-      q = query(q, where("tenant_id", "==", filters.tenant_id));
+      q = query(q, where('tenant_id', '==', filters.tenant_id));
     }
 
     if (filters?.status) {
-      q = query(q, where("status", "==", filters.status));
+      q = query(q, where('status', '==', filters.status));
     }
 
     const snapshot = await getDocs(q);
@@ -460,7 +431,7 @@ export async function listConsultantClaims(filters?: {
       ...doc.data(),
     })) as ConsultantClaim[];
   } catch (error) {
-    console.error("Erro ao listar reivindicações:", error);
+    console.error('Erro ao listar reivindicações:', error);
     return [];
   }
 }
@@ -468,9 +439,7 @@ export async function listConsultantClaims(filters?: {
 /**
  * Busca uma reivindicação específica
  */
-export async function getConsultantClaim(
-  claimId: string
-): Promise<ConsultantClaim | null> {
+export async function getConsultantClaim(claimId: string): Promise<ConsultantClaim | null> {
   try {
     const docRef = doc(db, CONSULTANT_CLAIMS_COLLECTION, claimId);
     const docSnap = await getDoc(docRef);
@@ -484,7 +453,7 @@ export async function getConsultantClaim(
       ...docSnap.data(),
     } as ConsultantClaim;
   } catch (error) {
-    console.error("Erro ao buscar reivindicação:", error);
+    console.error('Erro ao buscar reivindicação:', error);
     return null;
   }
 }
@@ -500,11 +469,11 @@ export async function approveConsultantClaim(
     const claim = await getConsultantClaim(claimId);
 
     if (!claim) {
-      return { success: false, message: "Solicitação não encontrada" };
+      return { success: false, message: 'Solicitação não encontrada' };
     }
 
-    if (claim.status !== "pending") {
-      return { success: false, message: "Solicitação já foi processada" };
+    if (claim.status !== 'pending') {
+      return { success: false, message: 'Solicitação já foi processada' };
     }
 
     // Usar transação para garantir consistência
@@ -517,11 +486,11 @@ export async function approveConsultantClaim(
       const tenantDoc = await transaction.get(tenantRef);
 
       if (!consultantDoc.exists()) {
-        throw new Error("Consultor não encontrado");
+        throw new Error('Consultor não encontrado');
       }
 
       if (!tenantDoc.exists()) {
-        throw new Error("Clínica não encontrada");
+        throw new Error('Clínica não encontrada');
       }
 
       const consultantData = consultantDoc.data() as Consultant;
@@ -529,7 +498,7 @@ export async function approveConsultantClaim(
 
       // Atualizar reivindicação
       transaction.update(claimRef, {
-        status: "approved",
+        status: 'approved',
         approved_by: approvedBy.uid,
         approved_by_name: approvedBy.name,
         approved_at: serverTimestamp(),
@@ -553,11 +522,11 @@ export async function approveConsultantClaim(
 
     return {
       success: true,
-      message: "Vínculo aprovado com sucesso",
+      message: 'Vínculo aprovado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao aprovar reivindicação:", error);
-    return { success: false, message: "Erro ao aprovar vínculo" };
+    console.error('Erro ao aprovar reivindicação:', error);
+    return { success: false, message: 'Erro ao aprovar vínculo' };
   }
 }
 
@@ -573,30 +542,30 @@ export async function rejectConsultantClaim(
     const claim = await getConsultantClaim(claimId);
 
     if (!claim) {
-      return { success: false, message: "Solicitação não encontrada" };
+      return { success: false, message: 'Solicitação não encontrada' };
     }
 
-    if (claim.status !== "pending") {
-      return { success: false, message: "Solicitação já foi processada" };
+    if (claim.status !== 'pending') {
+      return { success: false, message: 'Solicitação já foi processada' };
     }
 
     const claimRef = doc(db, CONSULTANT_CLAIMS_COLLECTION, claimId);
     await updateDoc(claimRef, {
-      status: "rejected",
+      status: 'rejected',
       rejected_by: rejectedBy.uid,
       rejected_by_name: rejectedBy.name,
       rejected_at: serverTimestamp(),
-      rejection_reason: reason || "Não especificado",
+      rejection_reason: reason || 'Não especificado',
       updated_at: serverTimestamp(),
     });
 
     return {
       success: true,
-      message: "Solicitação rejeitada",
+      message: 'Solicitação rejeitada',
     };
   } catch (error) {
-    console.error("Erro ao rejeitar reivindicação:", error);
-    return { success: false, message: "Erro ao rejeitar solicitação" };
+    console.error('Erro ao rejeitar reivindicação:', error);
+    return { success: false, message: 'Erro ao rejeitar solicitação' };
   }
 }
 
@@ -607,16 +576,14 @@ export async function rejectConsultantClaim(
 /**
  * Busca clínicas por CNPJ/CPF para o consultor reivindicar
  */
-export async function searchTenantsByDocument(
-  document: string
-): Promise<Tenant[]> {
+export async function searchTenantsByDocument(document: string): Promise<Tenant[]> {
   try {
     const cleanDoc = cleanDocument(document);
 
     const q = query(
       collection(db, TENANTS_COLLECTION),
-      where("document_number", "==", cleanDoc),
-      where("active", "==", true)
+      where('document_number', '==', cleanDoc),
+      where('active', '==', true)
     );
 
     const snapshot = await getDocs(q);
@@ -625,7 +592,7 @@ export async function searchTenantsByDocument(
       ...doc.data(),
     })) as Tenant[];
   } catch (error) {
-    console.error("Erro ao buscar clínicas:", error);
+    console.error('Erro ao buscar clínicas:', error);
     return [];
   }
 }
@@ -633,9 +600,7 @@ export async function searchTenantsByDocument(
 /**
  * Obtém o consultor atual de uma clínica
  */
-export async function getTenantConsultant(
-  tenantId: string
-): Promise<Consultant | null> {
+export async function getTenantConsultant(tenantId: string): Promise<Consultant | null> {
   try {
     const tenantDoc = await getDoc(doc(db, TENANTS_COLLECTION, tenantId));
 
@@ -651,7 +616,7 @@ export async function getTenantConsultant(
 
     return getConsultant(tenantData.consultant_id);
   } catch (error) {
-    console.error("Erro ao buscar consultor da clínica:", error);
+    console.error('Erro ao buscar consultor da clínica:', error);
     return null;
   }
 }
@@ -667,7 +632,7 @@ export async function transferConsultant(
     const tenantDoc = await getDoc(doc(db, TENANTS_COLLECTION, tenantId));
 
     if (!tenantDoc.exists()) {
-      return { success: false, message: "Clínica não encontrada" };
+      return { success: false, message: 'Clínica não encontrada' };
     }
 
     const tenantData = tenantDoc.data() as Tenant;
@@ -676,11 +641,11 @@ export async function transferConsultant(
     const newConsultant = await getConsultant(newConsultantId);
 
     if (!newConsultant) {
-      return { success: false, message: "Novo consultor não encontrado" };
+      return { success: false, message: 'Novo consultor não encontrado' };
     }
 
-    if (newConsultant.status !== "active") {
-      return { success: false, message: "Novo consultor não está ativo" };
+    if (newConsultant.status !== 'active') {
+      return { success: false, message: 'Novo consultor não está ativo' };
     }
 
     // Usar transação para garantir consistência
@@ -729,11 +694,11 @@ export async function transferConsultant(
 
     return {
       success: true,
-      message: "Consultoria transferida com sucesso",
+      message: 'Consultoria transferida com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao transferir consultoria:", error);
-    return { success: false, message: "Erro ao transferir consultoria" };
+    console.error('Erro ao transferir consultoria:', error);
+    return { success: false, message: 'Erro ao transferir consultoria' };
   }
 }
 
@@ -747,14 +712,14 @@ export async function removeConsultant(
     const tenantDoc = await getDoc(doc(db, TENANTS_COLLECTION, tenantId));
 
     if (!tenantDoc.exists()) {
-      return { success: false, message: "Clínica não encontrada" };
+      return { success: false, message: 'Clínica não encontrada' };
     }
 
     const tenantData = tenantDoc.data() as Tenant;
     const consultantId = tenantData.consultant_id;
 
     if (!consultantId) {
-      return { success: false, message: "Clínica não possui consultor vinculado" };
+      return { success: false, message: 'Clínica não possui consultor vinculado' };
     }
 
     // Usar transação para garantir consistência
@@ -788,20 +753,18 @@ export async function removeConsultant(
 
     return {
       success: true,
-      message: "Consultor removido com sucesso",
+      message: 'Consultor removido com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao remover consultor:", error);
-    return { success: false, message: "Erro ao remover consultor" };
+    console.error('Erro ao remover consultor:', error);
+    return { success: false, message: 'Erro ao remover consultor' };
   }
 }
 
 /**
  * Lista clínicas vinculadas a um consultor
  */
-export async function getConsultantClinics(
-  consultantId: string
-): Promise<Tenant[]> {
+export async function getConsultantClinics(consultantId: string): Promise<Tenant[]> {
   try {
     const consultant = await getConsultant(consultantId);
 
@@ -829,7 +792,7 @@ export async function getConsultantClinics(
 
     return tenants;
   } catch (error) {
-    console.error("Erro ao buscar clínicas do consultor:", error);
+    console.error('Erro ao buscar clínicas do consultor:', error);
     return [];
   }
 }

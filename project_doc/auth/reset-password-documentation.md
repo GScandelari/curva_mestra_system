@@ -25,6 +25,7 @@ O fluxo de reset de senha permite que usuários que esqueceram suas credenciais 
 4. **Serviço de Tokens:** Gerencia tokens seguros de uso único
 
 ### 1.2 Localização dos Arquivos
+
 - **Forgot Password:** `src/app/(auth)/forgot-password/page.tsx`
 - **Reset Password:** `src/app/(auth)/reset-password/[token]/page.tsx`
 - **API Reset:** `src/app/api/auth/reset-password/route.ts`
@@ -32,6 +33,7 @@ O fluxo de reset de senha permite que usuários que esqueceram suas credenciais 
 - **Serviço:** `src/lib/services/passwordResetService.ts`
 
 ### 1.3 Dependências Principais
+
 - **Firebase Auth:** `sendPasswordResetEmail` (método nativo do Firebase)
 - **Firebase Admin:** Atualização de senha e custom claims
 - **Firestore:** Armazenamento de tokens
@@ -56,47 +58,53 @@ O Firebase Auth possui `sendPasswordResetEmail` nativo, mas o sistema implementa
 
 ```typescript
 interface PasswordResetTokenData {
-  token_hash: string;              // Hash SHA-256 do token
-  user_id: string;                 // Firebase Auth UID
-  user_email: string;              // Email do usuário
-  tenant_id?: string;              // ID do tenant (multi-tenant)
-  expires_at: Timestamp;           // Expiração (30 minutos)
-  created_at: Timestamp;           // Data de criação
-  created_by: string;              // Quem criou (user_id ou "system")
-  used_at?: Timestamp;             // Quando foi usado
-  invalidated_at?: Timestamp;      // Quando foi invalidado
+  token_hash: string; // Hash SHA-256 do token
+  user_id: string; // Firebase Auth UID
+  user_email: string; // Email do usuário
+  tenant_id?: string; // ID do tenant (multi-tenant)
+  expires_at: Timestamp; // Expiração (30 minutos)
+  created_at: Timestamp; // Data de criação
+  created_by: string; // Quem criou (user_id ou "system")
+  used_at?: Timestamp; // Quando foi usado
+  invalidated_at?: Timestamp; // Quando foi invalidado
 }
 ```
 
 ### 2.3 Segurança do Token
 
 **Geração:**
+
 - Token: 32 bytes aleatórios (64 caracteres hex)
 - Método: `crypto.randomBytes(32).toString("hex")`
 - Exemplo: `a1b2c3d4e5f6...` (64 caracteres)
 
 **Armazenamento:**
+
 - Apenas o **hash SHA-256** é armazenado no banco
 - Token original nunca é salvo
 - Impossível recuperar token a partir do hash
 
 **Validação:**
+
 - Token recebido é hasheado
 - Hash é comparado com banco de dados
 - Se match, token é válido
 
 ---
+
 ## 3. Casos de Uso - Forgot Password Page
 
 ### 3.1 UC-001: Solicitação de Reset Bem-Sucedida
 
 **Ator:** Usuário que esqueceu a senha  
 **Pré-condições:**
+
 - Usuário possui conta no sistema
 - Email está cadastrado no Firebase Auth
 - Usuário não está autenticado
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/forgot-password`
 2. Sistema exibe formulário com campo de email
 3. Usuário digita email: "usuario@exemplo.com"
@@ -107,15 +115,17 @@ interface PasswordResetTokenData {
 8. Usuário recebe email na caixa de entrada
 
 **Pós-condições:**
+
 - Email enviado com link de reset
 - Link válido por tempo limitado (configurado no Firebase)
 - Usuário pode clicar no link para redefinir senha
 
 **Mensagem Exibida:**
+
 ```
 ✓ Email enviado com sucesso!
 
-Verifique sua caixa de entrada e siga as instruções 
+Verifique sua caixa de entrada e siga as instruções
 para redefinir sua senha.
 
 Não se esqueça de verificar a pasta de spam.
@@ -127,9 +137,11 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Email não está cadastrado no sistema
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/forgot-password`
 2. Usuário digita email não cadastrado
 3. Usuário clica em "Enviar link de recuperação"
@@ -137,11 +149,13 @@ Não se esqueça de verificar a pasta de spam.
 5. Sistema exibe erro: "Usuário não encontrado"
 
 **Pós-condições:**
+
 - Email NÃO enviado
 - Usuário permanece na página
 - Pode tentar com outro email
 
 **Regra de Negócio:**
+
 - Por segurança, alguns sistemas não revelam se email existe
 - Este sistema opta por informar claramente (melhor UX)
 
@@ -151,15 +165,18 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário digita email com formato inválido
 
 **Fluxo Principal:**
+
 1. Usuário digita: "emailinvalido"
 2. Usuário clica em "Enviar link de recuperação"
 3. Firebase retorna erro `auth/invalid-email`
 4. Sistema exibe erro: "Email inválido"
 
 **Pós-condições:**
+
 - Email NÃO enviado
 - Usuário corrige formato
 
@@ -169,19 +186,23 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário fez múltiplas tentativas em curto período
 
 **Fluxo Principal:**
+
 1. Usuário tenta enviar email múltiplas vezes
 2. Firebase detecta rate limiting
 3. Firebase retorna erro `auth/too-many-requests`
 4. Sistema exibe erro: "Muitas tentativas. Tente novamente mais tarde"
 
 **Pós-condições:**
+
 - Email NÃO enviado
 - Usuário deve aguardar antes de tentar novamente
 
 **Regra de Negócio:**
+
 - Proteção contra abuso e spam
 - Rate limiting gerenciado pelo Firebase
 
@@ -191,15 +212,18 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Problema de conectividade
 
 **Fluxo Principal:**
+
 1. Usuário tenta enviar email
 2. Requisição falha por problema de rede
 3. Firebase retorna erro `auth/network-request-failed`
 4. Sistema exibe erro: "Erro de conexão. Verifique sua internet"
 
 **Pós-condições:**
+
 - Email NÃO enviado
 - Usuário pode tentar novamente quando conexão estabilizar
 
@@ -211,11 +235,13 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário com link válido  
 **Pré-condições:**
+
 - Usuário recebeu email com link
 - Token é válido e não expirado
 - Token não foi usado anteriormente
 
 **Fluxo Principal:**
+
 1. Usuário clica no link do email
 2. Sistema redireciona para `/reset-password/[token]`
 3. Sistema valida token via API `validate-reset-token`
@@ -226,7 +252,7 @@ Não se esqueça de verificar a pasta de spam.
    - Token não expirou (< 30 minutos)
 5. API retorna sucesso com email mascarado
 6. Sistema exibe formulário de nova senha
-7. Sistema mostra email mascarado: "u***o@exemplo.com"
+7. Sistema mostra email mascarado: "u\*\*\*o@exemplo.com"
 8. Usuário digita nova senha: "novaSenha123"
 9. Usuário confirma senha: "novaSenha123"
 10. Usuário clica em "Definir Nova Senha"
@@ -242,6 +268,7 @@ Não se esqueça de verificar a pasta de spam.
 20. Sistema redireciona para `/login`
 
 **Pós-condições:**
+
 - Senha atualizada no Firebase Auth
 - Token marcado como usado
 - Flag `requirePasswordChange` removida
@@ -255,9 +282,11 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário com link inválido  
 **Pré-condições:**
+
 - Token não existe, expirou ou foi usado
 
 **Fluxo Principal:**
+
 1. Usuário acessa link com token inválido
 2. Sistema valida token via API
 3. API detecta problema:
@@ -271,12 +300,14 @@ Não se esqueça de verificar a pasta de spam.
 7. Sistema oferece botão "Voltar ao Login"
 
 **Mensagens Possíveis:**
+
 - "Token inválido ou expirado"
 - "Este link já foi utilizado. Solicite um novo reset de senha."
 - "Este link foi invalidado. Solicite um novo reset de senha."
 - "Este link expirou. Solicite um novo reset de senha."
 
 **Pós-condições:**
+
 - Senha NÃO alterada
 - Usuário deve solicitar novo reset
 
@@ -286,10 +317,12 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Token válido
 - Usuário preencheu senhas diferentes
 
 **Fluxo Principal:**
+
 1. Usuário digita nova senha: "senha123"
 2. Usuário confirma senha: "senha124"
 3. Usuário clica em "Definir Nova Senha"
@@ -299,6 +332,7 @@ Não se esqueça de verificar a pasta de spam.
 7. Usuário corrige senhas
 
 **Pós-condições:**
+
 - Senha NÃO alterada
 - Token ainda válido (não foi consumido)
 - Usuário pode tentar novamente
@@ -309,10 +343,12 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Token válido
 - Usuário digitou senha com menos de 6 caracteres
 
 **Fluxo Principal:**
+
 1. Usuário digita nova senha: "12345"
 2. Usuário confirma senha: "12345"
 3. Usuário clica em "Definir Nova Senha"
@@ -322,10 +358,12 @@ Não se esqueça de verificar a pasta de spam.
 7. Usuário digita senha mais longa
 
 **Pós-condições:**
+
 - Senha NÃO alterada
 - Token ainda válido
 
 **Validação Adicional:**
+
 - Backend também valida (dupla validação)
 - Firebase Auth pode rejeitar senhas muito fracas
 
@@ -335,9 +373,11 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário acabou de acessar link
 
 **Fluxo Principal:**
+
 1. Usuário clica no link do email
 2. Sistema carrega página `/reset-password/[token]`
 3. Sistema inicia validação do token
@@ -349,6 +389,7 @@ Não se esqueça de verificar a pasta de spam.
 6. Sistema exibe formulário ou erro
 
 **Pós-condições:**
+
 - Usuário informado sobre o processo
 - Melhor experiência (não vê tela em branco)
 
@@ -358,9 +399,11 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Senha foi redefinida com sucesso
 
 **Fluxo Principal:**
+
 1. Senha atualizada com sucesso
 2. Sistema exibe tela de sucesso:
    - Ícone verde de check
@@ -372,9 +415,11 @@ Não se esqueça de verificar a pasta de spam.
 5. Usuário pode fazer login imediatamente
 
 **Alternativa:**
+
 - Usuário pode clicar em "Fazer Login Agora" (não espera 3s)
 
 **Pós-condições:**
+
 - Usuário na página de login
 - Pode usar nova senha imediatamente
 
@@ -581,51 +626,60 @@ ETAPA 4: DEFINIR NOVA SENHA
 ```
 
 ---
+
 ## 6. Regras de Negócio
 
 ### RN-001: Expiração de Token
+
 **Descrição:** Tokens de reset expiram após 30 minutos da criação  
 **Aplicação:** Validação de token antes de permitir reset  
 **Exceções:** Nenhuma - todos os tokens expiram  
 **Justificativa:** Segurança - limitar janela de vulnerabilidade
 
 ### RN-002: Token de Uso Único
+
 **Descrição:** Cada token pode ser usado apenas uma vez  
 **Aplicação:** Token é marcado como usado após consumo  
 **Exceções:** Nenhuma  
 **Justificativa:** Prevenir reutilização maliciosa de links
 
 ### RN-003: Invalidação de Tokens Anteriores
+
 **Descrição:** Ao criar novo token, tokens anteriores do usuário são invalidados  
 **Aplicação:** Criação de novo token e após reset bem-sucedido  
 **Exceções:** Nenhuma  
 **Justificativa:** Apenas o link mais recente deve funcionar
 
 ### RN-004: Hash de Token
+
 **Descrição:** Apenas hash SHA-256 do token é armazenado, nunca o token original  
 **Aplicação:** Armazenamento no Firestore  
 **Exceções:** Nenhuma  
 **Justificativa:** Segurança - mesmo com acesso ao banco, tokens não podem ser recuperados
 
 ### RN-005: Senha Mínima
+
 **Descrição:** Nova senha deve ter no mínimo 6 caracteres  
 **Aplicação:** Validação frontend e backend  
 **Exceções:** Nenhuma  
 **Justificativa:** Segurança básica, alinhado com Firebase Auth
 
 ### RN-006: Remoção de Flag requirePasswordChange
+
 **Descrição:** Ao redefinir senha, flag `requirePasswordChange` é removida  
 **Aplicação:** Após reset bem-sucedido  
 **Exceções:** Nenhuma  
 **Justificativa:** Usuário já trocou senha, não precisa trocar novamente
 
 ### RN-007: Email Mascarado
-**Descrição:** Email é exibido mascarado na página de reset (ex: u***o@exemplo.com)  
+
+**Descrição:** Email é exibido mascarado na página de reset (ex: u**\*o@exemplo.com)  
 **Aplicação:** Página de reset de senha  
 **Exceções:** Nenhuma  
-**Justificativa:** Privacidade - confirma identidade sem expor email completo
+**Justificativa:\*\* Privacidade - confirma identidade sem expor email completo
 
 ### RN-008: Rate Limiting do Firebase
+
 **Descrição:** Firebase limita número de emails de reset por período  
 **Aplicação:** Gerenciado automaticamente pelo Firebase  
 **Exceções:** Nenhuma  
@@ -638,8 +692,10 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 7.1 Forgot Password Page
 
 #### Estado: Formulário Inicial
+
 **Quando:** Usuário acessa `/forgot-password`  
 **Exibição:**
+
 - Título: "Recuperar Senha"
 - Descrição: "Digite seu email para receber o link de recuperação"
 - Campo: Email (type: email, required, autofocus)
@@ -647,15 +703,19 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Link: "Voltar para login" → `/login`
 
 #### Estado: Processando
+
 **Quando:** Usuário submeteu formulário  
 **Exibição:**
+
 - Botão desabilitado
 - Texto: "Enviando..."
 - Campo desabilitado
 
 #### Estado: Sucesso
+
 **Quando:** Email enviado com sucesso  
 **Exibição:**
+
 - Ícone verde de email
 - Título: "Email enviado com sucesso!"
 - Mensagem principal
@@ -663,8 +723,10 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Link: "Voltar para login"
 
 #### Estado: Erro
+
 **Quando:** Falha ao enviar email  
 **Exibição:**
+
 - Alert vermelho com mensagem de erro
 - Formulário habilitado para nova tentativa
 - Mensagens traduzidas em português
@@ -672,15 +734,19 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 7.2 Reset Password Page
 
 #### Estado: Validando Token
+
 **Quando:** Página acabou de carregar  
 **Exibição:**
+
 - Ícone de loading animado (spinner)
 - Título: "Validando Link..."
 - Descrição: "Aguarde enquanto verificamos seu link de redefinição de senha."
 
 #### Estado: Token Inválido
+
 **Quando:** Token não passou na validação  
 **Exibição:**
+
 - Ícone vermelho de erro (XCircle)
 - Título: "Link Inválido"
 - Alert vermelho com mensagem específica
@@ -688,8 +754,10 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Botão: "Voltar ao Login"
 
 #### Estado: Formulário de Nova Senha
+
 **Quando:** Token válido  
 **Exibição:**
+
 - Ícone azul de chave (KeyRound)
 - Título: "Nova Senha"
 - Descrição: "Defina uma nova senha para sua conta"
@@ -703,16 +771,20 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Link: "Voltar ao Login"
 
 #### Estado: Processando Reset
+
 **Quando:** Usuário submeteu nova senha  
 **Exibição:**
+
 - Botão desabilitado
 - Ícone de loading no botão
 - Texto: "Salvando..."
 - Campos desabilitados
 
 #### Estado: Sucesso
+
 **Quando:** Senha redefinida com sucesso  
 **Exibição:**
+
 - Ícone verde de check (CheckCircle2)
 - Título: "Senha Redefinida!"
 - Descrição: "Sua senha foi alterada com sucesso."
@@ -720,8 +792,10 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Botão: "Fazer Login Agora"
 
 #### Estado: Erro de Validação
+
 **Quando:** Senhas não coincidem ou muito curtas  
 **Exibição:**
+
 - Alert vermelho com mensagem de erro
 - Formulário habilitado para correção
 - Campos mantêm valores (exceto senhas por segurança)
@@ -733,6 +807,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 8.1 Forgot Password - Frontend
 
 **Email:**
+
 - Obrigatório (HTML5 required)
 - Type: email (validação básica do navegador)
 - Mensagem: Gerenciada pelo Firebase
@@ -740,11 +815,13 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 8.2 Forgot Password - Firebase
 
 **Email:**
+
 - Formato válido
 - Usuário existe no sistema
 - Rate limiting (automático)
 
 **Erros Possíveis:**
+
 - `auth/user-not-found` → "Usuário não encontrado"
 - `auth/invalid-email` → "Email inválido"
 - `auth/too-many-requests` → "Muitas tentativas. Tente novamente mais tarde"
@@ -753,11 +830,13 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 8.3 Reset Password - Frontend
 
 **Nova Senha:**
+
 - Obrigatório
 - Mínimo 6 caracteres
 - Mensagem: "A senha deve ter pelo menos 6 caracteres"
 
 **Confirmar Senha:**
+
 - Obrigatório
 - Deve ser igual à nova senha
 - Mensagem: "As senhas não coincidem"
@@ -765,6 +844,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 8.4 Reset Password - Backend (API)
 
 **Token:**
+
 - Obrigatório
 - Deve existir no banco (hash match)
 - Não pode estar usado
@@ -772,11 +852,13 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Não pode estar expirado (< 30 minutos)
 
 **Nova Senha:**
+
 - Obrigatório
 - Mínimo 6 caracteres
 - Firebase pode rejeitar senhas muito fracas
 
 **Erros Possíveis:**
+
 - "Token não fornecido"
 - "Nova senha não fornecida"
 - "A senha deve ter pelo menos 6 caracteres"
@@ -792,6 +874,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 ## 9. Integrações
 
 ### 9.1 Firebase Auth - sendPasswordResetEmail
+
 - **Uso:** Enviar email com link de reset
 - **Método:** `sendPasswordResetEmail(auth, email, options)`
 - **Parâmetros:**
@@ -802,16 +885,20 @@ ETAPA 4: DEFINIR NOVA SENHA
 - **Erros:** Códigos de erro do Firebase
 
 ### 9.2 API - Validate Reset Token
+
 - **Endpoint:** `GET /api/auth/validate-reset-token`
 - **Query Params:** `?token=[token]`
 - **Resposta Sucesso:**
+
 ```json
 {
   "valid": true,
   "email_masked": "u***o@exemplo.com"
 }
 ```
+
 - **Resposta Erro:**
+
 ```json
 {
   "valid": false,
@@ -820,23 +907,29 @@ ETAPA 4: DEFINIR NOVA SENHA
 ```
 
 ### 9.3 API - Reset Password
+
 - **Endpoint:** `POST /api/auth/reset-password`
 - **Headers:** `Content-Type: application/json`
 - **Body:**
+
 ```json
 {
   "token": "string",
   "new_password": "string"
 }
 ```
+
 - **Resposta Sucesso:**
+
 ```json
 {
   "success": true,
   "message": "Senha redefinida com sucesso! Você já pode fazer login."
 }
 ```
+
 - **Resposta Erro:**
+
 ```json
 {
   "success": false,
@@ -845,6 +938,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 ```
 
 ### 9.4 Firestore - password_reset_tokens
+
 - **Coleção:** `password_reset_tokens`
 - **Operações:**
   - Create: Criar novo token
@@ -855,12 +949,14 @@ ETAPA 4: DEFINIR NOVA SENHA
   - `user_id` + `used_at` (para invalidação)
 
 ### 9.5 Firebase Admin - updateUser
+
 - **Uso:** Atualizar senha do usuário
 - **Método:** `adminAuth.updateUser(uid, { password })`
 - **Quando:** Após validar e consumir token
 - **Efeito:** Senha atualizada no Firebase Auth
 
 ### 9.6 Firebase Admin - setCustomUserClaims
+
 - **Uso:** Remover flag requirePasswordChange
 - **Método:** `adminAuth.setCustomUserClaims(uid, claims)`
 - **Quando:** Após atualizar senha
@@ -871,6 +967,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 ## 10. Segurança
 
 ### 10.1 Proteções Implementadas
+
 - ✅ Token de uso único (não pode ser reutilizado)
 - ✅ Expiração de 30 minutos (janela limitada)
 - ✅ Hash SHA-256 (token nunca armazenado em texto plano)
@@ -911,19 +1008,23 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 10.3 Vetores de Ataque Mitigados
 
 **Brute Force:**
+
 - Impossível adivinhar token (2^256 possibilidades)
 - Rate limiting do Firebase
 
 **Replay Attack:**
+
 - Token de uso único
 - Marcado como usado após consumo
 
 **Token Theft:**
+
 - Expiração de 30 minutos
 - Invalidação ao criar novo token
 - HTTPS obrigatório
 
 **Database Breach:**
+
 - Apenas hash armazenado
 - Token original não recuperável
 
@@ -934,17 +1035,20 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 11.1 Métricas Estimadas
 
 **Forgot Password:**
+
 - Carregamento da página: ~300ms
 - Envio de email: ~1-2 segundos
 - Total: ~2-3 segundos
 
 **Reset Password:**
+
 - Carregamento da página: ~300ms
 - Validação de token: ~500ms
 - Reset de senha: ~1-2 segundos
 - Total: ~2-3 segundos
 
 ### 11.2 Otimizações Implementadas
+
 - ✅ Validação de token em paralelo ao carregamento da página
 - ✅ Feedback visual imediato (loading states)
 - ✅ Validação frontend antes de chamar API
@@ -952,6 +1056,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - ✅ Batch operations para invalidação de múltiplos tokens
 
 ### 11.3 Gargalos Potenciais
+
 - Envio de email pelo Firebase (depende de serviço externo)
 - Busca de token no Firestore (mitigado com índices)
 - Hash SHA-256 (rápido, < 1ms)
@@ -960,18 +1065,19 @@ ETAPA 4: DEFINIR NOVA SENHA
 
 ## 12. Diferenças: Firebase Nativo vs Sistema Customizado
 
-| Aspecto | Firebase Nativo | Sistema Customizado |
-|---------|-----------------|---------------------|
-| **Geração de Link** | Apenas pelo Firebase | Admin pode gerar manualmente |
+| Aspecto                   | Firebase Nativo        | Sistema Customizado           |
+| ------------------------- | ---------------------- | ----------------------------- |
+| **Geração de Link**       | Apenas pelo Firebase   | Admin pode gerar manualmente  |
 | **Controle de Expiração** | Configurado no console | Controlado no código (30 min) |
-| **Auditoria** | Limitada | Completa (quem criou, quando) |
-| **Invalidação** | Não suportada | Suportada |
-| **Multi-tenant** | Não nativo | Associação com tenant_id |
-| **Customização** | Limitada | Total |
-| **Complexidade** | Baixa | Média |
-| **Manutenção** | Firebase gerencia | Equipe gerencia |
+| **Auditoria**             | Limitada               | Completa (quem criou, quando) |
+| **Invalidação**           | Não suportada          | Suportada                     |
+| **Multi-tenant**          | Não nativo             | Associação com tenant_id      |
+| **Customização**          | Limitada               | Total                         |
+| **Complexidade**          | Baixa                  | Média                         |
+| **Manutenção**            | Firebase gerencia      | Equipe gerencia               |
 
 **Por que usar sistema customizado?**
+
 - Administradores podem gerar links de reset
 - Auditoria completa de tokens
 - Controle sobre regras de negócio
@@ -979,9 +1085,11 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Invalidação manual de tokens
 
 ---
+
 ## 13. Melhorias Futuras
 
 ### 13.1 Funcionalidades
+
 - [ ] Notificação por SMS além de email
 - [ ] Histórico de resets de senha
 - [ ] Alertas de segurança (email quando senha é alterada)
@@ -994,6 +1102,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - [ ] Limite de tentativas de reset por período
 
 ### 13.2 UX/UI
+
 - [ ] Indicador de força de senha em tempo real
 - [ ] Mostrar/ocultar senha
 - [ ] Sugestão de senha segura
@@ -1004,6 +1113,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - [ ] Internacionalização (i18n)
 
 ### 13.3 Segurança
+
 - [ ] Captcha na página de forgot password
 - [ ] Verificação de dispositivo conhecido
 - [ ] Geolocalização de tentativas de reset
@@ -1014,6 +1124,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - [ ] Requisitos de senha mais fortes (números, símbolos)
 
 ### 13.4 Administração
+
 - [ ] Dashboard de tokens ativos
 - [ ] Invalidação manual de tokens por admin
 - [ ] Estatísticas de resets de senha
@@ -1028,6 +1139,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 14.1 Decisões de Arquitetura
 
 **Por que usar Firebase sendPasswordResetEmail?**
+
 - Simplicidade para usuário final
 - Email templates gerenciados pelo Firebase
 - Infraestrutura de email confiável
@@ -1035,6 +1147,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Integração nativa com Firebase Auth
 
 **Por que adicionar camada de tokens customizada?**
+
 - Permite que admins gerem links de reset
 - Auditoria completa (quem, quando, por quê)
 - Invalidação manual de tokens
@@ -1042,6 +1155,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Controle total sobre regras de negócio
 
 **Por que hash SHA-256?**
+
 - Rápido (< 1ms)
 - Seguro para este caso de uso
 - Unidirecional (não pode ser revertido)
@@ -1049,6 +1163,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Não requer bcrypt (tokens são temporários)
 
 ### 14.2 Padrões Utilizados
+
 - **Token de Uso Único:** Previne replay attacks
 - **Hash de Token:** Segurança em caso de breach
 - **Expiração Temporal:** Limita janela de vulnerabilidade
@@ -1057,6 +1172,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - **Feedback Progressivo:** Loading states em cada etapa
 
 ### 14.3 Limitações Conhecidas
+
 - ⚠️ Email pode cair em spam (depende de configuração do Firebase)
 - ⚠️ Não há verificação de identidade adicional
 - ⚠️ Não há limite de tentativas de reset por período
@@ -1066,6 +1182,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - ⚠️ Não há histórico de senhas anteriores
 
 ### 14.4 Dependências Críticas
+
 - **Firebase Auth:** Envio de email e atualização de senha
 - **Firebase Admin SDK:** Operações privilegiadas
 - **Firestore:** Armazenamento de tokens
@@ -1077,11 +1194,13 @@ ETAPA 4: DEFINIR NOVA SENHA
 ## 15. Mensagens do Sistema
 
 ### 15.1 Forgot Password - Sucesso
+
 - "Email enviado com sucesso!"
 - "Verifique sua caixa de entrada e siga as instruções para redefinir sua senha."
 - "Não se esqueça de verificar a pasta de spam."
 
 ### 15.2 Forgot Password - Erros
+
 - "Usuário não encontrado"
 - "Email inválido"
 - "Muitas tentativas. Tente novamente mais tarde"
@@ -1089,10 +1208,12 @@ ETAPA 4: DEFINIR NOVA SENHA
 - "Erro ao enviar email. Tente novamente"
 
 ### 15.3 Reset Password - Validação de Token
+
 - "Validando Link..."
 - "Aguarde enquanto verificamos seu link de redefinição de senha."
 
 ### 15.4 Reset Password - Token Inválido
+
 - "Link Inválido"
 - "Token inválido ou expirado"
 - "Este link já foi utilizado. Solicite um novo reset de senha."
@@ -1101,6 +1222,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - "Se você precisa redefinir sua senha, entre em contato com o administrador do sistema."
 
 ### 15.5 Reset Password - Formulário
+
 - "Nova Senha"
 - "Defina uma nova senha para sua conta"
 - "Mínimo de 6 caracteres"
@@ -1110,16 +1232,19 @@ ETAPA 4: DEFINIR NOVA SENHA
 - "Evite senhas óbvias como '123456'"
 
 ### 15.6 Reset Password - Validação
+
 - "A senha deve ter pelo menos 6 caracteres"
 - "As senhas não coincidem"
 
 ### 15.7 Reset Password - Sucesso
+
 - "Senha Redefinida!"
 - "Sua senha foi alterada com sucesso."
 - "Você será redirecionado para a página de login automaticamente..."
 - "Senha redefinida com sucesso! Você já pode fazer login."
 
 ### 15.8 Reset Password - Erros API
+
 - "Token não fornecido"
 - "Nova senha não fornecida"
 - "Usuário não encontrado"
@@ -1133,6 +1258,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 **Nota:** Este fluxo não está coberto em detalhes neste documento, mas existe no sistema.
 
 ### 16.1 Diferenças
+
 - Administrador acessa painel de usuários
 - Administrador clica em "Resetar Senha" para um usuário
 - Sistema gera token usando `passwordResetService`
@@ -1142,6 +1268,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - Usuário é forçado a trocar senha no próximo login
 
 ### 16.2 Casos de Uso
+
 - Usuário esqueceu senha e não tem acesso ao email
 - Administrador precisa forçar troca de senha
 - Conta comprometida
@@ -1154,6 +1281,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 17.1 Testes Funcionais
 
 **Forgot Password:**
+
 1. Enviar email com usuário válido → Sucesso
 2. Enviar email com usuário inexistente → Erro
 3. Enviar email com formato inválido → Erro
@@ -1161,6 +1289,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 5. Verificar recebimento de email → Email na caixa de entrada
 
 **Reset Password:**
+
 1. Acessar link válido → Formulário exibido
 2. Acessar link expirado → Erro
 3. Acessar link já usado → Erro
@@ -1171,6 +1300,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 8. Fazer login com nova senha → Sucesso
 
 ### 17.2 Testes de Segurança
+
 1. Tentar reutilizar token → Bloqueado
 2. Tentar usar token após expiração → Bloqueado
 3. Tentar adivinhar token → Impossível (2^256)
@@ -1179,6 +1309,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 6. Verificar HTTPS → Obrigatório
 
 ### 17.3 Testes de Performance
+
 1. Medir tempo de envio de email → < 3s
 2. Medir tempo de validação de token → < 500ms
 3. Medir tempo de reset de senha → < 2s
@@ -1191,12 +1322,14 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 18.1 Email Não Recebido
 
 **Possíveis Causas:**
+
 - Email caiu em spam
 - Email incorreto
 - Problema no servidor de email do Firebase
 - Rate limiting ativo
 
 **Soluções:**
+
 - Verificar pasta de spam
 - Verificar email digitado
 - Aguardar alguns minutos e tentar novamente
@@ -1205,12 +1338,14 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 18.2 Link Não Funciona
 
 **Possíveis Causas:**
+
 - Link expirou (> 30 minutos)
 - Link já foi usado
 - Link foi invalidado
 - Token corrompido (copiado incorretamente)
 
 **Soluções:**
+
 - Solicitar novo reset de senha
 - Copiar link completo do email
 - Contatar administrador
@@ -1218,12 +1353,14 @@ ETAPA 4: DEFINIR NOVA SENHA
 ### 18.3 Erro ao Definir Nova Senha
 
 **Possíveis Causas:**
+
 - Senha muito curta (< 6 caracteres)
 - Senhas não coincidem
 - Problema de conexão
 - Token expirou durante preenchimento
 
 **Soluções:**
+
 - Verificar requisitos de senha
 - Confirmar senhas coincidem
 - Verificar conexão com internet
@@ -1239,7 +1376,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - **Expiração:** Tempo limite após o qual token não é mais válido
 - **Consumir Token:** Marcar token como usado, impedindo reutilização
 - **Invalidar Token:** Marcar token como inválido antes de ser usado
-- **Email Mascarado:** Email parcialmente oculto (ex: u***o@exemplo.com)
+- **Email Mascarado:** Email parcialmente oculto (ex: u\*\*\*o@exemplo.com)
 - **Rate Limiting:** Limitação de número de requisições por período
 - **Replay Attack:** Tentativa de reutilizar token capturado
 - **Custom Claims:** Metadados de permissão no token JWT do Firebase
@@ -1250,11 +1387,13 @@ ETAPA 4: DEFINIR NOVA SENHA
 ## 20. Referências
 
 ### 20.1 Documentação Relacionada
+
 - Login Page Documentation - `project_doc/login-page-documentation.md`
 - Register Page Documentation - `project_doc/register-page-documentation.md`
 - Template de Documentação - `project_doc/TEMPLATE-page-documentation.md`
 
 ### 20.2 Código Fonte
+
 - **Forgot Password:** `src/app/(auth)/forgot-password/page.tsx`
 - **Reset Password:** `src/app/(auth)/reset-password/[token]/page.tsx`
 - **API Reset:** `src/app/api/auth/reset-password/route.ts`
@@ -1263,6 +1402,7 @@ ETAPA 4: DEFINIR NOVA SENHA
 - **Firebase Admin:** `src/lib/firebase-admin.ts`
 
 ### 20.3 Links Externos
+
 - [Firebase Authentication](https://firebase.google.com/docs/auth)
 - [Firebase sendPasswordResetEmail](https://firebase.google.com/docs/auth/web/manage-users#send_a_password_reset_email)
 - [Node.js crypto](https://nodejs.org/api/crypto.html)

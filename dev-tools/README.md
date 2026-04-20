@@ -27,6 +27,7 @@ Você pode configurar custom claims de três formas:
 ### Passo a Passo
 
 1. **Certifique-se que os emuladores estão rodando:**
+
    ```bash
    firebase emulators:start
    ```
@@ -34,11 +35,13 @@ Você pode configurar custom claims de três formas:
 2. **Abra a ferramenta de setup:**
 
    Abra o arquivo no navegador:
+
    ```
    dev-tools/setup-admin.html
    ```
 
    Ou acesse diretamente:
+
    ```
    file:///mnt/c/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra/dev-tools/setup-admin.html
    ```
@@ -46,7 +49,6 @@ Você pode configurar custom claims de três formas:
 3. **Use as ferramentas disponíveis:**
 
    ### 1️⃣ Criar System Admin
-
    - Preencha nome, email e senha
    - Clique em "Criar System Admin"
    - Você receberá o UID do usuário criado
@@ -75,7 +77,6 @@ Você pode configurar custom claims de três formas:
    ### 3️⃣ Criar Tenant (Clínica)
 
    **IMPORTANTE:** Você precisa estar autenticado como system admin!
-
    1. Primeiro, faça login no app (http://localhost:3000) com o system admin
    2. Depois, volte para esta ferramenta e crie o tenant
 
@@ -91,6 +92,7 @@ Você pode configurar custom claims de três formas:
 ### Configurar Custom Claims Manualmente
 
 1. **Acesse o Emulator UI:**
+
    ```
    http://127.0.0.1:4000
    ```
@@ -155,7 +157,7 @@ await setUserClaims({
   tenantId: 'tenant_1234567890',
   role: 'admin',
   isSystemAdmin: false,
-  active: true
+  active: true,
 });
 ```
 
@@ -170,7 +172,7 @@ const result = await setUserClaims({
   tenantId: 'tenant_1701234567890',
   role: 'admin',
   isSystemAdmin: false,
-  active: true
+  active: true,
 });
 
 console.log(result.data);
@@ -186,7 +188,7 @@ const result = await createTenant({
   name: 'Clínica Bella Vita',
   cnpj: '12.345.678/0001-90',
   email: 'contato@bellavita.com.br',
-  planId: 'basic' // opcional
+  planId: 'basic', // opcional
 });
 
 console.log(result.data);
@@ -201,7 +203,7 @@ const addUserToTenant = httpsCallable(functions, 'addUserToTenant');
 const result = await addUserToTenant({
   userId: 'UID_DO_USUARIO',
   tenantId: 'tenant_1701234567890',
-  role: 'manager'
+  role: 'manager',
 });
 
 console.log(result.data);
@@ -216,6 +218,7 @@ console.log(result.data);
 Cria um novo usuário system admin.
 
 **Parâmetros:**
+
 ```typescript
 {
   email: string;        // Email do admin
@@ -225,6 +228,7 @@ Cria um novo usuário system admin.
 ```
 
 **Retorno:**
+
 ```typescript
 {
   success: true,
@@ -235,6 +239,7 @@ Cria um novo usuário system admin.
 ```
 
 **Custom Claims aplicados:**
+
 ```json
 {
   "is_system_admin": true,
@@ -250,6 +255,7 @@ Cria um novo usuário system admin.
 Configura custom claims para um usuário existente.
 
 **Parâmetros:**
+
 ```typescript
 {
   userId: string;           // UID do usuário (obrigatório)
@@ -261,6 +267,7 @@ Configura custom claims para um usuário existente.
 ```
 
 **Retorno:**
+
 ```typescript
 {
   success: true,
@@ -271,6 +278,7 @@ Configura custom claims para um usuário existente.
 ```
 
 **Exemplo de claims:**
+
 ```json
 {
   "tenant_id": "tenant_1701234567890",
@@ -287,6 +295,7 @@ Configura custom claims para um usuário existente.
 Cria um novo tenant (clínica). **Requer autenticação como system_admin.**
 
 **Parâmetros:**
+
 ```typescript
 {
   name: string;    // Nome da clínica (obrigatório)
@@ -297,6 +306,7 @@ Cria um novo tenant (clínica). **Requer autenticação como system_admin.**
 ```
 
 **Retorno:**
+
 ```typescript
 {
   tenantId: string,
@@ -305,6 +315,7 @@ Cria um novo tenant (clínica). **Requer autenticação como system_admin.**
 ```
 
 **Documento criado no Firestore:**
+
 ```json
 {
   "id": "tenant_1701234567890",
@@ -325,20 +336,23 @@ Cria um novo tenant (clínica). **Requer autenticação como system_admin.**
 Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou admin do tenant.**
 
 **Parâmetros:**
+
 ```typescript
 {
-  userId: string;   // UID do usuário (obrigatório)
+  userId: string; // UID do usuário (obrigatório)
   tenantId: string; // ID do tenant (obrigatório)
-  role: string;     // Role do usuário (obrigatório)
+  role: string; // Role do usuário (obrigatório)
 }
 ```
 
 **Roles disponíveis:**
+
 - `admin` - Administrador da clínica
 - `manager` - Gerente
 - `user` - Usuário padrão
 
 **Retorno:**
+
 ```typescript
 {
   success: true,
@@ -350,6 +364,7 @@ Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou a
 ```
 
 **O que esta função faz:**
+
 1. Atualiza os custom claims do usuário
 2. Cria um documento em `tenants/{tenantId}/users/{userId}`
 
@@ -360,6 +375,7 @@ Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou a
 ### Setup Inicial (Fazer uma vez)
 
 1. **Criar System Admin:**
+
    ```
    Usar setup-admin.html → Seção 1
    Email: admin@curva-mestra.dev
@@ -377,6 +393,7 @@ Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou a
 ### Para cada usuário de teste
 
 1. **Registrar usuário normal:**
+
    ```
    http://localhost:3000/register
    Nome: João Silva
@@ -385,6 +402,7 @@ Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou a
    ```
 
 2. **Configurar custom claims:**
+
    ```
    Usar setup-admin.html → Seção 2
    User ID: [copiar do Emulator UI]
@@ -407,6 +425,7 @@ Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou a
 **Problema:** Você não está autenticado como system admin.
 
 **Solução:**
+
 1. Crie um system admin primeiro (seção 1 do setup-admin.html)
 2. Faça login no app com essas credenciais
 3. Depois tente criar o tenant
@@ -416,6 +435,7 @@ Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou a
 **Problema:** O UID do usuário está incorreto.
 
 **Solução:**
+
 1. Acesse http://127.0.0.1:4000/auth
 2. Copie o UID completo do usuário
 3. Cole no campo correto
@@ -425,6 +445,7 @@ Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou a
 **Problema:** O token não foi atualizado.
 
 **Solução:**
+
 1. Faça logout no app
 2. Faça login novamente
 3. As novas claims serão carregadas
@@ -434,6 +455,7 @@ Adiciona um usuário a um tenant. **Requer autenticação como system_admin ou a
 **Problema:** As functions não foram compiladas ou o emulador não está rodando.
 
 **Solução:**
+
 ```bash
 cd functions
 npm run build

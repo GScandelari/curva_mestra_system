@@ -1,27 +1,14 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Search,
-  Building2,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  UserCheck,
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { ClaimClinicDialog } from "@/components/consultant/ClaimClinicDialog";
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Search, Building2, Loader2, CheckCircle2, AlertCircle, UserCheck } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { ClaimClinicDialog } from '@/components/consultant/ClaimClinicDialog';
 
 interface Tenant {
   id: string;
@@ -36,7 +23,7 @@ interface Tenant {
 export default function SearchClinicsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [document, setDocument] = useState("");
+  const [document, setDocument] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<Tenant[]>([]);
   const [searched, setSearched] = useState(false);
@@ -45,32 +32,32 @@ export default function SearchClinicsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const formatDocument = (value: string) => {
-    const digits = value.replace(/\D/g, "");
+    const digits = value.replace(/\D/g, '');
 
     if (digits.length <= 11) {
       // CPF
       return digits
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d{1,2})/, "$1-$2");
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2');
     }
 
     // CNPJ
     return digits
       .slice(0, 14)
-      .replace(/(\d{2})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1/$2")
-      .replace(/(\d{4})(\d{1,2})/, "$1-$2");
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1/$2')
+      .replace(/(\d{4})(\d{1,2})/, '$1-$2');
   };
 
   const handleSearch = async () => {
     if (!user) return;
 
-    const cleanDoc = document.replace(/\D/g, "");
+    const cleanDoc = document.replace(/\D/g, '');
 
     if (cleanDoc.length < 11) {
-      toast({ title: "Informe um CPF ou CNPJ válido", variant: "destructive" });
+      toast({ title: 'Informe um CPF ou CNPJ válido', variant: 'destructive' });
       return;
     }
 
@@ -80,26 +67,23 @@ export default function SearchClinicsPage() {
     try {
       const token = await user.getIdToken();
 
-      const response = await fetch(
-        `/api/tenants/search?document=${cleanDoc}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await fetch(`/api/tenants/search?document=${cleanDoc}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao buscar clínicas");
+        throw new Error(data.error || 'Erro ao buscar clínicas');
       }
 
       setResults(data.data || []);
 
       if (data.data?.length === 0) {
-        toast({ title: "Nenhuma clínica encontrada com este documento" });
+        toast({ title: 'Nenhuma clínica encontrada com este documento' });
       }
     } catch (error: any) {
-      toast({ title: error.message || "Erro ao buscar clínicas", variant: "destructive" });
+      toast({ title: error.message || 'Erro ao buscar clínicas', variant: 'destructive' });
       setResults([]);
     } finally {
       setSearching(false);
@@ -129,9 +113,7 @@ export default function SearchClinicsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Buscar por Documento</CardTitle>
-            <CardDescription>
-              Informe o CNPJ ou CPF da clínica que deseja vincular
-            </CardDescription>
+            <CardDescription>Informe o CNPJ ou CPF da clínica que deseja vincular</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -167,7 +149,7 @@ export default function SearchClinicsPage() {
               <CardTitle>Resultados</CardTitle>
               <CardDescription>
                 {results.length === 0
-                  ? "Nenhuma clínica encontrada"
+                  ? 'Nenhuma clínica encontrada'
                   : `${results.length} clínica(s) encontrada(s)`}
               </CardDescription>
             </CardHeader>
@@ -185,10 +167,7 @@ export default function SearchClinicsPage() {
               ) : (
                 <div className="space-y-4">
                   {results.map((tenant) => (
-                    <div
-                      key={tenant.id}
-                      className="p-4 border rounded-lg space-y-3"
-                    >
+                    <div key={tenant.id} className="p-4 border rounded-lg space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
                           <Building2 className="h-6 w-6 text-sky-600" />
@@ -198,9 +177,7 @@ export default function SearchClinicsPage() {
                               {tenant.document_type?.toUpperCase()}: {tenant.document_number}
                             </p>
                             {tenant.email && (
-                              <p className="text-sm text-muted-foreground">
-                                {tenant.email}
-                              </p>
+                              <p className="text-sm text-muted-foreground">{tenant.email}</p>
                             )}
                           </div>
                         </div>
@@ -213,9 +190,7 @@ export default function SearchClinicsPage() {
                             <p className="text-sm font-medium text-green-800">
                               Já possui consultor vinculado
                             </p>
-                            <p className="text-xs text-green-600">
-                              {tenant.consultant_name}
-                            </p>
+                            <p className="text-xs text-green-600">{tenant.consultant_name}</p>
                           </div>
                         </div>
                       ) : (

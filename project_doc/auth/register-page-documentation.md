@@ -14,15 +14,18 @@
 A página de registro é o ponto de entrada para novos usuários solicitarem acesso ao sistema Curva Mestra. Diferente de um registro tradicional com acesso imediato, este sistema implementa um fluxo de **aprovação manual** onde as solicitações são analisadas por um System Admin antes de conceder acesso.
 
 O sistema suporta dois tipos de contas:
+
 - **Clínica/Empresa (CNPJ):** Para estabelecimentos com até 5 usuários
 - **Profissional Autônomo (CPF):** Para profissionais individuais (1 usuário)
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(auth)/register/page.tsx`
 - **Rota:** `/register`
 - **Layout:** Auth Layout (sem navegação principal)
 
 ### 1.2 Dependências Principais
+
 - **Hook de Autenticação:** `src/hooks/useAuth.ts`
 - **API de Solicitações:** `src/app/api/access-requests/route.ts`
 - **Validação de Documentos:** `src/lib/utils/documentValidation.ts`
@@ -35,6 +38,7 @@ O sistema suporta dois tipos de contas:
 ## 2. Tipos de Conta
 
 ### 2.1 Clínica / Empresa (CNPJ)
+
 - **Descrição:** Conta para estabelecimentos comerciais
 - **Documento:** CNPJ (14 dígitos)
 - **Limite de Usuários:** Até 5 usuários
@@ -43,6 +47,7 @@ O sistema suporta dois tipos de contas:
 - **Primeiro Usuário:** Torna-se `clinic_admin` após aprovação
 
 ### 2.2 Profissional Autônomo (CPF)
+
 - **Descrição:** Conta para profissionais individuais
 - **Documento:** CPF (11 dígitos)
 - **Limite de Usuários:** Apenas 1 usuário (o próprio)
@@ -58,13 +63,13 @@ O sistema suporta dois tipos de contas:
 
 ```typescript
 interface FormData {
-  document: string;           // CPF ou CNPJ formatado
-  fullName: string;           // Nome completo do solicitante
-  email: string;              // Email de contato
-  phone: string;              // Telefone formatado
-  businessName: string;       // Nome da clínica ou profissional
-  password: string;           // Senha escolhida
-  confirmPassword: string;    // Confirmação de senha
+  document: string; // CPF ou CNPJ formatado
+  fullName: string; // Nome completo do solicitante
+  email: string; // Email de contato
+  phone: string; // Telefone formatado
+  businessName: string; // Nome da clínica ou profissional
+  password: string; // Senha escolhida
+  confirmPassword: string; // Confirmação de senha
 }
 ```
 
@@ -72,28 +77,28 @@ interface FormData {
 
 ```typescript
 interface AccessRequest {
-  type: "clinica" | "autonomo";        // Tipo de conta
-  full_name: string;                   // Nome completo
-  email: string;                       // Email (lowercase)
-  phone: string;                       // Telefone
-  business_name: string;               // Nome do negócio
-  document_type: "cpf" | "cnpj";       // Tipo de documento
-  document_number: string;             // Documento limpo (só números)
-  password: string;                    // Senha hasheada (bcrypt)
-  address?: string | null;             // Endereço (opcional)
-  city?: string | null;                // Cidade (opcional)
-  state?: string | null;               // Estado (opcional)
-  cep?: string | null;                 // CEP (opcional)
-  status: "pendente";                  // Status inicial
-  created_at: Timestamp;               // Data de criação
-  updated_at: Timestamp;               // Data de atualização
+  type: 'clinica' | 'autonomo'; // Tipo de conta
+  full_name: string; // Nome completo
+  email: string; // Email (lowercase)
+  phone: string; // Telefone
+  business_name: string; // Nome do negócio
+  document_type: 'cpf' | 'cnpj'; // Tipo de documento
+  document_number: string; // Documento limpo (só números)
+  password: string; // Senha hasheada (bcrypt)
+  address?: string | null; // Endereço (opcional)
+  city?: string | null; // Cidade (opcional)
+  state?: string | null; // Estado (opcional)
+  cep?: string | null; // CEP (opcional)
+  status: 'pendente'; // Status inicial
+  created_at: Timestamp; // Data de criação
+  updated_at: Timestamp; // Data de atualização
 }
 ```
 
 ### 3.3 Tipos de Documento
 
 ```typescript
-type DocumentType = "cpf" | "cnpj";
+type DocumentType = 'cpf' | 'cnpj';
 ```
 
 ---
@@ -104,11 +109,13 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário (Administrador de Clínica)  
 **Pré-condições:**
+
 - Usuário não está autenticado
 - Possui CNPJ válido da clínica
 - Possui dados completos para preenchimento
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/register`
 2. Sistema exibe formulário de registro
 3. Usuário seleciona "Clínica / Empresa"
@@ -133,12 +140,14 @@ type DocumentType = "cpf" | "cnpj";
 22. Sistema redireciona para `/login`
 
 **Pós-condições:**
+
 - Solicitação criada com status "pendente"
 - Senha armazenada com hash bcrypt
 - Usuário aguarda aprovação do System Admin
 - Formulário limpo
 
 **Regra de Negócio:**
+
 - CNPJ permite até 5 usuários na clínica
 - Primeiro usuário aprovado torna-se `clinic_admin`
 - Senha não é usada diretamente (admin gera senha temporária na aprovação)
@@ -149,11 +158,13 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário (Profissional Autônomo)  
 **Pré-condições:**
+
 - Usuário não está autenticado
 - Possui CPF válido
 - Trabalha de forma autônoma
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/register`
 2. Sistema exibe formulário de registro
 3. Usuário seleciona "Profissional Autônomo"
@@ -174,24 +185,29 @@ type DocumentType = "cpf" | "cnpj";
 18. Sistema redireciona para `/login` após 3 segundos
 
 **Pós-condições:**
+
 - Solicitação criada com status "pendente"
 - Tipo definido como "autonomo"
 - Limite de 1 usuário será aplicado após aprovação
 
 **Regra de Negócio:**
+
 - CPF permite apenas 1 usuário (o próprio)
 - Usuário aprovado torna-se `clinic_admin` da sua própria "clínica"
 - Funciona como tenant individual
 
 ---
+
 ### 4.3 UC-003: Validação de CNPJ Inválido
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário selecionou tipo "Clínica / Empresa"
 - Usuário preencheu CNPJ incorreto
 
 **Fluxo Principal:**
+
 1. Usuário preenche CNPJ com dígitos verificadores incorretos
 2. Usuário preenche demais campos
 3. Usuário clica em "Solicitar Acesso"
@@ -202,11 +218,13 @@ type DocumentType = "cpf" | "cnpj";
 8. Usuário tenta novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 - Usuário permanece na página
 - Campos mantêm valores preenchidos (exceto senhas por segurança)
 
 **Validação:**
+
 - Algoritmo de validação de CNPJ com dígitos verificadores
 - Rejeita CNPJs com todos os dígitos iguais (ex: 11.111.111/1111-11)
 
@@ -216,10 +234,12 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário selecionou tipo "Profissional Autônomo"
 - Usuário preencheu CPF incorreto
 
 **Fluxo Principal:**
+
 1. Usuário preenche CPF com dígitos verificadores incorretos
 2. Usuário preenche demais campos
 3. Usuário clica em "Solicitar Acesso"
@@ -230,10 +250,12 @@ type DocumentType = "cpf" | "cnpj";
 8. Usuário tenta novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 - Usuário permanece na página
 
 **Validação:**
+
 - Algoritmo de validação de CPF com dígitos verificadores
 - Rejeita CPFs com todos os dígitos iguais (ex: 111.111.111-11)
 
@@ -243,10 +265,12 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário preencheu formulário
 - Senha e confirmação de senha são diferentes
 
 **Fluxo Principal:**
+
 1. Usuário preenche senha: "senha123"
 2. Usuário preenche confirmação: "senha124"
 3. Usuário clica em "Solicitar Acesso"
@@ -257,6 +281,7 @@ type DocumentType = "cpf" | "cnpj";
 8. Usuário tenta novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 - Campos de senha limpos por segurança
 
@@ -266,10 +291,12 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário preencheu formulário
 - Senha tem menos de 6 caracteres
 
 **Fluxo Principal:**
+
 1. Usuário preenche senha: "12345"
 2. Usuário preenche confirmação: "12345"
 3. Usuário clica em "Solicitar Acesso"
@@ -280,9 +307,11 @@ type DocumentType = "cpf" | "cnpj";
 8. Usuário tenta novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 
 **Regra de Negócio:**
+
 - Senha mínima: 6 caracteres
 - Não requer caracteres especiais ou números (simplificado)
 
@@ -292,9 +321,11 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário preencheu email sem formato válido
 
 **Fluxo Principal:**
+
 1. Usuário preenche email: "emailinvalido"
 2. Usuário preenche demais campos
 3. Usuário clica em "Solicitar Acesso"
@@ -305,9 +336,11 @@ type DocumentType = "cpf" | "cnpj";
 8. Usuário tenta novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 
 **Validação:**
+
 - Deve conter "@"
 - Validação adicional no backend com regex completo
 
@@ -317,9 +350,11 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário preencheu telefone com menos de 10 dígitos
 
 **Fluxo Principal:**
+
 1. Usuário preenche telefone: "(11) 1234"
 2. Usuário preenche demais campos
 3. Usuário clica em "Solicitar Acesso"
@@ -330,9 +365,11 @@ type DocumentType = "cpf" | "cnpj";
 8. Usuário tenta novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 
 **Validação:**
+
 - Mínimo 10 dígitos (telefone fixo)
 - Máximo 11 dígitos (celular com 9)
 - Formato: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
@@ -343,9 +380,11 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário preencheu nome com menos de 3 caracteres
 
 **Fluxo Principal:**
+
 1. Usuário preenche nome: "Jo"
 2. Usuário preenche demais campos
 3. Usuário clica em "Solicitar Acesso"
@@ -356,9 +395,11 @@ type DocumentType = "cpf" | "cnpj";
 8. Usuário tenta novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 
 **Validação:**
+
 - Mínimo 3 caracteres
 - Deve ser nome completo (validação adicional no backend)
 
@@ -368,9 +409,11 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário preencheu business_name com menos de 3 caracteres
 
 **Fluxo Principal:**
+
 1. Usuário preenche nome da clínica: "AB"
 2. Usuário preenche demais campos
 3. Usuário clica em "Solicitar Acesso"
@@ -381,26 +424,32 @@ type DocumentType = "cpf" | "cnpj";
 8. Usuário tenta novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 
 ---
+
 ### 4.11 UC-011: Usuário Já Autenticado Acessa Registro
 
 **Ator:** Usuário Autenticado  
 **Pré-condições:**
+
 - Usuário já possui sessão ativa
 - Usuário tenta acessar `/register`
 
 **Fluxo Principal:**
+
 1. Usuário autenticado acessa `/register`
 2. Sistema detecta sessão ativa via `useAuth`
 3. Sistema redireciona automaticamente para `/dashboard`
 
 **Pós-condições:**
+
 - Usuário não vê formulário de registro
 - Redirecionado para dashboard
 
 **Regra de Negócio:**
+
 - Usuários autenticados não podem criar novas solicitações
 - Evita duplicação de contas
 
@@ -410,9 +459,11 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário está preenchendo formulário
 
 **Fluxo Principal:**
+
 1. Usuário seleciona "Clínica / Empresa"
 2. Usuário começa a preencher CNPJ: "12.345.678"
 3. Usuário percebe que deveria ser CPF
@@ -424,11 +475,13 @@ type DocumentType = "cpf" | "cnpj";
 9. Usuário continua preenchimento
 
 **Pós-condições:**
+
 - Campo de documento resetado
 - Máscara ajustada para novo tipo
 - Demais campos mantidos
 
 **Regra de Negócio:**
+
 - Ao trocar tipo, apenas o campo de documento é limpo
 - Evita perda de dados já preenchidos
 
@@ -438,10 +491,12 @@ type DocumentType = "cpf" | "cnpj";
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário preencheu formulário corretamente
 - Ocorre erro no servidor (ex: Firestore indisponível)
 
 **Fluxo Principal:**
+
 1. Usuário preenche formulário corretamente
 2. Usuário clica em "Solicitar Acesso"
 3. Sistema valida no frontend (OK)
@@ -453,6 +508,7 @@ type DocumentType = "cpf" | "cnpj";
 9. Usuário pode tentar novamente
 
 **Pós-condições:**
+
 - Solicitação NÃO criada
 - Usuário permanece na página
 - Dados do formulário mantidos
@@ -578,13 +634,16 @@ type DocumentType = "cpf" | "cnpj";
 ## 6. Regras de Negócio
 
 ### RN-001: Aprovação Manual Obrigatória
+
 **Descrição:** Todas as solicitações de acesso devem ser aprovadas manualmente por um System Admin antes de conceder acesso ao sistema.  
 **Aplicação:** Após criação da solicitação, status é "pendente"  
 **Exceções:** Nenhuma - não há auto-aprovação  
 **Justificativa:** Controle de qualidade, prevenção de fraudes, validação de clientes reais
 
 ### RN-002: Limite de Usuários por Tipo de Documento
-**Descrição:** 
+
+**Descrição:**
+
 - CNPJ: até 5 usuários
 - CPF: apenas 1 usuário (o próprio)
 
@@ -593,53 +652,63 @@ type DocumentType = "cpf" | "cnpj";
 **Justificativa:** Modelo de negócio baseado em tamanho da operação
 
 ### RN-003: Validação de Documento com Dígitos Verificadores
+
 **Descrição:** CPF e CNPJ devem ser validados usando algoritmo de dígitos verificadores  
 **Aplicação:** Frontend e Backend (dupla validação)  
 **Exceções:** Nenhuma  
 **Justificativa:** Garantir documentos reais e válidos, evitar erros de digitação
 
 ### RN-004: Senha Hasheada com bcrypt
+
 **Descrição:** Senha fornecida no registro é hasheada com bcrypt antes de armazenar  
 **Aplicação:** API antes de salvar no Firestore  
 **Exceções:** Nenhuma  
 **Justificativa:** Segurança - senha nunca armazenada em texto plano
 
 ### RN-005: Senha Não Utilizada Diretamente
+
 **Descrição:** A senha fornecida no registro não é usada para login. Na aprovação, o System Admin gera uma senha temporária.  
 **Aplicação:** Processo de aprovação  
 **Exceções:** Nenhuma  
 **Justificativa:** Controle adicional de segurança, força troca de senha no primeiro acesso
 
 ### RN-006: Email em Lowercase
+
 **Descrição:** Email é convertido para lowercase antes de armazenar  
 **Aplicação:** API antes de salvar  
 **Exceções:** Nenhuma  
 **Justificativa:** Evitar duplicação por diferença de case (user@email.com vs User@Email.com)
 
 ### RN-007: Documento Armazenado Sem Formatação
+
 **Descrição:** CPF/CNPJ são armazenados apenas com números (sem pontos, traços, barras)  
 **Aplicação:** API antes de salvar  
 **Exceções:** Nenhuma  
 **Justificativa:** Facilita buscas e comparações no banco de dados
 
 ### RN-008: Primeiro Usuário é Admin
+
 **Descrição:** O primeiro usuário aprovado de uma solicitação torna-se `clinic_admin`  
 **Aplicação:** Processo de aprovação  
 **Exceções:** Nenhuma  
 **Justificativa:** Alguém precisa gerenciar a clínica e adicionar outros usuários
 
 ---
+
 ## 7. Estados da Interface
 
 ### 7.1 Estado: Carregando Autenticação
+
 **Quando:** Sistema está verificando se usuário já está autenticado  
 **Exibição:** "Carregando..." centralizado na tela  
 **Duração:** Breve (< 1 segundo)
 
 ### 7.2 Estado: Formulário Inicial
+
 **Quando:** Usuário não autenticado acessa a página  
 **Exibição:** Formulário completo de registro  
 **Campos:**
+
 - **Tipo de Conta** (radio buttons, obrigatório):
   - Clínica / Empresa (CNPJ - até 5 usuários)
   - Profissional Autônomo (CPF - apenas 1 usuário)
@@ -659,23 +728,29 @@ type DocumentType = "cpf" | "cnpj";
 - **Botão:** "Solicitar Acesso"
 
 **Links:**
+
 - "Já tem uma conta? Fazer login" → `/login`
 
 **Texto Informativo:**
+
 - "Após enviar, aguarde a aprovação do administrador."
 - "Você receberá as credenciais de acesso por email."
 
 ### 7.3 Estado: Processando Solicitação
+
 **Quando:** Usuário submeteu formulário e está aguardando resposta  
 **Exibição:**
+
 - Botão desabilitado
 - Texto do botão: "Enviando..."
 - Todos os campos desabilitados
 - Cursor de loading
 
 ### 7.4 Estado: Erro de Validação
+
 **Quando:** Validação falhou (frontend ou backend)  
 **Exibição:**
+
 - Alert vermelho no topo do formulário
 - Ícone de erro (AlertCircle)
 - Mensagem de erro específica
@@ -683,6 +758,7 @@ type DocumentType = "cpf" | "cnpj";
 - Campos mantêm valores (exceto senhas)
 
 **Exemplos de Mensagens:**
+
 - "CPF inválido. Verifique os dígitos verificadores."
 - "CNPJ inválido. Verifique os dígitos verificadores."
 - "Email inválido"
@@ -692,8 +768,10 @@ type DocumentType = "cpf" | "cnpj";
 - "As senhas não coincidem"
 
 ### 7.5 Estado: Sucesso
+
 **Quando:** Solicitação criada com sucesso  
 **Exibição:**
+
 - Alert verde no topo do formulário
 - Ícone de sucesso (CheckCircle2)
 - Mensagem: "Solicitação enviada com sucesso! Nossa equipe irá analisar em breve."
@@ -702,23 +780,27 @@ type DocumentType = "cpf" | "cnpj";
 - Após 3 segundos: redirecionamento automático para `/login`
 
 ### 7.6 Estado: Tipo CNPJ Selecionado
+
 **Quando:** Usuário seleciona "Clínica / Empresa"  
 **Comportamento:**
+
 - Campo documento aceita até 14 dígitos
 - Máscara: XX.XXX.XXX/XXXX-XX
-- Label: "CNPJ *"
+- Label: "CNPJ \*"
 - Placeholder: "00.000.000/0000-00"
-- Label business_name: "Nome da Clínica *"
+- Label business_name: "Nome da Clínica \*"
 - Texto auxiliar: "Digite o CNPJ da clínica à qual deseja se vincular ou criar"
 
 ### 7.7 Estado: Tipo CPF Selecionado
+
 **Quando:** Usuário seleciona "Profissional Autônomo"  
 **Comportamento:**
+
 - Campo documento aceita até 11 dígitos
 - Máscara: XXX.XXX.XXX-XX
-- Label: "CPF *"
+- Label: "CPF \*"
 - Placeholder: "000.000.000-00"
-- Label business_name: "Nome Profissional *"
+- Label business_name: "Nome Profissional \*"
 - Texto auxiliar: "Digite seu CPF para criar uma conta individual"
 
 ---
@@ -728,6 +810,7 @@ type DocumentType = "cpf" | "cnpj";
 ### 8.1 Validações de Frontend
 
 **Documento (CPF/CNPJ):**
+
 - Obrigatório
 - Formato correto (máscara aplicada)
 - Validação de dígitos verificadores
@@ -735,32 +818,38 @@ type DocumentType = "cpf" | "cnpj";
 - Mensagem: "[CPF/CNPJ] inválido. Verifique os dígitos verificadores."
 
 **Nome Completo:**
+
 - Obrigatório
 - Mínimo 3 caracteres
 - Mensagem: "Nome completo inválido"
 
 **Email:**
+
 - Obrigatório
 - Deve conter "@"
 - Mensagem: "Email inválido"
 
 **Telefone:**
+
 - Obrigatório
 - Mínimo 10 dígitos (após remover formatação)
 - Máximo 11 dígitos
 - Mensagem: "Telefone inválido"
 
 **Nome da Clínica/Profissional:**
+
 - Obrigatório
 - Mínimo 3 caracteres
 - Mensagem: "Nome da clínica é obrigatório" ou "Nome profissional é obrigatório"
 
 **Senha:**
+
 - Obrigatório
 - Mínimo 6 caracteres
 - Mensagem: "A senha deve ter pelo menos 6 caracteres"
 
 **Confirmar Senha:**
+
 - Obrigatório
 - Deve ser igual à senha
 - Mensagem: "As senhas não coincidem"
@@ -768,58 +857,70 @@ type DocumentType = "cpf" | "cnpj";
 ### 8.2 Validações de Backend (API)
 
 **Campos Obrigatórios:**
+
 - type, full_name, email, phone, business_name, document_type, document_number, password
 - Mensagem: "[Nome do campo] é obrigatório"
 
 **Nome Completo:**
+
 - Validação com `validateFullName()`
 - Regras específicas de nome (sobrenome, caracteres válidos)
 
 **Email:**
+
 - Validação com `validateEmail()`
 - Regex completo para formato de email
 - Conversão para lowercase
 
 **Telefone:**
+
 - Validação com `validatePhone()`
 - Formato brasileiro
 - Limpeza de caracteres especiais
 
 **Senha:**
+
 - Validação com `validatePassword()`
 - Mínimo 6 caracteres
 - Não requer número (configurável)
 
 **Tipo:**
+
 - Deve ser "clinica" ou "autonomo"
 - Mensagem: "Tipo deve ser 'clinica' ou 'autonomo'"
 
 **Tipo de Documento:**
+
 - Deve ser "cpf" ou "cnpj"
 - Mensagem: "Tipo de documento deve ser 'cpf' ou 'cnpj'"
 
 **Documento:**
+
 - Validação com `validateDocument()`
 - Algoritmo de dígitos verificadores
 - Limpeza de formatação antes de salvar
 
 **CEP (opcional):**
+
 - Se fornecido, validação com `validateCEP()`
 - Formato: XXXXX-XXX
 
 ### 8.3 Máscaras Automáticas
 
 **CPF:**
+
 - Input: "12345678900"
 - Output: "123.456.789-00"
 - Aplicada em tempo real durante digitação
 
 **CNPJ:**
+
 - Input: "12345678000190"
 - Output: "12.345.678/0001-90"
 - Aplicada em tempo real durante digitação
 
 **Telefone:**
+
 - Input: "11987654321"
 - Output: "(11) 98765-4321"
 - Aplicada em tempo real durante digitação
@@ -830,16 +931,19 @@ type DocumentType = "cpf" | "cnpj";
 ## 9. Integrações
 
 ### 9.1 Firebase Authentication (Verificação)
+
 - **Uso:** Verificar se usuário já está autenticado
 - **Hook:** `useAuth()`
 - **Quando:** Ao carregar a página
 - **Ação:** Se autenticado, redireciona para `/dashboard`
 
 ### 9.2 API de Solicitações de Acesso
+
 - **Endpoint:** `POST /api/access-requests`
 - **Método:** POST
 - **Headers:** `Content-Type: application/json`
 - **Payload:**
+
 ```json
 {
   "type": "clinica" | "autonomo",
@@ -852,7 +956,9 @@ type DocumentType = "cpf" | "cnpj";
   "password": "string"
 }
 ```
+
 - **Resposta Sucesso (200):**
+
 ```json
 {
   "success": true,
@@ -860,7 +966,9 @@ type DocumentType = "cpf" | "cnpj";
   "id": "document_id"
 }
 ```
+
 - **Resposta Erro (400/500):**
+
 ```json
 {
   "error": "Mensagem de erro"
@@ -868,6 +976,7 @@ type DocumentType = "cpf" | "cnpj";
 ```
 
 ### 9.3 Firestore - Coleção access_requests
+
 - **Coleção:** `access_requests`
 - **Operação:** Create (addDoc)
 - **Campos salvos:**
@@ -888,6 +997,7 @@ type DocumentType = "cpf" | "cnpj";
   - updated_at: Timestamp
 
 ### 9.4 bcryptjs
+
 - **Uso:** Hash de senha
 - **Método:** `bcrypt.hash(password, 10)`
 - **Salt Rounds:** 10
@@ -899,6 +1009,7 @@ type DocumentType = "cpf" | "cnpj";
 ## 10. Segurança
 
 ### 10.1 Proteções Implementadas
+
 - ✅ Validação dupla (frontend + backend)
 - ✅ Senha hasheada com bcrypt (nunca em texto plano)
 - ✅ Email convertido para lowercase (evita duplicação)
@@ -910,33 +1021,39 @@ type DocumentType = "cpf" | "cnpj";
 - ✅ Aprovação manual obrigatória (não há auto-registro)
 
 ### 10.2 Dados Sensíveis
+
 - **Senha:** Hasheada com bcrypt (salt rounds: 10)
 - **Documento:** Armazenado limpo, mas validado
 - **Email:** Armazenado em lowercase
 - **Telefone:** Armazenado com formatação
 
 ### 10.3 Prevenção de Fraudes
+
 - Validação de documentos reais (dígitos verificadores)
 - Aprovação manual por System Admin
 - Senha não utilizada diretamente (admin gera nova)
 - Histórico de solicitações (created_at, updated_at)
 
 ---
+
 ## 11. Performance
 
 ### 11.1 Métricas Estimadas
+
 - **Tempo de carregamento:** ~500ms
 - **Tempo de validação frontend:** < 100ms
 - **Tempo de resposta API:** ~500-1000ms
 - **Tamanho do bundle:** ~50KB (componente + dependências)
 
 ### 11.2 Otimizações Implementadas
+
 - ✅ Validação no frontend antes de chamar API (reduz requisições desnecessárias)
 - ✅ Máscaras aplicadas em tempo real (melhor UX)
 - ✅ Debounce implícito (validação apenas no submit)
 - ✅ Redirecionamento com delay (usuário lê mensagem de sucesso)
 
 ### 11.3 Pontos de Atenção
+
 - Hash bcrypt pode levar ~100-200ms (aceitável para registro)
 - Validação de documento com algoritmo matemático é rápida (< 10ms)
 - Firestore addDoc geralmente < 500ms
@@ -946,15 +1063,17 @@ type DocumentType = "cpf" | "cnpj";
 ## 12. Acessibilidade
 
 ### 12.1 Recursos Implementados
+
 - ✅ Labels associados a todos os inputs
 - ✅ Placeholders descritivos
 - ✅ Mensagens de erro claras e específicas
-- ✅ Campos obrigatórios marcados com "*"
+- ✅ Campos obrigatórios marcados com "\*"
 - ✅ Autocomplete adequado (name, email, tel, new-password)
 - ✅ Type correto nos inputs (email, tel, password)
 - ✅ Botão desabilitado durante processamento (evita duplo submit)
 
 ### 12.2 Melhorias Necessárias
+
 - [ ] ARIA labels para radio buttons
 - [ ] Anúncio de erros para screen readers
 - [ ] Foco automático no primeiro erro
@@ -1004,21 +1123,22 @@ type DocumentType = "cpf" | "cnpj";
 
 ## 14. Diferenças Entre Tipos de Conta
 
-| Aspecto | Clínica (CNPJ) | Autônomo (CPF) |
-|---------|----------------|----------------|
-| **Documento** | CNPJ (14 dígitos) | CPF (11 dígitos) |
-| **Limite de Usuários** | Até 5 usuários | Apenas 1 usuário |
-| **Label Business Name** | "Nome da Clínica" | "Nome Profissional" |
-| **Tipo na API** | "clinica" | "autonomo" |
-| **Uso Típico** | Clínicas, consultórios, spas | Profissionais autônomos, MEI |
-| **Estrutura** | Multi-usuário | Single-user |
-| **Primeiro Usuário** | clinic_admin | clinic_admin (de si mesmo) |
+| Aspecto                 | Clínica (CNPJ)               | Autônomo (CPF)               |
+| ----------------------- | ---------------------------- | ---------------------------- |
+| **Documento**           | CNPJ (14 dígitos)            | CPF (11 dígitos)             |
+| **Limite de Usuários**  | Até 5 usuários               | Apenas 1 usuário             |
+| **Label Business Name** | "Nome da Clínica"            | "Nome Profissional"          |
+| **Tipo na API**         | "clinica"                    | "autonomo"                   |
+| **Uso Típico**          | Clínicas, consultórios, spas | Profissionais autônomos, MEI |
+| **Estrutura**           | Multi-usuário                | Single-user                  |
+| **Primeiro Usuário**    | clinic_admin                 | clinic_admin (de si mesmo)   |
 
 ---
 
 ## 15. Melhorias Futuras
 
 ### 15.1 Funcionalidades
+
 - [ ] Upload de documentos (CNPJ, alvará, etc.)
 - [ ] Verificação de email (enviar código)
 - [ ] Verificação de telefone (SMS)
@@ -1031,6 +1151,7 @@ type DocumentType = "cpf" | "cnpj";
 - [ ] Captcha para prevenir bots
 
 ### 15.2 UX/UI
+
 - [ ] Indicador de progresso (steps)
 - [ ] Mostrar/ocultar senha
 - [ ] Validação em tempo real (enquanto digita)
@@ -1041,6 +1162,7 @@ type DocumentType = "cpf" | "cnpj";
 - [ ] FAQ inline
 
 ### 15.3 Notificações
+
 - [ ] Email de confirmação de solicitação recebida
 - [ ] Email quando solicitação for aprovada
 - [ ] Email quando solicitação for rejeitada
@@ -1048,6 +1170,7 @@ type DocumentType = "cpf" | "cnpj";
 - [ ] SMS de confirmação
 
 ### 15.4 Segurança
+
 - [ ] Captcha após múltiplas tentativas
 - [ ] Verificação de email duplicado antes de submeter
 - [ ] Verificação de documento duplicado
@@ -1062,24 +1185,28 @@ type DocumentType = "cpf" | "cnpj";
 ### 16.1 Decisões de Arquitetura
 
 **Por que aprovação manual?**
+
 - Controle de qualidade dos clientes
 - Prevenção de fraudes e contas falsas
 - Validação de documentos e informações
 - Modelo de negócio B2B (não é self-service)
 
 **Por que não usar a senha fornecida?**
+
 - Segurança adicional: admin gera senha temporária
 - Força troca de senha no primeiro acesso
 - Evita senhas fracas escolhidas pelo usuário
 - Permite controle total do processo de onboarding
 
 **Por que hash com bcrypt se não será usada?**
+
 - Boa prática de segurança (nunca armazenar senha em texto plano)
 - Pode ser útil no futuro (ex: recuperação de senha)
 - Demonstra compromisso com segurança
 - Proteção caso haja mudança no fluxo
 
 ### 16.2 Padrões Utilizados
+
 - **Controlled Components:** Todos os inputs são controlled
 - **Single Source of Truth:** Estado centralizado em `formData`
 - **Validação em Camadas:** Frontend → API → Firestore
@@ -1087,6 +1214,7 @@ type DocumentType = "cpf" | "cnpj";
 - **Progressive Enhancement:** Funciona sem JavaScript (HTML5 validation)
 
 ### 16.3 Limitações Conhecidas
+
 - ⚠️ Não verifica duplicação de documento antes de submeter (apenas na aprovação)
 - ⚠️ Não verifica duplicação de email antes de submeter
 - ⚠️ Não há limite de tentativas de registro
@@ -1094,6 +1222,7 @@ type DocumentType = "cpf" | "cnpj";
 - ⚠️ Validação de nome é básica (aceita nomes inválidos)
 
 ### 16.4 Dependências de Bibliotecas
+
 - **bcryptjs:** Hash de senhas (10 salt rounds)
 - **Firebase/Firestore:** Armazenamento de solicitações
 - **Next.js:** Framework e roteamento
@@ -1106,9 +1235,11 @@ type DocumentType = "cpf" | "cnpj";
 ## 17. Mensagens do Sistema
 
 ### 17.1 Mensagens de Sucesso
+
 - "Solicitação enviada com sucesso! Nossa equipe irá analisar em breve."
 
 ### 17.2 Mensagens de Erro - Validação
+
 - "CPF inválido. Verifique os dígitos verificadores."
 - "CNPJ inválido. Verifique os dígitos verificadores."
 - "Nome completo inválido"
@@ -1120,6 +1251,7 @@ type DocumentType = "cpf" | "cnpj";
 - "As senhas não coincidem"
 
 ### 17.3 Mensagens de Erro - API
+
 - "[Campo] é obrigatório"
 - "Tipo deve ser 'clinica' ou 'autonomo'"
 - "Tipo de documento deve ser 'cpf' ou 'cnpj'"
@@ -1127,6 +1259,7 @@ type DocumentType = "cpf" | "cnpj";
 - "Erro ao processar solicitação" (erro do servidor)
 
 ### 17.4 Textos Informativos
+
 - "Preencha os dados abaixo para solicitar acesso ao sistema"
 - "Digite o CNPJ da clínica à qual deseja se vincular ou criar"
 - "Digite seu CPF para criar uma conta individual"
@@ -1154,10 +1287,12 @@ type DocumentType = "cpf" | "cnpj";
 ## 19. Referências
 
 ### 19.1 Documentação Relacionada
+
 - Login Page Documentation - `project_doc/login-page-documentation.md`
 - Template de Documentação - `project_doc/TEMPLATE-page-documentation.md`
 
 ### 19.2 Código Fonte
+
 - **Componente Principal:** `src/app/(auth)/register/page.tsx`
 - **API:** `src/app/api/access-requests/route.ts`
 - **Validação de Documentos:** `src/lib/utils/documentValidation.ts`
@@ -1166,6 +1301,7 @@ type DocumentType = "cpf" | "cnpj";
 - **Types:** `src/types/index.ts`
 
 ### 19.3 Links Externos
+
 - [Firebase Authentication](https://firebase.google.com/docs/auth)
 - [Firestore](https://firebase.google.com/docs/firestore)
 - [bcryptjs](https://www.npmjs.com/package/bcryptjs)

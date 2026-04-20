@@ -17,13 +17,19 @@ import {
   Timestamp,
   runTransaction,
   writeBatch,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { Solicitacao, ProdutoSolicitado, InventoryItem, StatusHistoryEntry, SolicitacaoStatus } from "@/types";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type {
+  Solicitacao,
+  ProdutoSolicitado,
+  InventoryItem,
+  StatusHistoryEntry,
+  SolicitacaoStatus,
+} from '@/types';
 import {
   createRequestApprovedNotification,
   createRequestRejectedNotification,
-} from "./notificationService";
+} from './notificationService';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -55,7 +61,7 @@ export interface SolicitacaoWithDetails extends Solicitacao {
  * Produtos são RESERVADOS e só consumidos ao mudar para "concluida"
  */
 function determineInitialStatus(dtProcedimento: Date): SolicitacaoStatus {
-  return "agendada";
+  return 'agendada';
 }
 
 // ============================================================================
@@ -72,19 +78,11 @@ async function validateInventoryAvailability(
   const errors: string[] = [];
 
   for (const produto of produtos) {
-    const itemRef = doc(
-      db,
-      "tenants",
-      tenantId,
-      "inventory",
-      produto.inventory_item_id
-    );
+    const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
     const itemSnap = await getDoc(itemRef);
 
     if (!itemSnap.exists()) {
-      errors.push(
-        `Produto com ID ${produto.inventory_item_id} não encontrado no inventário`
-      );
+      errors.push(`Produto com ID ${produto.inventory_item_id} não encontrado no inventário`);
       continue;
     }
 
@@ -130,15 +128,12 @@ export async function createSolicitacaoWithConsumption(
 }> {
   try {
     // 1. Validar disponibilidade de estoque
-    const validation = await validateInventoryAvailability(
-      tenantId,
-      input.produtos
-    );
+    const validation = await validateInventoryAvailability(tenantId, input.produtos);
 
     if (!validation.valid) {
       return {
         success: false,
-        error: "Erro de validação de estoque",
+        error: 'Erro de validação de estoque',
         validationErrors: validation.errors,
       };
     }
@@ -147,19 +142,11 @@ export async function createSolicitacaoWithConsumption(
     const produtosDetalhados: ProdutoSolicitado[] = [];
 
     for (const produto of input.produtos) {
-      const itemRef = doc(
-        db,
-        "tenants",
-        tenantId,
-        "inventory",
-        produto.inventory_item_id
-      );
+      const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
       const itemSnap = await getDoc(itemRef);
 
       if (!itemSnap.exists()) {
-        throw new Error(
-          `Produto ${produto.inventory_item_id} não encontrado`
-        );
+        throw new Error(`Produto ${produto.inventory_item_id} não encontrado`);
       }
 
       const itemData = itemSnap.data() as InventoryItem;
@@ -177,7 +164,7 @@ export async function createSolicitacaoWithConsumption(
 
     // 3. Determinar status inicial baseado na data do procedimento
     const statusInicial = determineInitialStatus(input.dt_procedimento);
-    const isAgendada = statusInicial === "agendada";
+    const isAgendada = statusInicial === 'agendada';
 
     // 3.1. Criar solicitação e atualizar inventário em transação
     const solicitacaoRef = await runTransaction(db, async (transaction) => {
@@ -186,7 +173,11 @@ export async function createSolicitacaoWithConsumption(
         const cleaned: any = {};
         Object.keys(obj).forEach((key) => {
           if (obj[key] !== undefined && obj[key] !== null) {
-            if (typeof obj[key] === 'object' && !Array.isArray(obj[key]) && !(obj[key] instanceof Timestamp)) {
+            if (
+              typeof obj[key] === 'object' &&
+              !Array.isArray(obj[key]) &&
+              !(obj[key] instanceof Timestamp)
+            ) {
               cleaned[key] = removeUndefined(obj[key]);
             } else if (Array.isArray(obj[key])) {
               cleaned[key] = obj[key].map((item: any) =>
@@ -204,13 +195,7 @@ export async function createSolicitacaoWithConsumption(
       // 3.1. Ler e verificar estoque de todos os produtos
       const inventoryReads = [];
       for (const produto of input.produtos) {
-        const itemRef = doc(
-          db,
-          "tenants",
-          tenantId,
-          "inventory",
-          produto.inventory_item_id
-        );
+        const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
         inventoryReads.push({
           ref: itemRef,
           quantidade_solicitada: produto.quantidade,
@@ -229,9 +214,7 @@ export async function createSolicitacaoWithConsumption(
         const inventoryRead = inventoryReads[i];
 
         if (!itemSnap.exists()) {
-          throw new Error(
-            `Produto com ID ${input.produtos[i].inventory_item_id} não encontrado`
-          );
+          throw new Error(`Produto com ID ${input.produtos[i].inventory_item_id} não encontrado`);
         }
 
         const itemData = itemSnap.data() as InventoryItem;
@@ -259,17 +242,12 @@ export async function createSolicitacaoWithConsumption(
           changed_by: userId,
           changed_by_name: userName,
           changed_at: now,
-          observacao: "Solicitação criada e produtos reservados",
-        }
+          observacao: 'Solicitação criada e produtos reservados',
+        },
       ];
 
       // 3.3. Criar documento de solicitação
-      const solicitacoesRef = collection(
-        db,
-        "tenants",
-        tenantId,
-        "solicitacoes"
-      );
+      const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
       const newSolicitacaoRef = doc(solicitacoesRef);
 
       const solicitacaoData = removeUndefined({
@@ -307,12 +285,7 @@ export async function createSolicitacaoWithConsumption(
 
       // 3.5. Registrar movimentação de estoque (para auditoria)
       for (const produto of produtosDetalhados) {
-        const activityRef = collection(
-          db,
-          "tenants",
-          tenantId,
-          "inventory_activity"
-        );
+        const activityRef = collection(db, 'tenants', tenantId, 'inventory_activity');
 
         const activityData = removeUndefined({
           tenant_id: tenantId,
@@ -320,7 +293,7 @@ export async function createSolicitacaoWithConsumption(
           produto_codigo: produto.produto_codigo,
           produto_nome: produto.produto_nome,
           lote: produto.lote,
-          tipo: "reserva",
+          tipo: 'reserva',
           quantidade: produto.quantidade,
           quantidade_anterior: produto.quantidade_disponivel_antes,
           quantidade_posterior: produto.quantidade_disponivel_antes, // Disponível não muda
@@ -342,10 +315,10 @@ export async function createSolicitacaoWithConsumption(
       solicitacaoId: solicitacaoRef.id,
     };
   } catch (error: any) {
-    console.error("Erro ao criar solicitação:", error);
+    console.error('Erro ao criar solicitação:', error);
     return {
       success: false,
-      error: error.message || "Erro ao criar solicitação",
+      error: error.message || 'Erro ao criar solicitação',
     };
   }
 }
@@ -374,17 +347,11 @@ export async function updateSolicitacaoStatus(
   try {
     await runTransaction(db, async (transaction) => {
       // 1. Ler solicitação atual
-      const solicitacaoRef = doc(
-        db,
-        "tenants",
-        tenantId,
-        "solicitacoes",
-        solicitacaoId
-      );
+      const solicitacaoRef = doc(db, 'tenants', tenantId, 'solicitacoes', solicitacaoId);
       const solicitacaoSnap = await transaction.get(solicitacaoRef);
 
       if (!solicitacaoSnap.exists()) {
-        throw new Error("Solicitação não encontrada");
+        throw new Error('Solicitação não encontrada');
       }
 
       const solicitacao = solicitacaoSnap.data() as Solicitacao;
@@ -392,7 +359,7 @@ export async function updateSolicitacaoStatus(
 
       // Validações de transição de status
       if (statusAnterior === newStatus) {
-        throw new Error("A solicitação já está neste status");
+        throw new Error('A solicitação já está neste status');
       }
 
       // Fluxo válido:
@@ -400,19 +367,24 @@ export async function updateSolicitacaoStatus(
       // aprovada → concluida | cancelada
       // reprovada e cancelada → status final (não pode mudar)
 
-      if (statusAnterior === "reprovada" || statusAnterior === "cancelada") {
+      if (statusAnterior === 'reprovada' || statusAnterior === 'cancelada') {
         throw new Error(`Não é possível alterar uma solicitação ${statusAnterior}`);
       }
 
-      if (statusAnterior === "concluida") {
-        throw new Error("Não é possível alterar uma solicitação concluída");
+      if (statusAnterior === 'concluida') {
+        throw new Error('Não é possível alterar uma solicitação concluída');
       }
 
-      if (statusAnterior === "agendada" && !["aprovada", "reprovada", "cancelada"].includes(newStatus)) {
-        throw new Error("Status inválido. De 'agendada' só pode ir para: aprovada, reprovada ou cancelada");
+      if (
+        statusAnterior === 'agendada' &&
+        !['aprovada', 'reprovada', 'cancelada'].includes(newStatus)
+      ) {
+        throw new Error(
+          "Status inválido. De 'agendada' só pode ir para: aprovada, reprovada ou cancelada"
+        );
       }
 
-      if (statusAnterior === "aprovada" && !["concluida", "cancelada"].includes(newStatus)) {
+      if (statusAnterior === 'aprovada' && !['concluida', 'cancelada'].includes(newStatus)) {
         throw new Error("Status inválido. De 'aprovada' só pode ir para: concluída ou cancelada");
       }
 
@@ -423,13 +395,7 @@ export async function updateSolicitacaoStatus(
       const produtosData = new Map<string, InventoryItem>();
 
       for (const produto of solicitacao.produtos_solicitados) {
-        const itemRef = doc(
-          db,
-          "tenants",
-          tenantId,
-          "inventory",
-          produto.inventory_item_id
-        );
+        const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
         const itemSnap = await transaction.get(itemRef);
 
         if (!itemSnap.exists()) {
@@ -469,20 +435,16 @@ export async function updateSolicitacaoStatus(
         const itemData = produtosData.get(produto.inventory_item_id);
         if (!itemData) continue;
 
-        const itemRef = doc(
-          db,
-          "tenants",
-          tenantId,
-          "inventory",
-          produto.inventory_item_id
-        );
+        const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
 
-        if (statusAnterior === "agendada" && newStatus === "aprovada") {
+        if (statusAnterior === 'agendada' && newStatus === 'aprovada') {
           // Aprovar solicitação agendada: Mantém a reserva (produtos continuam reservados)
           // Nenhuma ação necessária no inventário
           // Produtos já foram movidos de "disponível" para "reservado" na criação
-
-        } else if (statusAnterior === "agendada" && (newStatus === "reprovada" || newStatus === "cancelada")) {
+        } else if (
+          statusAnterior === 'agendada' &&
+          (newStatus === 'reprovada' || newStatus === 'cancelada')
+        ) {
           // Reprovar/Cancelar agendada: Libera reserva E devolve ao disponível
           const novaReserva = (itemData.quantidade_reservada || 0) - produto.quantidade;
           const novoDisponivel = (itemData.quantidade_disponivel || 0) + produto.quantidade;
@@ -492,8 +454,7 @@ export async function updateSolicitacaoStatus(
             quantidade_disponivel: novoDisponivel,
             updated_at: now,
           });
-
-        } else if (statusAnterior === "aprovada" && newStatus === "concluida") {
+        } else if (statusAnterior === 'aprovada' && newStatus === 'concluida') {
           // Concluir aprovada: Apenas libera reserva (CONSUMO EFETIVO!)
           // Disponível NÃO muda porque já foi descontado na criação
           // O total diminui = consumo efetivo
@@ -503,8 +464,7 @@ export async function updateSolicitacaoStatus(
             quantidade_reservada: Math.max(0, novaReserva),
             updated_at: now,
           });
-
-        } else if (statusAnterior === "aprovada" && newStatus === "cancelada") {
+        } else if (statusAnterior === 'aprovada' && newStatus === 'cancelada') {
           // Cancelar aprovada: Libera reserva E devolve ao disponível
           const novaReserva = (itemData.quantidade_reservada || 0) - produto.quantidade;
           const novoDisponivel = (itemData.quantidade_disponivel || 0) + produto.quantidade;
@@ -538,10 +498,11 @@ export async function updateSolicitacaoStatus(
       };
 
       // Se o procedimento for concluído antes da data agendada, atualizar dt_procedimento
-      if (newStatus === "concluida" && solicitacao.dt_procedimento) {
-        const dtProcedimento = solicitacao.dt_procedimento instanceof Timestamp
-          ? solicitacao.dt_procedimento.toDate()
-          : new Date(solicitacao.dt_procedimento);
+      if (newStatus === 'concluida' && solicitacao.dt_procedimento) {
+        const dtProcedimento =
+          solicitacao.dt_procedimento instanceof Timestamp
+            ? solicitacao.dt_procedimento.toDate()
+            : new Date(solicitacao.dt_procedimento);
 
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0); // Zerar horas para comparação apenas de data
@@ -560,35 +521,27 @@ export async function updateSolicitacaoStatus(
     try {
       const requestNumber = `#${solicitacaoId.slice(-6).toUpperCase()}`;
 
-      if (newStatus === "aprovada") {
-        await createRequestApprovedNotification(
-          tenantId,
-          requestNumber,
-          solicitacaoId
-        );
-      } else if (newStatus === "reprovada") {
-        await createRequestRejectedNotification(
-          tenantId,
-          requestNumber,
-          solicitacaoId
-        );
-      } else if (newStatus === "concluida") {
+      if (newStatus === 'aprovada') {
+        await createRequestApprovedNotification(tenantId, requestNumber, solicitacaoId);
+      } else if (newStatus === 'reprovada') {
+        await createRequestRejectedNotification(tenantId, requestNumber, solicitacaoId);
+      } else if (newStatus === 'concluida') {
         // TODO: Criar notificação de conclusão se necessário
       }
     } catch (notificationError: any) {
       // Log erro mas não falha a operação principal
       console.error(
-        "Erro ao criar notificação (operação de status foi concluída):",
+        'Erro ao criar notificação (operação de status foi concluída):',
         notificationError
       );
     }
 
     return { success: true };
   } catch (error: any) {
-    console.error("Erro ao atualizar status da solicitação:", error);
+    console.error('Erro ao atualizar status da solicitação:', error);
     return {
       success: false,
-      error: error.message || "Erro ao atualizar status da solicitação",
+      error: error.message || 'Erro ao atualizar status da solicitação',
     };
   }
 }
@@ -623,17 +576,17 @@ export async function updateSolicitacaoAgendada(
 }> {
   try {
     await runTransaction(db, async (transaction) => {
-      const solicitacaoRef = doc(db, "tenants", tenantId, "solicitacoes", solicitacaoId);
+      const solicitacaoRef = doc(db, 'tenants', tenantId, 'solicitacoes', solicitacaoId);
       const solicitacaoSnap = await transaction.get(solicitacaoRef);
 
       if (!solicitacaoSnap.exists()) {
-        throw new Error("Solicitação não encontrada");
+        throw new Error('Solicitação não encontrada');
       }
 
       const solicitacao = solicitacaoSnap.data() as Solicitacao;
 
       // Só permite editar se estiver agendada
-      if (solicitacao.status !== "agendada") {
+      if (solicitacao.status !== 'agendada') {
         throw new Error("Só é possível editar solicitações no status 'Agendada'");
       }
 
@@ -646,17 +599,26 @@ export async function updateSolicitacaoAgendada(
         // 1a. Ler todos os produtos antigos
         const produtosAntigosData = new Map<string, InventoryItem>();
         for (const produtoAntigo of solicitacao.produtos_solicitados) {
-          const itemRef = doc(db, "tenants", tenantId, "inventory", produtoAntigo.inventory_item_id);
+          const itemRef = doc(
+            db,
+            'tenants',
+            tenantId,
+            'inventory',
+            produtoAntigo.inventory_item_id
+          );
           const itemSnap = await transaction.get(itemRef);
           if (itemSnap.exists()) {
-            produtosAntigosData.set(produtoAntigo.inventory_item_id, { id: itemSnap.id, ...itemSnap.data() } as InventoryItem);
+            produtosAntigosData.set(produtoAntigo.inventory_item_id, {
+              id: itemSnap.id,
+              ...itemSnap.data(),
+            } as InventoryItem);
           }
         }
 
         // 1b. Ler todos os novos produtos
         const produtosNovosData = new Map<string, InventoryItem>();
         for (const produto of updates.produtos) {
-          const itemRef = doc(db, "tenants", tenantId, "inventory", produto.inventory_item_id);
+          const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
           const itemSnap = await transaction.get(itemRef);
 
           if (!itemSnap.exists()) {
@@ -694,8 +656,8 @@ export async function updateSolicitacaoAgendada(
           if (disponivelAposLib < produto.quantidade) {
             throw new Error(
               `Estoque insuficiente para ${itemData.nome_produto}. ` +
-              `Disponível (após liberar produtos antigos): ${disponivelAposLib}, ` +
-              `Solicitado: ${produto.quantidade}`
+                `Disponível (após liberar produtos antigos): ${disponivelAposLib}, ` +
+                `Solicitado: ${produto.quantidade}`
             );
           }
         }
@@ -738,14 +700,8 @@ export async function updateSolicitacaoAgendada(
           const reservaAtual = reservasAjustadas.get(produto.inventory_item_id) || 0;
           const disponivelAtual = disponiveisAjustados.get(produto.inventory_item_id) || 0;
 
-          reservasAjustadas.set(
-            produto.inventory_item_id,
-            reservaAtual + produto.quantidade
-          );
-          disponiveisAjustados.set(
-            produto.inventory_item_id,
-            disponivelAtual - produto.quantidade
-          );
+          reservasAjustadas.set(produto.inventory_item_id, reservaAtual + produto.quantidade);
+          disponiveisAjustados.set(produto.inventory_item_id, disponivelAtual - produto.quantidade);
         }
 
         // 2b. Aplicar todas as atualizações de reserva E disponível
@@ -753,7 +709,13 @@ export async function updateSolicitacaoAgendada(
 
         // Atualizar produtos antigos
         for (const produtoAntigo of solicitacao.produtos_solicitados) {
-          const itemRef = doc(db, "tenants", tenantId, "inventory", produtoAntigo.inventory_item_id);
+          const itemRef = doc(
+            db,
+            'tenants',
+            tenantId,
+            'inventory',
+            produtoAntigo.inventory_item_id
+          );
           const novaReserva = reservasAjustadas.get(produtoAntigo.inventory_item_id) || 0;
           const novoDisponivel = disponiveisAjustados.get(produtoAntigo.inventory_item_id) || 0;
 
@@ -769,7 +731,7 @@ export async function updateSolicitacaoAgendada(
         // Atualizar produtos novos que ainda não foram atualizados
         for (const produto of updates.produtos) {
           if (!itensAtualizados.has(produto.inventory_item_id)) {
-            const itemRef = doc(db, "tenants", tenantId, "inventory", produto.inventory_item_id);
+            const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
             const novaReserva = reservasAjustadas.get(produto.inventory_item_id) || 0;
             const novoDisponivel = disponiveisAjustados.get(produto.inventory_item_id) || 0;
 
@@ -847,10 +809,10 @@ export async function updateSolicitacaoAgendada(
 
     return { success: true };
   } catch (error: any) {
-    console.error("Erro ao atualizar solicitação:", error);
+    console.error('Erro ao atualizar solicitação:', error);
     return {
       success: false,
-      error: error.message || "Erro ao atualizar solicitação",
+      error: error.message || 'Erro ao atualizar solicitação',
     };
   }
 }
@@ -872,16 +834,16 @@ export async function listSolicitacoes(
 ): Promise<SolicitacaoWithDetails[]> {
   try {
     let q = query(
-      collection(db, "tenants", tenantId, "solicitacoes"),
-      orderBy("created_at", "desc")
+      collection(db, 'tenants', tenantId, 'solicitacoes'),
+      orderBy('created_at', 'desc')
     );
 
     if (options?.status) {
-      q = query(q, where("status", "==", options.status));
+      q = query(q, where('status', '==', options.status));
     }
 
     if (options?.codigoPaciente) {
-      q = query(q, where("paciente_codigo", "==", options.codigoPaciente));
+      q = query(q, where('paciente_codigo', '==', options.codigoPaciente));
     }
 
     if (options?.limit) {
@@ -891,12 +853,9 @@ export async function listSolicitacoes(
     const snapshot = await getDocs(q);
 
     const solicitacoes: SolicitacaoWithDetails[] = snapshot.docs.map((doc) => {
-      const data = doc.data() as Omit<Solicitacao, "id">;
+      const data = doc.data() as Omit<Solicitacao, 'id'>;
 
-      const total_produtos = data.produtos_solicitados.reduce(
-        (sum, p) => sum + p.quantidade,
-        0
-      );
+      const total_produtos = data.produtos_solicitados.reduce((sum, p) => sum + p.quantidade, 0);
 
       const valor_total = data.produtos_solicitados.reduce(
         (sum, p) => sum + p.quantidade * p.valor_unitario,
@@ -913,7 +872,7 @@ export async function listSolicitacoes(
 
     return solicitacoes;
   } catch (error) {
-    console.error("Erro ao listar solicitações:", error);
+    console.error('Erro ao listar solicitações:', error);
     throw error;
   }
 }
@@ -926,19 +885,16 @@ export async function getSolicitacao(
   solicitacaoId: string
 ): Promise<SolicitacaoWithDetails | null> {
   try {
-    const docRef = doc(db, "tenants", tenantId, "solicitacoes", solicitacaoId);
+    const docRef = doc(db, 'tenants', tenantId, 'solicitacoes', solicitacaoId);
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
       return null;
     }
 
-    const data = docSnap.data() as Omit<Solicitacao, "id">;
+    const data = docSnap.data() as Omit<Solicitacao, 'id'>;
 
-    const total_produtos = data.produtos_solicitados.reduce(
-      (sum, p) => sum + p.quantidade,
-      0
-    );
+    const total_produtos = data.produtos_solicitados.reduce((sum, p) => sum + p.quantidade, 0);
 
     const valor_total = data.produtos_solicitados.reduce(
       (sum, p) => sum + p.quantidade * p.valor_unitario,
@@ -952,7 +908,7 @@ export async function getSolicitacao(
       valor_total,
     };
   } catch (error) {
-    console.error("Erro ao buscar solicitação:", error);
+    console.error('Erro ao buscar solicitação:', error);
     throw error;
   }
 }
@@ -972,9 +928,7 @@ export async function getSolicitacoesStats(tenantId: string): Promise<{
   canceladas: number;
 }> {
   try {
-    const snapshot = await getDocs(
-      collection(db, "tenants", tenantId, "solicitacoes")
-    );
+    const snapshot = await getDocs(collection(db, 'tenants', tenantId, 'solicitacoes'));
 
     const stats = {
       total: snapshot.size,
@@ -987,16 +941,16 @@ export async function getSolicitacoesStats(tenantId: string): Promise<{
     snapshot.docs.forEach((doc) => {
       const data = doc.data() as Solicitacao;
       switch (data.status) {
-        case "criada":
+        case 'criada':
           stats.criadas++;
           break;
-        case "agendada":
+        case 'agendada':
           stats.agendadas++;
           break;
-        case "aprovada":
+        case 'aprovada':
           stats.aprovadas++;
           break;
-        case "cancelada":
+        case 'cancelada':
           stats.canceladas++;
           break;
       }
@@ -1004,7 +958,7 @@ export async function getSolicitacoesStats(tenantId: string): Promise<{
 
     return stats;
   } catch (error) {
-    console.error("Erro ao obter estatísticas de solicitações:", error);
+    console.error('Erro ao obter estatísticas de solicitações:', error);
     throw error;
   }
 }
@@ -1022,15 +976,15 @@ export async function getUpcomingProcedures(
     const twoWeeksFromNow = new Date();
     twoWeeksFromNow.setDate(now.getDate() + 14);
 
-    const solicitacoesRef = collection(db, "tenants", tenantId, "solicitacoes");
+    const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
 
     // Buscar solicitações agendadas, aprovadas e criadas (não concluídas)
     // que tenham data de procedimento até 2 semanas no futuro
     const q = query(
       solicitacoesRef,
-      where("status", "in", ["criada", "agendada", "aprovada"]),
-      where("dt_procedimento", "<=", Timestamp.fromDate(twoWeeksFromNow)),
-      orderBy("dt_procedimento", "asc"),
+      where('status', 'in', ['criada', 'agendada', 'aprovada']),
+      where('dt_procedimento', '<=', Timestamp.fromDate(twoWeeksFromNow)),
+      orderBy('dt_procedimento', 'asc'),
       firestoreLimit(limitCount)
     );
 
@@ -1043,7 +997,7 @@ export async function getUpcomingProcedures(
 
     return solicitacoes;
   } catch (error) {
-    console.error("Erro ao buscar próximos procedimentos:", error);
+    console.error('Erro ao buscar próximos procedimentos:', error);
     throw error;
   }
 }

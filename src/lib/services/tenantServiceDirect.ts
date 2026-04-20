@@ -16,14 +16,10 @@ import {
   limit as firestoreLimit,
   Timestamp,
   serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import {
-  Tenant,
-  CreateTenantData,
-  UpdateTenantData,
-} from "@/types/tenant";
-import { initializeTenantOnboarding } from "./tenantOnboardingService";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Tenant, CreateTenantData, UpdateTenantData } from '@/types/tenant';
+import { initializeTenantOnboarding } from './tenantOnboardingService';
 
 interface ListTenantsParams {
   limit?: number;
@@ -46,17 +42,13 @@ export async function listTenants(params: ListTenantsParams = {}) {
   try {
     const { limit = 50, activeOnly = false } = params;
 
-    let q = query(
-      collection(db, "tenants"),
-      orderBy("created_at", "desc"),
-      firestoreLimit(limit)
-    );
+    let q = query(collection(db, 'tenants'), orderBy('created_at', 'desc'), firestoreLimit(limit));
 
     if (activeOnly) {
       q = query(
-        collection(db, "tenants"),
-        where("active", "==", true),
-        orderBy("created_at", "desc"),
+        collection(db, 'tenants'),
+        where('active', '==', true),
+        orderBy('created_at', 'desc'),
         firestoreLimit(limit)
       );
     }
@@ -73,19 +65,19 @@ export async function listTenants(params: ListTenantsParams = {}) {
 
     return { tenants, count: tenants.length };
   } catch (error) {
-    console.error("Erro ao listar tenants:", error);
-    throw new Error("Erro ao carregar clínicas do Firestore");
+    console.error('Erro ao listar tenants:', error);
+    throw new Error('Erro ao carregar clínicas do Firestore');
   }
 }
 
 // Obter detalhes de um tenant
 export async function getTenant(tenantId: string) {
   try {
-    const docRef = doc(db, "tenants", tenantId);
+    const docRef = doc(db, 'tenants', tenantId);
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
-      throw new Error("Clínica não encontrada");
+      throw new Error('Clínica não encontrada');
     }
 
     const tenant: Tenant = {
@@ -95,7 +87,7 @@ export async function getTenant(tenantId: string) {
 
     return { tenant };
   } catch (error) {
-    console.error("Erro ao obter tenant:", error);
+    console.error('Erro ao obter tenant:', error);
     throw error;
   }
 }
@@ -105,19 +97,19 @@ export async function createTenant(data: CreateTenantData) {
   try {
     // Se tiver dados de admin, usar API route (que usa Firebase Admin)
     if (data.admin_email && data.admin_name && data.temp_password) {
-      console.log("🔐 Criando tenant com admin via API route...");
+      console.log('🔐 Criando tenant com admin via API route...');
 
-      const response = await fetch("/api/tenants/create", {
-        method: "POST",
+      const response = await fetch('/api/tenants/create', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Erro ao criar clínica");
+        throw new Error(error.error || 'Erro ao criar clínica');
       }
 
       const result = await response.json();
@@ -129,7 +121,21 @@ export async function createTenant(data: CreateTenantData) {
     }
 
     // Caso contrário, criar apenas o tenant (compatibilidade com fluxo antigo)
-    const { name, document_type, document_number, cnpj, max_users, email, plan_id = "semestral", phone, address, city, state, cep, active = false } = data;
+    const {
+      name,
+      document_type,
+      document_number,
+      cnpj,
+      max_users,
+      email,
+      plan_id = 'semestral',
+      phone,
+      address,
+      city,
+      state,
+      cep,
+      active = false,
+    } = data;
 
     const tenantData = {
       name,
@@ -139,33 +145,33 @@ export async function createTenant(data: CreateTenantData) {
       max_users,
       email,
       plan_id,
-      phone: phone || "",
-      address: address || "",
-      city: city || "",          // Cidade separada
-      state: state || "",        // Estado separado
-      cep: cep || "",            // CEP separado
+      phone: phone || '',
+      address: address || '',
+      city: city || '', // Cidade separada
+      state: state || '', // Estado separado
+      cep: cep || '', // CEP separado
       active, // Tenant inicia INATIVO até completar onboarding
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     };
 
-    const docRef = await addDoc(collection(db, "tenants"), tenantData);
+    const docRef = await addDoc(collection(db, 'tenants'), tenantData);
 
     // Inicializa registro de onboarding
     try {
       await initializeTenantOnboarding(docRef.id);
     } catch (onboardingError) {
-      console.error("Erro ao inicializar onboarding:", onboardingError);
+      console.error('Erro ao inicializar onboarding:', onboardingError);
       // Não falhar a criação do tenant por erro no onboarding
     }
 
     return {
       tenantId: docRef.id,
-      message: "Tenant criado com sucesso",
+      message: 'Tenant criado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao criar tenant:", error);
-    throw new Error(error instanceof Error ? error.message : "Erro ao criar clínica no Firestore");
+    console.error('Erro ao criar tenant:', error);
+    throw new Error(error instanceof Error ? error.message : 'Erro ao criar clínica no Firestore');
   }
 }
 
@@ -173,10 +179,10 @@ export async function createTenant(data: CreateTenantData) {
 export async function updateTenant(tenantId: string, data: UpdateTenantData) {
   try {
     if (!tenantId) {
-      throw new Error("tenantId é obrigatório");
+      throw new Error('tenantId é obrigatório');
     }
 
-    const docRef = doc(db, "tenants", tenantId);
+    const docRef = doc(db, 'tenants', tenantId);
 
     const firestoreData: any = {
       updated_at: serverTimestamp(),
@@ -200,11 +206,11 @@ export async function updateTenant(tenantId: string, data: UpdateTenantData) {
 
     return {
       tenantId,
-      message: "Tenant atualizado com sucesso",
+      message: 'Tenant atualizado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao atualizar tenant:", error);
-    throw new Error("Erro ao atualizar clínica no Firestore");
+    console.error('Erro ao atualizar tenant:', error);
+    throw new Error('Erro ao atualizar clínica no Firestore');
   }
 }
 
@@ -212,10 +218,10 @@ export async function updateTenant(tenantId: string, data: UpdateTenantData) {
 export async function deactivateTenant(tenantId: string) {
   try {
     if (!tenantId) {
-      throw new Error("tenantId é obrigatório");
+      throw new Error('tenantId é obrigatório');
     }
 
-    const docRef = doc(db, "tenants", tenantId);
+    const docRef = doc(db, 'tenants', tenantId);
 
     await updateDoc(docRef, {
       active: false,
@@ -227,11 +233,11 @@ export async function deactivateTenant(tenantId: string) {
 
     return {
       tenantId,
-      message: "Tenant desativado com sucesso",
+      message: 'Tenant desativado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao desativar tenant:", error);
-    throw new Error("Erro ao desativar clínica no Firestore");
+    console.error('Erro ao desativar tenant:', error);
+    throw new Error('Erro ao desativar clínica no Firestore');
   }
 }
 
@@ -239,10 +245,10 @@ export async function deactivateTenant(tenantId: string) {
 export async function reactivateTenant(tenantId: string) {
   try {
     if (!tenantId) {
-      throw new Error("tenantId é obrigatório");
+      throw new Error('tenantId é obrigatório');
     }
 
-    const docRef = doc(db, "tenants", tenantId);
+    const docRef = doc(db, 'tenants', tenantId);
 
     await updateDoc(docRef, {
       active: true,
@@ -251,10 +257,10 @@ export async function reactivateTenant(tenantId: string) {
 
     return {
       tenantId,
-      message: "Tenant reativado com sucesso",
+      message: 'Tenant reativado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao reativar tenant:", error);
-    throw new Error("Erro ao reativar clínica no Firestore");
+    console.error('Erro ao reativar tenant:', error);
+    throw new Error('Erro ao reativar clínica no Firestore');
   }
 }

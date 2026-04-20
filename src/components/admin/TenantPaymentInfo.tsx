@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   CreditCard,
   History,
@@ -10,87 +10,70 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  limit,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { PaymentMethod, PaymentHistory, PaymentStatus } from "@/types/onboarding";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { PaymentMethod, PaymentHistory, PaymentStatus } from '@/types/onboarding';
 
 // Mapeamento de bandeiras
 const CARD_BRANDS: Record<string, string> = {
-  visa: "Visa",
-  mastercard: "Mastercard",
-  elo: "Elo",
-  amex: "American Express",
-  hipercard: "Hipercard",
-  diners: "Diners Club",
+  visa: 'Visa',
+  mastercard: 'Mastercard',
+  elo: 'Elo',
+  amex: 'American Express',
+  hipercard: 'Hipercard',
+  diners: 'Diners Club',
 };
 
 // Formatar valor em reais
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
   }).format(cents / 100);
 }
 
 // Formatar data
 function formatDate(timestamp: any): string {
-  if (!timestamp) return "-";
+  if (!timestamp) return '-';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   });
 }
 
 // Badge de status do pagamento
 function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
   switch (status) {
-    case "approved":
+    case 'approved':
       return (
         <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
           <CheckCircle className="w-3 h-3 mr-1" />
           Aprovado
         </Badge>
       );
-    case "rejected":
+    case 'rejected':
       return (
         <Badge variant="destructive">
           <XCircle className="w-3 h-3 mr-1" />
           Rejeitado
         </Badge>
       );
-    case "pending":
-    case "processing":
+    case 'pending':
+    case 'processing':
       return (
         <Badge variant="secondary">
           <Clock className="w-3 h-3 mr-1" />
           Pendente
         </Badge>
       );
-    case "refunded":
-      return (
-        <Badge variant="outline">
-          Reembolsado
-        </Badge>
-      );
+    case 'refunded':
+      return <Badge variant="outline">Reembolsado</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
@@ -119,9 +102,9 @@ export default function TenantPaymentInfo({ tenantId, tenantName }: TenantPaymen
 
       // Carregar método de pagamento
       const methodsQuery = query(
-        collection(db, "payment_methods"),
-        where("tenant_id", "==", tenantId),
-        where("is_default", "==", true)
+        collection(db, 'payment_methods'),
+        where('tenant_id', '==', tenantId),
+        where('is_default', '==', true)
       );
       const methodsSnapshot = await getDocs(methodsQuery);
 
@@ -132,9 +115,9 @@ export default function TenantPaymentInfo({ tenantId, tenantName }: TenantPaymen
 
       // Carregar histórico de pagamentos (últimos 20)
       const historyQuery = query(
-        collection(db, "payment_history"),
-        where("tenant_id", "==", tenantId),
-        orderBy("payment_date", "desc"),
+        collection(db, 'payment_history'),
+        where('tenant_id', '==', tenantId),
+        orderBy('payment_date', 'desc'),
         limit(20)
       );
       const historySnapshot = await getDocs(historyQuery);
@@ -145,7 +128,7 @@ export default function TenantPaymentInfo({ tenantId, tenantName }: TenantPaymen
 
       setPaymentHistory(history);
     } catch (error) {
-      console.error("Erro ao carregar dados de pagamento:", error);
+      console.error('Erro ao carregar dados de pagamento:', error);
     } finally {
       setLoading(false);
     }
@@ -153,11 +136,11 @@ export default function TenantPaymentInfo({ tenantId, tenantName }: TenantPaymen
 
   // Calcular totais
   const totalApproved = paymentHistory
-    .filter((p) => p.status === "approved")
+    .filter((p) => p.status === 'approved')
     .reduce((sum, p) => sum + p.amount, 0);
 
   const totalPending = paymentHistory
-    .filter((p) => p.status === "pending" || p.status === "processing")
+    .filter((p) => p.status === 'pending' || p.status === 'processing')
     .reduce((sum, p) => sum + p.amount, 0);
 
   if (loading) {
@@ -188,9 +171,7 @@ export default function TenantPaymentInfo({ tenantId, tenantName }: TenantPaymen
             <CreditCard className="h-5 w-5 text-blue-600" />
             Método de Pagamento
           </CardTitle>
-          <CardDescription>
-            Cartão de crédito configurado para cobrança
-          </CardDescription>
+          <CardDescription>Cartão de crédito configurado para cobrança</CardDescription>
         </CardHeader>
         <CardContent>
           {paymentMethod ? (
@@ -251,7 +232,7 @@ export default function TenantPaymentInfo({ tenantId, tenantName }: TenantPaymen
               <CardDescription className="mt-1">
                 {paymentHistory.length > 0
                   ? `Total aprovado: ${formatCurrency(totalApproved)}`
-                  : "Nenhum pagamento registrado"}
+                  : 'Nenhum pagamento registrado'}
               </CardDescription>
             </div>
             {showHistory ? (

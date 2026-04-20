@@ -18,6 +18,7 @@ Faça login com sua conta de admin.
 ### 2️⃣ **Abrir Console do Navegador**
 
 Pressione **F12** ou:
+
 - Chrome/Edge: `Ctrl+Shift+J` (Windows) ou `Cmd+Option+J` (Mac)
 - Firefox: `Ctrl+Shift+K` (Windows) ou `Cmd+Option+K` (Mac)
 
@@ -32,6 +33,7 @@ Ou copie este código:
 ```
 
 **Saída esperada:**
+
 ```
 ========================================
 AUDITORIA DE INVENTÁRIO - WEB
@@ -76,6 +78,7 @@ Itens com problemas: 2
 No console, cole o conteúdo do arquivo `dev-tools/fix-inventory-web.js` e pressione Enter.
 
 **Saída esperada:**
+
 ```
 ========================================
 CORREÇÃO DE INVENTÁRIO - WEB
@@ -120,10 +123,11 @@ Itens a corrigir: 2
 Se tudo estiver correto, execute no console:
 
 ```javascript
-corrigirInventarioWeb(false)
+corrigirInventarioWeb(false);
 ```
 
 **Uma caixa de diálogo aparecerá pedindo confirmação:**
+
 ```
 ⚠️  ATENÇÃO: Isso irá atualizar 2 itens no banco de dados.
 
@@ -133,6 +137,7 @@ Deseja continuar?
 Clique em **OK** para confirmar.
 
 **Saída esperada:**
+
 ```
 ✅ 2 itens corrigidos com sucesso!
 
@@ -153,6 +158,7 @@ Execute a auditoria novamente para confirmar:
 ```
 
 Deve mostrar:
+
 ```
 ✅ ITENS CORRETOS:
    15 itens
@@ -167,6 +173,7 @@ Itens com problemas: 0
 ## 📊 O Que os Scripts Fazem
 
 ### **Auditoria**
+
 1. Busca todos os itens do inventário (ativos)
 2. Busca todas as solicitações no status "agendada"
 3. Calcula quanto deveria estar reservado (soma dos produtos em solicitações agendadas)
@@ -174,6 +181,7 @@ Itens com problemas: 0
 5. Identifica discrepâncias
 
 ### **Correção**
+
 1. Calcula os valores corretos:
    - `quantidade_reservada` = soma de produtos em solicitações agendadas
    - `quantidade_disponivel` = `quantidade_inicial` - `quantidade_reservada`
@@ -199,15 +207,19 @@ Itens com problemas: 0
 ## 🆘 Problemas Comuns
 
 ### "Firebase não encontrado"
+
 **Solução**: Execute o script **dentro do sistema**, no console do navegador, após fazer login.
 
 ### "Usuário não está logado"
+
 **Solução**: Faça login no sistema primeiro, depois execute o script.
 
 ### "Tenant ID não encontrado"
+
 **Solução**: Certifique-se de estar logado como admin ou clinic_admin (não system_admin).
 
 ### Script não faz nada
+
 **Solução**: Verifique se não há erros no console. Cole o script completo e pressione Enter.
 
 ## 📝 Notas
@@ -231,7 +243,7 @@ Itens com problemas: 0
 // Aguarde a saída e revise as mudanças...
 
 // 3. APLICAR CORREÇÕES
-corrigirInventarioWeb(false)
+corrigirInventarioWeb(false);
 
 // Confirme quando perguntado
 

@@ -3,8 +3,8 @@
  * GET - Listar clínicas vinculadas ao consultor autenticado
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
 /**
  * GET - Listar clínicas do consultor logado
@@ -12,26 +12,26 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 export async function GET(req: NextRequest) {
   try {
     // Verificar autenticação
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Token não fornecido" }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     // Verificar se é consultor
     if (!decodedToken.is_consultant || !decodedToken.consultant_id) {
-      return NextResponse.json({ error: "Acesso restrito a consultores" }, { status: 403 });
+      return NextResponse.json({ error: 'Acesso restrito a consultores' }, { status: 403 });
     }
 
     const consultantId = decodedToken.consultant_id;
 
     // Buscar consultor
-    const consultantDoc = await adminDb.collection("consultants").doc(consultantId).get();
+    const consultantDoc = await adminDb.collection('consultants').doc(consultantId).get();
 
     if (!consultantDoc.exists) {
-      return NextResponse.json({ error: "Consultor não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: 'Consultor não encontrado' }, { status: 404 });
     }
 
     const consultantData = consultantDoc.data();
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     // Buscar dados das clínicas
     const clinics = [];
     for (const tenantId of authorizedTenants) {
-      const tenantDoc = await adminDb.collection("tenants").doc(tenantId).get();
+      const tenantDoc = await adminDb.collection('tenants').doc(tenantId).get();
       if (tenantDoc.exists) {
         const tenantData = tenantDoc.data();
         clinics.push({
@@ -67,9 +67,9 @@ export async function GET(req: NextRequest) {
       data: clinics,
     });
   } catch (error: any) {
-    console.error("Erro ao buscar clínicas do consultor:", error);
+    console.error('Erro ao buscar clínicas do consultor:', error);
     return NextResponse.json(
-      { error: error.message || "Erro ao buscar clínicas" },
+      { error: error.message || 'Erro ao buscar clínicas' },
       { status: 500 }
     );
   }

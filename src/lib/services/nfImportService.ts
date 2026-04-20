@@ -16,18 +16,15 @@ import {
   limit,
   Timestamp,
   serverTimestamp,
-} from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "@/lib/firebase";
-import type { NFImport, NFImportCreate, ParsedNF } from "@/types/nf";
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
+import type { NFImport, NFImportCreate, ParsedNF } from '@/types/nf';
 
 /**
  * Upload de arquivo PDF para Firebase Storage
  */
-export async function uploadNFFile(
-  tenantId: string,
-  file: File
-): Promise<string> {
+export async function uploadNFFile(tenantId: string, file: File): Promise<string> {
   try {
     const timestamp = Date.now();
     const fileName = `${timestamp}_${file.name}`;
@@ -38,28 +35,21 @@ export async function uploadNFFile(
 
     return downloadURL;
   } catch (error) {
-    console.error("Erro ao fazer upload do arquivo:", error);
-    throw new Error("Erro ao fazer upload do arquivo");
+    console.error('Erro ao fazer upload do arquivo:', error);
+    throw new Error('Erro ao fazer upload do arquivo');
   }
 }
 
 /**
  * Cria um registro de importação de NF
  */
-export async function createNFImport(
-  data: NFImportCreate
-): Promise<string> {
+export async function createNFImport(data: NFImportCreate): Promise<string> {
   try {
-    const nfImportRef = collection(
-      db,
-      "tenants",
-      data.tenant_id,
-      "nf_imports"
-    );
+    const nfImportRef = collection(db, 'tenants', data.tenant_id, 'nf_imports');
 
     const docRef = await addDoc(nfImportRef, {
       ...data,
-      status: "pending",
+      status: 'pending',
       produtos_importados: 0,
       produtos_novos: 0,
       created_at: serverTimestamp(),
@@ -68,8 +58,8 @@ export async function createNFImport(
 
     return docRef.id;
   } catch (error) {
-    console.error("Erro ao criar importação:", error);
-    throw new Error("Erro ao criar registro de importação");
+    console.error('Erro ao criar importação:', error);
+    throw new Error('Erro ao criar registro de importação');
   }
 }
 
@@ -79,7 +69,7 @@ export async function createNFImport(
 export async function updateNFImportStatus(
   tenantId: string,
   importId: string,
-  status: NFImport["status"],
+  status: NFImport['status'],
   data?: {
     produtos_importados?: number;
     produtos_novos?: number;
@@ -88,13 +78,7 @@ export async function updateNFImportStatus(
   }
 ): Promise<void> {
   try {
-    const importRef = doc(
-      db,
-      "tenants",
-      tenantId,
-      "nf_imports",
-      importId
-    );
+    const importRef = doc(db, 'tenants', tenantId, 'nf_imports', importId);
 
     await updateDoc(importRef, {
       status,
@@ -102,7 +86,7 @@ export async function updateNFImportStatus(
       updated_at: serverTimestamp(),
     });
   } catch (error) {
-    console.error("Erro ao atualizar status:", error);
+    console.error('Erro ao atualizar status:', error);
     throw error;
   }
 }
@@ -110,18 +94,9 @@ export async function updateNFImportStatus(
 /**
  * Busca importação por ID
  */
-export async function getNFImport(
-  tenantId: string,
-  importId: string
-): Promise<NFImport | null> {
+export async function getNFImport(tenantId: string, importId: string): Promise<NFImport | null> {
   try {
-    const importRef = doc(
-      db,
-      "tenants",
-      tenantId,
-      "nf_imports",
-      importId
-    );
+    const importRef = doc(db, 'tenants', tenantId, 'nf_imports', importId);
 
     const snapshot = await getDoc(importRef);
 
@@ -142,17 +117,13 @@ export async function getNFImport(
       error_message: data.error_message,
       parsed_data: data.parsed_data,
       created_at:
-        data.created_at instanceof Timestamp
-          ? data.created_at.toDate()
-          : new Date(data.created_at),
+        data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at),
       updated_at:
-        data.updated_at instanceof Timestamp
-          ? data.updated_at.toDate()
-          : new Date(data.updated_at),
+        data.updated_at instanceof Timestamp ? data.updated_at.toDate() : new Date(data.updated_at),
       created_by: data.created_by,
     };
   } catch (error) {
-    console.error("Erro ao buscar importação:", error);
+    console.error('Erro ao buscar importação:', error);
     throw error;
   }
 }
@@ -165,18 +136,9 @@ export async function listNFImports(
   limitResults: number = 50
 ): Promise<NFImport[]> {
   try {
-    const importsRef = collection(
-      db,
-      "tenants",
-      tenantId,
-      "nf_imports"
-    );
+    const importsRef = collection(db, 'tenants', tenantId, 'nf_imports');
 
-    const q = query(
-      importsRef,
-      orderBy("created_at", "desc"),
-      limit(limitResults)
-    );
+    const q = query(importsRef, orderBy('created_at', 'desc'), limit(limitResults));
 
     const snapshot = await getDocs(q);
     const imports: NFImport[] = [];
@@ -208,7 +170,7 @@ export async function listNFImports(
 
     return imports;
   } catch (error) {
-    console.error("Erro ao listar importações:", error);
+    console.error('Erro ao listar importações:', error);
     throw error;
   }
 }
@@ -226,7 +188,7 @@ export async function processNFAndAddToInventory(
     // TODO: Implementar lógica de adição ao inventário
     // Por enquanto, apenas simula sucesso
 
-    await updateNFImportStatus(tenantId, importId, "success", {
+    await updateNFImportStatus(tenantId, importId, 'success', {
       produtos_importados: parsedData.produtos.length,
       produtos_novos: 0,
       parsed_data: parsedData,
@@ -237,15 +199,15 @@ export async function processNFAndAddToInventory(
       message: `${parsedData.produtos.length} produtos importados com sucesso`,
     };
   } catch (error: any) {
-    console.error("Erro ao processar NF:", error);
+    console.error('Erro ao processar NF:', error);
 
-    await updateNFImportStatus(tenantId, importId, "error", {
-      error_message: error.message || "Erro ao processar NF",
+    await updateNFImportStatus(tenantId, importId, 'error', {
+      error_message: error.message || 'Erro ao processar NF',
     });
 
     return {
       success: false,
-      message: error.message || "Erro ao processar NF",
+      message: error.message || 'Erro ao processar NF',
     };
   }
 }

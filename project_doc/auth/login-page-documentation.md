@@ -14,11 +14,13 @@
 A página de login é o ponto de entrada principal do sistema Curva Mestra. Ela gerencia a autenticação de diferentes tipos de usuários (System Admin, Administradores de Clínica, Usuários de Clínica e Consultores) e implementa regras de negócio complexas baseadas em roles, status de clínica e requisitos de segurança.
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(auth)/login/page.tsx`
 - **Rota:** `/login`
 - **Layout:** Auth Layout (sem navegação principal)
 
 ### 1.2 Dependências Principais
+
 - **Hook de Autenticação:** `src/hooks/useAuth.ts`
 - **Firebase Auth:** Autenticação de usuários
 - **Firestore:** Validação de status de clínicas (tenants)
@@ -31,28 +33,32 @@ A página de login é o ponto de entrada principal do sistema Curva Mestra. Ela 
 O sistema suporta 4 tipos de usuários, cada um com comportamento específico no login:
 
 ### 2.1 System Admin (`system_admin`)
+
 - **Descrição:** Administrador do sistema Curva Mestra
 - **Acesso:** Irrestrito a todas as funcionalidades
 - **Redirecionamento:** `/admin/dashboard`
 - **Restrições:** Nenhuma
 
 ### 2.2 Administrador de Clínica (`clinic_admin`)
+
 - **Descrição:** Administrador de uma clínica específica
 - **Acesso:** Gerenciamento completo da sua clínica
-- **Redirecionamento:** 
+- **Redirecionamento:**
   - Clínica ativa: `/clinic/dashboard`
   - Clínica inativa: `/clinic/my-clinic` (acesso restrito)
 - **Restrições:** Vinculado a um `tenant_id` específico
 
 ### 2.3 Usuário de Clínica (`clinic_user`)
+
 - **Descrição:** Usuário operacional de uma clínica
 - **Acesso:** Funcionalidades operacionais (pacientes, solicitações, estoque)
 - **Redirecionamento:** `/clinic/dashboard` (apenas se clínica ativa)
-- **Restrições:** 
+- **Restrições:**
   - Bloqueado se clínica inativa
   - Vinculado a um `tenant_id` específico
 
 ### 2.4 Consultor (`clinic_consultant`)
+
 - **Descrição:** Consultor externo com acesso a múltiplas clínicas
 - **Acesso:** Visualização de dados de clínicas autorizadas
 - **Redirecionamento:** `/clinic/dashboard`
@@ -66,14 +72,14 @@ O sistema utiliza Firebase Custom Claims para gerenciar permissões. Cada usuár
 
 ```typescript
 interface CustomClaims {
-  tenant_id: string | null;           // ID da clínica (null para consultores)
-  role: UserRole;                     // Tipo de usuário
-  is_system_admin: boolean;           // Flag de admin do sistema
-  is_consultant?: boolean;            // Flag de consultor
-  consultant_id?: string;             // ID do consultor
-  authorized_tenants?: string[];      // Clínicas autorizadas (consultores)
-  active: boolean;                    // Status ativo/inativo
-  requirePasswordChange?: boolean;    // Requer troca de senha
+  tenant_id: string | null; // ID da clínica (null para consultores)
+  role: UserRole; // Tipo de usuário
+  is_system_admin: boolean; // Flag de admin do sistema
+  is_consultant?: boolean; // Flag de consultor
+  consultant_id?: string; // ID do consultor
+  authorized_tenants?: string[]; // Clínicas autorizadas (consultores)
+  active: boolean; // Status ativo/inativo
+  requirePasswordChange?: boolean; // Requer troca de senha
 }
 ```
 
@@ -85,11 +91,13 @@ interface CustomClaims {
 
 **Ator:** System Admin  
 **Pré-condições:**
+
 - Usuário possui credenciais válidas
 - Usuário tem role `system_admin`
 - Custom claims configurados
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/login`
 2. Usuário insere email e senha
 3. Sistema valida credenciais no Firebase Auth
@@ -98,6 +106,7 @@ interface CustomClaims {
 6. Sistema redireciona para `/admin/dashboard`
 
 **Pós-condições:**
+
 - Usuário autenticado
 - Sessão ativa
 - Acesso total ao sistema
@@ -108,12 +117,14 @@ interface CustomClaims {
 
 **Ator:** Administrador de Clínica  
 **Pré-condições:**
+
 - Usuário possui credenciais válidas
 - Usuário tem role `clinic_admin`
 - Clínica está ativa (`active: true`)
 - Custom claims configurados
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/login`
 2. Usuário insere email e senha
 3. Sistema valida credenciais no Firebase Auth
@@ -124,6 +135,7 @@ interface CustomClaims {
 8. Sistema redireciona para `/clinic/dashboard`
 
 **Pós-condições:**
+
 - Usuário autenticado
 - Sessão ativa
 - Acesso completo às funcionalidades da clínica
@@ -134,12 +146,14 @@ interface CustomClaims {
 
 **Ator:** Administrador de Clínica  
 **Pré-condições:**
+
 - Usuário possui credenciais válidas
 - Usuário tem role `clinic_admin`
 - Clínica está inativa (`active: false`)
 - Custom claims configurados
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/login`
 2. Usuário insere email e senha
 3. Sistema valida credenciais no Firebase Auth
@@ -150,6 +164,7 @@ interface CustomClaims {
 8. Sistema redireciona para `/clinic/my-clinic` (acesso restrito)
 
 **Pós-condições:**
+
 - Usuário autenticado
 - Sessão ativa
 - Acesso restrito apenas a:
@@ -158,6 +173,7 @@ interface CustomClaims {
   - Informações de pagamento/reativação
 
 **Regra de Negócio:**
+
 - Administradores mantêm acesso limitado mesmo com clínica inativa
 - Permite resolução de problemas de pagamento/reativação
 
@@ -167,12 +183,14 @@ interface CustomClaims {
 
 **Ator:** Usuário de Clínica  
 **Pré-condições:**
+
 - Usuário possui credenciais válidas
 - Usuário tem role `clinic_user`
 - Clínica está inativa (`active: false`)
 - Custom claims configurados
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/login`
 2. Usuário insere email e senha
 3. Sistema valida credenciais no Firebase Auth
@@ -184,11 +202,12 @@ interface CustomClaims {
 9. Sistema exibe mensagem: "Sistema Indisponível"
 
 **Fluxo Alternativo - Mensagem Exibida:**
+
 ```
 Sistema Indisponível
 
-O sistema encontra-se indisponível no momento. 
-Procure o administrador da clínica ou entre em 
+O sistema encontra-se indisponível no momento.
+Procure o administrador da clínica ou entre em
 contato com o suporte técnico Curva Mestra.
 
 Suporte técnico: suporte@curvamestra.com.br
@@ -197,11 +216,13 @@ Suporte técnico: suporte@curvamestra.com.br
 ```
 
 **Pós-condições:**
+
 - Usuário NÃO autenticado
 - Sessão encerrada
 - Acesso completamente bloqueado
 
 **Regra de Negócio:**
+
 - Usuários operacionais não têm acesso quando clínica está inativa
 - Apenas administradores podem resolver problemas de reativação
 
@@ -211,11 +232,13 @@ Suporte técnico: suporte@curvamestra.com.br
 
 **Ator:** Novo Usuário  
 **Pré-condições:**
+
 - Usuário completou registro
 - Credenciais válidas
 - Custom claims NÃO configurados (sem role ou active)
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/login`
 2. Usuário insere email e senha
 3. Sistema valida credenciais no Firebase Auth
@@ -224,6 +247,7 @@ Suporte técnico: suporte@curvamestra.com.br
 6. Sistema redireciona para `/waiting-approval`
 
 **Pós-condições:**
+
 - Usuário autenticado mas sem acesso
 - Aguardando aprovação do System Admin
 - Exibe mensagem de aguardo
@@ -234,11 +258,13 @@ Suporte técnico: suporte@curvamestra.com.br
 
 **Ator:** Qualquer Usuário  
 **Pré-condições:**
+
 - Usuário possui credenciais válidas
 - Custom claim `requirePasswordChange: true`
 - Senha foi resetada por administrador
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/login`
 2. Usuário insere email e senha
 3. Sistema valida credenciais no Firebase Auth
@@ -247,11 +273,13 @@ Suporte técnico: suporte@curvamestra.com.br
 6. Sistema redireciona para `/change-password`
 
 **Pós-condições:**
+
 - Usuário autenticado mas bloqueado
 - Deve trocar senha antes de acessar sistema
 - Após troca, acesso liberado conforme role
 
 **Regra de Negócio:**
+
 - Segurança: força troca de senha após reset por admin
 - Usuário não pode pular esta etapa
 
@@ -261,9 +289,11 @@ Suporte técnico: suporte@curvamestra.com.br
 
 **Ator:** Qualquer Usuário  
 **Pré-condições:**
+
 - Usuário acessa página de login
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/login`
 2. Usuário insere email e/ou senha incorretos
 3. Sistema tenta validar no Firebase Auth
@@ -272,6 +302,7 @@ Suporte técnico: suporte@curvamestra.com.br
 6. Sistema exibe mensagem de erro
 
 **Mensagens de Erro Traduzidas:**
+
 - `wrong-password` ou `invalid-credential` → "Email ou senha incorretos"
 - `user-not-found` → "Usuário não encontrado"
 - `too-many-requests` → "Muitas tentativas. Tente novamente mais tarde"
@@ -280,6 +311,7 @@ Suporte técnico: suporte@curvamestra.com.br
 - Outros → "Erro ao fazer login. Tente novamente"
 
 **Pós-condições:**
+
 - Usuário NÃO autenticado
 - Permanece na página de login
 - Pode tentar novamente
@@ -290,11 +322,13 @@ Suporte técnico: suporte@curvamestra.com.br
 
 **Ator:** Usuário Autenticado  
 **Pré-condições:**
+
 - Usuário estava autenticado
 - Sessão expirou por inatividade
 - Sistema redirecionou para `/login?timeout=true`
 
 **Fluxo Principal:**
+
 1. Sistema detecta timeout de sessão
 2. Sistema redireciona para `/login?timeout=true`
 3. Página de login detecta parâmetro `timeout`
@@ -303,6 +337,7 @@ Suporte técnico: suporte@curvamestra.com.br
 6. Usuário faz login normalmente
 
 **Pós-condições:**
+
 - Usuário informado sobre motivo do logout
 - Pode fazer login novamente
 
@@ -312,11 +347,13 @@ Suporte técnico: suporte@curvamestra.com.br
 
 **Ator:** Usuário Autenticado  
 **Pré-condições:**
+
 - Usuário já está autenticado
 - Sessão ativa válida
 - Custom claims configurados
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/login` (diretamente ou por link)
 2. Sistema detecta sessão ativa via `useAuth`
 3. Sistema obtém custom claims
@@ -326,11 +363,13 @@ Suporte técnico: suporte@curvamestra.com.br
    - Outros → `/dashboard`
 
 **Pós-condições:**
+
 - Usuário não vê formulário de login
 - Redirecionado para dashboard apropriado
 - Sessão mantida
 
 **Regra de Negócio:**
+
 - Evita login duplicado
 - Melhora experiência do usuário
 
@@ -440,33 +479,39 @@ Suporte técnico: suporte@curvamestra.com.br
 ## 6. Regras de Negócio
 
 ### RN-001: Hierarquia de Acesso
+
 - **System Admin:** Acesso irrestrito, nunca bloqueado
 - **Clinic Admin:** Acesso restrito quando clínica inativa
 - **Clinic User:** Bloqueado quando clínica inativa
 - **Consultant:** Acesso apenas a clínicas autorizadas
 
 ### RN-002: Validação de Clínica
+
 - Validação ocorre apenas para usuários não-admin (`!is_system_admin`)
 - Validação ocorre apenas se usuário tem `tenant_id`
 - Busca documento em `tenants/{tenant_id}`
 - Verifica campo `active`
 
 ### RN-003: Troca de Senha Obrigatória
+
 - Usuário com `requirePasswordChange: true` não pode acessar sistema
 - Deve ser redirecionado para `/change-password`
 - Após troca, flag é removida e acesso liberado
 
 ### RN-004: Aprovação Pendente
+
 - Usuário sem `role` ou sem `active` não tem acesso
 - Deve aguardar aprovação do System Admin
 - Redirecionado para `/waiting-approval`
 
 ### RN-005: Tradução de Erros
+
 - Todos os erros do Firebase são traduzidos para português
 - Mensagens amigáveis e claras para o usuário
 - Não expõe detalhes técnicos
 
 ### RN-006: Refresh de Token
+
 - Token é forçado a refresh (`getIdToken(true)`) após login
 - Garante custom claims atualizados
 - Evita problemas de sincronização
@@ -476,44 +521,56 @@ Suporte técnico: suporte@curvamestra.com.br
 ## 7. Estados da Interface
 
 ### 7.1 Estado: Carregando Autenticação
+
 **Quando:** Sistema está verificando se usuário já está autenticado  
 **Exibição:** "Carregando..."  
 **Duração:** Breve (< 1 segundo)
 
 ### 7.2 Estado: Formulário de Login
+
 **Quando:** Usuário não autenticado  
 **Campos:**
+
 - Email (type: email, required, autocomplete: email)
 - Senha (type: password, required, autocomplete: current-password)
 - Botão "Entrar"
 
 **Links:**
+
 - "Esqueceu a senha?" → `/forgot-password`
 - "Registrar-se" → `/register`
 
 ### 7.3 Estado: Processando Login
+
 **Quando:** Usuário submeteu formulário  
-**Exibição:** 
+**Exibição:**
+
 - Botão desabilitado
 - Texto: "Entrando..."
 - Campos desabilitados
 
 ### 7.4 Estado: Erro de Autenticação
+
 **Quando:** Credenciais inválidas ou erro no processo  
 **Exibição:**
+
 - Mensagem de erro em destaque (vermelho)
 - Formulário habilitado para nova tentativa
 
 ### 7.5 Estado: Alerta de Timeout
+
 **Quando:** Parâmetro `?timeout=true` na URL  
 **Exibição:**
+
 - Alerta informativo no topo
 - Ícone de relógio
 - Mensagem: "Sua sessão expirou por inatividade..."
 
 ### 7.6 Estado: Sistema Indisponível (Clinic User)
+
 **Quando:** Clinic user tenta acessar com clínica inativa  
 **Exibição:**
+
 - Card com ícone de alerta
 - Título: "Sistema Indisponível"
 - Mensagem explicativa
@@ -525,16 +582,19 @@ Suporte técnico: suporte@curvamestra.com.br
 ## 8. Integrações
 
 ### 8.1 Firebase Authentication
+
 - **Método:** `signInWithEmailAndPassword`
 - **Retorno:** UserCredential com user
 - **Erros:** Códigos de erro do Firebase
 
 ### 8.2 Firebase Custom Claims
+
 - **Método:** `user.getIdTokenResult()`
 - **Refresh:** `user.getIdToken(true)` força atualização
 - **Claims:** Objeto com permissões e metadata
 
 ### 8.3 Firestore - Tenants
+
 - **Coleção:** `tenants`
 - **Documento:** `{tenant_id}`
 - **Campo verificado:** `active` (boolean)
@@ -545,6 +605,7 @@ Suporte técnico: suporte@curvamestra.com.br
 ## 9. Segurança
 
 ### 9.1 Proteções Implementadas
+
 - ✅ Validação de email e senha obrigatórios
 - ✅ Desabilitação de formulário durante processamento
 - ✅ Logout automático para usuários bloqueados
@@ -553,6 +614,7 @@ Suporte técnico: suporte@curvamestra.com.br
 - ✅ Mensagens de erro genéricas (não expõe detalhes)
 
 ### 9.2 Limitações do Firebase
+
 - Rate limiting automático (muitas tentativas)
 - Proteção contra brute force
 - Mensagem: "Muitas tentativas. Tente novamente mais tarde"
@@ -562,6 +624,7 @@ Suporte técnico: suporte@curvamestra.com.br
 ## 10. Melhorias Futuras Sugeridas
 
 ### 10.1 Funcionalidades
+
 - [ ] Login com Google/Microsoft (SSO)
 - [ ] Autenticação de dois fatores (2FA)
 - [ ] Lembrar dispositivo confiável
@@ -569,6 +632,7 @@ Suporte técnico: suporte@curvamestra.com.br
 - [ ] Notificação de login em novo dispositivo
 
 ### 10.2 UX/UI
+
 - [ ] Indicador de força de senha
 - [ ] Mostrar/ocultar senha
 - [ ] Recuperação de email esquecido
@@ -576,6 +640,7 @@ Suporte técnico: suporte@curvamestra.com.br
 - [ ] Animações de transição
 
 ### 10.3 Segurança
+
 - [ ] Captcha após múltiplas tentativas
 - [ ] Bloqueio temporário de conta
 - [ ] Auditoria de tentativas de login
@@ -586,16 +651,19 @@ Suporte técnico: suporte@curvamestra.com.br
 ## 11. Observações Técnicas
 
 ### 11.1 Suspense Boundary
+
 - Componente usa `<Suspense>` para evitar erros de hidratação
 - Necessário devido ao uso de `useSearchParams()`
 - Fallback: "Carregando..."
 
 ### 11.2 Client Component
+
 - Marcado com `"use client"`
 - Necessário para hooks do React (useState, useEffect)
 - Necessário para hooks do Next.js (useRouter, useSearchParams)
 
 ### 11.3 Performance
+
 - Verificação de autenticação é rápida (< 1s)
 - Busca no Firestore adiciona ~200-500ms
 - Redirecionamentos são instantâneos

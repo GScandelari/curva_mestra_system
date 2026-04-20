@@ -1,17 +1,25 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
-import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { LegalDocument } from "@/types";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  serverTimestamp,
+  orderBy,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { LegalDocument } from '@/types';
 import {
   Dialog,
   DialogContent,
@@ -19,9 +27,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import ReactMarkdown from "react-markdown";
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import ReactMarkdown from 'react-markdown';
 
 export default function AcceptTermsOnboardingPage() {
   const router = useRouter();
@@ -44,10 +52,10 @@ export default function AcceptTermsOnboardingPage() {
     try {
       // Buscar documentos ativos e obrigatórios para registro
       const docsQuery = query(
-        collection(db, "legal_documents"),
-        where("status", "==", "ativo"),
-        where("required_for_registration", "==", true),
-        orderBy("order", "asc")
+        collection(db, 'legal_documents'),
+        where('status', '==', 'ativo'),
+        where('required_for_registration', '==', true),
+        orderBy('order', 'asc')
       );
       const docsSnapshot = await getDocs(docsQuery);
       const docs = docsSnapshot.docs.map((doc) => ({
@@ -57,20 +65,18 @@ export default function AcceptTermsOnboardingPage() {
 
       // Buscar aceitações existentes do usuário
       const acceptancesQuery = query(
-        collection(db, "user_document_acceptances"),
-        where("user_id", "==", user.uid)
+        collection(db, 'user_document_acceptances'),
+        where('user_id', '==', user.uid)
       );
       const acceptancesSnapshot = await getDocs(acceptancesQuery);
-      const acceptedDocs = new Set(
-        acceptancesSnapshot.docs.map((doc) => doc.data().document_id)
-      );
+      const acceptedDocs = new Set(acceptancesSnapshot.docs.map((doc) => doc.data().document_id));
 
       // Filtrar apenas documentos não aceitos ainda
       const pendingDocs = docs.filter((doc) => !acceptedDocs.has(doc.id));
 
       if (pendingDocs.length === 0) {
         // Se não há documentos pendentes, ir para próxima etapa
-        router.push("/clinic/setup");
+        router.push('/clinic/setup');
         return;
       }
 
@@ -84,9 +90,9 @@ export default function AcceptTermsOnboardingPage() {
       setAcceptances(initialAcceptances);
     } catch (error: any) {
       toast({
-        title: "Erro ao carregar documentos",
+        title: 'Erro ao carregar documentos',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -96,9 +102,9 @@ export default function AcceptTermsOnboardingPage() {
   async function handleAcceptAll() {
     if (!user) {
       toast({
-        title: "Erro",
-        description: "Você precisa estar autenticado",
-        variant: "destructive",
+        title: 'Erro',
+        description: 'Você precisa estar autenticado',
+        variant: 'destructive',
       });
       return;
     }
@@ -107,9 +113,9 @@ export default function AcceptTermsOnboardingPage() {
     const allAccepted = documents.every((doc) => acceptances[doc.id]);
     if (!allAccepted) {
       toast({
-        title: "Atenção",
-        description: "Você precisa aceitar todos os documentos para continuar",
-        variant: "destructive",
+        title: 'Atenção',
+        description: 'Você precisa aceitar todos os documentos para continuar',
+        variant: 'destructive',
       });
       return;
     }
@@ -118,7 +124,7 @@ export default function AcceptTermsOnboardingPage() {
     try {
       // Registrar aceitação de cada documento
       const promises = documents.map(async (doc) => {
-        await addDoc(collection(db, "user_document_acceptances"), {
+        await addDoc(collection(db, 'user_document_acceptances'), {
           user_id: user.uid,
           document_id: doc.id,
           document_version: doc.version,
@@ -131,17 +137,17 @@ export default function AcceptTermsOnboardingPage() {
       await Promise.all(promises);
 
       toast({
-        title: "Sucesso",
-        description: "Termos aceitos com sucesso",
+        title: 'Sucesso',
+        description: 'Termos aceitos com sucesso',
       });
 
       // Redirecionar para setup da clínica
-      router.push("/clinic/setup");
+      router.push('/clinic/setup');
     } catch (error: any) {
       toast({
-        title: "Erro ao salvar",
+        title: 'Erro ao salvar',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setSaving(false);
@@ -181,7 +187,8 @@ export default function AcceptTermsOnboardingPage() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Por favor, leia atentamente cada documento antes de aceitar. Você pode clicar no título para visualizar o conteúdo completo.
+            Por favor, leia atentamente cada documento antes de aceitar. Você pode clicar no título
+            para visualizar o conteúdo completo.
           </AlertDescription>
         </Alert>
 

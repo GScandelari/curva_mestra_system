@@ -2,26 +2,26 @@
  * Função simples para testar envio de e-mail via Zoho SMTP
  */
 
-import {onRequest} from "firebase-functions/v2/https";
-import * as nodemailer from "nodemailer";
+import { onRequest } from 'firebase-functions/v2/https';
+import * as nodemailer from 'nodemailer';
 
 export const sendTestEmail = onRequest(
   {
     cors: true,
-    region: "southamerica-east1",
+    region: 'southamerica-east1',
   },
   async (req, res) => {
-    const {email, smtpUser, smtpPass} = req.body;
+    const { email, smtpUser, smtpPass } = req.body;
 
     if (!email || !smtpUser || !smtpPass) {
-      res.status(400).json({error: "E-mail, smtpUser e smtpPass são obrigatórios"});
+      res.status(400).json({ error: 'E-mail, smtpUser e smtpPass são obrigatórios' });
       return;
     }
 
     try {
       // Configurar transporter
       const transporter = nodemailer.createTransport({
-        host: "smtp.zoho.com",
+        host: 'smtp.zoho.com',
         port: 587,
         secure: false,
         auth: {
@@ -34,7 +34,7 @@ export const sendTestEmail = onRequest(
       const info = await transporter.sendMail({
         from: '"Curva Mestra" <scandelari.guilherme@curvamestra.com.br>',
         to: email,
-        subject: "🧪 Teste de E-mail - Curva Mestra",
+        subject: '🧪 Teste de E-mail - Curva Mestra',
         html: `
           <!DOCTYPE html>
           <html>
@@ -58,7 +58,7 @@ export const sendTestEmail = onRequest(
                   <ul>
                     <li>Servidor SMTP: smtp.zoho.com</li>
                     <li>Porta: 587 (TLS)</li>
-                    <li>Data/Hora: ${new Date().toLocaleString("pt-BR")}</li>
+                    <li>Data/Hora: ${new Date().toLocaleString('pt-BR')}</li>
                   </ul>
                   <p>Você está pronto para começar a enviar e-mails transacionais!</p>
                 </div>
@@ -68,19 +68,19 @@ export const sendTestEmail = onRequest(
         `,
       });
 
-      console.log("✅ E-mail enviado:", info.messageId);
+      console.log('✅ E-mail enviado:', info.messageId);
 
       res.json({
         success: true,
-        message: "E-mail de teste enviado com sucesso!",
+        message: 'E-mail de teste enviado com sucesso!',
         messageId: info.messageId,
         to: email,
       });
     } catch (error) {
-      console.error("❌ Erro ao enviar e-mail:", error);
+      console.error('❌ Erro ao enviar e-mail:', error);
       res.status(500).json({
-        error: "Erro ao enviar e-mail",
-        details: error instanceof Error ? error.message : "Erro desconhecido",
+        error: 'Erro ao enviar e-mail',
+        details: error instanceof Error ? error.message : 'Erro desconhecido',
       });
     }
   }

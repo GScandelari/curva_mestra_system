@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { ArrowLeft, Edit, Loader2 } from "lucide-react";
-import { LegalDocument, DocumentStatus } from "@/types";
-import ReactMarkdown from "react-markdown";
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { ArrowLeft, Edit, Loader2 } from 'lucide-react';
+import { LegalDocument, DocumentStatus } from '@/types';
+import ReactMarkdown from 'react-markdown';
 
 export default function ViewLegalDocumentPage() {
   const router = useRouter();
@@ -29,23 +29,23 @@ export default function ViewLegalDocumentPage() {
 
   async function loadDocument() {
     try {
-      const docRef = doc(db, "legal_documents", documentId);
+      const docRef = doc(db, 'legal_documents', documentId);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         setDocument({ id: docSnap.id, ...docSnap.data() } as LegalDocument);
       } else {
         toast({
-          title: "Documento não encontrado",
-          variant: "destructive",
+          title: 'Documento não encontrado',
+          variant: 'destructive',
         });
-        router.push("/admin/legal-documents");
+        router.push('/admin/legal-documents');
       }
     } catch (error: any) {
       toast({
-        title: "Erro ao carregar documento",
+        title: 'Erro ao carregar documento',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -54,9 +54,9 @@ export default function ViewLegalDocumentPage() {
 
   function getStatusBadge(status: DocumentStatus) {
     const variants: Record<DocumentStatus, { variant: any; label: string }> = {
-      ativo: { variant: "default", label: "Ativo" },
-      inativo: { variant: "secondary", label: "Inativo" },
-      rascunho: { variant: "outline", label: "Rascunho" },
+      ativo: { variant: 'default', label: 'Ativo' },
+      inativo: { variant: 'secondary', label: 'Inativo' },
+      rascunho: { variant: 'outline', label: 'Rascunho' },
     };
 
     const config = variants[status];
@@ -81,7 +81,7 @@ export default function ViewLegalDocumentPage() {
       <div>
         <Button
           variant="ghost"
-          onClick={() => router.push("/admin/legal-documents")}
+          onClick={() => router.push('/admin/legal-documents')}
           className="mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />

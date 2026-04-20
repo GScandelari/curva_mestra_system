@@ -1,16 +1,24 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/hooks/use-toast";
-import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-import { FileText, Loader2, CheckCircle2 } from "lucide-react";
-import { LegalDocument } from "@/types";
-import ReactMarkdown from "react-markdown";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  serverTimestamp,
+  orderBy,
+} from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import { FileText, Loader2, CheckCircle2 } from 'lucide-react';
+import { LegalDocument } from '@/types';
+import ReactMarkdown from 'react-markdown';
 
 export default function AcceptTermsPage() {
   const router = useRouter();
@@ -26,17 +34,17 @@ export default function AcceptTermsPage() {
 
   async function loadPendingDocuments() {
     if (!auth.currentUser) {
-      router.push("/login");
+      router.push('/login');
       return;
     }
 
     try {
       // Buscar documentos ativos e obrigatórios
       const q = query(
-        collection(db, "legal_documents"),
-        where("status", "==", "ativo"),
-        where("required_for_existing_users", "==", true),
-        orderBy("order", "asc")
+        collection(db, 'legal_documents'),
+        where('status', '==', 'ativo'),
+        where('required_for_existing_users', '==', true),
+        orderBy('order', 'asc')
       );
       const docsSnapshot = await getDocs(q);
       const docs = docsSnapshot.docs.map((doc) => ({
@@ -46,20 +54,18 @@ export default function AcceptTermsPage() {
 
       // Buscar aceitações existentes do usuário
       const acceptancesQuery = query(
-        collection(db, "user_document_acceptances"),
-        where("user_id", "==", auth.currentUser.uid)
+        collection(db, 'user_document_acceptances'),
+        where('user_id', '==', auth.currentUser.uid)
       );
       const acceptancesSnapshot = await getDocs(acceptancesQuery);
-      const acceptedDocs = new Set(
-        acceptancesSnapshot.docs.map((doc) => doc.data().document_id)
-      );
+      const acceptedDocs = new Set(acceptancesSnapshot.docs.map((doc) => doc.data().document_id));
 
       // Filtrar apenas documentos não aceitos ainda
       const pendingDocs = docs.filter((doc) => !acceptedDocs.has(doc.id));
 
       if (pendingDocs.length === 0) {
         // Se não há documentos pendentes, redirecionar
-        router.push("/");
+        router.push('/');
         return;
       }
 
@@ -73,9 +79,9 @@ export default function AcceptTermsPage() {
       setAcceptances(initialAcceptances);
     } catch (error: any) {
       toast({
-        title: "Erro ao carregar documentos",
+        title: 'Erro ao carregar documentos',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -85,9 +91,9 @@ export default function AcceptTermsPage() {
   async function handleAcceptAll() {
     if (!auth.currentUser) {
       toast({
-        title: "Erro",
-        description: "Você precisa estar autenticado",
-        variant: "destructive",
+        title: 'Erro',
+        description: 'Você precisa estar autenticado',
+        variant: 'destructive',
       });
       return;
     }
@@ -96,9 +102,9 @@ export default function AcceptTermsPage() {
     const allAccepted = documents.every((doc) => acceptances[doc.id]);
     if (!allAccepted) {
       toast({
-        title: "Atenção",
-        description: "Você precisa aceitar todos os documentos para continuar",
-        variant: "destructive",
+        title: 'Atenção',
+        description: 'Você precisa aceitar todos os documentos para continuar',
+        variant: 'destructive',
       });
       return;
     }
@@ -107,7 +113,7 @@ export default function AcceptTermsPage() {
     try {
       // Registrar aceitação de cada documento
       const promises = documents.map(async (doc) => {
-        await addDoc(collection(db, "user_document_acceptances"), {
+        await addDoc(collection(db, 'user_document_acceptances'), {
           user_id: auth.currentUser!.uid,
           document_id: doc.id,
           document_version: doc.version,
@@ -120,17 +126,17 @@ export default function AcceptTermsPage() {
       await Promise.all(promises);
 
       toast({
-        title: "Sucesso",
-        description: "Termos aceitos com sucesso",
+        title: 'Sucesso',
+        description: 'Termos aceitos com sucesso',
       });
 
       // Redirecionar para a página inicial
-      router.push("/");
+      router.push('/');
     } catch (error: any) {
       toast({
-        title: "Erro ao salvar",
+        title: 'Erro ao salvar',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setSaving(false);

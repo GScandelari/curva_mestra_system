@@ -3,15 +3,15 @@
  * Exibe mensagem genérica para clinic_user
  */
 
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { useTenantSuspension } from "@/hooks/useTenantSuspension";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, LogOut } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { useTenantSuspension } from '@/hooks/useTenantSuspension';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertCircle, LogOut } from 'lucide-react';
 
 export default function SuspendedUserPage() {
   const router = useRouter();
@@ -22,19 +22,19 @@ export default function SuspendedUserPage() {
   useEffect(() => {
     // Se não está suspenso, redirecionar
     if (!isLoading && !isSuspended) {
-      router.push("/clinic");
+      router.push('/clinic');
     }
 
     // Se é clinic_admin, redirecionar para página de admin
-    if (!isLoading && claims?.role === "clinic_admin") {
-      router.push("/suspended/admin");
+    if (!isLoading && claims?.role === 'clinic_admin') {
+      router.push('/suspended/admin');
     }
   }, [isSuspended, isLoading, claims, router]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
     await signOut();
-    router.push("/login");
+    router.push('/login');
   };
 
   if (isLoading || !isSuspended) {
@@ -70,11 +70,8 @@ export default function SuspendedUserPage() {
               O acesso à plataforma foi temporariamente bloqueado.
             </p>
             <p className="text-center text-muted-foreground leading-relaxed mt-2">
-              Para mais informações, entre em contato com o{" "}
-              <span className="font-semibold text-foreground">
-                administrador da clínica
-              </span>
-              .
+              Para mais informações, entre em contato com o{' '}
+              <span className="font-semibold text-foreground">administrador da clínica</span>.
             </p>
           </div>
 
@@ -92,21 +89,15 @@ export default function SuspendedUserPage() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="text-primary font-bold mt-0.5">1.</span>
-                <span>
-                  Entre em contato com o administrador responsável pela clínica
-                </span>
+                <span>Entre em contato com o administrador responsável pela clínica</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary font-bold mt-0.5">2.</span>
-                <span>
-                  Solicite informações sobre o status da conta
-                </span>
+                <span>Solicite informações sobre o status da conta</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary font-bold mt-0.5">3.</span>
-                <span>
-                  Aguarde a regularização para acessar novamente
-                </span>
+                <span>Aguarde a regularização para acessar novamente</span>
               </li>
             </ul>
           </div>
@@ -120,7 +111,7 @@ export default function SuspendedUserPage() {
               className="w-full"
             >
               <LogOut className="h-4 w-4 mr-2" />
-              {isSigningOut ? "Saindo..." : "Sair da Conta"}
+              {isSigningOut ? 'Saindo...' : 'Sair da Conta'}
             </Button>
           </div>
         </CardContent>

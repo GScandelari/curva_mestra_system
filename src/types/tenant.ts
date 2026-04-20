@@ -1,6 +1,6 @@
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from 'firebase/firestore';
 
-export type DocumentType = "cnpj" | "cpf";
+export type DocumentType = 'cnpj' | 'cpf';
 
 /**
  * Interface principal para Tenant (Clínica)
@@ -9,18 +9,18 @@ export type DocumentType = "cnpj" | "cpf";
 export interface Tenant {
   id: string;
   name: string;
-  document_type: DocumentType;    // NOVO: tipo de documento
-  document_number: string;          // NOVO: CPF ou CNPJ unificado
-  cnpj?: string;                    // DEPRECATED: manter compatibilidade
+  document_type: DocumentType; // NOVO: tipo de documento
+  document_number: string; // NOVO: CPF ou CNPJ unificado
+  cnpj?: string; // DEPRECATED: manter compatibilidade
   email: string;
   phone: string;
   address: string;
-  city?: string;                    // NOVO: cidade separada
-  state?: string;                   // NOVO: estado separado
-  cep?: string;                     // NOVO: CEP separado
-  timezone?: string;                // NOVO: timezone (ex: "America/Sao_Paulo")
-  plan_id: "semestral" | "anual";
-  max_users: number;                // NOVO: 1 para CPF, 5 para CNPJ
+  city?: string; // NOVO: cidade separada
+  state?: string; // NOVO: estado separado
+  cep?: string; // NOVO: CEP separado
+  timezone?: string; // NOVO: timezone (ex: "America/Sao_Paulo")
+  plan_id: 'semestral' | 'anual';
+  max_users: number; // NOVO: 1 para CPF, 5 para CNPJ
   active: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -32,18 +32,18 @@ export interface Tenant {
  */
 export interface CreateTenantData {
   name: string;
-  document_type: DocumentType;  // NOVO
-  document_number: string;      // NOVO
-  cnpj?: string;                 // DEPRECATED: compatibilidade
-  max_users: number;             // NOVO
+  document_type: DocumentType; // NOVO
+  document_number: string; // NOVO
+  cnpj?: string; // DEPRECATED: compatibilidade
+  max_users: number; // NOVO
   email: string;
   phone: string;
   address: string;
-  city?: string;                 // NOVO: cidade separada
-  state?: string;                // NOVO: estado separado
-  cep?: string;                  // NOVO: CEP separado
-  timezone?: string;             // NOVO: timezone
-  plan_id: "semestral" | "anual";
+  city?: string; // NOVO: cidade separada
+  state?: string; // NOVO: estado separado
+  cep?: string; // NOVO: CEP separado
+  timezone?: string; // NOVO: timezone
+  plan_id: 'semestral' | 'anual';
   active?: boolean; // Padrão: true
   // NOVO: dados do administrador
   admin_name?: string;
@@ -64,18 +64,18 @@ export interface CreateTenantData {
  */
 export interface UpdateTenantData {
   name?: string;
-  document_type?: DocumentType;   // NOVO
-  document_number?: string;       // NOVO
-  cnpj?: string;                  // DEPRECATED: compatibilidade
-  max_users?: number;             // NOVO
+  document_type?: DocumentType; // NOVO
+  document_number?: string; // NOVO
+  cnpj?: string; // DEPRECATED: compatibilidade
+  max_users?: number; // NOVO
   email?: string;
   phone?: string;
   address?: string;
-  city?: string;                  // NOVO: cidade separada
-  state?: string;                 // NOVO: estado separado
-  cep?: string;                   // NOVO: CEP separado
-  timezone?: string;              // NOVO: timezone
-  plan_id?: "semestral" | "anual";
+  city?: string; // NOVO: cidade separada
+  state?: string; // NOVO: estado separado
+  cep?: string; // NOVO: CEP separado
+  timezone?: string; // NOVO: timezone
+  plan_id?: 'semestral' | 'anual';
   active?: boolean;
 }
 
@@ -84,18 +84,18 @@ export interface UpdateTenantData {
  */
 export const PLANS = {
   semestral: {
-    id: "semestral",
-    name: "Plano Semestral",
-    description: "6 meses de acesso completo ao sistema",
-    price: 59.90,
-    period: "mês",
+    id: 'semestral',
+    name: 'Plano Semestral',
+    description: '6 meses de acesso completo ao sistema',
+    price: 59.9,
+    period: 'mês',
   },
   anual: {
-    id: "anual",
-    name: "Plano Anual",
-    description: "12 meses de acesso completo ao sistema",
-    price: 49.90,
-    period: "mês",
+    id: 'anual',
+    name: 'Plano Anual',
+    description: '12 meses de acesso completo ao sistema',
+    price: 49.9,
+    period: 'mês',
   },
 } as const;
 
@@ -103,18 +103,15 @@ export const PLANS = {
  * Helper para formatar CNPJ
  */
 export function formatCNPJ(cnpj: string): string {
-  const cleaned = cnpj.replace(/\D/g, "");
-  return cleaned.replace(
-    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
-    "$1.$2.$3/$4-$5"
-  );
+  const cleaned = cnpj.replace(/\D/g, '');
+  return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
 }
 
 /**
  * Helper para validar CNPJ (com dígitos verificadores)
  */
 export function validateCNPJ(cnpj: string): boolean {
-  const cleaned = cnpj.replace(/\D/g, "");
+  const cleaned = cnpj.replace(/\D/g, '');
 
   // Verifica se tem 14 dígitos
   if (cleaned.length !== 14) {
@@ -171,11 +168,11 @@ export function validateCNPJ(cnpj: string): boolean {
  * Helper para formatar telefone
  */
 export function formatPhone(phone: string): string {
-  const cleaned = phone.replace(/\D/g, "");
+  const cleaned = phone.replace(/\D/g, '');
   if (cleaned.length === 11) {
-    return cleaned.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3");
+    return cleaned.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
   } else if (cleaned.length === 10) {
-    return cleaned.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3");
+    return cleaned.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
   }
   return phone;
 }

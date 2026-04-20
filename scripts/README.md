@@ -17,11 +17,13 @@ firebase emulators:start
 Popula o emulador com dados de teste incluindo usuários, tenants e produtos de exemplo.
 
 **Uso:**
+
 ```bash
 node scripts/seed-emulator.js
 ```
 
 **O que faz:**
+
 - Cria 1 System Admin
 - Cria 3 Tenants (Alpha - ativo, Beta - ativo, Gamma - inativo)
 - Cria 4 usuários (1 system admin, 2 na Alpha, 1 na Beta)
@@ -29,23 +31,25 @@ node scripts/seed-emulator.js
 
 **Credenciais criadas:**
 
-| Tipo | Email | Senha | Tenant |
-|------|-------|-------|--------|
-| System Admin | admin@curvamestra.com | Admin123! | - |
-| Clinic Admin | admin@alpha.com | Alpha123! | Clínica Alpha |
-| Clinic User | usuario@alpha.com | Alpha123! | Clínica Alpha |
-| Clinic Admin | admin@beta.com | Beta123! | Clínica Beta |
+| Tipo         | Email                 | Senha     | Tenant        |
+| ------------ | --------------------- | --------- | ------------- |
+| System Admin | admin@curvamestra.com | Admin123! | -             |
+| Clinic Admin | admin@alpha.com       | Alpha123! | Clínica Alpha |
+| Clinic User  | usuario@alpha.com     | Alpha123! | Clínica Alpha |
+| Clinic Admin | admin@beta.com        | Beta123!  | Clínica Beta  |
 
 ### 2. test-security.js
 
 Executa testes de validação do sistema multi-tenant.
 
 **Uso:**
+
 ```bash
 node scripts/test-security.js
 ```
 
 **Testes executados:**
+
 1. ✅ Verificar Custom Claims (roles e tenant_id)
 2. ✅ Verificar Estrutura de Dados (tenants no Firestore)
 3. ✅ Verificar Usuários nos Tenants
@@ -53,6 +57,7 @@ node scripts/test-security.js
 5. ✅ Verificar Isolamento Multi-Tenant
 
 **Saída esperada:**
+
 ```
 ✅ Testes passou: 8
 ❌ Testes falhou: 0
@@ -100,6 +105,7 @@ node scripts/seed-emulator.js
 ## Estrutura de Dados Criada
 
 ### Tenants
+
 ```
 tenants/
 ├── tenant_clinic_alpha/
@@ -116,6 +122,7 @@ tenants/
 ```
 
 ### Custom Claims
+
 ```json
 {
   "tenant_id": "tenant_clinic_alpha",
@@ -128,19 +135,23 @@ tenants/
 ## Troubleshooting
 
 ### Erro "Cannot find module 'firebase-admin'"
+
 ```bash
 npm install
 ```
 
 ### Emuladores não estão rodando
+
 ```bash
 firebase emulators:start
 ```
 
 ### Usuários já existem
+
 Os scripts detectam usuários existentes e não tentam recriá-los. Para começar do zero, reinicie os emuladores.
 
 ### Functions com timeout
+
 Este é um warning conhecido do Firebase Functions v2 no emulador local. Não afeta a funcionalidade dos testes de Auth e Firestore.
 
 ## Próximos Passos

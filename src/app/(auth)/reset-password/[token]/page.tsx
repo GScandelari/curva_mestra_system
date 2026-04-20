@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState, useEffect, use } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -13,15 +13,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  KeyRound,
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  XCircle,
-} from "lucide-react";
+} from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { KeyRound, AlertTriangle, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -31,17 +25,17 @@ export default function ResetPasswordPage({ params }: PageProps) {
   const { token } = use(params);
   const router = useRouter();
 
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   // Estados de validação do token
   const [validating, setValidating] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
-  const [tokenError, setTokenError] = useState("");
-  const [emailMasked, setEmailMasked] = useState("");
+  const [tokenError, setTokenError] = useState('');
+  const [emailMasked, setEmailMasked] = useState('');
 
   // Validar token ao carregar a página
   useEffect(() => {
@@ -54,15 +48,15 @@ export default function ResetPasswordPage({ params }: PageProps) {
 
         if (data.valid) {
           setTokenValid(true);
-          setEmailMasked(data.email_masked || "");
+          setEmailMasked(data.email_masked || '');
         } else {
           setTokenValid(false);
-          setTokenError(data.error || "Token inválido");
+          setTokenError(data.error || 'Token inválido');
         }
       } catch (err) {
-        console.error("Erro ao validar token:", err);
+        console.error('Erro ao validar token:', err);
         setTokenValid(false);
-        setTokenError("Erro ao validar token. Tente novamente.");
+        setTokenError('Erro ao validar token. Tente novamente.');
       } finally {
         setValidating(false);
       }
@@ -73,14 +67,14 @@ export default function ResetPasswordPage({ params }: PageProps) {
 
   const validatePassword = (password: string): string | null => {
     if (password.length < 6) {
-      return "A senha deve ter pelo menos 6 caracteres";
+      return 'A senha deve ter pelo menos 6 caracteres';
     }
     return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
 
     try {
@@ -94,16 +88,16 @@ export default function ResetPasswordPage({ params }: PageProps) {
 
       // Verificar se as senhas coincidem
       if (newPassword !== confirmPassword) {
-        setError("As senhas não coincidem");
+        setError('As senhas não coincidem');
         setLoading(false);
         return;
       }
 
       // Chamar API para redefinir a senha
-      const response = await fetch("/api/auth/reset-password", {
-        method: "POST",
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           token,
@@ -117,14 +111,14 @@ export default function ResetPasswordPage({ params }: PageProps) {
         setSuccess(true);
         // Redirecionar para login após 3 segundos
         setTimeout(() => {
-          router.push("/login");
+          router.push('/login');
         }, 3000);
       } else {
-        setError(data.error || "Erro ao redefinir senha");
+        setError(data.error || 'Erro ao redefinir senha');
       }
     } catch (err: any) {
-      console.error("Erro ao redefinir senha:", err);
-      setError("Erro ao redefinir senha. Tente novamente.");
+      console.error('Erro ao redefinir senha:', err);
+      setError('Erro ao redefinir senha. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -138,9 +132,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
           <div className="flex items-center justify-center mb-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-          <CardTitle className="text-2xl text-center">
-            Validando Link...
-          </CardTitle>
+          <CardTitle className="text-2xl text-center">Validando Link...</CardTitle>
           <CardDescription className="text-center">
             Aguarde enquanto verificamos seu link de redefinição de senha.
           </CardDescription>
@@ -164,12 +156,12 @@ export default function ResetPasswordPage({ params }: PageProps) {
         <CardContent>
           <Alert className="border-destructive bg-destructive/10">
             <AlertTriangle className="h-4 w-4 text-destructive" />
-            <AlertDescription className="text-destructive">
-              {tokenError}
-            </AlertDescription>
+            <AlertDescription className="text-destructive">{tokenError}</AlertDescription>
           </Alert>
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Se você precisa redefinir sua senha, entre em contato com o administrador do sistema.</p>
+            <p>
+              Se você precisa redefinir sua senha, entre em contato com o administrador do sistema.
+            </p>
           </div>
         </CardContent>
         <CardFooter>
@@ -193,9 +185,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-center">
-            Senha Redefinida!
-          </CardTitle>
+          <CardTitle className="text-2xl text-center">Senha Redefinida!</CardTitle>
           <CardDescription className="text-center">
             Sua senha foi alterada com sucesso.
           </CardDescription>
@@ -230,9 +220,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
         <CardDescription className="text-center">
           Defina uma nova senha para sua conta
           {emailMasked && (
-            <span className="block mt-1 font-medium text-foreground">
-              {emailMasked}
-            </span>
+            <span className="block mt-1 font-medium text-foreground">{emailMasked}</span>
           )}
         </CardDescription>
       </CardHeader>
@@ -251,9 +239,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
               autoComplete="new-password"
               autoFocus
             />
-            <p className="text-xs text-muted-foreground">
-              Mínimo de 6 caracteres
-            </p>
+            <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
           </div>
 
           <div className="space-y-2">
@@ -271,9 +257,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
           </div>
 
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
-            </div>
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
@@ -283,7 +267,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
                 Salvando...
               </>
             ) : (
-              "Definir Nova Senha"
+              'Definir Nova Senha'
             )}
           </Button>
         </form>
@@ -292,9 +276,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
           <div className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
             <div className="text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">
-                Dicas para uma senha segura:
-              </p>
+              <p className="font-medium text-foreground">Dicas para uma senha segura:</p>
               <ul className="list-disc list-inside mt-1 space-y-0.5">
                 <li>Use pelo menos 6 caracteres</li>
                 <li>Combine letras, números e símbolos</li>
@@ -306,10 +288,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
       </CardContent>
       <CardFooter className="flex flex-col space-y-2">
         <div className="text-sm text-center text-muted-foreground">
-          <Link
-            href="/login"
-            className="text-primary hover:underline font-medium"
-          >
+          <Link href="/login" className="text-primary hover:underline font-medium">
             Voltar ao Login
           </Link>
         </div>

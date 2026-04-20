@@ -2,7 +2,7 @@
  * Serviço de envio de e-mails usando SMTP do Zoho Mail
  */
 
-import * as nodemailer from "nodemailer";
+import * as nodemailer from 'nodemailer';
 
 /**
  * Configuração do transporter Nodemailer
@@ -13,11 +13,11 @@ function getEmailTransporter() {
   const smtpPass = process.env.SMTP_PASS;
 
   if (!smtpUser || !smtpPass) {
-    throw new Error("SMTP credentials not configured. Set SMTP_USER and SMTP_PASS secrets.");
+    throw new Error('SMTP credentials not configured. Set SMTP_USER and SMTP_PASS secrets.');
   }
 
   return nodemailer.createTransport({
-    host: "smtp.zoho.com",
+    host: 'smtp.zoho.com',
     port: 587,
     secure: false, // true para 465, false para outros ports
     auth: {
@@ -46,20 +46,20 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
 
   const mailOptions = {
     from: options.from || `"Curva Mestra" <scandelari.guilherme@curvamestra.com.br>`,
-    to: Array.isArray(options.to) ? options.to.join(", ") : options.to,
+    to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
     subject: options.subject,
     html: options.html,
-    text: options.text || options.html.replace(/<[^>]*>/g, ""), // Fallback text
+    text: options.text || options.html.replace(/<[^>]*>/g, ''), // Fallback text
   };
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log("✅ E-mail enviado com sucesso:", info.messageId);
-    console.log("   Para:", mailOptions.to);
-    console.log("   Assunto:", mailOptions.subject);
+    console.log('✅ E-mail enviado com sucesso:', info.messageId);
+    console.log('   Para:', mailOptions.to);
+    console.log('   Assunto:', mailOptions.subject);
   } catch (error) {
-    console.error("❌ Erro ao enviar e-mail:", error);
-    throw new Error("Falha ao enviar e-mail");
+    console.error('❌ Erro ao enviar e-mail:', error);
+    throw new Error('Falha ao enviar e-mail');
   }
 }
 
@@ -165,7 +165,7 @@ export async function sendWelcomeEmail(
 
   await sendEmail({
     to: email,
-    subject: "🎉 Bem-vindo ao Curva Mestra!",
+    subject: '🎉 Bem-vindo ao Curva Mestra!',
     html,
   });
 }
@@ -304,7 +304,7 @@ export async function sendTemporaryPasswordEmail(
 
   await sendEmail({
     to: email,
-    subject: "🎉 Sua Solicitação foi Aprovada - Senha Temporária",
+    subject: '🎉 Sua Solicitação foi Aprovada - Senha Temporária',
     html,
   });
 }
@@ -388,13 +388,13 @@ export async function sendRejectionEmail(
           </div>
 
           ${
-  rejectionReason
-    ? `
+            rejectionReason
+              ? `
           <p><strong>Motivo:</strong></p>
           <p>${rejectionReason}</p>
           `
-    : ""
-}
+              : ''
+          }
 
           <p>Infelizmente, sua solicitação de acesso antecipado não pôde ser aprovada no momento.</p>
 
@@ -422,7 +422,7 @@ export async function sendRejectionEmail(
 
   await sendEmail({
     to: email,
-    subject: "Atualização sobre sua Solicitação - Curva Mestra",
+    subject: 'Atualização sobre sua Solicitação - Curva Mestra',
     html,
   });
 }
@@ -497,7 +497,7 @@ export async function sendNewTenantNotification(
             <p><strong>Nome:</strong> ${tenantName}</p>
             <p><strong>E-mail:</strong> ${tenantEmail}</p>
             <p><strong>Plano:</strong> ${getPlanName(planId)}</p>
-            <p><strong>Data:</strong> ${new Date().toLocaleString("pt-BR")}</p>
+            <p><strong>Data:</strong> ${new Date().toLocaleString('pt-BR')}</p>
           </div>
 
           <p>A clínica já está ativa e pode começar a usar o sistema.</p>
@@ -510,7 +510,7 @@ export async function sendNewTenantNotification(
   `;
 
   await sendEmail({
-    to: "scandelari.guilherme@curvamestra.com.br", // Notificação para admin
+    to: 'scandelari.guilherme@curvamestra.com.br', // Notificação para admin
     subject: `🎊 Nova Clínica: ${tenantName}`,
     html,
   });
@@ -521,9 +521,9 @@ export async function sendNewTenantNotification(
  */
 function getRoleName(role: string): string {
   const roles: Record<string, string> = {
-    "system_admin": "Administrador do Sistema",
-    "clinic_admin": "Administrador da Clínica",
-    "clinic_user": "Usuário da Clínica",
+    system_admin: 'Administrador do Sistema',
+    clinic_admin: 'Administrador da Clínica',
+    clinic_user: 'Usuário da Clínica',
   };
   return roles[role] || role;
 }
@@ -533,8 +533,8 @@ function getRoleName(role: string): string {
  */
 function getPlanName(planId: string): string {
   const plans: Record<string, string> = {
-    "semestral": "Plano Semestral (R$ 59,90/mês)",
-    "anual": "Plano Anual (R$ 59,90/mês)",
+    semestral: 'Plano Semestral (R$ 59,90/mês)',
+    anual: 'Plano Anual (R$ 59,90/mês)',
   };
   return plans[planId] || planId;
 }

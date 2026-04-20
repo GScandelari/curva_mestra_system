@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState } from 'react';
+import Link from 'next/link';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -14,18 +14,18 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { ArrowLeft, Mail } from "lucide-react";
+} from '@/components/ui/card';
+import { ArrowLeft, Mail } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setSuccess(false);
     setLoading(true);
 
@@ -45,25 +45,23 @@ export default function ForgotPasswordPage() {
 
   const translateFirebaseError = (errorCode: string): string => {
     switch (errorCode) {
-      case "auth/user-not-found":
-        return "Usuário não encontrado";
-      case "auth/invalid-email":
-        return "Email inválido";
-      case "auth/too-many-requests":
-        return "Muitas tentativas. Tente novamente mais tarde";
-      case "auth/network-request-failed":
-        return "Erro de conexão. Verifique sua internet";
+      case 'auth/user-not-found':
+        return 'Usuário não encontrado';
+      case 'auth/invalid-email':
+        return 'Email inválido';
+      case 'auth/too-many-requests':
+        return 'Muitas tentativas. Tente novamente mais tarde';
+      case 'auth/network-request-failed':
+        return 'Erro de conexão. Verifique sua internet';
       default:
-        return "Erro ao enviar email. Tente novamente";
+        return 'Erro ao enviar email. Tente novamente';
     }
   };
 
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl text-center">
-          Recuperar Senha
-        </CardTitle>
+        <CardTitle className="text-2xl text-center">Recuperar Senha</CardTitle>
         <CardDescription className="text-center">
           Digite seu email para receber o link de recuperação
         </CardDescription>
@@ -79,8 +77,7 @@ export default function ForgotPasswordPage() {
             <div className="text-center space-y-2">
               <p className="text-sm font-medium">Email enviado com sucesso!</p>
               <p className="text-sm text-muted-foreground">
-                Verifique sua caixa de entrada e siga as instruções para
-                redefinir sua senha.
+                Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
               </p>
               <p className="text-xs text-muted-foreground mt-4">
                 Não se esqueça de verificar a pasta de spam.
@@ -108,7 +105,7 @@ export default function ForgotPasswordPage() {
               </div>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Enviando..." : "Enviar link de recuperação"}
+              {loading ? 'Enviando...' : 'Enviar link de recuperação'}
             </Button>
           </form>
         )}

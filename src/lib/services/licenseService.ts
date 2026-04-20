@@ -16,9 +16,9 @@ import {
   orderBy,
   Timestamp,
   serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { License, LicenseStatus } from "@/types";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { License, LicenseStatus } from '@/types';
 
 // ============================================================================
 // CRUD OPERATIONS
@@ -37,9 +37,9 @@ export async function createLicense(licenseData: {
   auto_renew?: boolean;
 }): Promise<string> {
   try {
-    const licenseRef = await addDoc(collection(db, "licenses"), {
+    const licenseRef = await addDoc(collection(db, 'licenses'), {
       ...licenseData,
-      status: "ativa" as LicenseStatus,
+      status: 'ativa' as LicenseStatus,
       start_date: Timestamp.fromDate(licenseData.start_date),
       end_date: Timestamp.fromDate(licenseData.end_date),
       auto_renew: licenseData.auto_renew ?? false,
@@ -49,8 +49,8 @@ export async function createLicense(licenseData: {
 
     return licenseRef.id;
   } catch (error) {
-    console.error("Erro ao criar licença:", error);
-    throw new Error("Falha ao criar licença");
+    console.error('Erro ao criar licença:', error);
+    throw new Error('Falha ao criar licença');
   }
 }
 
@@ -70,8 +70,8 @@ export async function updateLicense(
   }
 ): Promise<void> {
   try {
-    const licenseRef = doc(db, "licenses", licenseId);
-    
+    const licenseRef = doc(db, 'licenses', licenseId);
+
     const dataToUpdate: any = {
       ...updateData,
       updated_at: serverTimestamp(),
@@ -87,23 +87,21 @@ export async function updateLicense(
 
     await updateDoc(licenseRef, dataToUpdate);
   } catch (error) {
-    console.error("Erro ao atualizar licença:", error);
-    throw new Error("Falha ao atualizar licença");
+    console.error('Erro ao atualizar licença:', error);
+    throw new Error('Falha ao atualizar licença');
   }
 }
 
 /**
  * Buscar licença ativa de um tenant
  */
-export async function getActiveLicenseByTenant(
-  tenantId: string
-): Promise<License | null> {
+export async function getActiveLicenseByTenant(tenantId: string): Promise<License | null> {
   try {
     const q = query(
-      collection(db, "licenses"),
-      where("tenant_id", "==", tenantId),
-      where("status", "==", "ativa"),
-      orderBy("end_date", "desc")
+      collection(db, 'licenses'),
+      where('tenant_id', '==', tenantId),
+      where('status', '==', 'ativa'),
+      orderBy('end_date', 'desc')
     );
 
     const snapshot = await getDocs(q);
@@ -118,22 +116,20 @@ export async function getActiveLicenseByTenant(
       ...doc.data(),
     } as License;
   } catch (error) {
-    console.error("Erro ao buscar licença ativa:", error);
-    throw new Error("Falha ao buscar licença ativa");
+    console.error('Erro ao buscar licença ativa:', error);
+    throw new Error('Falha ao buscar licença ativa');
   }
 }
 
 /**
  * Buscar todas as licenças de um tenant
  */
-export async function getLicensesByTenant(
-  tenantId: string
-): Promise<License[]> {
+export async function getLicensesByTenant(tenantId: string): Promise<License[]> {
   try {
     const q = query(
-      collection(db, "licenses"),
-      where("tenant_id", "==", tenantId),
-      orderBy("created_at", "desc")
+      collection(db, 'licenses'),
+      where('tenant_id', '==', tenantId),
+      orderBy('created_at', 'desc')
     );
 
     const snapshot = await getDocs(q);
@@ -143,8 +139,8 @@ export async function getLicensesByTenant(
       ...doc.data(),
     })) as License[];
   } catch (error) {
-    console.error("Erro ao buscar licenças:", error);
-    throw new Error("Falha ao buscar licenças");
+    console.error('Erro ao buscar licenças:', error);
+    throw new Error('Falha ao buscar licenças');
   }
 }
 
@@ -153,7 +149,7 @@ export async function getLicensesByTenant(
  */
 export async function getLicenseById(licenseId: string): Promise<License | null> {
   try {
-    const licenseDoc = await getDoc(doc(db, "licenses", licenseId));
+    const licenseDoc = await getDoc(doc(db, 'licenses', licenseId));
 
     if (!licenseDoc.exists()) {
       return null;
@@ -164,45 +160,39 @@ export async function getLicenseById(licenseId: string): Promise<License | null>
       ...licenseDoc.data(),
     } as License;
   } catch (error) {
-    console.error("Erro ao buscar licença:", error);
-    throw new Error("Falha ao buscar licença");
+    console.error('Erro ao buscar licença:', error);
+    throw new Error('Falha ao buscar licença');
   }
 }
 
 /**
  * Atualizar status de uma licença
  */
-export async function updateLicenseStatus(
-  licenseId: string,
-  status: LicenseStatus
-): Promise<void> {
+export async function updateLicenseStatus(licenseId: string, status: LicenseStatus): Promise<void> {
   try {
-    await updateDoc(doc(db, "licenses", licenseId), {
+    await updateDoc(doc(db, 'licenses', licenseId), {
       status,
       updated_at: serverTimestamp(),
     });
   } catch (error) {
-    console.error("Erro ao atualizar status da licença:", error);
-    throw new Error("Falha ao atualizar status da licença");
+    console.error('Erro ao atualizar status da licença:', error);
+    throw new Error('Falha ao atualizar status da licença');
   }
 }
 
 /**
  * Renovar licença (criar nova licença ou estender a atual)
  */
-export async function renewLicense(
-  licenseId: string,
-  newEndDate: Date
-): Promise<void> {
+export async function renewLicense(licenseId: string, newEndDate: Date): Promise<void> {
   try {
-    await updateDoc(doc(db, "licenses", licenseId), {
+    await updateDoc(doc(db, 'licenses', licenseId), {
       end_date: Timestamp.fromDate(newEndDate),
-      status: "ativa" as LicenseStatus,
+      status: 'ativa' as LicenseStatus,
       updated_at: serverTimestamp(),
     });
   } catch (error) {
-    console.error("Erro ao renovar licença:", error);
-    throw new Error("Falha ao renovar licença");
+    console.error('Erro ao renovar licença:', error);
+    throw new Error('Falha ao renovar licença');
   }
 }
 
@@ -211,10 +201,10 @@ export async function renewLicense(
  */
 export async function suspendLicense(licenseId: string): Promise<void> {
   try {
-    await updateLicenseStatus(licenseId, "suspensa");
+    await updateLicenseStatus(licenseId, 'suspensa');
   } catch (error) {
-    console.error("Erro ao suspender licença:", error);
-    throw new Error("Falha ao suspender licença");
+    console.error('Erro ao suspender licença:', error);
+    throw new Error('Falha ao suspender licença');
   }
 }
 
@@ -223,10 +213,10 @@ export async function suspendLicense(licenseId: string): Promise<void> {
  */
 export async function reactivateLicense(licenseId: string): Promise<void> {
   try {
-    await updateLicenseStatus(licenseId, "ativa");
+    await updateLicenseStatus(licenseId, 'ativa');
   } catch (error) {
-    console.error("Erro ao reativar licença:", error);
-    throw new Error("Falha ao reativar licença");
+    console.error('Erro ao reativar licença:', error);
+    throw new Error('Falha ao reativar licença');
   }
 }
 
@@ -235,10 +225,10 @@ export async function reactivateLicense(licenseId: string): Promise<void> {
  */
 export async function deleteLicense(licenseId: string): Promise<void> {
   try {
-    await deleteDoc(doc(db, "licenses", licenseId));
+    await deleteDoc(doc(db, 'licenses', licenseId));
   } catch (error) {
-    console.error("Erro ao deletar licença:", error);
-    throw new Error("Falha ao deletar licença");
+    console.error('Erro ao deletar licença:', error);
+    throw new Error('Falha ao deletar licença');
   }
 }
 
@@ -263,18 +253,18 @@ export async function isLicenseValid(tenantId: string): Promise<boolean> {
 
     if (endDate < now) {
       // Marcar como expirada automaticamente
-      await updateLicenseStatus(license.id, "expirada");
+      await updateLicenseStatus(license.id, 'expirada');
       return false;
     }
 
     // Verificar se está suspensa
-    if (license.status === "suspensa") {
+    if (license.status === 'suspensa') {
       return false;
     }
 
-    return license.status === "ativa";
+    return license.status === 'ativa';
   } catch (error) {
-    console.error("Erro ao verificar validade da licença:", error);
+    console.error('Erro ao verificar validade da licença:', error);
     return false;
   }
 }
@@ -304,9 +294,9 @@ export function isLicenseExpiringSoon(license: License): boolean {
 export async function getExpiringSoonLicenses(): Promise<License[]> {
   try {
     const q = query(
-      collection(db, "licenses"),
-      where("status", "==", "ativa"),
-      orderBy("end_date", "asc")
+      collection(db, 'licenses'),
+      where('status', '==', 'ativa'),
+      orderBy('end_date', 'asc')
     );
 
     const snapshot = await getDocs(q);
@@ -319,8 +309,8 @@ export async function getExpiringSoonLicenses(): Promise<License[]> {
     // Filtrar apenas as que expiram em até 15 dias
     return licenses.filter((license) => isLicenseExpiringSoon(license));
   } catch (error) {
-    console.error("Erro ao buscar licenças expirando:", error);
-    throw new Error("Falha ao buscar licenças expirando");
+    console.error('Erro ao buscar licenças expirando:', error);
+    throw new Error('Falha ao buscar licenças expirando');
   }
 }
 
@@ -332,9 +322,9 @@ export async function getExpiredLicenses(): Promise<License[]> {
     const now = Timestamp.now();
 
     const q = query(
-      collection(db, "licenses"),
-      where("status", "==", "ativa"),
-      where("end_date", "<", now)
+      collection(db, 'licenses'),
+      where('status', '==', 'ativa'),
+      where('end_date', '<', now)
     );
 
     const snapshot = await getDocs(q);
@@ -344,8 +334,8 @@ export async function getExpiredLicenses(): Promise<License[]> {
       ...doc.data(),
     })) as License[];
   } catch (error) {
-    console.error("Erro ao buscar licenças expiradas:", error);
-    throw new Error("Falha ao buscar licenças expiradas");
+    console.error('Erro ao buscar licenças expiradas:', error);
+    throw new Error('Falha ao buscar licenças expiradas');
   }
 }
 
@@ -358,7 +348,7 @@ export async function getExpiredLicenses(): Promise<License[]> {
  */
 export async function getAllLicenses(): Promise<License[]> {
   try {
-    const q = query(collection(db, "licenses"), orderBy("created_at", "desc"));
+    const q = query(collection(db, 'licenses'), orderBy('created_at', 'desc'));
 
     const snapshot = await getDocs(q);
 
@@ -367,8 +357,8 @@ export async function getAllLicenses(): Promise<License[]> {
       ...doc.data(),
     })) as License[];
   } catch (error) {
-    console.error("Erro ao buscar todas as licenças:", error);
-    throw new Error("Falha ao buscar todas as licenças");
+    console.error('Erro ao buscar todas as licenças:', error);
+    throw new Error('Falha ao buscar todas as licenças');
   }
 }
 
@@ -393,7 +383,7 @@ export async function processAutoRenewal(licenseId: string): Promise<void> {
 
     console.log(`Licença ${licenseId} renovada automaticamente até ${newEndDate}`);
   } catch (error) {
-    console.error("Erro ao processar renovação automática:", error);
-    throw new Error("Falha ao processar renovação automática");
+    console.error('Erro ao processar renovação automática:', error);
+    throw new Error('Falha ao processar renovação automática');
   }
 }

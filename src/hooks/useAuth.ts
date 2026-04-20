@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 import {
   User,
   signInWithEmailAndPassword,
@@ -6,9 +6,9 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import type { CustomClaims } from "@/types";
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import type { CustomClaims } from '@/types';
 
 interface AuthState {
   user: User | null;
@@ -74,28 +74,16 @@ export function useAuth() {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       return { success: true, user: userCredential.user };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   };
 
-  const signUp = async (
-    email: string,
-    password: string,
-    displayName: string
-  ) => {
+  const signUp = async (email: string, password: string, displayName: string) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
       // Atualizar profile com nome
       await updateProfile(userCredential.user, { displayName });

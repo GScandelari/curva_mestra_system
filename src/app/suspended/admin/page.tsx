@@ -3,38 +3,38 @@
  * Exibe detalhes completos da suspensão para clinic_admin
  */
 
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { useTenantSuspension } from "@/hooks/useTenantSuspension";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Mail, Clock, AlertTriangle } from "lucide-react";
-import type { SuspensionReason } from "@/types";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { useTenantSuspension } from '@/hooks/useTenantSuspension';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertCircle, Mail, Clock, AlertTriangle } from 'lucide-react';
+import type { SuspensionReason } from '@/types';
 
 // Mapa de motivos para textos legíveis
 const REASON_LABELS: Record<SuspensionReason, { title: string; description: string }> = {
   payment_failure: {
-    title: "Falha no Pagamento",
-    description: "Identificamos pendências no pagamento da assinatura.",
+    title: 'Falha no Pagamento',
+    description: 'Identificamos pendências no pagamento da assinatura.',
   },
   contract_breach: {
-    title: "Quebra de Contrato",
-    description: "Foram identificadas violações aos termos contratuais acordados.",
+    title: 'Quebra de Contrato',
+    description: 'Foram identificadas violações aos termos contratuais acordados.',
   },
   terms_violation: {
-    title: "Violação dos Termos de Uso",
-    description: "O uso da plataforma violou nossos Termos de Uso.",
+    title: 'Violação dos Termos de Uso',
+    description: 'O uso da plataforma violou nossos Termos de Uso.',
   },
   fraud_detected: {
-    title: "Fraude Detectada",
-    description: "Atividades suspeitas ou fraudulentas foram identificadas.",
+    title: 'Fraude Detectada',
+    description: 'Atividades suspeitas ou fraudulentas foram identificadas.',
   },
   other: {
-    title: "Outro Motivo",
-    description: "A conta foi suspensa por motivos administrativos.",
+    title: 'Outro Motivo',
+    description: 'A conta foi suspensa por motivos administrativos.',
   },
 };
 
@@ -47,19 +47,19 @@ export default function SuspendedAdminPage() {
   useEffect(() => {
     // Se não está suspenso, redirecionar
     if (!isLoading && !isSuspended) {
-      router.push("/clinic");
+      router.push('/clinic');
     }
 
     // Se não é clinic_admin, redirecionar para página de user
-    if (!isLoading && claims?.role !== "clinic_admin") {
-      router.push("/suspended/user");
+    if (!isLoading && claims?.role !== 'clinic_admin') {
+      router.push('/suspended/user');
     }
   }, [isSuspended, isLoading, claims, router]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
     await signOut();
-    router.push("/login");
+    router.push('/login');
   };
 
   if (isLoading || !isSuspended || !suspensionInfo) {
@@ -75,14 +75,14 @@ export default function SuspendedAdminPage() {
 
   const reasonInfo = REASON_LABELS[suspensionInfo.reason];
   const suspendedDate = suspensionInfo.suspended_at
-    ? new Date(suspensionInfo.suspended_at.toDate()).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+    ? new Date(suspensionInfo.suspended_at.toDate()).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
       })
-    : "Data não disponível";
+    : 'Data não disponível';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-background to-orange-50 flex items-center justify-center p-4">
@@ -105,12 +105,8 @@ export default function SuspendedAdminPage() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <h3 className="font-semibold text-destructive mb-1">
-                  {reasonInfo.title}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {reasonInfo.description}
-                </p>
+                <h3 className="font-semibold text-destructive mb-1">{reasonInfo.title}</h3>
+                <p className="text-sm text-muted-foreground">{reasonInfo.description}</p>
               </div>
             </div>
           </div>
@@ -174,13 +170,13 @@ export default function SuspendedAdminPage() {
               disabled={isSigningOut}
               className="flex-1"
             >
-              {isSigningOut ? "Saindo..." : "Sair da Conta"}
+              {isSigningOut ? 'Saindo...' : 'Sair da Conta'}
             </Button>
             <Button
               onClick={() =>
                 window.open(
                   `mailto:${suspensionInfo.contact_email}?subject=Suspensão da Clínica - ${user?.email}`,
-                  "_blank"
+                  '_blank'
                 )
               }
               className="flex-1"

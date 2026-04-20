@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Building2 } from "lucide-react";
+} from '@/components/ui/select';
+import { Building2 } from 'lucide-react';
 
 interface Clinic {
   id: string;
@@ -31,7 +31,7 @@ export function ClinicSelector({
   className,
 }: ClinicSelectorProps) {
   const router = useRouter();
-  const [value, setValue] = useState(selectedClinicId || "");
+  const [value, setValue] = useState(selectedClinicId || '');
 
   const handleSelect = (clinicId: string) => {
     setValue(clinicId);

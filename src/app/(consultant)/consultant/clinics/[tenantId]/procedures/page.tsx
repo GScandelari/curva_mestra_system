@@ -1,17 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -19,34 +13,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  FileText,
-  Search,
-  Calendar,
-  Package,
-  ArrowLeft,
-  Users,
-} from "lucide-react";
-import { ReadOnlyBanner } from "@/components/consultant/ReadOnlyBanner";
-import { formatTimestamp } from "@/lib/utils";
-import { db } from "@/lib/firebase";
-import {
-  collection,
-  query,
-  orderBy,
-  getDocs,
-  Timestamp,
-} from "firebase/firestore";
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { FileText, Search, Calendar, Package, ArrowLeft, Users } from 'lucide-react';
+import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
+import { formatTimestamp } from '@/lib/utils';
+import { db } from '@/lib/firebase';
+import { collection, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 
 interface Solicitacao {
   id: string;
@@ -67,15 +48,15 @@ export default function ConsultantProceduresPage() {
 
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     if (authLoading) return;
 
     if (claims) {
       if (!authorizedTenants.includes(tenantId)) {
-        router.push("/consultant/clinics");
+        router.push('/consultant/clinics');
         return;
       }
       loadSolicitacoes();
@@ -86,8 +67,8 @@ export default function ConsultantProceduresPage() {
     try {
       setLoading(true);
 
-      const solicitacoesRef = collection(db, "tenants", tenantId, "solicitacoes");
-      const q = query(solicitacoesRef, orderBy("created_at", "desc"));
+      const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
+      const q = query(solicitacoesRef, orderBy('created_at', 'desc'));
 
       const snapshot = await getDocs(q);
       const items: Solicitacao[] = [];
@@ -96,10 +77,10 @@ export default function ConsultantProceduresPage() {
         const data = doc.data();
         items.push({
           id: doc.id,
-          paciente_nome: data.paciente_nome || "",
-          paciente_codigo: data.paciente_codigo || "",
+          paciente_nome: data.paciente_nome || '',
+          paciente_codigo: data.paciente_codigo || '',
           dt_procedimento: data.dt_procedimento || null,
-          status: data.status || "criada",
+          status: data.status || 'criada',
           total_produtos: data.total_produtos || 0,
           valor_total: data.valor_total || 0,
           created_at: data.created_at,
@@ -108,7 +89,7 @@ export default function ConsultantProceduresPage() {
 
       setSolicitacoes(items);
     } catch (error) {
-      console.error("Erro ao carregar procedimentos:", error);
+      console.error('Erro ao carregar procedimentos:', error);
     } finally {
       setLoading(false);
     }
@@ -118,40 +99,35 @@ export default function ConsultantProceduresPage() {
     const matchesSearch =
       sol.paciente_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sol.paciente_codigo.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || sol.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || sol.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive"> = {
-      agendada: "secondary",
-      aprovada: "default",
-      concluida: "default",
-      reprovada: "destructive",
-      cancelada: "destructive",
+    const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
+      agendada: 'secondary',
+      aprovada: 'default',
+      concluida: 'default',
+      reprovada: 'destructive',
+      cancelada: 'destructive',
     };
 
     const labels: Record<string, string> = {
-      criada: "Criada",
-      agendada: "Agendada",
-      aprovada: "Aprovada",
-      concluida: "Concluída",
-      reprovada: "Reprovada",
-      cancelada: "Cancelada",
+      criada: 'Criada',
+      agendada: 'Agendada',
+      aprovada: 'Aprovada',
+      concluida: 'Concluída',
+      reprovada: 'Reprovada',
+      cancelada: 'Cancelada',
     };
 
-    return (
-      <Badge variant={variants[status] || "default"}>
-        {labels[status] || status}
-      </Badge>
-    );
+    return <Badge variant={variants[status] || 'default'}>{labels[status] || status}</Badge>;
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     }).format(value);
   };
 
@@ -169,10 +145,7 @@ export default function ConsultantProceduresPage() {
     <div className="container py-8">
       <div className="space-y-6">
         {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => router.push(`/consultant/clinics/${tenantId}`)}
-        >
+        <Button variant="ghost" onClick={() => router.push(`/consultant/clinics/${tenantId}`)}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar
         </Button>
@@ -183,9 +156,7 @@ export default function ConsultantProceduresPage() {
             <Users className="h-8 w-8 text-sky-600" />
             Procedimentos
           </h2>
-          <p className="text-muted-foreground">
-            Histórico de consumo de produtos por procedimento
-          </p>
+          <p className="text-muted-foreground">Histórico de consumo de produtos por procedimento</p>
         </div>
 
         {/* Read-Only Banner */}
@@ -210,7 +181,7 @@ export default function ConsultantProceduresPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {solicitacoes.filter((s) => s.status === "agendada").length}
+                {solicitacoes.filter((s) => s.status === 'agendada').length}
               </div>
             </CardContent>
           </Card>
@@ -222,7 +193,7 @@ export default function ConsultantProceduresPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {solicitacoes.filter((s) => s.status === "aprovada").length}
+                {solicitacoes.filter((s) => s.status === 'aprovada').length}
               </div>
             </CardContent>
           </Card>
@@ -234,7 +205,7 @@ export default function ConsultantProceduresPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {solicitacoes.filter((s) => s.status === "concluida").length}
+                {solicitacoes.filter((s) => s.status === 'concluida').length}
               </div>
             </CardContent>
           </Card>
@@ -280,21 +251,17 @@ export default function ConsultantProceduresPage() {
         <Card>
           <CardHeader>
             <CardTitle>Procedimentos ({filteredSolicitacoes.length})</CardTitle>
-            <CardDescription>
-              Lista de todos os procedimentos realizados
-            </CardDescription>
+            <CardDescription>Lista de todos os procedimentos realizados</CardDescription>
           </CardHeader>
           <CardContent>
             {filteredSolicitacoes.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">
-                  Nenhum procedimento encontrado
-                </h3>
+                <h3 className="text-lg font-semibold mb-2">Nenhum procedimento encontrado</h3>
                 <p className="text-muted-foreground">
-                  {searchTerm || statusFilter !== "all"
-                    ? "Tente ajustar os filtros de busca"
-                    : "Esta clínica ainda não possui procedimentos registrados"}
+                  {searchTerm || statusFilter !== 'all'
+                    ? 'Tente ajustar os filtros de busca'
+                    : 'Esta clínica ainda não possui procedimentos registrados'}
                 </p>
               </div>
             ) : (
@@ -315,9 +282,7 @@ export default function ConsultantProceduresPage() {
                       <TableRow key={solicitacao.id}>
                         <TableCell>
                           <div>
-                            <div className="font-medium">
-                              {solicitacao.paciente_nome}
-                            </div>
+                            <div className="font-medium">{solicitacao.paciente_nome}</div>
                             <div className="text-xs text-muted-foreground">
                               {solicitacao.paciente_codigo}
                             </div>
@@ -325,15 +290,11 @@ export default function ConsultantProceduresPage() {
                         </TableCell>
                         <TableCell>
                           {solicitacao.dt_procedimento
-                            ? solicitacao.dt_procedimento
-                                .toDate()
-                                .toLocaleDateString("pt-BR")
-                            : "N/A"}
+                            ? solicitacao.dt_procedimento.toDate().toLocaleDateString('pt-BR')
+                            : 'N/A'}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Badge variant="outline">
-                            {solicitacao.total_produtos}
-                          </Badge>
+                          <Badge variant="outline">{solicitacao.total_produtos}</Badge>
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(solicitacao.valor_total)}

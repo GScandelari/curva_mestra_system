@@ -14,11 +14,13 @@
 Wizard de 3 etapas para cadastro completo de nova clínica (tenant). Coleta dados da clínica, dados do administrador e permite personalizar o e-mail de boas-vindas antes de enviar. Usa `createTenant` do tenantServiceDirect.
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(admin)/admin/tenants/new/page.tsx`
 - **Rota:** `/admin/tenants/new`
 - **Layout:** Admin Layout
 
 ### 1.2 Dependências
+
 - **tenantServiceDirect:** `createTenant()`
 - **Utils:** `validateDocument()`, `maskDocument()`
 - **Types:** `DocumentType`
@@ -31,51 +33,54 @@ Wizard de 3 etapas para cadastro completo de nova clínica (tenant). Coleta dado
 
 ### Step 1: Dados da Clínica
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|-------------|-----------|
-| Nome da Clínica | text | Sim | — |
-| Tipo de Conta | radio (CNPJ/CPF) | Sim | CNPJ = até 5 usuários, CPF = 1 usuário |
-| CPF/CNPJ | text (mascarado) | Sim | Validação via `validateDocument()` |
-| E-mail da Clínica | email | Sim | — |
-| Telefone | text (formatado) | Não | Máscara (00) 00000-0000 |
-| CEP | text | Não | Máscara 00000-000 |
-| Endereço | text | Não | — |
-| Cidade | text | Não | — |
-| Estado | select (UF) | Não | 27 estados brasileiros |
-| Plano | select | Sim | Semestral (R$ 59,90) ou Anual (R$ 49,90) |
+| Campo             | Tipo             | Obrigatório | Descrição                                |
+| ----------------- | ---------------- | ----------- | ---------------------------------------- |
+| Nome da Clínica   | text             | Sim         | —                                        |
+| Tipo de Conta     | radio (CNPJ/CPF) | Sim         | CNPJ = até 5 usuários, CPF = 1 usuário   |
+| CPF/CNPJ          | text (mascarado) | Sim         | Validação via `validateDocument()`       |
+| E-mail da Clínica | email            | Sim         | —                                        |
+| Telefone          | text (formatado) | Não         | Máscara (00) 00000-0000                  |
+| CEP               | text             | Não         | Máscara 00000-000                        |
+| Endereço          | text             | Não         | —                                        |
+| Cidade            | text             | Não         | —                                        |
+| Estado            | select (UF)      | Não         | 27 estados brasileiros                   |
+| Plano             | select           | Sim         | Semestral (R$ 59,90) ou Anual (R$ 49,90) |
 
 ### Step 2: Dados do Administrador
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|-------------|-----------|
-| Nome Completo | text | Sim | — |
-| E-mail | email | Sim | Login do administrador |
-| Telefone | text (formatado) | Não | Máscara (00) 00000-0000 |
-| Senha Temporária | text (visível) | Sim | Mínimo 6 caracteres |
+| Campo            | Tipo             | Obrigatório | Descrição               |
+| ---------------- | ---------------- | ----------- | ----------------------- |
+| Nome Completo    | text             | Sim         | —                       |
+| E-mail           | email            | Sim         | Login do administrador  |
+| Telefone         | text (formatado) | Não         | Máscara (00) 00000-0000 |
+| Senha Temporária | text (visível)   | Sim         | Mínimo 6 caracteres     |
 
 ### Step 3: E-mail de Boas-Vindas
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| Assunto do E-mail | text | Padrão: "Bem-vindo à Curva Mestra!" |
-| Corpo do E-mail | textarea (15 rows) | Template com variáveis |
-| Botão Preview | — | Abre Dialog com e-mail renderizado |
+| Campo             | Tipo               | Descrição                           |
+| ----------------- | ------------------ | ----------------------------------- |
+| Assunto do E-mail | text               | Padrão: "Bem-vindo à Curva Mestra!" |
+| Corpo do E-mail   | textarea (15 rows) | Template com variáveis              |
+| Botão Preview     | —                  | Abre Dialog com e-mail renderizado  |
 
 ---
 
 ## 3. Regras de Negócio
 
 ### RN-001: Max Users por Tipo de Documento
+
 - CPF → `max_users: 1`
 - CNPJ → `max_users: 5`
 
 ### RN-002: Variáveis de Template do E-mail
+
 - `{{admin_name}}` → Nome do administrador
 - `{{clinic_name}}` → Nome da clínica
 - `{{admin_email}}` → E-mail do administrador
 - `{{temp_password}}` → Senha temporária
 
 ### RN-003: Formato de Telefone
+
 - `formatPhoneInput()`: aceita até 11 dígitos
 - ≤ 10 dígitos → (00) 0000-0000
 - 11 dígitos → (00) 00000-0000
@@ -85,18 +90,20 @@ Wizard de 3 etapas para cadastro completo de nova clínica (tenant). Coleta dado
 ## 4. Validações
 
 ### Step 1
-| Validação | Mensagem |
-|-----------|----------|
-| Nome vazio | "Nome da clínica é obrigatório" |
+
+| Validação          | Mensagem                          |
+| ------------------ | --------------------------------- |
+| Nome vazio         | "Nome da clínica é obrigatório"   |
 | Documento inválido | "CPF inválido" ou "CNPJ inválido" |
-| E-mail inválido | "E-mail válido é obrigatório" |
+| E-mail inválido    | "E-mail válido é obrigatório"     |
 
 ### Step 2
-| Validação | Mensagem |
-|-----------|----------|
-| Nome admin vazio | "Nome do administrador é obrigatório" |
+
+| Validação             | Mensagem                                       |
+| --------------------- | ---------------------------------------------- |
+| Nome admin vazio      | "Nome do administrador é obrigatório"          |
 | E-mail admin inválido | "E-mail válido do administrador é obrigatório" |
-| Senha < 6 chars | "Senha deve ter no mínimo 6 caracteres" |
+| Senha < 6 chars       | "Senha deve ter no mínimo 6 caracteres"        |
 
 ---
 
@@ -114,6 +121,7 @@ Wizard de 3 etapas para cadastro completo de nova clínica (tenant). Coleta dado
 ---
 
 ## 6. Preview de E-mail
+
 - Dialog com Shadcn Dialog
 - Mostra: Para (email), Assunto, Mensagem renderizada
 - Variáveis substituídas por dados preenchidos ou placeholders como "[Nome do Administrador]"
@@ -121,6 +129,7 @@ Wizard de 3 etapas para cadastro completo de nova clínica (tenant). Coleta dado
 ---
 
 ## 7. Indicador de Progresso
+
 - 3 círculos numerados com linhas conectoras
 - Step atual e anteriores: `bg-primary` (azul)
 - Steps futuros: `border-muted-foreground` (cinza)
@@ -129,6 +138,7 @@ Wizard de 3 etapas para cadastro completo de nova clínica (tenant). Coleta dado
 ---
 
 ## 8. Observações
+
 - Senha temporária exibida em `type="text"` (visível)
 - CEP armazena apenas dígitos (`replace(/\D/g, "")`)
 - Estado usa `select` HTML nativo (não Shadcn)
@@ -140,9 +150,9 @@ Wizard de 3 etapas para cadastro completo de nova clínica (tenant). Coleta dado
 
 ## 9. Histórico de Mudanças
 
-| Data | Versão | Autor | Descrição |
-|------|--------|-------|-----------|
-| 07/02/2026 | 1.0 | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição            |
+| ---------- | ------ | ------------------ | -------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
 
 ---
 

@@ -1,20 +1,14 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { ArrowLeft, Users, Loader2, CheckCircle2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, Users, Loader2, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 export default function NewConsultantPage() {
   const router = useRouter();
@@ -25,55 +19,51 @@ export default function NewConsultantPage() {
   const [createdConsultant, setCreatedConsultant] = useState<any>(null);
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
+    name: '',
+    email: '',
+    phone: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 11);
+    const digits = value.replace(/\D/g, '').slice(0, 11);
     if (digits.length <= 10) {
-      return digits
-        .replace(/(\d{2})(\d)/, "($1) $2")
-        .replace(/(\d{4})(\d)/, "$1-$2");
+      return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
     }
-    return digits
-      .replace(/(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{5})(\d)/, "$1-$2");
+    return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
   };
 
   const handleChange = (field: string, value: string) => {
     let formattedValue = value;
 
-    if (field === "phone") {
+    if (field === 'phone') {
       formattedValue = formatPhone(value);
-    } else if (field === "name") {
+    } else if (field === 'name') {
       formattedValue = value.toUpperCase();
     }
 
     setFormData((prev) => ({ ...prev, [field]: formattedValue }));
-    setErrors((prev) => ({ ...prev, [field]: "" }));
+    setErrors((prev) => ({ ...prev, [field]: '' }));
   };
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = "Nome é obrigatório";
+      newErrors.name = 'Nome é obrigatório';
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = "Email é obrigatório";
+      newErrors.email = 'Email é obrigatório';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Email inválido";
+      newErrors.email = 'Email inválido';
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = "Telefone é obrigatório";
-    } else if (formData.phone.replace(/\D/g, "").length < 10) {
-      newErrors.phone = "Telefone inválido";
+      newErrors.phone = 'Telefone é obrigatório';
+    } else if (formData.phone.replace(/\D/g, '').length < 10) {
+      newErrors.phone = 'Telefone inválido';
     }
 
     setErrors(newErrors);
@@ -90,10 +80,10 @@ export default function NewConsultantPage() {
     try {
       const token = await user.getIdToken();
 
-      const response = await fetch("/api/consultants", {
-        method: "POST",
+      const response = await fetch('/api/consultants', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -106,14 +96,14 @@ export default function NewConsultantPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao criar consultor");
+        throw new Error(data.error || 'Erro ao criar consultor');
       }
 
       setCreatedConsultant(data.data);
       setSuccess(true);
-      toast({ title: "Consultor criado com sucesso!" });
+      toast({ title: 'Consultor criado com sucesso!' });
     } catch (err: any) {
-      toast({ title: err.message || "Erro ao criar consultor", variant: "destructive" });
+      toast({ title: err.message || 'Erro ao criar consultor', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -128,9 +118,7 @@ export default function NewConsultantPage() {
               <CheckCircle2 className="h-10 w-10 text-green-600" />
             </div>
             <CardTitle className="text-2xl">Consultor Criado com Sucesso!</CardTitle>
-            <CardDescription>
-              Um email foi enviado com as credenciais de acesso.
-            </CardDescription>
+            <CardDescription>Um email foi enviado com as credenciais de acesso.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="bg-sky-50 border border-sky-200 rounded-lg p-6 text-center">
@@ -172,14 +160,14 @@ export default function NewConsultantPage() {
                 onClick={() => {
                   setSuccess(false);
                   setCreatedConsultant(null);
-                  setFormData({ name: "", email: "", phone: "" });
+                  setFormData({ name: '', email: '', phone: '' });
                 }}
               >
                 Cadastrar Outro
               </Button>
               <Button
                 className="flex-1 bg-sky-600 hover:bg-sky-700"
-                onClick={() => router.push("/admin/consultants")}
+                onClick={() => router.push('/admin/consultants')}
               >
                 Ver Lista de Consultores
               </Button>
@@ -198,7 +186,7 @@ export default function NewConsultantPage() {
           <Button
             variant="ghost"
             className="mb-4"
-            onClick={() => router.push("/admin/consultants")}
+            onClick={() => router.push('/admin/consultants')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
@@ -207,9 +195,7 @@ export default function NewConsultantPage() {
             <Users className="h-8 w-8 text-sky-600" />
             Novo Consultor
           </h1>
-          <p className="text-muted-foreground">
-            Cadastre um novo consultor externo no sistema
-          </p>
+          <p className="text-muted-foreground">Cadastre um novo consultor externo no sistema</p>
         </div>
 
         {/* Form */}
@@ -227,13 +213,11 @@ export default function NewConsultantPage() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
+                  onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="NOME COMPLETO DO CONSULTOR"
                   className="uppercase"
                 />
-                {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name}</p>
-                )}
+                {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
               </div>
 
               <div className="space-y-2">
@@ -242,12 +226,10 @@ export default function NewConsultantPage() {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
+                  onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="consultor@email.com"
                 />
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
-                )}
+                {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
               </div>
 
               <div className="space-y-2">
@@ -255,12 +237,10 @@ export default function NewConsultantPage() {
                 <Input
                   id="phone"
                   value={formData.phone}
-                  onChange={(e) => handleChange("phone", e.target.value)}
+                  onChange={(e) => handleChange('phone', e.target.value)}
                   placeholder="(00) 00000-0000"
                 />
-                {errors.phone && (
-                  <p className="text-sm text-destructive">{errors.phone}</p>
-                )}
+                {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4">
@@ -277,7 +257,7 @@ export default function NewConsultantPage() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => router.push("/admin/consultants")}
+                  onClick={() => router.push('/admin/consultants')}
                 >
                   Cancelar
                 </Button>

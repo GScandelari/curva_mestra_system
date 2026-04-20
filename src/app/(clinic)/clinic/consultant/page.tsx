@@ -1,16 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   UserCheck,
   Mail,
@@ -22,10 +16,10 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import type { Consultant, ConsultantClaim } from "@/types";
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import type { Consultant, ConsultantClaim } from '@/types';
 
 export default function ClinicConsultantPage() {
   const router = useRouter();
@@ -61,15 +55,18 @@ export default function ClinicConsultantPage() {
       }
 
       // Load pending claims
-      const claimsRes = await fetch(`/api/consultants/claims?tenant_id=${tenantId}&status=pending`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const claimsRes = await fetch(
+        `/api/consultants/claims?tenant_id=${tenantId}&status=pending`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       const claimsData = await claimsRes.json();
       if (claimsRes.ok) {
         setPendingClaims(claimsData.data || []);
       }
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
@@ -78,14 +75,14 @@ export default function ClinicConsultantPage() {
   const copyCode = () => {
     if (consultant?.code) {
       navigator.clipboard.writeText(consultant.code);
-      toast({ title: "Código copiado" });
+      toast({ title: 'Código copiado' });
     }
   };
 
   const handleRemoveConsultant = async () => {
     if (!user || !tenantId || !consultant) return;
 
-    if (!confirm("Tem certeza que deseja remover o consultor? Esta ação não pode ser desfeita.")) {
+    if (!confirm('Tem certeza que deseja remover o consultor? Esta ação não pode ser desfeita.')) {
       return;
     }
 
@@ -95,20 +92,20 @@ export default function ClinicConsultantPage() {
       const token = await user.getIdToken();
 
       const response = await fetch(`/api/tenants/${tenantId}/consultant`, {
-        method: "DELETE",
+        method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao remover consultor");
+        throw new Error(data.error || 'Erro ao remover consultor');
       }
 
-      toast({ title: "Consultor removido com sucesso" });
+      toast({ title: 'Consultor removido com sucesso' });
       setConsultant(null);
     } catch (error: any) {
-      toast({ title: error.message || "Erro ao remover consultor", variant: "destructive" });
+      toast({ title: error.message || 'Erro ao remover consultor', variant: 'destructive' });
     } finally {
       setRemoving(false);
     }
@@ -121,35 +118,35 @@ export default function ClinicConsultantPage() {
       const token = await user.getIdToken();
 
       const response = await fetch(`/api/consultants/claims/${claimId}/approve`, {
-        method: "POST",
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao aprovar solicitação");
+        throw new Error(data.error || 'Erro ao aprovar solicitação');
       }
 
-      toast({ title: "Solicitação aprovada com sucesso" });
+      toast({ title: 'Solicitação aprovada com sucesso' });
       loadData();
     } catch (error: any) {
-      toast({ title: error.message || "Erro ao aprovar solicitação", variant: "destructive" });
+      toast({ title: error.message || 'Erro ao aprovar solicitação', variant: 'destructive' });
     }
   };
 
   const handleRejectClaim = async (claimId: string) => {
     if (!user) return;
 
-    const reason = prompt("Motivo da rejeição (opcional):");
+    const reason = prompt('Motivo da rejeição (opcional):');
 
     try {
       const token = await user.getIdToken();
 
       const response = await fetch(`/api/consultants/claims/${claimId}/reject`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ reason }),
@@ -158,17 +155,17 @@ export default function ClinicConsultantPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao rejeitar solicitação");
+        throw new Error(data.error || 'Erro ao rejeitar solicitação');
       }
 
-      toast({ title: "Solicitação rejeitada" });
+      toast({ title: 'Solicitação rejeitada' });
       loadData();
     } catch (error: any) {
-      toast({ title: error.message || "Erro ao rejeitar solicitação", variant: "destructive" });
+      toast({ title: error.message || 'Erro ao rejeitar solicitação', variant: 'destructive' });
     }
   };
 
-  const isClinicAdmin = role === "clinic_admin";
+  const isClinicAdmin = role === 'clinic_admin';
 
   if (loading) {
     return (
@@ -189,9 +186,7 @@ export default function ClinicConsultantPage() {
             <UserCheck className="h-8 w-8 text-primary" />
             Consultor
           </h1>
-          <p className="text-muted-foreground">
-            Gerencie o consultor vinculado à sua clínica
-          </p>
+          <p className="text-muted-foreground">Gerencie o consultor vinculado à sua clínica</p>
         </div>
 
         {/* Pending Claims */}
@@ -255,12 +250,10 @@ export default function ClinicConsultantPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Consultor Atual</CardTitle>
-                  <CardDescription>
-                    Consultor vinculado à sua clínica
-                  </CardDescription>
+                  <CardDescription>Consultor vinculado à sua clínica</CardDescription>
                 </div>
-                <Badge variant={consultant.status === "active" ? "default" : "destructive"}>
-                  {consultant.status === "active" ? "Ativo" : "Inativo"}
+                <Badge variant={consultant.status === 'active' ? 'default' : 'destructive'}>
+                  {consultant.status === 'active' ? 'Ativo' : 'Inativo'}
                 </Badge>
               </div>
             </CardHeader>
@@ -306,7 +299,7 @@ export default function ClinicConsultantPage() {
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => router.push("/clinic/consultant/transfer")}
+                    onClick={() => router.push('/clinic/consultant/transfer')}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Transferir
@@ -318,7 +311,7 @@ export default function ClinicConsultantPage() {
                     disabled={removing}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    {removing ? "Removendo..." : "Remover"}
+                    {removing ? 'Removendo...' : 'Remover'}
                   </Button>
                 </div>
               )}
@@ -329,15 +322,13 @@ export default function ClinicConsultantPage() {
             <CardContent className="py-12">
               <div className="text-center">
                 <UserCheck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-xl font-semibold mb-2">
-                  Nenhum Consultor Vinculado
-                </h3>
+                <h3 className="text-xl font-semibold mb-2">Nenhum Consultor Vinculado</h3>
                 <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  Sua clínica ainda não possui um consultor vinculado.
-                  O consultor pode solicitar vínculo informando seu CNPJ/CPF.
+                  Sua clínica ainda não possui um consultor vinculado. O consultor pode solicitar
+                  vínculo informando seu CNPJ/CPF.
                 </p>
                 {isClinicAdmin && (
-                  <Button onClick={() => router.push("/clinic/consultant/transfer")}>
+                  <Button onClick={() => router.push('/clinic/consultant/transfer')}>
                     <UserCheck className="mr-2 h-4 w-4" />
                     Vincular Consultor
                   </Button>

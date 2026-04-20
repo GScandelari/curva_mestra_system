@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 
 // Forçar uso do Node.js runtime (não Edge)
 export const runtime = 'nodejs';
@@ -51,15 +51,12 @@ export async function POST(request: NextRequest) {
     console.log('📦 pdfParse final - é função?', typeof pdfParse === 'function');
 
     const formData = await request.formData();
-    const files = formData.getAll("files") as File[];
+    const files = formData.getAll('files') as File[];
 
     console.log('📂 Número de arquivos recebidos:', files.length);
 
     if (!files || files.length === 0) {
-      return NextResponse.json(
-        { error: "Nenhum arquivo enviado" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
     }
 
     const allProducts: ExtractedProduct[] = [];
@@ -106,21 +103,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Remover duplicados baseado no código
-    const uniqueProducts = Array.from(
-      new Map(allProducts.map((p) => [p.code, p])).values()
-    );
+    const uniqueProducts = Array.from(new Map(allProducts.map((p) => [p.code, p])).values());
 
     console.log(`\n✨ Total de produtos únicos: ${uniqueProducts.length}`);
     console.log('📤 Enviando resposta...\n');
 
     return NextResponse.json({ products: uniqueProducts });
   } catch (error) {
-    console.error("❌ Erro geral ao processar PDFs:", error);
+    console.error('❌ Erro geral ao processar PDFs:', error);
     console.error('Stack:', error instanceof Error ? error.stack : 'N/A');
-    return NextResponse.json(
-      { error: "Erro ao processar arquivos PDF" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Erro ao processar arquivos PDF' }, { status: 500 });
   }
 }
 
@@ -128,7 +120,7 @@ function extractProductsFromText(text: string): ExtractedProduct[] {
   const products: ExtractedProduct[] = [];
 
   // Dividir o texto em linhas
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   console.log(`\n   🔧 extractProductsFromText - Total de linhas: ${lines.length}`);
 
   // Regex conforme especificação Rennova no CLAUDE.md
@@ -163,7 +155,8 @@ function extractProductsFromText(text: string): ExtractedProduct[] {
       let j = i + 1;
 
       // Coletar mais linhas para buscar lote, quantidade e validade
-      while (j < lines.length && j < i + 10) { // Buscar nas próximas 10 linhas
+      while (j < lines.length && j < i + 10) {
+        // Buscar nas próximas 10 linhas
         const nextLine = lines[j].trim();
 
         // Parar se encontrar outro código de produto
@@ -171,7 +164,7 @@ function extractProductsFromText(text: string): ExtractedProduct[] {
           break;
         }
 
-        context += " " + nextLine;
+        context += ' ' + nextLine;
         j++;
       }
 
@@ -210,22 +203,22 @@ function extractProductsFromText(text: string): ExtractedProduct[] {
 
       // Remover marcadores e dados após o nome
       fullName = fullName
-        .replace(/Lt:.*$/, "")
-        .replace(/Q:.*$/, "")
-        .replace(/Dt\.\s*Val\..*$/, "")
-        .replace(/R\$.*$/, "")
-        .replace(/\s+/g, " ")
+        .replace(/Lt:.*$/, '')
+        .replace(/Q:.*$/, '')
+        .replace(/Dt\.\s*Val\..*$/, '')
+        .replace(/R\$.*$/, '')
+        .replace(/\s+/g, ' ')
         .trim();
 
       // Se o nome está muito curto, pode estar quebrado em várias linhas
       // Vamos coletar as linhas até encontrar os marcadores
-      if (fullName.length < 20 && !context.includes("Lt:")) {
+      if (fullName.length < 20 && !context.includes('Lt:')) {
         let k = i + 1;
         while (k < lines.length && k < i + 5) {
           const nextLine = lines[k].trim();
 
           // Parar se encontrar marcadores
-          if (nextLine.includes("Lt:") || nextLine.includes("Q:") || nextLine.includes("Dt. Val")) {
+          if (nextLine.includes('Lt:') || nextLine.includes('Q:') || nextLine.includes('Dt. Val')) {
             break;
           }
 
@@ -234,19 +227,20 @@ function extractProductsFromText(text: string): ExtractedProduct[] {
             break;
           }
 
-          if (nextLine && !nextLine.match(/^[A-Z]{2}\s*\d/)) { // Ignora linhas que parecem ser dados
-            fullName += " " + nextLine;
+          if (nextLine && !nextLine.match(/^[A-Z]{2}\s*\d/)) {
+            // Ignora linhas que parecem ser dados
+            fullName += ' ' + nextLine;
           }
           k++;
         }
 
         // Limpar novamente
         fullName = fullName
-          .replace(/Lt:.*$/, "")
-          .replace(/Q:.*$/, "")
-          .replace(/Dt\.\s*Val\..*$/, "")
-          .replace(/R\$.*$/, "")
-          .replace(/\s+/g, " ")
+          .replace(/Lt:.*$/, '')
+          .replace(/Q:.*$/, '')
+          .replace(/Dt\.\s*Val\..*$/, '')
+          .replace(/R\$.*$/, '')
+          .replace(/\s+/g, ' ')
           .trim();
       }
 

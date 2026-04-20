@@ -3,35 +3,32 @@
  * POST - Clinic admin aprova vínculo com consultor
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * POST - Aprovar reivindicação
  */
-export async function POST(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const params = await context.params;
     const claimId = params.id;
 
     // Verificar autenticação
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Token não fornecido" }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     // Buscar reivindicação
-    const claimDoc = await adminDb.collection("consultant_claims").doc(claimId).get();
+    const claimDoc = await adminDb.collection('consultant_claims').doc(claimId).get();
 
     if (!claimDoc.exists) {
-      return NextResponse.json({ error: "Solicitação não encontrada" }, { status: 404 });
+      return NextResponse.json({ error: 'Solicitação não encontrada' }, { status: 404 });
     }
 
     const claimData = claimDoc.data();
@@ -39,47 +36,43 @@ export async function POST(
     // Verificar permissão: system_admin ou clinic_admin do tenant
     const isSystemAdmin = decodedToken.is_system_admin;
     const isClinicAdmin =
-      decodedToken.role === "clinic_admin" &&
-      decodedToken.tenant_id === claimData?.tenant_id;
+      decodedToken.role === 'clinic_admin' && decodedToken.tenant_id === claimData?.tenant_id;
 
     if (!isSystemAdmin && !isClinicAdmin) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    if (claimData?.status !== "pending") {
-      return NextResponse.json(
-        { error: "Solicitação já foi processada" },
-        { status: 400 }
-      );
+    if (claimData?.status !== 'pending') {
+      return NextResponse.json({ error: 'Solicitação já foi processada' }, { status: 400 });
     }
 
     const consultantId = claimData.consultant_id;
     const tenantId = claimData.tenant_id;
 
     // Buscar consultor
-    const consultantDoc = await adminDb.collection("consultants").doc(consultantId).get();
+    const consultantDoc = await adminDb.collection('consultants').doc(consultantId).get();
 
     if (!consultantDoc.exists) {
-      return NextResponse.json({ error: "Consultor não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: 'Consultor não encontrado' }, { status: 404 });
     }
 
     const consultantData = consultantDoc.data();
 
     // Verificar se clínica já tem consultor
-    const tenantDoc = await adminDb.collection("tenants").doc(tenantId).get();
+    const tenantDoc = await adminDb.collection('tenants').doc(tenantId).get();
     const tenantData = tenantDoc.data();
 
     if (tenantData?.consultant_id && tenantData.consultant_id !== consultantId) {
       return NextResponse.json(
-        { error: "Esta clínica já possui outro consultor vinculado" },
+        { error: 'Esta clínica já possui outro consultor vinculado' },
         { status: 400 }
       );
     }
 
     // Buscar nome do aprovador
-    let approverName = decodedToken.name || "Administrador";
+    let approverName = decodedToken.name || 'Administrador';
     try {
-      const userDoc = await adminDb.collection("users").doc(decodedToken.uid).get();
+      const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
       if (userDoc.exists) {
         approverName = userDoc.data()?.full_name || approverName;
       }
@@ -92,7 +85,7 @@ export async function POST(
 
     // 1. Atualizar reivindicação
     batch.update(claimDoc.ref, {
-      status: "approved",
+      status: 'approved',
       approved_by: decodedToken.uid,
       approved_by_name: approverName,
       approved_at: FieldValue.serverTimestamp(),
@@ -134,31 +127,31 @@ export async function POST(
 
     // 5. Notificar consultor
     try {
-      await adminDb.collection("email_queue").add({
+      await adminDb.collection('email_queue').add({
         to: consultantData?.email,
-        subject: "Vínculo aprovado - Curva Mestra",
+        subject: 'Vínculo aprovado - Curva Mestra',
         body: `
           <p>Olá ${consultantData?.name},</p>
           <p>Sua solicitação de vínculo com a clínica <strong>${claimData.tenant_name}</strong> foi aprovada!</p>
           <p>Você já pode acessar os dados da clínica no Portal do Consultor.</p>
           <p>Atenciosamente,<br>Equipe Curva Mestra</p>
         `,
-        status: "pending",
-        type: "consultant_claim_approved",
+        status: 'pending',
+        type: 'consultant_claim_approved',
         created_at: FieldValue.serverTimestamp(),
       });
     } catch (emailError) {
-      console.warn("Erro ao enviar email:", emailError);
+      console.warn('Erro ao enviar email:', emailError);
     }
 
     return NextResponse.json({
       success: true,
-      message: "Vínculo aprovado com sucesso",
+      message: 'Vínculo aprovado com sucesso',
     });
   } catch (error: any) {
-    console.error("Erro ao aprovar reivindicação:", error);
+    console.error('Erro ao aprovar reivindicação:', error);
     return NextResponse.json(
-      { error: error.message || "Erro ao aprovar solicitação" },
+      { error: error.message || 'Erro ao aprovar solicitação' },
       { status: 500 }
     );
   }

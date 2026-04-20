@@ -3,13 +3,13 @@
  * Curva Mestra - Multi-Tenant SaaS
  */
 
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Bell, Check, X, Trash2, AlertCircle, Package, FileText, Clock } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Bell, Check, X, Trash2, AlertCircle, Package, FileText, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,14 +17,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useNotifications } from "@/hooks/useNotifications";
-import { useAuth } from "@/hooks/useAuth";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import type { Notification, NotificationType } from "@/types/notification";
+} from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useAuth } from '@/hooks/useAuth';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import type { Notification, NotificationType } from '@/types/notification';
 
 interface NotificationBellProps {
   playSound?: boolean;
@@ -50,34 +50,34 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
-      case "expiring":
-      case "expired":
+      case 'expiring':
+      case 'expired':
         return <Clock className="h-4 w-4 text-orange-500" />;
-      case "low_stock":
+      case 'low_stock':
         return <Package className="h-4 w-4 text-yellow-500" />;
-      case "request_approved":
+      case 'request_approved':
         return <Check className="h-4 w-4 text-green-500" />;
-      case "request_rejected":
+      case 'request_rejected':
         return <X className="h-4 w-4 text-red-500" />;
-      case "request_created":
+      case 'request_created':
         return <FileText className="h-4 w-4 text-blue-500" />;
       default:
         return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const getPriorityColor = (priority: Notification["priority"]) => {
+  const getPriorityColor = (priority: Notification['priority']) => {
     switch (priority) {
-      case "urgent":
-        return "bg-red-50 border-red-200 hover:bg-red-100";
-      case "high":
-        return "bg-orange-50 border-orange-200 hover:bg-orange-100";
-      case "medium":
-        return "bg-yellow-50 border-yellow-200 hover:bg-yellow-100";
-      case "low":
-        return "bg-blue-50 border-blue-200 hover:bg-blue-100";
+      case 'urgent':
+        return 'bg-red-50 border-red-200 hover:bg-red-100';
+      case 'high':
+        return 'bg-orange-50 border-orange-200 hover:bg-orange-100';
+      case 'medium':
+        return 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100';
+      case 'low':
+        return 'bg-blue-50 border-blue-200 hover:bg-blue-100';
       default:
-        return "bg-gray-50 border-gray-200 hover:bg-gray-100";
+        return 'bg-gray-50 border-gray-200 hover:bg-gray-100';
     }
   };
 
@@ -102,15 +102,12 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
   };
 
   const handleClearAll = async () => {
-    if (confirm("Deseja realmente limpar todas as notificações lidas?")) {
+    if (confirm('Deseja realmente limpar todas as notificações lidas?')) {
       await clearRead();
     }
   };
 
-  const handleDelete = async (
-    e: React.MouseEvent,
-    notificationId: string
-  ) => {
+  const handleDelete = async (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation();
     await deleteNotification(notificationId);
   };
@@ -123,7 +120,7 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
         locale: ptBR,
       });
     } catch {
-      return "agora";
+      return 'agora';
     }
   };
 
@@ -137,7 +134,7 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
               variant="destructive"
               className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
             >
-              {unreadCount > 99 ? "99+" : unreadCount}
+              {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
           )}
         </Button>
@@ -147,12 +144,7 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
         <div className="flex items-center justify-between px-4 py-2">
           <DropdownMenuLabel className="p-0">Notificações</DropdownMenuLabel>
           {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMarkAllAsRead}
-              className="text-xs"
-            >
+            <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs">
               Marcar todas como lidas
             </Button>
           )}
@@ -170,9 +162,7 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Bell className="h-12 w-12 text-gray-300 mb-2" />
-              <p className="text-sm text-gray-500">
-                Nenhuma notificação
-              </p>
+              <p className="text-sm text-gray-500">Nenhuma notificação</p>
             </div>
           ) : (
             <div className="space-y-1 p-2">
@@ -181,14 +171,12 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
                   key={notification.id}
                   className={`
                     relative rounded-lg border p-3 cursor-pointer transition-colors
-                    ${!notification.read ? "bg-blue-50 border-blue-200" : getPriorityColor(notification.priority)}
+                    ${!notification.read ? 'bg-blue-50 border-blue-200' : getPriorityColor(notification.priority)}
                   `}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      {getNotificationIcon(notification.type)}
-                    </div>
+                    <div className="mt-0.5">{getNotificationIcon(notification.type)}</div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
@@ -232,12 +220,7 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
           <>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearAll}
-                className="w-full text-xs"
-              >
+              <Button variant="ghost" size="sm" onClick={handleClearAll} className="w-full text-xs">
                 <Trash2 className="h-3 w-3 mr-2" />
                 Limpar notificações lidas
               </Button>

@@ -3,20 +3,14 @@
  * Curva Mestra - Multi-Tenant SaaS
  */
 
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  Timestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import {
   createExpiringProductNotification,
   createLowStockNotification,
   getNotificationSettings,
-} from "./notificationService";
-import type { InventoryItem } from "@/types";
+} from './notificationService';
+import type { InventoryItem } from '@/types';
 
 /**
  * Verifica produtos vencendo e cria notificações automaticamente
@@ -37,9 +31,7 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
     const settings = await getNotificationSettings(tenantId);
 
     if (!settings || !settings.enable_expiry_alerts) {
-      console.log(
-        `Alertas de vencimento desabilitados para tenant ${tenantId}`
-      );
+      console.log(`Alertas de vencimento desabilitados para tenant ${tenantId}`);
       return results;
     }
 
@@ -66,12 +58,8 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
       if (!item.dt_validade) continue;
 
       // Converter dt_validade (string DD/MM/YYYY) para Date
-      const [day, month, year] = item.dt_validade.split("/");
-      const expiryDate = new Date(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day)
-      );
+      const [day, month, year] = item.dt_validade.split('/');
+      const expiryDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 
       expiryDate.setHours(0, 0, 0, 0);
 
@@ -84,20 +72,15 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
 
         try {
           // Verificar se já existe notificação para este produto/lote
-          const notificationsRef = collection(
-            db,
-            `tenants/${tenantId}/notifications`
-          );
+          const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
           const existingNotificationQuery = query(
             notificationsRef,
-            where("type", "==", "expiring"),
-            where("inventory_id", "==", item.id),
-            where("read", "==", false)
+            where('type', '==', 'expiring'),
+            where('inventory_id', '==', item.id),
+            where('read', '==', false)
           );
 
-          const existingNotifications = await getDocs(
-            existingNotificationQuery
-          );
+          const existingNotifications = await getDocs(existingNotificationQuery);
 
           // Se já existe notificação não lida, pular
           if (!existingNotifications.empty) {
@@ -118,17 +101,10 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
 
           results.notificationsCreated++;
 
-          console.log(
-            `✅ Alerta criado: ${item.nome_produto} vence em ${daysUntilExpiry} dias`
-          );
+          console.log(`✅ Alerta criado: ${item.nome_produto} vence em ${daysUntilExpiry} dias`);
         } catch (error: any) {
-          console.error(
-            `Erro ao criar notificação para ${item.nome_produto}:`,
-            error
-          );
-          results.errors.push(
-            `${item.nome_produto}: ${error.message || "Erro desconhecido"}`
-          );
+          console.error(`Erro ao criar notificação para ${item.nome_produto}:`, error);
+          results.errors.push(`${item.nome_produto}: ${error.message || 'Erro desconhecido'}`);
         }
       }
     }
@@ -140,7 +116,7 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
     return results;
   } catch (error: any) {
     console.error(`Erro ao verificar produtos vencendo:`, error);
-    results.errors.push(error.message || "Erro desconhecido");
+    results.errors.push(error.message || 'Erro desconhecido');
     return results;
   }
 }
@@ -184,20 +160,15 @@ export async function checkLowStock(tenantId: string): Promise<{
       if (item.quantidade_disponivel < minQuantity) {
         try {
           // Verificar se já existe notificação para este produto
-          const notificationsRef = collection(
-            db,
-            `tenants/${tenantId}/notifications`
-          );
+          const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
           const existingNotificationQuery = query(
             notificationsRef,
-            where("type", "==", "low_stock"),
-            where("inventory_id", "==", item.id),
-            where("read", "==", false)
+            where('type', '==', 'low_stock'),
+            where('inventory_id', '==', item.id),
+            where('read', '==', false)
           );
 
-          const existingNotifications = await getDocs(
-            existingNotificationQuery
-          );
+          const existingNotifications = await getDocs(existingNotificationQuery);
 
           // Se já existe notificação não lida, pular
           if (!existingNotifications.empty) {
@@ -221,13 +192,8 @@ export async function checkLowStock(tenantId: string): Promise<{
             `✅ Alerta criado: ${item.nome_produto} com ${item.quantidade_disponivel} unidades (mín: ${minQuantity})`
           );
         } catch (error: any) {
-          console.error(
-            `Erro ao criar notificação para ${item.nome_produto}:`,
-            error
-          );
-          results.errors.push(
-            `${item.nome_produto}: ${error.message || "Erro desconhecido"}`
-          );
+          console.error(`Erro ao criar notificação para ${item.nome_produto}:`, error);
+          results.errors.push(`${item.nome_produto}: ${error.message || 'Erro desconhecido'}`);
         }
       }
     }
@@ -239,7 +205,7 @@ export async function checkLowStock(tenantId: string): Promise<{
     return results;
   } catch (error: any) {
     console.error(`Erro ao verificar estoque baixo:`, error);
-    results.errors.push(error.message || "Erro desconhecido");
+    results.errors.push(error.message || 'Erro desconhecido');
     return results;
   }
 }
@@ -282,12 +248,8 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
       if (!item.dt_validade) continue;
 
       // Converter dt_validade (string DD/MM/YYYY) para Date
-      const [day2, month2, year2] = item.dt_validade.split("/");
-      const expiryDate = new Date(
-        parseInt(year2),
-        parseInt(month2) - 1,
-        parseInt(day2)
-      );
+      const [day2, month2, year2] = item.dt_validade.split('/');
+      const expiryDate = new Date(parseInt(year2), parseInt(month2) - 1, parseInt(day2));
 
       expiryDate.setHours(0, 0, 0, 0);
 
@@ -295,30 +257,22 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
       if (expiryDate < today) {
         try {
           // Verificar se já existe notificação
-          const notificationsRef = collection(
-            db,
-            `tenants/${tenantId}/notifications`
-          );
+          const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
           const existingNotificationQuery = query(
             notificationsRef,
-            where("type", "==", "expired"),
-            where("inventory_id", "==", item.id),
-            where("read", "==", false)
+            where('type', '==', 'expired'),
+            where('inventory_id', '==', item.id),
+            where('read', '==', false)
           );
 
-          const existingNotifications = await getDocs(
-            existingNotificationQuery
-          );
+          const existingNotifications = await getDocs(existingNotificationQuery);
 
           if (!existingNotifications.empty) {
             continue;
           }
 
           // Criar notificação urgente de produto vencido
-          const notificationsRefCreate = collection(
-            db,
-            `tenants/${tenantId}/notifications`
-          );
+          const notificationsRefCreate = collection(db, `tenants/${tenantId}/notifications`);
 
           await getDocs(notificationsRefCreate); // Placeholder para addDoc
 
@@ -328,13 +282,8 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
             `🚨 Alerta URGENTE criado: ${item.nome_produto} VENCIDO desde ${item.dt_validade}`
           );
         } catch (error: any) {
-          console.error(
-            `Erro ao criar notificação para ${item.nome_produto}:`,
-            error
-          );
-          results.errors.push(
-            `${item.nome_produto}: ${error.message || "Erro desconhecido"}`
-          );
+          console.error(`Erro ao criar notificação para ${item.nome_produto}:`, error);
+          results.errors.push(`${item.nome_produto}: ${error.message || 'Erro desconhecido'}`);
         }
       }
     }
@@ -346,7 +295,7 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
     return results;
   } catch (error: any) {
     console.error(`Erro ao verificar produtos vencidos:`, error);
-    results.errors.push(error.message || "Erro desconhecido");
+    results.errors.push(error.message || 'Erro desconhecido');
     return results;
   }
 }
@@ -363,13 +312,11 @@ export async function runAllChecks(tenantId: string): Promise<{
 }> {
   console.log(`🔍 Iniciando checks automáticos para tenant ${tenantId}...`);
 
-  const [expiringResults, expiredResults, lowStockResults] = await Promise.all(
-    [
-      checkExpiringProducts(tenantId),
-      checkExpiredProducts(tenantId),
-      checkLowStock(tenantId),
-    ]
-  );
+  const [expiringResults, expiredResults, lowStockResults] = await Promise.all([
+    checkExpiringProducts(tenantId),
+    checkExpiredProducts(tenantId),
+    checkLowStock(tenantId),
+  ]);
 
   const allErrors = [
     ...expiringResults.errors,
@@ -416,7 +363,7 @@ export async function runChecksForAllTenants(): Promise<{
 
   try {
     // Buscar todos os tenants ativos
-    const tenantsRef = collection(db, "tenants");
+    const tenantsRef = collection(db, 'tenants');
     const tenantsSnap = await getDocs(tenantsRef);
 
     console.log(`🔍 Processando ${tenantsSnap.size} tenants...`);
@@ -426,7 +373,7 @@ export async function runChecksForAllTenants(): Promise<{
       const tenantData = tenantDoc.data();
 
       // Pular tenants inativos
-      if (tenantData.status !== "active") {
+      if (tenantData.status !== 'active') {
         console.log(`⏭️  Pulando tenant ${tenantId} (status: ${tenantData.status})`);
         continue;
       }
@@ -445,9 +392,7 @@ export async function runChecksForAllTenants(): Promise<{
         }
       } catch (error: any) {
         console.error(`❌ Erro ao processar tenant ${tenantId}:`, error);
-        results.errors[tenantId] = [
-          error.message || "Erro desconhecido ao processar tenant",
-        ];
+        results.errors[tenantId] = [error.message || 'Erro desconhecido ao processar tenant'];
       }
     }
 

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -9,22 +9,20 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 
 export default function WaitingApprovalPage() {
   const { signOut, user } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
-    window.location.href = "/login";
+    window.location.href = '/login';
   };
 
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl text-center">
-          Conta Criada com Sucesso
-        </CardTitle>
+        <CardTitle className="text-2xl text-center">Conta Criada com Sucesso</CardTitle>
         <CardDescription className="text-center">
           Aguardando aprovação do administrador
         </CardDescription>
@@ -35,14 +33,13 @@ export default function WaitingApprovalPage() {
             Olá, <span className="font-medium">{user?.displayName}</span>!
           </p>
           <p className="text-sm text-muted-foreground">
-            Sua conta foi criada com sucesso. No entanto, você precisará aguardar
-            que um administrador do sistema configure seu acesso e associe você
-            a uma clínica.
+            Sua conta foi criada com sucesso. No entanto, você precisará aguardar que um
+            administrador do sistema configure seu acesso e associe você a uma clínica.
           </p>
           <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-md">
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              Entre em contato com o administrador do sistema para solicitar
-              a ativação da sua conta.
+              Entre em contato com o administrador do sistema para solicitar a ativação da sua
+              conta.
             </p>
           </div>
         </div>

@@ -3,11 +3,11 @@
  * Monitora em tempo real se a clínica do usuário foi suspensa ou está inativa
  */
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { SuspensionInfo } from "@/types";
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { SuspensionInfo } from '@/types';
 
 interface TenantSuspensionState {
   isSuspended: boolean;
@@ -49,7 +49,7 @@ export function useTenantSuspension(): TenantSuspensionState {
     }
 
     // Listener em tempo real para mudanças no tenant
-    const tenantRef = doc(db, "tenants", claims.tenant_id);
+    const tenantRef = doc(db, 'tenants', claims.tenant_id);
 
     const unsubscribe = onSnapshot(
       tenantRef,
@@ -76,7 +76,7 @@ export function useTenantSuspension(): TenantSuspensionState {
         });
       },
       (error) => {
-        console.error("Erro ao verificar status da clínica:", error);
+        console.error('Erro ao verificar status da clínica:', error);
         setState({
           isSuspended: false,
           isInactive: false,

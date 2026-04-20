@@ -1,18 +1,12 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -20,7 +14,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -29,32 +23,25 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Search,
-  UserCog,
-  Shield,
-  User,
-  AlertTriangle,
-  UserPlus,
-} from "lucide-react";
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { formatTimestamp } from "@/lib/utils";
+} from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Search, UserCog, Shield, User, AlertTriangle, UserPlus } from 'lucide-react';
+import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { formatTimestamp } from '@/lib/utils';
 
 interface ClinicUser {
   uid: string;
   email: string;
   displayName: string;
-  role: "clinic_admin" | "clinic_user";
+  role: 'clinic_admin' | 'clinic_user';
   active: boolean;
   created_at: any;
 }
@@ -64,22 +51,22 @@ export default function UsersTab() {
   const [users, setUsers] = useState<ClinicUser[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<ClinicUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState('');
   const [maxUsers, setMaxUsers] = useState(5);
 
   // Estados do diálogo
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newUser, setNewUser] = useState({
-    email: "",
-    displayName: "",
-    password: "",
-    role: "clinic_user" as "clinic_admin" | "clinic_user",
+    email: '',
+    displayName: '',
+    password: '',
+    role: 'clinic_user' as 'clinic_admin' | 'clinic_user',
   });
 
   const tenantId = claims?.tenant_id;
-  const isAdmin = claims?.role === "clinic_admin";
+  const isAdmin = claims?.role === 'clinic_admin';
 
   useEffect(() => {
     if (tenantId) {
@@ -96,7 +83,7 @@ export default function UsersTab() {
     if (!tenantId) return;
 
     try {
-      const tenantRef = doc(db, "tenants", tenantId);
+      const tenantRef = doc(db, 'tenants', tenantId);
       const tenantDoc = await getDoc(tenantRef);
 
       if (tenantDoc.exists()) {
@@ -105,7 +92,7 @@ export default function UsersTab() {
         setMaxUsers(limit);
       }
     } catch (err) {
-      console.error("Erro ao carregar informações do tenant:", err);
+      console.error('Erro ao carregar informações do tenant:', err);
     }
   };
 
@@ -114,13 +101,13 @@ export default function UsersTab() {
 
     try {
       setLoading(true);
-      setError("");
+      setError('');
 
-      const usersRef = collection(db, "users");
+      const usersRef = collection(db, 'users');
       const usersQuery = query(
         usersRef,
-        where("tenant_id", "==", tenantId),
-        orderBy("created_at", "desc")
+        where('tenant_id', '==', tenantId),
+        orderBy('created_at', 'desc')
       );
       const usersSnapshot = await getDocs(usersQuery);
 
@@ -129,9 +116,9 @@ export default function UsersTab() {
         const data = doc.data();
         loadedUsers.push({
           uid: doc.id,
-          email: data.email || "",
-          displayName: data.displayName || data.full_name || "",
-          role: data.role || "clinic_user",
+          email: data.email || '',
+          displayName: data.displayName || data.full_name || '',
+          role: data.role || 'clinic_user',
           active: data.active ?? true,
           created_at: data.created_at,
         });
@@ -140,8 +127,8 @@ export default function UsersTab() {
       setUsers(loadedUsers);
       setFilteredUsers(loadedUsers);
     } catch (err) {
-      console.error("Erro ao carregar usuários:", err);
-      setError("Erro ao carregar usuários da clínica");
+      console.error('Erro ao carregar usuários:', err);
+      setError('Erro ao carregar usuários da clínica');
     } finally {
       setLoading(false);
     }
@@ -156,8 +143,7 @@ export default function UsersTab() {
     const term = searchTerm.toLowerCase();
     const filtered = users.filter(
       (user) =>
-        user.displayName.toLowerCase().includes(term) ||
-        user.email.toLowerCase().includes(term)
+        user.displayName.toLowerCase().includes(term) || user.email.toLowerCase().includes(term)
     );
     setFilteredUsers(filtered);
   };
@@ -165,29 +151,29 @@ export default function UsersTab() {
   const handleCreateUser = async () => {
     try {
       setCreating(true);
-      setError("");
+      setError('');
 
       if (!newUser.email || !newUser.displayName || !newUser.password) {
-        setError("Todos os campos são obrigatórios");
+        setError('Todos os campos são obrigatórios');
         return;
       }
 
       if (newUser.password.length < 6) {
-        setError("A senha deve ter pelo menos 6 caracteres");
+        setError('A senha deve ter pelo menos 6 caracteres');
         return;
       }
 
       const idToken = await user?.getIdToken();
       if (!idToken) {
-        setError("Erro de autenticação. Faça login novamente.");
+        setError('Erro de autenticação. Faça login novamente.');
         return;
       }
 
-      const response = await fetch("/api/users/create", {
-        method: "POST",
+      const response = await fetch('/api/users/create', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`,
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify(newUser),
       });
@@ -195,27 +181,27 @@ export default function UsersTab() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao criar usuário");
+        throw new Error(data.error || 'Erro ao criar usuário');
       }
 
       await loadUsers();
       setDialogOpen(false);
       setNewUser({
-        email: "",
-        displayName: "",
-        password: "",
-        role: "clinic_user",
+        email: '',
+        displayName: '',
+        password: '',
+        role: 'clinic_user',
       });
     } catch (err: any) {
-      console.error("Erro ao criar usuário:", err);
-      setError(err.message || "Erro ao criar usuário. Tente novamente.");
+      console.error('Erro ao criar usuário:', err);
+      setError(err.message || 'Erro ao criar usuário. Tente novamente.');
     } finally {
       setCreating(false);
     }
   };
 
   const getRoleBadge = (role: string) => {
-    if (role === "clinic_admin") {
+    if (role === 'clinic_admin') {
       return (
         <Badge variant="default" className="text-xs">
           Administrador
@@ -230,7 +216,7 @@ export default function UsersTab() {
   };
 
   const getRoleIcon = (role: string) => {
-    if (role === "clinic_admin") {
+    if (role === 'clinic_admin') {
       return <Shield className="h-4 w-4 text-primary" />;
     }
     return <User className="h-4 w-4 text-muted-foreground" />;
@@ -258,8 +244,8 @@ export default function UsersTab() {
             <DialogHeader>
               <DialogTitle>Adicionar Novo Usuário</DialogTitle>
               <DialogDescription>
-                Crie um novo usuário para sua clínica. O usuário receberá
-                as credenciais para acessar o sistema.
+                Crie um novo usuário para sua clínica. O usuário receberá as credenciais para
+                acessar o sistema.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -269,9 +255,7 @@ export default function UsersTab() {
                   id="name"
                   placeholder="João da Silva"
                   value={newUser.displayName}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, displayName: e.target.value })
-                  }
+                  onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })}
                   disabled={creating}
                 />
               </div>
@@ -282,9 +266,7 @@ export default function UsersTab() {
                   type="email"
                   placeholder="joao@clinica.com"
                   value={newUser.email}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, email: e.target.value })
-                  }
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   disabled={creating}
                 />
               </div>
@@ -295,9 +277,7 @@ export default function UsersTab() {
                   type="password"
                   placeholder="Mínimo 6 caracteres"
                   value={newUser.password}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, password: e.target.value })
-                  }
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                   disabled={creating}
                 />
               </div>
@@ -305,7 +285,7 @@ export default function UsersTab() {
                 <Label htmlFor="role">Tipo de Usuário</Label>
                 <Select
                   value={newUser.role}
-                  onValueChange={(value: "clinic_admin" | "clinic_user") =>
+                  onValueChange={(value: 'clinic_admin' | 'clinic_user') =>
                     setNewUser({ ...newUser, role: value })
                   }
                   disabled={creating}
@@ -314,26 +294,18 @@ export default function UsersTab() {
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="clinic_user">
-                      Usuário - Acesso básico
-                    </SelectItem>
-                    <SelectItem value="clinic_admin">
-                      Administrador - Acesso completo
-                    </SelectItem>
+                    <SelectItem value="clinic_user">Usuário - Acesso básico</SelectItem>
+                    <SelectItem value="clinic_admin">Administrador - Acesso completo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={creating}
-              >
+              <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={creating}>
                 Cancelar
               </Button>
               <Button onClick={handleCreateUser} disabled={creating}>
-                {creating ? "Criando..." : "Criar Usuário"}
+                {creating ? 'Criando...' : 'Criar Usuário'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -355,9 +327,8 @@ export default function UsersTab() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Limite de usuários atingido</AlertTitle>
           <AlertDescription>
-            Sua clínica atingiu o limite de {maxUsers} usuários do plano
-            atual. Para adicionar mais usuários, entre em contato com o
-            suporte.
+            Sua clínica atingiu o limite de {maxUsers} usuários do plano atual. Para adicionar mais
+            usuários, entre em contato com o suporte.
           </AlertDescription>
         </Alert>
       )}
@@ -366,48 +337,36 @@ export default function UsersTab() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total de Usuários
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
             <UserCog className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{users.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Limite: {maxUsers} usuários
-            </p>
+            <p className="text-xs text-muted-foreground">Limite: {maxUsers} usuários</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Usuários Ativos
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
             <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {users.filter((u) => u.active).length}
-            </div>
+            <div className="text-2xl font-bold">{users.filter((u) => u.active).length}</div>
             <p className="text-xs text-muted-foreground">Com acesso</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Administradores
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Administradores</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {users.filter((u) => u.role === "clinic_admin").length}
+              {users.filter((u) => u.role === 'clinic_admin').length}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Com permissões admin
-            </p>
+            <p className="text-xs text-muted-foreground">Com permissões admin</p>
           </CardContent>
         </Card>
       </div>
@@ -418,9 +377,7 @@ export default function UsersTab() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Lista de Usuários</CardTitle>
-              <CardDescription>
-                Todos os usuários cadastrados na clínica
-              </CardDescription>
+              <CardDescription>Todos os usuários cadastrados na clínica</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -435,14 +392,10 @@ export default function UsersTab() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Carregando usuários...
-            </div>
+            <div className="text-center py-8 text-muted-foreground">Carregando usuários...</div>
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {searchTerm
-                ? "Nenhum usuário encontrado"
-                : "Nenhum usuário cadastrado"}
+              {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -462,20 +415,14 @@ export default function UsersTab() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getRoleIcon(user.role)}
-                          <span className="font-medium">
-                            {user.displayName}
-                          </span>
+                          <span className="font-medium">{user.displayName}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {user.email}
-                      </TableCell>
+                      <TableCell className="text-muted-foreground">{user.email}</TableCell>
                       <TableCell>{getRoleBadge(user.role)}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={user.active ? "default" : "destructive"}
-                        >
-                          {user.active ? "Ativo" : "Inativo"}
+                        <Badge variant={user.active ? 'default' : 'destructive'}>
+                          {user.active ? 'Ativo' : 'Inativo'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">

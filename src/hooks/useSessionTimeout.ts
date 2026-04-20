@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 /**
  * Hook para gerenciar timeout de sessão por inatividade
@@ -54,12 +54,15 @@ export function useSessionTimeout() {
     sessionStartTime.current = Date.now();
 
     // Criar novo timeout
-    timeoutRef.current = setTimeout(async () => {
-      if (auth.currentUser) {
-        await auth.signOut();
-        router.push("/login?timeout=true");
-      }
-    }, sessionTimeoutMinutes * 60 * 1000); // Converter minutos para milissegundos
+    timeoutRef.current = setTimeout(
+      async () => {
+        if (auth.currentUser) {
+          await auth.signOut();
+          router.push('/login?timeout=true');
+        }
+      },
+      sessionTimeoutMinutes * 60 * 1000
+    ); // Converter minutos para milissegundos
   };
 
   useEffect(() => {
@@ -73,7 +76,7 @@ export function useSessionTimeout() {
 
     // Eventos que resetam o timeout (apenas ações ATIVAS do usuário)
     // Removidos: "scroll" e "touchstart" (ações passivas que não devem resetar timer)
-    const events = ["mousedown", "keydown", "click"];
+    const events = ['mousedown', 'keydown', 'click'];
 
     const handleUserActivity = () => {
       resetTimeout();

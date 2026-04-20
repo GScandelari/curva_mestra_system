@@ -1,32 +1,18 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Bell,
-  Play,
-  CheckCircle,
-  AlertCircle,
-  Package,
-  Calendar,
-  Loader2,
-} from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Bell, Play, CheckCircle, AlertCircle, Package, Calendar, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import {
   runAllChecks,
   checkExpiringProducts,
   checkLowStock,
   checkExpiredProducts,
-} from "@/lib/services/alertTriggers";
+} from '@/lib/services/alertTriggers';
 
 export default function AlertsTab() {
   const { claims } = useAuth();
@@ -36,7 +22,7 @@ export default function AlertsTab() {
   const [results, setResults] = useState<any>(null);
 
   const tenantId = claims?.tenant_id;
-  const isAdmin = claims?.role === "clinic_admin";
+  const isAdmin = claims?.role === 'clinic_admin';
 
   const handleRunAllChecks = async () => {
     if (!tenantId) return;
@@ -54,44 +40,42 @@ export default function AlertsTab() {
         checkResults.lowStock.created;
 
       toast({
-        title: "Checks concluídos!",
+        title: 'Checks concluídos!',
         description: `${totalCreated} notificações foram criadas.`,
       });
     } catch (error: any) {
-      console.error("Erro ao executar checks:", error);
+      console.error('Erro ao executar checks:', error);
       toast({
-        title: "Erro ao executar checks",
-        description: error.message || "Erro desconhecido",
-        variant: "destructive",
+        title: 'Erro ao executar checks',
+        description: error.message || 'Erro desconhecido',
+        variant: 'destructive',
       });
     } finally {
       setRunning(false);
     }
   };
 
-  const handleRunSingleCheck = async (
-    type: "expiring" | "expired" | "lowStock"
-  ) => {
+  const handleRunSingleCheck = async (type: 'expiring' | 'expired' | 'lowStock') => {
     if (!tenantId) return;
 
     setRunning(true);
 
     try {
       let result;
-      let checkName = "";
+      let checkName = '';
 
       switch (type) {
-        case "expiring":
+        case 'expiring':
           result = await checkExpiringProducts(tenantId);
-          checkName = "Produtos Vencendo";
+          checkName = 'Produtos Vencendo';
           break;
-        case "expired":
+        case 'expired':
           result = await checkExpiredProducts(tenantId);
-          checkName = "Produtos Vencidos";
+          checkName = 'Produtos Vencidos';
           break;
-        case "lowStock":
+        case 'lowStock':
           result = await checkLowStock(tenantId);
-          checkName = "Estoque Baixo";
+          checkName = 'Estoque Baixo';
           break;
       }
 
@@ -100,11 +84,11 @@ export default function AlertsTab() {
         description: `${result.checked} produtos verificados, ${result.notificationsCreated} alertas criados.`,
       });
     } catch (error: any) {
-      console.error("Erro ao executar check:", error);
+      console.error('Erro ao executar check:', error);
       toast({
-        title: "Erro ao executar check",
-        description: error.message || "Erro desconhecido",
-        variant: "destructive",
+        title: 'Erro ao executar check',
+        description: error.message || 'Erro desconhecido',
+        variant: 'destructive',
       });
     } finally {
       setRunning(false);
@@ -129,9 +113,9 @@ export default function AlertsTab() {
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Sobre os Checks Automáticos</AlertTitle>
         <AlertDescription>
-          Esta página permite executar manualmente os checks que normalmente
-          rodariam automaticamente via Firebase Scheduled Functions. Use
-          para testar ou gerar alertas sob demanda.
+          Esta página permite executar manualmente os checks que normalmente rodariam
+          automaticamente via Firebase Scheduled Functions. Use para testar ou gerar alertas sob
+          demanda.
         </AlertDescription>
       </Alert>
 
@@ -144,13 +128,12 @@ export default function AlertsTab() {
               <CardTitle className="text-lg">Produtos Vencendo</CardTitle>
             </div>
             <CardDescription>
-              Detecta produtos próximos do vencimento baseado nas
-              configurações
+              Detecta produtos próximos do vencimento baseado nas configurações
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => handleRunSingleCheck("expiring")}
+              onClick={() => handleRunSingleCheck('expiring')}
               disabled={running}
               className="w-full"
               variant="outline"
@@ -172,13 +155,11 @@ export default function AlertsTab() {
               <AlertCircle className="h-5 w-5 text-red-500" />
               <CardTitle className="text-lg">Produtos Vencidos</CardTitle>
             </div>
-            <CardDescription>
-              Detecta produtos que já passaram da data de validade
-            </CardDescription>
+            <CardDescription>Detecta produtos que já passaram da data de validade</CardDescription>
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => handleRunSingleCheck("expired")}
+              onClick={() => handleRunSingleCheck('expired')}
               disabled={running}
               className="w-full"
               variant="outline"
@@ -206,7 +187,7 @@ export default function AlertsTab() {
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => handleRunSingleCheck("lowStock")}
+              onClick={() => handleRunSingleCheck('lowStock')}
               disabled={running}
               className="w-full"
               variant="outline"
@@ -227,23 +208,17 @@ export default function AlertsTab() {
         <CardHeader>
           <CardTitle>Executar Todos os Checks</CardTitle>
           <CardDescription>
-            Executa todos os checks de uma vez (recomendado para varredura
-            completa)
+            Executa todos os checks de uma vez (recomendado para varredura completa)
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button
-            onClick={handleRunAllChecks}
-            disabled={running}
-            size="lg"
-            className="w-full"
-          >
+          <Button onClick={handleRunAllChecks} disabled={running} size="lg" className="w-full">
             {running ? (
               <Loader2 className="h-5 w-5 mr-2 animate-spin" />
             ) : (
               <Play className="h-5 w-5 mr-2" />
             )}
-            {running ? "Executando..." : "Executar Todos os Checks"}
+            {running ? 'Executando...' : 'Executar Todos os Checks'}
           </Button>
         </CardContent>
       </Card>
@@ -260,36 +235,24 @@ export default function AlertsTab() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">
-                  Produtos Vencendo
-                </p>
-                <p className="text-2xl font-bold">
-                  {results.expiring.created}
-                </p>
+                <p className="text-sm text-muted-foreground">Produtos Vencendo</p>
+                <p className="text-2xl font-bold">{results.expiring.created}</p>
                 <p className="text-xs text-muted-foreground">
                   {results.expiring.checked} verificados
                 </p>
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">
-                  Produtos Vencidos
-                </p>
-                <p className="text-2xl font-bold">
-                  {results.expired.created}
-                </p>
+                <p className="text-sm text-muted-foreground">Produtos Vencidos</p>
+                <p className="text-2xl font-bold">{results.expired.created}</p>
                 <p className="text-xs text-muted-foreground">
                   {results.expired.checked} verificados
                 </p>
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">
-                  Estoque Baixo
-                </p>
-                <p className="text-2xl font-bold">
-                  {results.lowStock.created}
-                </p>
+                <p className="text-sm text-muted-foreground">Estoque Baixo</p>
+                <p className="text-2xl font-bold">{results.lowStock.created}</p>
                 <p className="text-xs text-muted-foreground">
                   {results.lowStock.checked} verificados
                 </p>
