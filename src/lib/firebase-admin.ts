@@ -3,9 +3,9 @@
  * Usa variáveis de ambiente para credenciais (seguro para CI/CD)
  */
 
-import { initializeApp, getApps, cert, App } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 let adminApp: App | undefined;
 
@@ -31,26 +31,26 @@ export function getAdminApp(): App {
       adminApp = initializeApp({
         credential: cert(serviceAccount),
       });
-      console.log("[Firebase Admin] Inicializado com credenciais de ambiente");
+      console.log('[Firebase Admin] Inicializado com credenciais de ambiente');
       return adminApp;
     }
 
     // Opção 2: Usar arquivo local (desenvolvimento)
     try {
-      const serviceAccount = require("../../curva-mestra-firebase-adminsdk.json");
+      const serviceAccount = require('../../curva-mestra-firebase-adminsdk.json');
       adminApp = initializeApp({
         credential: cert(serviceAccount),
       });
-      console.log("[Firebase Admin] Inicializado com arquivo local");
+      console.log('[Firebase Admin] Inicializado com arquivo local');
       return adminApp;
     } catch (fileError) {
-      console.error("[Firebase Admin] Arquivo de credenciais não encontrado");
+      console.error('[Firebase Admin] Arquivo de credenciais não encontrado');
       throw new Error(
-        "Firebase Admin SDK não configurado. Configure FIREBASE_ADMIN_CREDENTIALS ou adicione o arquivo de credenciais."
+        'Firebase Admin SDK não configurado. Configure FIREBASE_ADMIN_CREDENTIALS ou adicione o arquivo de credenciais.'
       );
     }
   } catch (error) {
-    console.error("[Firebase Admin] Erro ao inicializar:", error);
+    console.error('[Firebase Admin] Erro ao inicializar:', error);
     throw error;
   }
 }

@@ -6,18 +6,19 @@ Gestão inteligente de estoque Rennova com controle de lotes, validades, licenç
 
 ## Stack Tecnológica
 
-| Camada | Tecnologia |
-|--------|------------|
-| **Frontend** | Next.js 15 (App Router) + TypeScript + Tailwind CSS + Shadcn/ui |
-| **Backend** | Firebase Functions 2nd gen (TypeScript) |
-| **Banco de Dados** | Firestore (multi-tenant com RLS) |
-| **Autenticação** | Firebase Auth + Custom Claims |
-| **Storage** | Firebase Storage |
-| **Deploy** | Firebase Hosting + GitHub Actions |
+| Camada             | Tecnologia                                                      |
+| ------------------ | --------------------------------------------------------------- |
+| **Frontend**       | Next.js 15 (App Router) + TypeScript + Tailwind CSS + Shadcn/ui |
+| **Backend**        | Firebase Functions 2nd gen (TypeScript)                         |
+| **Banco de Dados** | Firestore (multi-tenant com RLS)                                |
+| **Autenticação**   | Firebase Auth + Custom Claims                                   |
+| **Storage**        | Firebase Storage                                                |
+| **Deploy**         | Firebase Hosting + GitHub Actions                               |
 
 ## Funcionalidades
 
 ### Portal System Admin
+
 - Dashboard com métricas do sistema
 - Gestão completa de clínicas (CRUD)
 - Gestão de usuários por clínica
@@ -26,6 +27,7 @@ Gestão inteligente de estoque Rennova com controle de lotes, validades, licenç
 - Gestão de consultores
 
 ### Portal Clinic Admin
+
 - Dashboard com métricas em tempo real
 - Gestão de inventário com alertas de vencimento
 - Sistema de procedimentos (agendamento, execução, histórico)
@@ -35,12 +37,14 @@ Gestão inteligente de estoque Rennova com controle de lotes, validades, licenç
 - Vinculação com consultores
 
 ### Portal do Consultor
+
 - Dashboard com clínicas vinculadas
 - Visualização read-only de dados das clínicas
 - Acesso a inventário, procedimentos e relatórios
 - Sistema de solicitação de vínculo com clínicas
 
 ### Segurança Multi-Tenant
+
 - Isolamento completo de dados por clínica
 - Custom Claims para controle de acesso
 - Regras Firestore com RLS (Row Level Security)
@@ -135,16 +139,17 @@ firebase deploy --only firestore:rules
 
 ## Roles e Permissões
 
-| Role | Descrição |
-|------|-----------|
-| `system_admin` | Administrador do sistema, acesso total |
-| `clinic_admin` | Administrador da clínica, gestão completa |
-| `clinic_user` | Usuário da clínica, acesso limitado |
+| Role                | Descrição                                        |
+| ------------------- | ------------------------------------------------ |
+| `system_admin`      | Administrador do sistema, acesso total           |
+| `clinic_admin`      | Administrador da clínica, gestão completa        |
+| `clinic_user`       | Usuário da clínica, acesso limitado              |
 | `clinic_consultant` | Consultor, acesso read-only a múltiplas clínicas |
 
 ## Contribuição
 
 Este projeto segue Conventional Commits:
+
 - `feat:` nova funcionalidade
 - `fix:` correção de bug
 - `chore:` tarefas de manutenção

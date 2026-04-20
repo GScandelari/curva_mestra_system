@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -14,33 +14,33 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle } from "lucide-react";
-import { DocumentType } from "@/types";
-import { validateDocument, maskDocument } from "@/lib/utils/documentValidation";
+} from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { DocumentType } from '@/types';
+import { validateDocument, maskDocument } from '@/lib/utils/documentValidation';
 
 export default function RegisterPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const [documentType, setDocumentType] = useState<DocumentType>("cnpj");
+  const [documentType, setDocumentType] = useState<DocumentType>('cnpj');
   const [formData, setFormData] = useState({
-    document: "",
-    fullName: "",
-    email: "",
-    phone: "",
-    businessName: "",
-    password: "",
-    confirmPassword: "",
+    document: '',
+    fullName: '',
+    email: '',
+    phone: '',
+    businessName: '',
+    password: '',
+    confirmPassword: '',
   });
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      router.push("/dashboard");
+      router.push('/dashboard');
     }
   }, [isAuthenticated, authLoading, router]);
 
@@ -48,17 +48,15 @@ export default function RegisterPage() {
     let value = e.target.value;
 
     // Formatar documento (CPF ou CNPJ) automaticamente
-    if (e.target.id === "document") {
+    if (e.target.id === 'document') {
       value = maskDocument(value, documentType);
     }
 
     // Formatar telefone
-    if (e.target.id === "phone") {
-      const cleaned = value.replace(/\D/g, "");
+    if (e.target.id === 'phone') {
+      const cleaned = value.replace(/\D/g, '');
       if (cleaned.length <= 11) {
-        value = cleaned
-          .replace(/(\d{2})(\d)/, "($1) $2")
-          .replace(/(\d{5})(\d)/, "$1-$2");
+        value = cleaned.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
       }
     }
 
@@ -70,42 +68,48 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    setError('');
+    setSuccess('');
 
     // Validações
     if (!validateDocument(formData.document)) {
-      setError(`${documentType === "cpf" ? "CPF" : "CNPJ"} inválido. Verifique os dígitos verificadores.`);
+      setError(
+        `${documentType === 'cpf' ? 'CPF' : 'CNPJ'} inválido. Verifique os dígitos verificadores.`
+      );
       return;
     }
 
     if (!formData.fullName || formData.fullName.trim().length < 3) {
-      setError("Nome completo inválido");
+      setError('Nome completo inválido');
       return;
     }
 
-    if (!formData.email || !formData.email.includes("@")) {
-      setError("Email inválido");
+    if (!formData.email || !formData.email.includes('@')) {
+      setError('Email inválido');
       return;
     }
 
-    if (!formData.phone || formData.phone.replace(/\D/g, "").length < 10) {
-      setError("Telefone inválido");
+    if (!formData.phone || formData.phone.replace(/\D/g, '').length < 10) {
+      setError('Telefone inválido');
       return;
     }
 
     if (!formData.businessName || formData.businessName.trim().length < 3) {
-      setError(documentType === "cnpj" ? "Nome da clínica é obrigatório" : "Nome profissional é obrigatório");
+      setError(
+        documentType === 'cnpj'
+          ? 'Nome da clínica é obrigatório'
+          : 'Nome profissional é obrigatório'
+      );
       return;
     }
 
     if (formData.password.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres");
+      setError('A senha deve ter pelo menos 6 caracteres');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("As senhas não coincidem");
+      setError('As senhas não coincidem');
       return;
     }
 
@@ -113,13 +117,13 @@ export default function RegisterPage() {
 
     try {
       // Chamar nova API
-      const response = await fetch("/api/access-requests", {
-        method: "POST",
+      const response = await fetch('/api/access-requests', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          type: documentType === "cnpj" ? "clinica" : "autonomo",
+          type: documentType === 'cnpj' ? 'clinica' : 'autonomo',
           full_name: formData.fullName,
           email: formData.email,
           phone: formData.phone,
@@ -133,27 +137,29 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setSuccess(data.message || "Solicitação enviada com sucesso! Nossa equipe irá analisar em breve.");
+        setSuccess(
+          data.message || 'Solicitação enviada com sucesso! Nossa equipe irá analisar em breve.'
+        );
         // Limpar formulário
         setFormData({
-          document: "",
-          fullName: "",
-          email: "",
-          phone: "",
-          businessName: "",
-          password: "",
-          confirmPassword: "",
+          document: '',
+          fullName: '',
+          email: '',
+          phone: '',
+          businessName: '',
+          password: '',
+          confirmPassword: '',
         });
 
         // Redirecionar após 3 segundos
         setTimeout(() => {
-          router.push("/login");
+          router.push('/login');
         }, 3000);
       } else {
-        setError(data.error || "Erro ao enviar solicitação");
+        setError(data.error || 'Erro ao enviar solicitação');
       }
     } catch (err: any) {
-      setError(err.message || "Erro ao enviar solicitação");
+      setError(err.message || 'Erro ao enviar solicitação');
     } finally {
       setLoading(false);
     }
@@ -171,9 +177,7 @@ export default function RegisterPage() {
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Solicitar Acesso
-          </CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Solicitar Acesso</CardTitle>
           <CardDescription className="text-center">
             Preencha os dados abaixo para solicitar acesso ao sistema
           </CardDescription>
@@ -201,10 +205,10 @@ export default function RegisterPage() {
                   <input
                     type="radio"
                     value="cnpj"
-                    checked={documentType === "cnpj"}
+                    checked={documentType === 'cnpj'}
                     onChange={(e) => {
                       setDocumentType(e.target.value as DocumentType);
-                      setFormData({ ...formData, document: "" });
+                      setFormData({ ...formData, document: '' });
                     }}
                     disabled={loading || !!success}
                     className="h-4 w-4"
@@ -218,28 +222,30 @@ export default function RegisterPage() {
                   <input
                     type="radio"
                     value="cpf"
-                    checked={documentType === "cpf"}
+                    checked={documentType === 'cpf'}
                     onChange={(e) => {
                       setDocumentType(e.target.value as DocumentType);
-                      setFormData({ ...formData, document: "" });
+                      setFormData({ ...formData, document: '' });
                     }}
                     disabled={loading || !!success}
                     className="h-4 w-4"
                   />
                   <div className="flex-1">
                     <div className="font-medium">Profissional Autônomo</div>
-                    <div className="text-xs text-muted-foreground">CPF - apenas 1 usuário (você)</div>
+                    <div className="text-xs text-muted-foreground">
+                      CPF - apenas 1 usuário (você)
+                    </div>
                   </div>
                 </label>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="document">{documentType === "cpf" ? "CPF" : "CNPJ"} *</Label>
+              <Label htmlFor="document">{documentType === 'cpf' ? 'CPF' : 'CNPJ'} *</Label>
               <Input
                 id="document"
                 type="text"
-                placeholder={documentType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
+                placeholder={documentType === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'}
                 value={formData.document}
                 onChange={handleChange}
                 autoComplete="off"
@@ -248,9 +254,9 @@ export default function RegisterPage() {
                 disabled={loading || !!success}
               />
               <p className="text-xs text-muted-foreground">
-                {documentType === "cpf"
-                  ? "Digite seu CPF para criar uma conta individual"
-                  : "Digite o CNPJ da clínica à qual deseja se vincular ou criar"}
+                {documentType === 'cpf'
+                  ? 'Digite seu CPF para criar uma conta individual'
+                  : 'Digite o CNPJ da clínica à qual deseja se vincular ou criar'}
               </p>
             </div>
 
@@ -299,15 +305,13 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="businessName">
-                {documentType === "cnpj" ? "Nome da Clínica *" : "Nome Profissional *"}
+                {documentType === 'cnpj' ? 'Nome da Clínica *' : 'Nome Profissional *'}
               </Label>
               <Input
                 id="businessName"
                 type="text"
                 placeholder={
-                  documentType === "cnpj"
-                    ? "Nome da sua clínica"
-                    : "Como você quer ser conhecido"
+                  documentType === 'cnpj' ? 'Nome da sua clínica' : 'Como você quer ser conhecido'
                 }
                 value={formData.businessName}
                 onChange={handleChange}
@@ -344,18 +348,14 @@ export default function RegisterPage() {
               />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading || !!success}
-            >
-              {loading ? "Enviando..." : "Solicitar Acesso"}
+            <Button type="submit" className="w-full" disabled={loading || !!success}>
+              {loading ? 'Enviando...' : 'Solicitar Acesso'}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">
           <div className="text-sm text-center text-muted-foreground">
-            Já tem uma conta?{" "}
+            Já tem uma conta?{' '}
             <Link href="/login" className="text-primary hover:underline">
               Fazer login
             </Link>

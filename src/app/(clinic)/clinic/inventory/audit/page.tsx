@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
-import Link from "next/link";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, writeBatch, Timestamp, doc } from "firebase/firestore";
-import type { InventoryItem } from "@/types";
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, writeBatch, Timestamp, doc } from 'firebase/firestore';
+import type { InventoryItem } from '@/types';
 
 interface AuditResult {
   id: string;
@@ -43,20 +43,20 @@ export default function InventoryAuditPage() {
 
     try {
       // Buscar inventário
-      const inventoryRef = collection(db, "tenants", tenantId, "inventory");
-      const inventoryQuery = query(inventoryRef, where("active", "==", true));
+      const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+      const inventoryQuery = query(inventoryRef, where('active', '==', true));
       const inventorySnapshot = await getDocs(inventoryQuery);
 
       // Buscar todos os procedimentos relevantes
-      const solicitacoesRef = collection(db, "tenants", tenantId, "solicitacoes");
-      const agendadasQuery = query(solicitacoesRef, where("status", "==", "agendada"));
-      const aprovadasQuery = query(solicitacoesRef, where("status", "==", "aprovada"));
-      const concluidasQuery = query(solicitacoesRef, where("status", "==", "concluida"));
+      const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
+      const agendadasQuery = query(solicitacoesRef, where('status', '==', 'agendada'));
+      const aprovadasQuery = query(solicitacoesRef, where('status', '==', 'aprovada'));
+      const concluidasQuery = query(solicitacoesRef, where('status', '==', 'concluida'));
 
       const [agendadasSnapshot, aprovadasSnapshot, concluidasSnapshot] = await Promise.all([
         getDocs(agendadasQuery),
         getDocs(aprovadasQuery),
-        getDocs(concluidasQuery)
+        getDocs(concluidasQuery),
       ]);
 
       // Calcular reservas esperadas (agendadas + aprovadas)
@@ -131,8 +131,8 @@ export default function InventoryAuditPage() {
       setAuditResults(results);
       setTotalItems(inventorySnapshot.size);
     } catch (error) {
-      console.error("Erro ao auditar inventário:", error);
-      alert("Erro ao auditar inventário");
+      console.error('Erro ao auditar inventário:', error);
+      alert('Erro ao auditar inventário');
     } finally {
       setLoading(false);
     }
@@ -153,7 +153,7 @@ export default function InventoryAuditPage() {
       const batch = writeBatch(db);
 
       auditResults.forEach((result) => {
-        const itemRef = collection(db, "tenants", tenantId, "inventory");
+        const itemRef = collection(db, 'tenants', tenantId, 'inventory');
         const docRef = doc(itemRef, result.id);
 
         batch.update(docRef, {
@@ -172,10 +172,9 @@ export default function InventoryAuditPage() {
       setTimeout(() => {
         runAudit();
       }, 1000);
-
     } catch (error) {
-      console.error("Erro ao corrigir inventário:", error);
-      alert("Erro ao corrigir inventário");
+      console.error('Erro ao corrigir inventário:', error);
+      alert('Erro ao corrigir inventário');
     } finally {
       setFixing(false);
     }
@@ -203,12 +202,9 @@ export default function InventoryAuditPage() {
         <div className="space-y-6">
           {/* Page Title */}
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Auditoria de Inventário
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight">Auditoria de Inventário</h1>
             <p className="text-muted-foreground">
-              Verifique e corrija inconsistências nos valores de reserva e
-              disponibilidade
+              Verifique e corrija inconsistências nos valores de reserva e disponibilidade
             </p>
           </div>
 
@@ -217,10 +213,9 @@ export default function InventoryAuditPage() {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Como funciona</AlertTitle>
             <AlertDescription>
-              Esta ferramenta verifica se os valores de{" "}
-              <strong>quantidade_reservada</strong> e{" "}
-              <strong>quantidade_disponivel</strong> estão corretos com base nos
-              procedimentos agendados. Itens com problemas serão listados abaixo.
+              Esta ferramenta verifica se os valores de <strong>quantidade_reservada</strong> e{' '}
+              <strong>quantidade_disponivel</strong> estão corretos com base nos procedimentos
+              agendados. Itens com problemas serão listados abaixo.
             </AlertDescription>
           </Alert>
 
@@ -238,10 +233,8 @@ export default function InventoryAuditPage() {
                 disabled={loading || !tenantId}
                 className="w-full sm:w-auto"
               >
-                <RefreshCw
-                  className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                />
-                {loading ? "Auditando..." : "Executar Auditoria"}
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Auditando...' : 'Executar Auditoria'}
               </Button>
             </CardContent>
           </Card>
@@ -250,9 +243,7 @@ export default function InventoryAuditPage() {
           {fixSuccess && (
             <Alert className="bg-green-50 dark:bg-green-900/20 border-green-600">
               <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-600">
-                Correção Aplicada!
-              </AlertTitle>
+              <AlertTitle className="text-green-600">Correção Aplicada!</AlertTitle>
               <AlertDescription className="text-green-600">
                 Os itens foram corrigidos com sucesso.
               </AlertDescription>
@@ -264,36 +255,24 @@ export default function InventoryAuditPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Resultado da Auditoria</CardTitle>
-                <CardDescription>
-                  Total de {totalItems} itens analisados
-                </CardDescription>
+                <CardDescription>Total de {totalItems} itens analisados</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="p-4 border rounded-lg">
-                    <div className="text-sm text-muted-foreground">
-                      Itens Corretos
-                    </div>
-                    <div className="text-2xl font-bold text-green-600">
-                      {itemsOk}
-                    </div>
+                    <div className="text-sm text-muted-foreground">Itens Corretos</div>
+                    <div className="text-2xl font-bold text-green-600">{itemsOk}</div>
                   </div>
                   <div className="p-4 border rounded-lg">
-                    <div className="text-sm text-muted-foreground">
-                      Itens com Problemas
-                    </div>
-                    <div className="text-2xl font-bold text-orange-600">
-                      {auditResults.length}
-                    </div>
+                    <div className="text-sm text-muted-foreground">Itens com Problemas</div>
+                    <div className="text-2xl font-bold text-orange-600">{auditResults.length}</div>
                   </div>
                 </div>
 
                 {auditResults.length === 0 ? (
                   <Alert className="bg-green-50 dark:bg-green-900/20 border-green-600">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertTitle className="text-green-600">
-                      Tudo Certo!
-                    </AlertTitle>
+                    <AlertTitle className="text-green-600">Tudo Certo!</AlertTitle>
                     <AlertDescription className="text-green-600">
                       Nenhum problema encontrado no inventário.
                     </AlertDescription>
@@ -304,8 +283,7 @@ export default function InventoryAuditPage() {
                       <AlertTriangle className="h-4 w-4" />
                       <AlertTitle>Problemas Encontrados</AlertTitle>
                       <AlertDescription>
-                        {auditResults.length} itens com valores incorretos foram
-                        identificados
+                        {auditResults.length} itens com valores incorretos foram identificados
                       </AlertDescription>
                     </Alert>
 
@@ -316,44 +294,32 @@ export default function InventoryAuditPage() {
                             <div className="space-y-3">
                               <div className="flex items-start justify-between">
                                 <div>
-                                  <div className="font-medium">
-                                    {result.nome}
-                                  </div>
+                                  <div className="font-medium">{result.nome}</div>
                                   <div className="text-sm text-muted-foreground">
                                     Lote: {result.lote}
                                   </div>
                                 </div>
                                 <div className="flex gap-2">
                                   {result.problemaReserva && (
-                                    <Badge variant="destructive">
-                                      Reserva
-                                    </Badge>
+                                    <Badge variant="destructive">Reserva</Badge>
                                   )}
                                   {result.problemaDisponivel && (
-                                    <Badge variant="destructive">
-                                      Disponível
-                                    </Badge>
+                                    <Badge variant="destructive">Disponível</Badge>
                                   )}
                                 </div>
                               </div>
 
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
-                                  <div className="text-muted-foreground">
-                                    Quantidade Inicial
-                                  </div>
-                                  <div className="font-medium">
-                                    {result.inicial}
-                                  </div>
+                                  <div className="text-muted-foreground">Quantidade Inicial</div>
+                                  <div className="font-medium">{result.inicial}</div>
                                 </div>
                               </div>
 
                               {result.problemaReserva && (
                                 <div className="grid grid-cols-2 gap-4 text-sm p-3 bg-red-50 dark:bg-red-900/20 rounded">
                                   <div>
-                                    <div className="text-muted-foreground">
-                                      Reservada (Atual)
-                                    </div>
+                                    <div className="text-muted-foreground">Reservada (Atual)</div>
                                     <div className="font-medium text-red-600">
                                       {result.reservadaAtual}
                                     </div>
@@ -372,9 +338,7 @@ export default function InventoryAuditPage() {
                               {result.problemaDisponivel && (
                                 <div className="grid grid-cols-2 gap-4 text-sm p-3 bg-orange-50 dark:bg-orange-900/20 rounded">
                                   <div>
-                                    <div className="text-muted-foreground">
-                                      Disponível (Atual)
-                                    </div>
+                                    <div className="text-muted-foreground">Disponível (Atual)</div>
                                     <div className="font-medium text-orange-600">
                                       {result.disponivelAtual}
                                     </div>
@@ -401,7 +365,7 @@ export default function InventoryAuditPage() {
                       variant="destructive"
                       className="w-full"
                     >
-                      {fixing ? "Corrigindo..." : "Corrigir Todos os Itens"}
+                      {fixing ? 'Corrigindo...' : 'Corrigir Todos os Itens'}
                     </Button>
                   </div>
                 )}

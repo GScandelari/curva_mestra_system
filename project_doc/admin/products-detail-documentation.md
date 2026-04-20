@@ -14,11 +14,13 @@
 Formulário de edição de produto existente no catálogo master Rennova. Permite alterar código, nome e status (ativo/inativo). Carrega dados existentes via `getMasterProduct` e atualiza via `updateMasterProduct`.
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(admin)/admin/products/[id]/page.tsx`
 - **Rota:** `/admin/products/{id}`
 - **Layout:** Admin Layout
 
 ### 1.2 Dependências
+
 - **masterProductService:** `getMasterProduct()`, `updateMasterProduct()`
 - **Types:** `MasterProduct`, `validateProductCode()`, `normalizeProductName()`
 - **Lucide Icons:** Save, Package
@@ -27,22 +29,22 @@ Formulário de edição de produto existente no catálogo master Rennova. Permit
 
 ## 2. Campos do Formulário
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|-------------|-----------|
-| Código do Produto | text (font-mono) | Sim | 7 dígitos numéricos |
-| Nome do Produto | text | Sim | MAIÚSCULAS via `normalizeProductName()` |
-| Status do Produto | toggle buttons | Sim | Botões "Ativo" / "Inativo" + Badge |
+| Campo             | Tipo             | Obrigatório | Descrição                               |
+| ----------------- | ---------------- | ----------- | --------------------------------------- |
+| Código do Produto | text (font-mono) | Sim         | 7 dígitos numéricos                     |
+| Nome do Produto   | text             | Sim         | MAIÚSCULAS via `normalizeProductName()` |
+| Status do Produto | toggle buttons   | Sim         | Botões "Ativo" / "Inativo" + Badge      |
 
 ---
 
 ## 3. Diferenças da Criação (New)
 
-| Aspecto | New | Edit |
-|---------|-----|------|
-| Carregamento | Nenhum (formulário vazio) | `getMasterProduct(id)` preenche formulário |
-| Operação | `createMasterProduct()` | `updateMasterProduct(id, data)` |
-| Campo Status | Não existe | Botões toggle Ativo/Inativo |
-| Feedback Sucesso | Redirect imediato | "Produto atualizado com sucesso!" + redirect após 1500ms |
+| Aspecto          | New                       | Edit                                                     |
+| ---------------- | ------------------------- | -------------------------------------------------------- |
+| Carregamento     | Nenhum (formulário vazio) | `getMasterProduct(id)` preenche formulário               |
+| Operação         | `createMasterProduct()`   | `updateMasterProduct(id, data)`                          |
+| Campo Status     | Não existe                | Botões toggle Ativo/Inativo                              |
+| Feedback Sucesso | Redirect imediato         | "Produto atualizado com sucesso!" + redirect após 1500ms |
 
 ---
 
@@ -57,11 +59,11 @@ Formulário de edição de produto existente no catálogo master Rennova. Permit
 
 ## 5. Validações
 
-| Validação | Mensagem de Erro |
-|-----------|------------------|
-| Código vazio | "Código do produto é obrigatório" |
+| Validação       | Mensagem de Erro                                |
+| --------------- | ----------------------------------------------- |
+| Código vazio    | "Código do produto é obrigatório"               |
 | Código inválido | "Código inválido. O código deve ter 7 dígitos." |
-| Nome vazio | "Nome do produto é obrigatório" |
+| Nome vazio      | "Nome do produto é obrigatório"                 |
 
 ---
 
@@ -77,17 +79,18 @@ Formulário de edição de produto existente no catálogo master Rennova. Permit
 
 ## 7. Estados da Interface
 
-| Estado | Exibição |
-|--------|----------|
-| Carregando | "Carregando produto..." (center, muted) |
+| Estado                 | Exibição                                                |
+| ---------------------- | ------------------------------------------------------- |
+| Carregando             | "Carregando produto..." (center, muted)                 |
 | Produto não encontrado | "Produto não encontrado" + botão "Voltar para Produtos" |
-| Salvando | Botão "Salvando..." (disabled) |
-| Sucesso | Banner verde "Produto atualizado com sucesso!" |
-| Erro | Banner vermelho com mensagem |
+| Salvando               | Botão "Salvando..." (disabled)                          |
+| Sucesso                | Banner verde "Produto atualizado com sucesso!"          |
+| Erro                   | Banner vermelho com mensagem                            |
 
 ---
 
 ## 8. Observações
+
 - Redirect após sucesso usa `setTimeout` de 1500ms para mostrar feedback
 - Toggle de status usa dois botões (não checkbox)
 - `formatCodeInput` limita a 7 dígitos numéricos
@@ -96,9 +99,9 @@ Formulário de edição de produto existente no catálogo master Rennova. Permit
 
 ## 9. Histórico de Mudanças
 
-| Data | Versão | Autor | Descrição |
-|------|--------|-------|-----------|
-| 07/02/2026 | 1.0 | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição            |
+| ---------- | ------ | ------------------ | -------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
 
 ---
 

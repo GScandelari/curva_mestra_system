@@ -3,27 +3,24 @@
  * Envia e-mail para o system_admin quando uma nova solicitação é criada
  */
 
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
-import { sendEmail } from "./services/emailService";
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { sendEmail } from './services/emailService';
 
 // E-mail do system_admin
-const SYSTEM_ADMIN_EMAIL = "scandelari.guilherme@curvamestra.com.br";
+const SYSTEM_ADMIN_EMAIL = 'scandelari.guilherme@curvamestra.com.br';
 
 /**
  * Formata o documento (CPF ou CNPJ) para exibição
  */
 function formatDocument(document: string, type: string): string {
-  const clean = document.replace(/\D/g, "");
+  const clean = document.replace(/\D/g, '');
 
-  if (type === "cpf" && clean.length === 11) {
-    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (type === 'cpf' && clean.length === 11) {
+    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   }
 
-  if (type === "cnpj" && clean.length === 14) {
-    return clean.replace(
-      /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
-      "$1.$2.$3/$4-$5"
-    );
+  if (type === 'cnpj' && clean.length === 14) {
+    return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   }
 
   return document;
@@ -34,14 +31,14 @@ function formatDocument(document: string, type: string): string {
  */
 export const onAccessRequestCreated = onDocumentCreated(
   {
-    document: "access_requests/{requestId}",
-    region: "southamerica-east1",
-    secrets: ["SMTP_USER", "SMTP_PASS"],
+    document: 'access_requests/{requestId}',
+    region: 'southamerica-east1',
+    secrets: ['SMTP_USER', 'SMTP_PASS'],
   },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
-      console.log("Sem dados no evento");
+      console.log('Sem dados no evento');
       return;
     }
 
@@ -51,10 +48,10 @@ export const onAccessRequestCreated = onDocumentCreated(
     console.log(`📝 Nova solicitação de acesso criada: ${requestId}`);
 
     // Extrair dados da solicitação
-    const documentNumber = data.document_number || "";
-    const documentType = data.document_type || "cnpj";
-    const fullName = data.full_name || "Não informado";
-    const email = data.email || "Não informado";
+    const documentNumber = data.document_number || '';
+    const documentType = data.document_type || 'cnpj';
+    const fullName = data.full_name || 'Não informado';
+    const email = data.email || 'Não informado';
     const businessName = data.business_name || fullName;
 
     // Formatar documento para o título do e-mail
@@ -164,13 +161,13 @@ export const onAccessRequestCreated = onDocumentCreated(
               <div class="info-row">
                 <span class="info-label">Tipo:</span>
                 <span class="info-value">
-                  <span class="badge ${documentType === "cpf" ? "badge-cpf" : "badge-cnpj"}">
-                    ${documentType === "cpf" ? "Autônomo (CPF)" : "Clínica (CNPJ)"}
+                  <span class="badge ${documentType === 'cpf' ? 'badge-cpf' : 'badge-cnpj'}">
+                    ${documentType === 'cpf' ? 'Autônomo (CPF)' : 'Clínica (CNPJ)'}
                   </span>
                 </span>
               </div>
               <div class="info-row">
-                <span class="info-label">${documentType === "cpf" ? "CPF" : "CNPJ"}:</span>
+                <span class="info-label">${documentType === 'cpf' ? 'CPF' : 'CNPJ'}:</span>
                 <span class="info-value"><strong>${formattedDocument}</strong></span>
               </div>
               <div class="info-row">
@@ -181,12 +178,16 @@ export const onAccessRequestCreated = onDocumentCreated(
                 <span class="info-label">E-mail:</span>
                 <span class="info-value">${email}</span>
               </div>
-              ${businessName !== fullName ? `
+              ${
+                businessName !== fullName
+                  ? `
               <div class="info-row">
                 <span class="info-label">Empresa:</span>
                 <span class="info-value">${businessName}</span>
               </div>
-              ` : ""}
+              `
+                  : ''
+              }
               <div class="info-row">
                 <span class="info-label">Status:</span>
                 <span class="info-value">
@@ -195,7 +196,7 @@ export const onAccessRequestCreated = onDocumentCreated(
               </div>
               <div class="info-row">
                 <span class="info-label">Data:</span>
-                <span class="info-value">${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
+                <span class="info-value">${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
               </div>
             </div>
 
@@ -224,7 +225,7 @@ export const onAccessRequestCreated = onDocumentCreated(
 
       console.log(`✅ E-mail de notificação enviado para ${SYSTEM_ADMIN_EMAIL}`);
     } catch (error) {
-      console.error("❌ Erro ao enviar e-mail de notificação:", error);
+      console.error('❌ Erro ao enviar e-mail de notificação:', error);
       // Não lançamos o erro para não impedir a criação da solicitação
     }
   }

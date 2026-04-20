@@ -26,12 +26,12 @@ Página administrativa para execução manual de verificações (checks) que ger
 
 ## 2. Tipos de Usuários
 
-| Tipo | Acesso | Permissões |
-|------|--------|------------|
-| `clinic_admin` | Total | Visualiza cards, executa checks individuais e completos |
-| `clinic_user` | Bloqueado | Vê Alert destructive "Apenas administradores podem executar checks" |
-| `clinic_consultant` | Bloqueado | Vê Alert destructive |
-| `system_admin` | N/A | Não acessa rotas do módulo clínica |
+| Tipo                | Acesso    | Permissões                                                          |
+| ------------------- | --------- | ------------------------------------------------------------------- |
+| `clinic_admin`      | Total     | Visualiza cards, executa checks individuais e completos             |
+| `clinic_user`       | Bloqueado | Vê Alert destructive "Apenas administradores podem executar checks" |
+| `clinic_consultant` | Bloqueado | Vê Alert destructive                                                |
+| `system_admin`      | N/A       | Não acessa rotas do módulo clínica                                  |
 
 ---
 
@@ -41,33 +41,33 @@ Página administrativa para execução manual de verificações (checks) que ger
 
 Fonte de dados para os checks. Cada item verificado:
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `id` | `string` | ID do documento (auto) |
-| `nome_produto` | `string` | Nome do produto |
-| `codigo_produto` | `string` | Código do produto |
-| `lote` | `string` | Lote do produto |
-| `dt_validade` | `string` | Data de validade (DD/MM/YYYY) |
-| `quantidade_disponivel` | `number` | Quantidade atual em estoque |
+| Campo                   | Tipo     | Descrição                     |
+| ----------------------- | -------- | ----------------------------- |
+| `id`                    | `string` | ID do documento (auto)        |
+| `nome_produto`          | `string` | Nome do produto               |
+| `codigo_produto`        | `string` | Código do produto             |
+| `lote`                  | `string` | Lote do produto               |
+| `dt_validade`           | `string` | Data de validade (DD/MM/YYYY) |
+| `quantidade_disponivel` | `number` | Quantidade atual em estoque   |
 
 ### 3.2 Coleção — `tenants/{tenant_id}/notifications`
 
 Destino das notificações geradas:
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `type` | `string` | `"expiring"`, `"expired"` ou `"low_stock"` |
-| `inventory_id` | `string` | ID do item de inventário |
-| `read` | `boolean` | Se a notificação foi lida |
+| Campo          | Tipo      | Descrição                                  |
+| -------------- | --------- | ------------------------------------------ |
+| `type`         | `string`  | `"expiring"`, `"expired"` ou `"low_stock"` |
+| `inventory_id` | `string`  | ID do item de inventário                   |
+| `read`         | `boolean` | Se a notificação foi lida                  |
 
 ### 3.3 Configurações — `notificationSettings`
 
-| Campo | Tipo | Default | Descrição |
-|-------|------|---------|-----------|
-| `enable_expiry_alerts` | `boolean` | - | Habilita checks de vencimento |
-| `enable_low_stock_alerts` | `boolean` | - | Habilita check de estoque baixo |
-| `expiry_warning_days` | `number` | 30 | Dias antes do vencimento para alertar |
-| `low_stock_threshold` | `number` | 10 | Quantidade mínima para alerta |
+| Campo                     | Tipo      | Default | Descrição                             |
+| ------------------------- | --------- | ------- | ------------------------------------- |
+| `enable_expiry_alerts`    | `boolean` | -       | Habilita checks de vencimento         |
+| `enable_low_stock_alerts` | `boolean` | -       | Habilita check de estoque baixo       |
+| `expiry_warning_days`     | `number`  | 30      | Dias antes do vencimento para alertar |
+| `low_stock_threshold`     | `number`  | 10      | Quantidade mínima para alerta         |
 
 ### 3.4 Estado do Componente (useState)
 
@@ -247,22 +247,22 @@ const [results, setResults] = useState<any>(null);
 
 ## 7. Estados da Interface
 
-| Estado | Comportamento | Visual |
-|--------|---------------|--------|
-| Acesso negado | Alert destructive ocupa toda a página | Texto "Apenas administradores podem executar checks de alertas" |
-| Idle | 3 cards de checks + card "Executar Todos" + alert informativo | Botões com ícone Play |
-| Executando (`running=true`) | Botões desabilitados, ícone Loader2 girando | `animate-spin` + texto "Executando..." (botão Executar Todos) |
-| Com resultados | Card verde com métricas em grid 3 colunas | CheckCircle verde + números em `text-2xl font-bold` |
-| Com erros | Alert destructive com lista de erros | Lista `ul` com erros por produto |
+| Estado                      | Comportamento                                                 | Visual                                                          |
+| --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------- |
+| Acesso negado               | Alert destructive ocupa toda a página                         | Texto "Apenas administradores podem executar checks de alertas" |
+| Idle                        | 3 cards de checks + card "Executar Todos" + alert informativo | Botões com ícone Play                                           |
+| Executando (`running=true`) | Botões desabilitados, ícone Loader2 girando                   | `animate-spin` + texto "Executando..." (botão Executar Todos)   |
+| Com resultados              | Card verde com métricas em grid 3 colunas                     | CheckCircle verde + números em `text-2xl font-bold`             |
+| Com erros                   | Alert destructive com lista de erros                          | Lista `ul` com erros por produto                                |
 
 ### 7.1 Feedback
 
-| Ação | Tipo de feedback | Conteúdo |
-|------|------------------|----------|
-| Check individual OK | Toast | "{CheckName} - Concluído: {N} verificados, {M} alertas criados" |
-| Todos os checks OK | Toast + Card | Toast: "{N} notificações criadas" + Card permanente com grid |
-| Erro em check | Toast destructive | "Erro ao executar check: {mensagem}" |
-| Erros no resultado | Alert destructive (inline) | Lista de erros por produto |
+| Ação                | Tipo de feedback           | Conteúdo                                                        |
+| ------------------- | -------------------------- | --------------------------------------------------------------- |
+| Check individual OK | Toast                      | "{CheckName} - Concluído: {N} verificados, {M} alertas criados" |
+| Todos os checks OK  | Toast + Card               | Toast: "{N} notificações criadas" + Card permanente com grid    |
+| Erro em check       | Toast destructive          | "Erro ao executar check: {mensagem}"                            |
+| Erros no resultado  | Alert destructive (inline) | Lista de erros por produto                                      |
 
 ---
 
@@ -270,58 +270,58 @@ const [results, setResults] = useState<any>(null);
 
 ### 8.1 Validações no Frontend
 
-| Validação | Condição | Comportamento |
-|-----------|----------|---------------|
-| Role do usuário | `claims?.role !== "clinic_admin"` | Alert destructive, nenhum botão disponível |
-| `tenantId` ausente | `!tenantId` | Funções retornam sem executar |
-| Estado running | `running === true` | Todos os botões desabilitados |
+| Validação          | Condição                          | Comportamento                              |
+| ------------------ | --------------------------------- | ------------------------------------------ |
+| Role do usuário    | `claims?.role !== "clinic_admin"` | Alert destructive, nenhum botão disponível |
+| `tenantId` ausente | `!tenantId`                       | Funções retornam sem executar              |
+| Estado running     | `running === true`                | Todos os botões desabilitados              |
 
 ### 8.2 Validações nos Serviços (alertTriggers)
 
-| Validação | Condição | Comportamento |
-|-----------|----------|---------------|
-| Alertas desabilitados | `enable_expiry_alerts === false` | Retorna resultado vazio |
+| Validação                  | Condição                            | Comportamento           |
+| -------------------------- | ----------------------------------- | ----------------------- |
+| Alertas desabilitados      | `enable_expiry_alerts === false`    | Retorna resultado vazio |
 | Estoque baixo desabilitado | `enable_low_stock_alerts === false` | Retorna resultado vazio |
-| Item sem validade | `!item.dt_validade` | Pula o item (continue) |
-| Notificação duplicada | Notificação não lida existente | Pula o item (continue) |
+| Item sem validade          | `!item.dt_validade`                 | Pula o item (continue)  |
+| Notificação duplicada      | Notificação não lida existente      | Pula o item (continue)  |
 
 ---
 
 ## 9. Integrações
 
-| Integração | Tipo | Descrição |
-|------------|------|-----------|
-| Firebase Auth | Autenticação | `useAuth()` fornece `claims.tenant_id` e `claims.role` |
-| Firestore — inventory | Leitura | Busca todos os itens do inventário para verificação |
-| Firestore — notifications | Leitura/Escrita | Verifica duplicatas e cria novas notificações |
-| `alertTriggers` | Serviço | 4 funções de check exportadas |
-| `notificationService` | Serviço | `createExpiringProductNotification`, `createLowStockNotification`, `getNotificationSettings` |
-| `useToast` | Hook UI | Feedback visual via toast |
+| Integração                | Tipo            | Descrição                                                                                    |
+| ------------------------- | --------------- | -------------------------------------------------------------------------------------------- |
+| Firebase Auth             | Autenticação    | `useAuth()` fornece `claims.tenant_id` e `claims.role`                                       |
+| Firestore — inventory     | Leitura         | Busca todos os itens do inventário para verificação                                          |
+| Firestore — notifications | Leitura/Escrita | Verifica duplicatas e cria novas notificações                                                |
+| `alertTriggers`           | Serviço         | 4 funções de check exportadas                                                                |
+| `notificationService`     | Serviço         | `createExpiringProductNotification`, `createLowStockNotification`, `getNotificationSettings` |
+| `useToast`                | Hook UI         | Feedback visual via toast                                                                    |
 
 ---
 
 ## 10. Segurança
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Autenticação | `useAuth()` verifica se há usuário logado |
-| Autorização (frontend) | Verifica `role === "clinic_admin"`, renderiza Alert destructive se falso |
-| Multi-tenant | `tenantId` do claims isola verificações por tenant |
-| Firestore RLS | Regras garantem isolamento multi-tenant |
-| Prevenção de execução múltipla | Estado `running` compartilhado desabilita todos os botões |
-| Deduplicação | Verifica notificações existentes antes de criar novas |
+| Aspecto                        | Implementação                                                            |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| Autenticação                   | `useAuth()` verifica se há usuário logado                                |
+| Autorização (frontend)         | Verifica `role === "clinic_admin"`, renderiza Alert destructive se falso |
+| Multi-tenant                   | `tenantId` do claims isola verificações por tenant                       |
+| Firestore RLS                  | Regras garantem isolamento multi-tenant                                  |
+| Prevenção de execução múltipla | Estado `running` compartilhado desabilita todos os botões                |
+| Deduplicação                   | Verifica notificações existentes antes de criar novas                    |
 
 ---
 
 ## 11. Performance
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Execução paralela | `runAllChecks` usa `Promise.all` para os 3 checks |
-| Full scan do inventário | Cada check busca **todos** os itens do inventário — pode ser lento com muitos produtos |
-| Verificação individual por item | Loop `for...of` com query de deduplicação por item — N+1 queries |
-| Sem paginação | Busca completa da coleção `inventory` sem limites |
-| Sem cache | Cada check faz sua própria busca ao inventário (mesmo no `runAllChecks`) |
+| Aspecto                         | Implementação                                                                          |
+| ------------------------------- | -------------------------------------------------------------------------------------- |
+| Execução paralela               | `runAllChecks` usa `Promise.all` para os 3 checks                                      |
+| Full scan do inventário         | Cada check busca **todos** os itens do inventário — pode ser lento com muitos produtos |
+| Verificação individual por item | Loop `for...of` com query de deduplicação por item — N+1 queries                       |
+| Sem paginação                   | Busca completa da coleção `inventory` sem limites                                      |
+| Sem cache                       | Cada check faz sua própria busca ao inventário (mesmo no `runAllChecks`)               |
 
 ### Observação de performance
 
@@ -331,14 +331,14 @@ Cada check faz `getDocs(inventoryRef)` separadamente. No `runAllChecks`, isso re
 
 ## 12. Acessibilidade
 
-| Aspecto | Status | Detalhes |
-|---------|--------|----------|
-| Alert de acesso negado | Sim | Componente Shadcn `Alert` com role="alert" |
-| Ícones nos cards | Parcial | Ícones + texto — acessível por leitura |
-| Estado de loading | Parcial | Ícone `Loader2` com `animate-spin` mas sem aria-label |
-| Toast notifications | Sim | Hook `useToast` com suporte nativo |
-| Cores semânticas | Limitado | Cores (laranja/vermelho/amarelo/verde) sem indicador textual alternativo |
-| Alert informativo | Sim | Componente Shadcn `Alert` semântico |
+| Aspecto                | Status   | Detalhes                                                                 |
+| ---------------------- | -------- | ------------------------------------------------------------------------ |
+| Alert de acesso negado | Sim      | Componente Shadcn `Alert` com role="alert"                               |
+| Ícones nos cards       | Parcial  | Ícones + texto — acessível por leitura                                   |
+| Estado de loading      | Parcial  | Ícone `Loader2` com `animate-spin` mas sem aria-label                    |
+| Toast notifications    | Sim      | Hook `useToast` com suporte nativo                                       |
+| Cores semânticas       | Limitado | Cores (laranja/vermelho/amarelo/verde) sem indicador textual alternativo |
+| Alert informativo      | Sim      | Componente Shadcn `Alert` semântico                                      |
 
 ---
 
@@ -346,33 +346,33 @@ Cada check faz `getDocs(inventoryRef)` separadamente. No `runAllChecks`, isso re
 
 ### 13.1 Cenários de Teste Recomendados
 
-| Cenário | Tipo | Descrição |
-|---------|------|-----------|
-| Acesso como clinic_admin | E2E | Verificar que cards e botões são exibidos |
-| Acesso como clinic_user | E2E | Verificar Alert destructive |
+| Cenário                          | Tipo       | Descrição                                                    |
+| -------------------------------- | ---------- | ------------------------------------------------------------ |
+| Acesso como clinic_admin         | E2E        | Verificar que cards e botões são exibidos                    |
+| Acesso como clinic_user          | E2E        | Verificar Alert destructive                                  |
 | Check de vencimento com produtos | Integração | Criar produtos com validade próxima e verificar notificações |
-| Check de vencimento sem produtos | Integração | Verificar resultado zerado |
-| Check de estoque baixo | Integração | Criar produto com quantidade baixa e verificar notificação |
-| Check de produtos vencidos | Integração | Criar produto vencido e verificar notificação |
-| Deduplicação | Integração | Executar check 2x e verificar que notificação não duplica |
-| Executar todos os checks | E2E | Verificar card de resultados com grid 3 colunas |
-| Check com alertas desabilitados | Integração | Desabilitar em settings e verificar resultado vazio |
-| Erro durante check | Integração | Simular erro e verificar toast destructive |
-| Estado running | E2E | Verificar que botões ficam desabilitados durante execução |
+| Check de vencimento sem produtos | Integração | Verificar resultado zerado                                   |
+| Check de estoque baixo           | Integração | Criar produto com quantidade baixa e verificar notificação   |
+| Check de produtos vencidos       | Integração | Criar produto vencido e verificar notificação                |
+| Deduplicação                     | Integração | Executar check 2x e verificar que notificação não duplica    |
+| Executar todos os checks         | E2E        | Verificar card de resultados com grid 3 colunas              |
+| Check com alertas desabilitados  | Integração | Desabilitar em settings e verificar resultado vazio          |
+| Erro durante check               | Integração | Simular erro e verificar toast destructive                   |
+| Estado running                   | E2E        | Verificar que botões ficam desabilitados durante execução    |
 
 ---
 
 ## 14. Melhorias Futuras
 
-| Melhoria | Prioridade | Descrição |
-|----------|------------|-----------|
-| Cache de inventário | Alta | Compartilhar resultado do inventário entre os 3 checks no `runAllChecks` |
-| Batch de deduplicação | Alta | Buscar todas as notificações de uma vez em vez de N queries individuais |
-| Scheduler real | Alta | Migrar para Firebase Scheduled Functions em produção |
-| Paginação de inventário | Média | Limitar busca para tenants com muitos produtos |
-| Histórico de checks | Média | Registrar quando cada check foi executado e por quem |
-| Progresso visual | Baixa | Barra de progresso durante execução dos checks |
-| Configuração inline | Baixa | Permitir ajustar `expiry_warning_days` e `low_stock_threshold` na página |
+| Melhoria                | Prioridade | Descrição                                                                |
+| ----------------------- | ---------- | ------------------------------------------------------------------------ |
+| Cache de inventário     | Alta       | Compartilhar resultado do inventário entre os 3 checks no `runAllChecks` |
+| Batch de deduplicação   | Alta       | Buscar todas as notificações de uma vez em vez de N queries individuais  |
+| Scheduler real          | Alta       | Migrar para Firebase Scheduled Functions em produção                     |
+| Paginação de inventário | Média      | Limitar busca para tenants com muitos produtos                           |
+| Histórico de checks     | Média      | Registrar quando cada check foi executado e por quem                     |
+| Progresso visual        | Baixa      | Barra de progresso durante execução dos checks                           |
+| Configuração inline     | Baixa      | Permitir ajustar `expiry_warning_days` e `low_stock_threshold` na página |
 
 ---
 
@@ -397,10 +397,10 @@ alerts (este doc)
 
 ### Páginas relacionadas
 
-| Página | Relação |
-|--------|---------|
-| Dashboard | Exibe notificações geradas pelos checks |
-| Inventário | Fonte dos dados verificados |
+| Página        | Relação                                     |
+| ------------- | ------------------------------------------- |
+| Dashboard     | Exibe notificações geradas pelos checks     |
+| Inventário    | Fonte dos dados verificados                 |
 | Configurações | Define thresholds e habilitação dos alertas |
 
 ---
@@ -421,27 +421,27 @@ alerts (este doc)
 
 ## 17. Histórico de Mudanças
 
-| Data | Versão | Descrição |
-|------|--------|-----------|
-| 07/02/2026 | 1.0 | Documentação inicial (formato antigo) |
-| 09/02/2026 | 2.0 | Padronização para template de 20 seções |
+| Data       | Versão | Descrição                               |
+| ---------- | ------ | --------------------------------------- |
+| 07/02/2026 | 1.0    | Documentação inicial (formato antigo)   |
+| 09/02/2026 | 2.0    | Padronização para template de 20 seções |
 
 ---
 
 ## 18. Glossário
 
-| Termo | Descrição |
-|-------|-----------|
-| `tenant_id` | Identificador único da clínica no sistema multi-tenant |
-| `claims` | Custom Claims do Firebase Auth com role e tenant_id |
-| `check` | Verificação automática do inventário para gerar alertas |
-| `expiring` | Produto com validade dentro do período de alerta (vencendo) |
-| `expired` | Produto com validade já passada (vencido) |
-| `low_stock` | Produto com quantidade abaixo do threshold configurado |
-| `alertTriggers` | Serviço que implementa a lógica dos 3 tipos de check |
-| `notificationSettings` | Configurações do tenant para alertas (thresholds, habilitação) |
-| `running` | Estado booleano que indica check em execução |
-| `deduplicação` | Verificação se já existe notificação não lida antes de criar nova |
+| Termo                  | Descrição                                                         |
+| ---------------------- | ----------------------------------------------------------------- |
+| `tenant_id`            | Identificador único da clínica no sistema multi-tenant            |
+| `claims`               | Custom Claims do Firebase Auth com role e tenant_id               |
+| `check`                | Verificação automática do inventário para gerar alertas           |
+| `expiring`             | Produto com validade dentro do período de alerta (vencendo)       |
+| `expired`              | Produto com validade já passada (vencido)                         |
+| `low_stock`            | Produto com quantidade abaixo do threshold configurado            |
+| `alertTriggers`        | Serviço que implementa a lógica dos 3 tipos de check              |
+| `notificationSettings` | Configurações do tenant para alertas (thresholds, habilitação)    |
+| `running`              | Estado booleano que indica check em execução                      |
+| `deduplicação`         | Verificação se já existe notificação não lida antes de criar nova |
 
 ---
 
@@ -460,11 +460,11 @@ alerts (este doc)
 
 ### Anexo A — Cards de Checks Individuais
 
-| Check | Ícone | Cor | Serviço | Descrição |
-|-------|-------|-----|---------|-----------|
-| Produtos Vencendo | `Calendar` | Laranja (`text-orange-500`) | `checkExpiringProducts` | Detecta produtos próximos do vencimento |
-| Produtos Vencidos | `AlertCircle` | Vermelho (`text-red-500`) | `checkExpiredProducts` | Detecta produtos com validade expirada |
-| Estoque Baixo | `Package` | Amarelo (`text-yellow-500`) | `checkLowStock` | Detecta produtos abaixo da quantidade mínima |
+| Check             | Ícone         | Cor                         | Serviço                 | Descrição                                    |
+| ----------------- | ------------- | --------------------------- | ----------------------- | -------------------------------------------- |
+| Produtos Vencendo | `Calendar`    | Laranja (`text-orange-500`) | `checkExpiringProducts` | Detecta produtos próximos do vencimento      |
+| Produtos Vencidos | `AlertCircle` | Vermelho (`text-red-500`)   | `checkExpiredProducts`  | Detecta produtos com validade expirada       |
+| Estoque Baixo     | `Package`     | Amarelo (`text-yellow-500`) | `checkLowStock`         | Detecta produtos abaixo da quantidade mínima |
 
 ### Anexo B — Estrutura do Layout
 

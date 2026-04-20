@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from 'firebase/firestore';
 
 export interface NFProduct {
   codigo: string;
@@ -22,7 +22,7 @@ export interface NFImport {
   numero_nf: string;
   arquivo_nome: string;
   arquivo_url?: string;
-  status: "pending" | "processing" | "success" | "error" | "novo_produto_pendente";
+  status: 'pending' | 'processing' | 'success' | 'error' | 'novo_produto_pendente';
   produtos_importados: number;
   produtos_novos: number;
   error_message?: string;

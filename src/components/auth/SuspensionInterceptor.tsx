@@ -13,24 +13,17 @@
  * - system_admin: nunca é bloqueado
  */
 
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { useTenantSuspension } from "@/hooks/useTenantSuspension";
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { useTenantSuspension } from '@/hooks/useTenantSuspension';
 
 // Rotas permitidas para clinic_admin quando a clínica está inativa
-const ALLOWED_ROUTES_INACTIVE_ADMIN = [
-  "/clinic/my-clinic",
-  "/clinic/profile",
-];
+const ALLOWED_ROUTES_INACTIVE_ADMIN = ['/clinic/my-clinic', '/clinic/profile'];
 
-export function SuspensionInterceptor({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function SuspensionInterceptor({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { claims } = useAuth();
@@ -45,27 +38,23 @@ export function SuspensionInterceptor({
 
     // ========== SUSPENSÃO (mais restritiva) ==========
     // Se não está nas páginas de suspensão e está suspenso
-    if (
-      isSuspended &&
-      !pathname?.startsWith("/suspended") &&
-      !pathname?.startsWith("/login")
-    ) {
+    if (isSuspended && !pathname?.startsWith('/suspended') && !pathname?.startsWith('/login')) {
       // Redirecionar para página apropriada conforme role
-      if (claims?.role === "clinic_admin") {
-        router.push("/suspended/admin");
-      } else if (claims?.role === "clinic_user") {
-        router.push("/suspended/user");
+      if (claims?.role === 'clinic_admin') {
+        router.push('/suspended/admin');
+      } else if (claims?.role === 'clinic_user') {
+        router.push('/suspended/user');
       }
       return;
     }
 
     // Se está nas páginas de suspensão mas não está mais suspenso
-    if (!isSuspended && pathname?.startsWith("/suspended")) {
+    if (!isSuspended && pathname?.startsWith('/suspended')) {
       // Redirecionar de volta para o dashboard ou my-clinic se inativo
-      if (isInactive && claims?.role === "clinic_admin") {
-        router.push("/clinic/my-clinic");
+      if (isInactive && claims?.role === 'clinic_admin') {
+        router.push('/clinic/my-clinic');
       } else {
-        router.push("/clinic");
+        router.push('/clinic');
       }
       return;
     }
@@ -75,20 +64,20 @@ export function SuspensionInterceptor({
     if (isInactive && !isSuspended) {
       // clinic_user não deveria chegar aqui (bloqueado no login)
       // mas por segurança, redirecionar para login
-      if (claims?.role === "clinic_user") {
-        router.push("/login");
+      if (claims?.role === 'clinic_user') {
+        router.push('/login');
         return;
       }
 
       // clinic_admin: verificar se está em rota permitida
-      if (claims?.role === "clinic_admin") {
-        const isAllowedRoute = ALLOWED_ROUTES_INACTIVE_ADMIN.some(
-          (route) => pathname?.startsWith(route)
+      if (claims?.role === 'clinic_admin') {
+        const isAllowedRoute = ALLOWED_ROUTES_INACTIVE_ADMIN.some((route) =>
+          pathname?.startsWith(route)
         );
 
-        if (!isAllowedRoute && !pathname?.startsWith("/login")) {
+        if (!isAllowedRoute && !pathname?.startsWith('/login')) {
           // Redirecionar para my-clinic
-          router.push("/clinic/my-clinic");
+          router.push('/clinic/my-clinic');
           return;
         }
       }

@@ -1,19 +1,13 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Building2, Search, Plus } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { ClinicCard } from "@/components/consultant/ClinicCard";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Building2, Search, Plus } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { ClinicCard } from '@/components/consultant/ClinicCard';
 
 interface Clinic {
   id: string;
@@ -30,7 +24,7 @@ export default function ConsultantClinicsPage() {
   const { user, refreshClaims } = useAuth();
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -45,7 +39,7 @@ export default function ConsultantClinicsPage() {
       setLoading(true);
       const token = await user.getIdToken();
 
-      const response = await fetch("/api/consultants/me/clinics", {
+      const response = await fetch('/api/consultants/me/clinics', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -56,7 +50,7 @@ export default function ConsultantClinicsPage() {
         await refreshClaims();
       }
     } catch (error) {
-      console.error("Erro ao carregar clínicas:", error);
+      console.error('Erro ao carregar clínicas:', error);
     } finally {
       setLoading(false);
     }
@@ -81,12 +75,10 @@ export default function ConsultantClinicsPage() {
               <Building2 className="h-8 w-8 text-sky-600" />
               Minhas Clínicas
             </h1>
-            <p className="text-muted-foreground">
-              Clínicas vinculadas à sua conta de consultor
-            </p>
+            <p className="text-muted-foreground">Clínicas vinculadas à sua conta de consultor</p>
           </div>
           <Button
-            onClick={() => router.push("/consultant/clinics/search")}
+            onClick={() => router.push('/consultant/clinics/search')}
             className="bg-sky-600 hover:bg-sky-700"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -121,14 +113,12 @@ export default function ConsultantClinicsPage() {
                 <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 {clinics.length === 0 ? (
                   <>
-                    <p className="text-lg font-medium mb-2">
-                      Nenhuma clínica vinculada
-                    </p>
+                    <p className="text-lg font-medium mb-2">Nenhuma clínica vinculada</p>
                     <p className="text-muted-foreground mb-4">
                       Busque clínicas por CNPJ/CPF para solicitar vínculo
                     </p>
                     <Button
-                      onClick={() => router.push("/consultant/clinics/search")}
+                      onClick={() => router.push('/consultant/clinics/search')}
                       className="bg-sky-600 hover:bg-sky-700"
                     >
                       <Search className="mr-2 h-4 w-4" />

@@ -1,16 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -18,22 +12,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import {
-  Plus,
-  Search,
-  Users,
-  Edit,
-  Ban,
-  CheckCircle,
-  Building2,
-  Copy,
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { formatTimestamp } from "@/lib/utils";
-import type { Consultant } from "@/types";
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Search, Users, Edit, Ban, CheckCircle, Building2, Copy } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { formatTimestamp } from '@/lib/utils';
+import type { Consultant } from '@/types';
 
 export default function ConsultantsListPage() {
   const router = useRouter();
@@ -41,9 +26,9 @@ export default function ConsultantsListPage() {
   const { toast } = useToast();
   const [consultants, setConsultants] = useState<Consultant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadConsultants();
@@ -54,11 +39,11 @@ export default function ConsultantsListPage() {
 
     try {
       setLoading(true);
-      setError("");
+      setError('');
 
       const token = await user.getIdToken();
       const params = new URLSearchParams();
-      if (statusFilter) params.append("status", statusFilter);
+      if (statusFilter) params.append('status', statusFilter);
 
       const response = await fetch(`/api/consultants?${params.toString()}`, {
         headers: {
@@ -69,13 +54,13 @@ export default function ConsultantsListPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao carregar consultores");
+        throw new Error(data.error || 'Erro ao carregar consultores');
       }
 
       setConsultants(data.data || []);
     } catch (err: any) {
-      setError(err.message || "Erro ao carregar consultores");
-      console.error("Erro ao carregar consultores:", err);
+      setError(err.message || 'Erro ao carregar consultores');
+      console.error('Erro ao carregar consultores:', err);
     } finally {
       setLoading(false);
     }
@@ -84,8 +69,8 @@ export default function ConsultantsListPage() {
   const handleToggleStatus = async (consultant: Consultant) => {
     if (!user) return;
 
-    const newStatus = consultant.status === "active" ? "suspended" : "active";
-    const action = newStatus === "suspended" ? "suspender" : "reativar";
+    const newStatus = consultant.status === 'active' ? 'suspended' : 'active';
+    const action = newStatus === 'suspended' ? 'suspender' : 'reativar';
 
     if (!confirm(`Tem certeza que deseja ${action} o consultor "${consultant.name}"?`)) {
       return;
@@ -95,9 +80,9 @@ export default function ConsultantsListPage() {
       const token = await user.getIdToken();
 
       const response = await fetch(`/api/consultants/${consultant.id}`, {
-        method: "PUT",
+        method: 'PUT',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ status: newStatus }),
@@ -109,16 +94,18 @@ export default function ConsultantsListPage() {
         throw new Error(data.error || `Erro ao ${action} consultor`);
       }
 
-      toast({ title: `Consultor ${newStatus === "active" ? "reativado" : "suspenso"} com sucesso` });
+      toast({
+        title: `Consultor ${newStatus === 'active' ? 'reativado' : 'suspenso'} com sucesso`,
+      });
       loadConsultants();
     } catch (err: any) {
-      toast({ title: err.message, variant: "destructive" });
+      toast({ title: err.message, variant: 'destructive' });
     }
   };
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
-    toast({ title: "Código copiado para a área de transferência" });
+    toast({ title: 'Código copiado para a área de transferência' });
   };
 
   const filteredConsultants = consultants.filter((consultant) => {
@@ -133,11 +120,11 @@ export default function ConsultantsListPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "active":
+      case 'active':
         return <Badge variant="default">Ativo</Badge>;
-      case "suspended":
+      case 'suspended':
         return <Badge variant="destructive">Suspenso</Badge>;
-      case "inactive":
+      case 'inactive':
         return <Badge variant="secondary">Inativo</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -159,7 +146,7 @@ export default function ConsultantsListPage() {
             </p>
           </div>
           <Button
-            onClick={() => router.push("/admin/consultants/new")}
+            onClick={() => router.push('/admin/consultants/new')}
             className="bg-sky-600 hover:bg-sky-700"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -187,20 +174,20 @@ export default function ConsultantsListPage() {
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant={statusFilter === null ? "default" : "outline"}
+                  variant={statusFilter === null ? 'default' : 'outline'}
                   onClick={() => setStatusFilter(null)}
                 >
                   Todos
                 </Button>
                 <Button
-                  variant={statusFilter === "active" ? "default" : "outline"}
-                  onClick={() => setStatusFilter("active")}
+                  variant={statusFilter === 'active' ? 'default' : 'outline'}
+                  onClick={() => setStatusFilter('active')}
                 >
                   Ativos
                 </Button>
                 <Button
-                  variant={statusFilter === "suspended" ? "default" : "outline"}
-                  onClick={() => setStatusFilter("suspended")}
+                  variant={statusFilter === 'suspended' ? 'default' : 'outline'}
+                  onClick={() => setStatusFilter('suspended')}
                 >
                   Suspensos
                 </Button>
@@ -211,9 +198,7 @@ export default function ConsultantsListPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-            {error}
-          </div>
+          <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
         )}
 
         {/* Consultants List */}
@@ -221,7 +206,7 @@ export default function ConsultantsListPage() {
           <CardHeader>
             <CardTitle>Consultores ({filteredConsultants.length})</CardTitle>
             <CardDescription>
-              {loading ? "Carregando..." : "Lista de consultores cadastrados"}
+              {loading ? 'Carregando...' : 'Lista de consultores cadastrados'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -232,8 +217,8 @@ export default function ConsultantsListPage() {
             ) : filteredConsultants.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 {searchTerm
-                  ? "Nenhum consultor encontrado com os filtros aplicados"
-                  : "Nenhum consultor cadastrado"}
+                  ? 'Nenhum consultor encontrado com os filtros aplicados'
+                  : 'Nenhum consultor cadastrado'}
               </div>
             ) : (
               <div className="rounded-md border">
@@ -268,15 +253,11 @@ export default function ConsultantsListPage() {
                             </Button>
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium">
-                          {consultant.name}
-                        </TableCell>
+                        <TableCell className="font-medium">{consultant.name}</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
                             <div>{consultant.email}</div>
-                            <div className="text-muted-foreground">
-                              {consultant.phone}
-                            </div>
+                            <div className="text-muted-foreground">{consultant.phone}</div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -294,14 +275,12 @@ export default function ConsultantsListPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() =>
-                                router.push(`/admin/consultants/${consultant.id}`)
-                              }
+                              onClick={() => router.push(`/admin/consultants/${consultant.id}`)}
                               title="Editar"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            {consultant.status === "active" ? (
+                            {consultant.status === 'active' ? (
                               <Button
                                 variant="ghost"
                                 size="sm"

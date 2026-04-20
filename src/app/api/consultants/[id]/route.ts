@@ -5,28 +5,25 @@
  * DELETE - Desativar consultor
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * GET - Obter consultor por ID
  */
-export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const params = await context.params;
     const consultantId = params.id;
 
     // Verificar autenticação
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Token não fornecido" }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     // System admin ou o próprio consultor pode ver
@@ -34,13 +31,13 @@ export async function GET(
     const isOwnConsultant = decodedToken.consultant_id === consultantId;
 
     if (!isSystemAdmin && !isOwnConsultant) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const consultantDoc = await adminDb.collection("consultants").doc(consultantId).get();
+    const consultantDoc = await adminDb.collection('consultants').doc(consultantId).get();
 
     if (!consultantDoc.exists) {
-      return NextResponse.json({ error: "Consultor não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: 'Consultor não encontrado' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -51,9 +48,9 @@ export async function GET(
       },
     });
   } catch (error: any) {
-    console.error("Erro ao buscar consultor:", error);
+    console.error('Erro ao buscar consultor:', error);
     return NextResponse.json(
-      { error: error.message || "Erro ao buscar consultor" },
+      { error: error.message || 'Erro ao buscar consultor' },
       { status: 500 }
     );
   }
@@ -62,32 +59,29 @@ export async function GET(
 /**
  * PUT - Atualizar consultor
  */
-export async function PUT(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const params = await context.params;
     const consultantId = params.id;
 
     // Verificar autenticação
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Token não fornecido" }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     // Apenas system_admin pode atualizar consultores
     if (!decodedToken.is_system_admin) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const consultantDoc = await adminDb.collection("consultants").doc(consultantId).get();
+    const consultantDoc = await adminDb.collection('consultants').doc(consultantId).get();
 
     if (!consultantDoc.exists) {
-      return NextResponse.json({ error: "Consultor não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: 'Consultor não encontrado' }, { status: 404 });
     }
 
     const body = await req.json();
@@ -99,7 +93,7 @@ export async function PUT(
 
     if (name) updateData.name = name;
     if (phone) updateData.phone = phone;
-    if (status && ["active", "inactive", "suspended"].includes(status)) {
+    if (status && ['active', 'inactive', 'suspended'].includes(status)) {
       updateData.status = status;
     }
 
@@ -107,16 +101,13 @@ export async function PUT(
     if (email) {
       const emailLower = email.toLowerCase();
       const existingByEmail = await adminDb
-        .collection("consultants")
-        .where("email", "==", emailLower)
+        .collection('consultants')
+        .where('email', '==', emailLower)
         .limit(1)
         .get();
 
       if (!existingByEmail.empty && existingByEmail.docs[0].id !== consultantId) {
-        return NextResponse.json(
-          { error: "Email já está em uso" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Email já está em uso' }, { status: 400 });
       }
 
       updateData.email = emailLower;
@@ -127,27 +118,24 @@ export async function PUT(
         try {
           await adminAuth.updateUser(consultantData.user_id, { email: emailLower });
         } catch (authError: any) {
-          if (authError.code === "auth/email-already-exists") {
-            return NextResponse.json(
-              { error: "Email já está em uso no sistema" },
-              { status: 400 }
-            );
+          if (authError.code === 'auth/email-already-exists') {
+            return NextResponse.json({ error: 'Email já está em uso no sistema' }, { status: 400 });
           }
           throw authError;
         }
       }
     }
 
-    await adminDb.collection("consultants").doc(consultantId).update(updateData);
+    await adminDb.collection('consultants').doc(consultantId).update(updateData);
 
     return NextResponse.json({
       success: true,
-      message: "Consultor atualizado com sucesso",
+      message: 'Consultor atualizado com sucesso',
     });
   } catch (error: any) {
-    console.error("Erro ao atualizar consultor:", error);
+    console.error('Erro ao atualizar consultor:', error);
     return NextResponse.json(
-      { error: error.message || "Erro ao atualizar consultor" },
+      { error: error.message || 'Erro ao atualizar consultor' },
       { status: 500 }
     );
   }
@@ -156,39 +144,36 @@ export async function PUT(
 /**
  * DELETE - Desativar consultor (não deleta, apenas marca como inativo)
  */
-export async function DELETE(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const params = await context.params;
     const consultantId = params.id;
 
     // Verificar autenticação
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Token não fornecido" }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     // Apenas system_admin pode desativar consultores
     if (!decodedToken.is_system_admin) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const consultantDoc = await adminDb.collection("consultants").doc(consultantId).get();
+    const consultantDoc = await adminDb.collection('consultants').doc(consultantId).get();
 
     if (!consultantDoc.exists) {
-      return NextResponse.json({ error: "Consultor não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: 'Consultor não encontrado' }, { status: 404 });
     }
 
     const consultantData = consultantDoc.data();
 
     // Desativar no Firestore
-    await adminDb.collection("consultants").doc(consultantId).update({
-      status: "inactive",
+    await adminDb.collection('consultants').doc(consultantId).update({
+      status: 'inactive',
       updated_at: FieldValue.serverTimestamp(),
     });
 
@@ -205,12 +190,12 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: "Consultor desativado com sucesso",
+      message: 'Consultor desativado com sucesso',
     });
   } catch (error: any) {
-    console.error("Erro ao desativar consultor:", error);
+    console.error('Erro ao desativar consultor:', error);
     return NextResponse.json(
-      { error: error.message || "Erro ao desativar consultor" },
+      { error: error.message || 'Erro ao desativar consultor' },
       { status: 500 }
     );
   }

@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { collection, query, orderBy, getDocs, deleteDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { FileText, Plus, Edit, Trash2, Loader2, Eye } from "lucide-react";
-import { LegalDocument, DocumentStatus } from "@/types";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { FileText, Plus, Edit, Trash2, Loader2, Eye } from 'lucide-react';
+import { LegalDocument, DocumentStatus } from '@/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +19,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 
 export default function LegalDocumentsPage() {
   const router = useRouter();
@@ -35,10 +35,7 @@ export default function LegalDocumentsPage() {
 
   async function loadDocuments() {
     try {
-      const q = query(
-        collection(db, "legal_documents"),
-        orderBy("order", "asc")
-      );
+      const q = query(collection(db, 'legal_documents'), orderBy('order', 'asc'));
       const querySnapshot = await getDocs(q);
       const docs = querySnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -48,9 +45,9 @@ export default function LegalDocumentsPage() {
       setDocuments(docs);
     } catch (error: any) {
       toast({
-        title: "Erro ao carregar documentos",
+        title: 'Erro ao carregar documentos',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -61,17 +58,17 @@ export default function LegalDocumentsPage() {
     if (!documentToDelete) return;
 
     try {
-      await deleteDoc(doc(db, "legal_documents", documentToDelete.id));
+      await deleteDoc(doc(db, 'legal_documents', documentToDelete.id));
       toast({
-        title: "Sucesso",
-        description: "Documento excluído com sucesso",
+        title: 'Sucesso',
+        description: 'Documento excluído com sucesso',
       });
       loadDocuments();
     } catch (error: any) {
       toast({
-        title: "Erro ao excluir",
+        title: 'Erro ao excluir',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setDeleteDialogOpen(false);
@@ -81,9 +78,9 @@ export default function LegalDocumentsPage() {
 
   function getStatusBadge(status: DocumentStatus) {
     const variants: Record<DocumentStatus, { variant: any; label: string }> = {
-      ativo: { variant: "default", label: "Ativo" },
-      inativo: { variant: "secondary", label: "Inativo" },
-      rascunho: { variant: "outline", label: "Rascunho" },
+      ativo: { variant: 'default', label: 'Ativo' },
+      inativo: { variant: 'secondary', label: 'Inativo' },
+      rascunho: { variant: 'outline', label: 'Rascunho' },
     };
 
     const config = variants[status];
@@ -112,7 +109,7 @@ export default function LegalDocumentsPage() {
               Gerencie os termos e políticas que os usuários devem aceitar
             </p>
           </div>
-          <Button onClick={() => router.push("/admin/legal-documents/new")}>
+          <Button onClick={() => router.push('/admin/legal-documents/new')}>
             <Plus className="mr-2 h-4 w-4" />
             Novo Documento
           </Button>
@@ -127,7 +124,7 @@ export default function LegalDocumentsPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 Crie documentos legais para que os usuários aceitem
               </p>
-              <Button onClick={() => router.push("/admin/legal-documents/new")}>
+              <Button onClick={() => router.push('/admin/legal-documents/new')}>
                 <Plus className="mr-2 h-4 w-4" />
                 Criar Primeiro Documento
               </Button>
@@ -199,13 +196,16 @@ export default function LegalDocumentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o documento{" "}
-              <strong>{documentToDelete?.title}</strong>? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir o documento <strong>{documentToDelete?.title}</strong>?
+              Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground"
+            >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

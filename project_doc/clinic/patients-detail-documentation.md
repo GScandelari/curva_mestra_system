@@ -29,12 +29,12 @@ Página de visualização completa de um paciente individual. Exibe dados cadast
 
 ## 2. Tipos de Usuários
 
-| Tipo | Acesso | Permissões |
-|------|--------|------------|
-| `clinic_admin` | Total | Visualizar, editar, deletar paciente e criar procedimentos |
-| `clinic_user` | Leitura | Visualizar dados e histórico (botões editar/deletar visíveis mas sem restrição frontend — depende do serviço/Firestore) |
-| `clinic_consultant` | N/A | Não acessa rotas de pacientes |
-| `system_admin` | N/A | Não acessa rotas do módulo clínica |
+| Tipo                | Acesso  | Permissões                                                                                                              |
+| ------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `clinic_admin`      | Total   | Visualizar, editar, deletar paciente e criar procedimentos                                                              |
+| `clinic_user`       | Leitura | Visualizar dados e histórico (botões editar/deletar visíveis mas sem restrição frontend — depende do serviço/Firestore) |
+| `clinic_consultant` | N/A     | Não acessa rotas de pacientes                                                                                           |
+| `system_admin`      | N/A     | Não acessa rotas do módulo clínica                                                                                      |
 
 ---
 
@@ -42,20 +42,20 @@ Página de visualização completa de um paciente individual. Exibe dados cadast
 
 ### 3.1 Documento Firestore — `tenants/{tenant_id}/patients/{patient_id}`
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `tenant_id` | `string` | ID do tenant (isolamento multi-tenant) |
-| `codigo` | `string` | Código único do paciente |
-| `nome` | `string` | Nome completo |
-| `telefone` | `string \| null` | Telefone formatado |
-| `email` | `string \| null` | Email em lowercase |
-| `data_nascimento` | `string \| null` | Data formatada DD/MM/AAAA |
-| `cpf` | `string \| null` | CPF apenas dígitos |
-| `observacoes` | `string \| null` | Texto livre |
-| `created_by` | `string` | UID do criador |
-| `created_by_name` | `string` | displayName do criador |
-| `created_at` | `Timestamp` | Data de criação |
-| `updated_at` | `Timestamp` | Data de atualização |
+| Campo             | Tipo             | Descrição                              |
+| ----------------- | ---------------- | -------------------------------------- |
+| `tenant_id`       | `string`         | ID do tenant (isolamento multi-tenant) |
+| `codigo`          | `string`         | Código único do paciente               |
+| `nome`            | `string`         | Nome completo                          |
+| `telefone`        | `string \| null` | Telefone formatado                     |
+| `email`           | `string \| null` | Email em lowercase                     |
+| `data_nascimento` | `string \| null` | Data formatada DD/MM/AAAA              |
+| `cpf`             | `string \| null` | CPF apenas dígitos                     |
+| `observacoes`     | `string \| null` | Texto livre                            |
+| `created_by`      | `string`         | UID do criador                         |
+| `created_by_name` | `string`         | displayName do criador                 |
+| `created_at`      | `Timestamp`      | Data de criação                        |
+| `updated_at`      | `Timestamp`      | Data de atualização                    |
 
 ### 3.2 Coleção relacionada — `tenants/{tenant_id}/solicitacoes`
 
@@ -63,13 +63,13 @@ O histórico de procedimentos é buscado na coleção `solicitacoes` usando `whe
 
 Cada solicitação contém:
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `paciente_codigo` | `string` | Código do paciente (vinculação) |
-| `dt_procedimento` | `Timestamp` | Data do procedimento |
-| `status` | `string` | Status da solicitação |
-| `produtos_solicitados` | `array` | Lista de produtos com nome, lote, quantidade, valor_unitario |
-| `observacoes` | `string` | Observações do procedimento |
+| Campo                  | Tipo        | Descrição                                                    |
+| ---------------------- | ----------- | ------------------------------------------------------------ |
+| `paciente_codigo`      | `string`    | Código do paciente (vinculação)                              |
+| `dt_procedimento`      | `Timestamp` | Data do procedimento                                         |
+| `status`               | `string`    | Status da solicitação                                        |
+| `produtos_solicitados` | `array`     | Lista de produtos com nome, lote, quantidade, valor_unitario |
+| `observacoes`          | `string`    | Observações do procedimento                                  |
 
 ### 3.3 Estado do Componente (useState)
 
@@ -260,16 +260,16 @@ const [actionLoading, setActionLoading] = useState(false);
 
 ## 7. Estados da Interface
 
-| Estado | Comportamento | Visual |
-|--------|---------------|--------|
-| Carregando (`loading=true`) | Spinner centralizado | `animate-spin` div com `h-8 w-8 border-b-2` |
-| Paciente não encontrado | Mensagem centralizada + botão Voltar | Texto "Paciente não encontrado" |
-| Dados carregados | Exibe todas as seções | Cabeçalho, ações rápidas, dados, estatísticas, histórico |
-| Sem procedimentos | Mensagem na seção de histórico | "Nenhum procedimento realizado" |
-| Ação em andamento (`actionLoading=true`) | Botões Editar e Deletar desabilitados | `disabled` nos botões |
-| Exclusão com sucesso | Alert + redirect | `alert()` + `router.push("/clinic/patients")` |
-| Exclusão com erro | Alert com mensagem | `alert(result.error)` |
-| Exclusão negada (confirm) | Nada acontece | `confirm()` retorna false |
+| Estado                                   | Comportamento                         | Visual                                                   |
+| ---------------------------------------- | ------------------------------------- | -------------------------------------------------------- |
+| Carregando (`loading=true`)              | Spinner centralizado                  | `animate-spin` div com `h-8 w-8 border-b-2`              |
+| Paciente não encontrado                  | Mensagem centralizada + botão Voltar  | Texto "Paciente não encontrado"                          |
+| Dados carregados                         | Exibe todas as seções                 | Cabeçalho, ações rápidas, dados, estatísticas, histórico |
+| Sem procedimentos                        | Mensagem na seção de histórico        | "Nenhum procedimento realizado"                          |
+| Ação em andamento (`actionLoading=true`) | Botões Editar e Deletar desabilitados | `disabled` nos botões                                    |
+| Exclusão com sucesso                     | Alert + redirect                      | `alert()` + `router.push("/clinic/patients")`            |
+| Exclusão com erro                        | Alert com mensagem                    | `alert(result.error)`                                    |
+| Exclusão negada (confirm)                | Nada acontece                         | `confirm()` retorna false                                |
 
 ---
 
@@ -277,46 +277,46 @@ const [actionLoading, setActionLoading] = useState(false);
 
 ### 8.1 Validações no Frontend
 
-| Validação | Condição | Comportamento |
-|-----------|----------|---------------|
-| `tenantId` ausente | `claims?.tenant_id` é null | `loadData` retorna sem executar |
-| Paciente não encontrado | `getPatientById` retorna null | Tela de "Paciente não encontrado" |
-| Erro no histórico | Exceção em `getPatientHistory` | `.catch(() => [])` — retorna array vazio silenciosamente |
-| Confirmação de exclusão | `confirm()` retorna false | Operação cancelada |
+| Validação               | Condição                       | Comportamento                                            |
+| ----------------------- | ------------------------------ | -------------------------------------------------------- |
+| `tenantId` ausente      | `claims?.tenant_id` é null     | `loadData` retorna sem executar                          |
+| Paciente não encontrado | `getPatientById` retorna null  | Tela de "Paciente não encontrado"                        |
+| Erro no histórico       | Exceção em `getPatientHistory` | `.catch(() => [])` — retorna array vazio silenciosamente |
+| Confirmação de exclusão | `confirm()` retorna false      | Operação cancelada                                       |
 
 ### 8.2 Validações no Serviço (`deletePatient`)
 
-| Validação | Condição | Mensagem de erro |
-|-----------|----------|------------------|
-| Paciente não encontrado | `getPatientById` retorna null | "Paciente não encontrado" |
+| Validação                  | Condição                                | Mensagem de erro                                                    |
+| -------------------------- | --------------------------------------- | ------------------------------------------------------------------- |
+| Paciente não encontrado    | `getPatientById` retorna null           | "Paciente não encontrado"                                           |
 | Paciente com procedimentos | Query `solicitacoes` retorna resultados | "Não é possível deletar: paciente possui procedimentos registrados" |
 
 ---
 
 ## 9. Integrações
 
-| Integração | Tipo | Descrição |
-|------------|------|-----------|
-| Firebase Auth | Autenticação | `useAuth()` fornece `claims.tenant_id` |
-| Firestore — patients | Leitura/Exclusão | `getPatientById`, `deletePatient` |
-| Firestore — solicitacoes | Leitura | `getPatientHistory` para histórico de procedimentos |
-| `reportService` | Formatação | `formatCurrency` para exibir valores monetários |
-| Next.js Router | Navegação | `useRouter()` + `useParams()` para rota dinâmica |
-| Página de solicitações | Navegação | Link para `/clinic/requests/new` com query params |
-| Página de edição | Navegação | Link para `/clinic/patients/{id}/edit` |
+| Integração               | Tipo             | Descrição                                           |
+| ------------------------ | ---------------- | --------------------------------------------------- |
+| Firebase Auth            | Autenticação     | `useAuth()` fornece `claims.tenant_id`              |
+| Firestore — patients     | Leitura/Exclusão | `getPatientById`, `deletePatient`                   |
+| Firestore — solicitacoes | Leitura          | `getPatientHistory` para histórico de procedimentos |
+| `reportService`          | Formatação       | `formatCurrency` para exibir valores monetários     |
+| Next.js Router           | Navegação        | `useRouter()` + `useParams()` para rota dinâmica    |
+| Página de solicitações   | Navegação        | Link para `/clinic/requests/new` com query params   |
+| Página de edição         | Navegação        | Link para `/clinic/patients/{id}/edit`              |
 
 ---
 
 ## 10. Segurança
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Autenticação | `useAuth()` verifica se há usuário logado |
-| Multi-tenant | `claims.tenant_id` isola dados por tenant |
+| Aspecto                | Implementação                                              |
+| ---------------------- | ---------------------------------------------------------- |
+| Autenticação           | `useAuth()` verifica se há usuário logado                  |
+| Multi-tenant           | `claims.tenant_id` isola dados por tenant                  |
 | Autorização (exclusão) | Sem verificação de role no frontend — depende do Firestore |
-| Proteção de exclusão | Serviço impede exclusão se há solicitações vinculadas |
-| Firestore RLS | Regras garantem `request.auth.token.tenant_id == tenantId` |
-| Confirmação destrutiva | `confirm()` nativo antes de deletar |
+| Proteção de exclusão   | Serviço impede exclusão se há solicitações vinculadas      |
+| Firestore RLS          | Regras garantem `request.auth.token.tenant_id == tenantId` |
+| Confirmação destrutiva | `confirm()` nativo antes de deletar                        |
 
 ### Observação de segurança
 
@@ -326,25 +326,25 @@ O botão de exclusão não verifica `claims.role` no frontend. Qualquer usuário
 
 ## 11. Performance
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Carregamento paralelo | `Promise.all` para paciente + histórico (primeira chamada) |
-| Chamada redundante | `getPatientHistory(tenantId, patientId)` é chamado com ID (falha silenciosa) e depois com `patient.codigo` (chamada correta) — **chamada desnecessária ao Firestore** |
-| Cálculo inline | `calculateTotalValue` e `totalGasto` calculados a cada render |
-| Sem paginação de histórico | Todos os procedimentos são carregados de uma vez |
+| Aspecto                    | Implementação                                                                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Carregamento paralelo      | `Promise.all` para paciente + histórico (primeira chamada)                                                                                                            |
+| Chamada redundante         | `getPatientHistory(tenantId, patientId)` é chamado com ID (falha silenciosa) e depois com `patient.codigo` (chamada correta) — **chamada desnecessária ao Firestore** |
+| Cálculo inline             | `calculateTotalValue` e `totalGasto` calculados a cada render                                                                                                         |
+| Sem paginação de histórico | Todos os procedimentos são carregados de uma vez                                                                                                                      |
 
 ---
 
 ## 12. Acessibilidade
 
-| Aspecto | Status | Detalhes |
-|---------|--------|----------|
-| Spinner de loading | Parcial | Elemento visual sem `aria-label` ou `role="status"` |
-| Botões com ícones | Parcial | Ícones + texto — acessível por leitura |
-| Scroll suave | Sim | `scrollIntoView({ behavior: "smooth" })` |
-| Cores de status | Limitado | Estatísticas usam cores (azul/verde) sem indicador textual |
-| Confirm nativo | Sim | Acessível por padrão do browser |
-| Feedback de erro | Limitado | Apenas `alert()` nativo |
+| Aspecto            | Status   | Detalhes                                                   |
+| ------------------ | -------- | ---------------------------------------------------------- |
+| Spinner de loading | Parcial  | Elemento visual sem `aria-label` ou `role="status"`        |
+| Botões com ícones  | Parcial  | Ícones + texto — acessível por leitura                     |
+| Scroll suave       | Sim      | `scrollIntoView({ behavior: "smooth" })`                   |
+| Cores de status    | Limitado | Estatísticas usam cores (azul/verde) sem indicador textual |
+| Confirm nativo     | Sim      | Acessível por padrão do browser                            |
+| Feedback de erro   | Limitado | Apenas `alert()` nativo                                    |
 
 ---
 
@@ -352,34 +352,34 @@ O botão de exclusão não verifica `claims.role` no frontend. Qualquer usuário
 
 ### 13.1 Cenários de Teste Recomendados
 
-| Cenário | Tipo | Descrição |
-|---------|------|-----------|
-| Carregar paciente existente | E2E | Verificar exibição de todos os dados e estatísticas |
-| Paciente não encontrado | E2E | Verificar tela de erro e botão voltar |
-| Campos opcionais vazios | E2E | Verificar que campos null não são exibidos |
-| Histórico com procedimentos | E2E | Verificar listagem com produtos e valores |
-| Histórico vazio | E2E | Verificar mensagem "Nenhum procedimento realizado" |
-| Cálculo de valor total | Unitário | Verificar soma de `quantidade * valor_unitario` |
-| Scroll para histórico | E2E | Clicar "Listar Procedimentos" e verificar scroll |
-| Novo procedimento | E2E | Verificar que query params são passados corretamente |
-| Deletar paciente sem procedimentos | E2E | Verificar exclusão e redirect |
-| Deletar paciente com procedimentos | E2E | Verificar mensagem de erro |
-| Cancelar exclusão | E2E | Verificar que confirm(false) não executa ação |
-| Estado de loading | E2E | Verificar spinner durante carregamento |
+| Cenário                            | Tipo     | Descrição                                            |
+| ---------------------------------- | -------- | ---------------------------------------------------- |
+| Carregar paciente existente        | E2E      | Verificar exibição de todos os dados e estatísticas  |
+| Paciente não encontrado            | E2E      | Verificar tela de erro e botão voltar                |
+| Campos opcionais vazios            | E2E      | Verificar que campos null não são exibidos           |
+| Histórico com procedimentos        | E2E      | Verificar listagem com produtos e valores            |
+| Histórico vazio                    | E2E      | Verificar mensagem "Nenhum procedimento realizado"   |
+| Cálculo de valor total             | Unitário | Verificar soma de `quantidade * valor_unitario`      |
+| Scroll para histórico              | E2E      | Clicar "Listar Procedimentos" e verificar scroll     |
+| Novo procedimento                  | E2E      | Verificar que query params são passados corretamente |
+| Deletar paciente sem procedimentos | E2E      | Verificar exclusão e redirect                        |
+| Deletar paciente com procedimentos | E2E      | Verificar mensagem de erro                           |
+| Cancelar exclusão                  | E2E      | Verificar que confirm(false) não executa ação        |
+| Estado de loading                  | E2E      | Verificar spinner durante carregamento               |
 
 ---
 
 ## 14. Melhorias Futuras
 
-| Melhoria | Prioridade | Descrição |
-|----------|------------|-----------|
-| Remover chamada redundante | Alta | Eliminar `getPatientHistory(tenantId, patientId)` — usar apenas `patient.codigo` |
-| Toast notifications | Alta | Substituir `alert()` e `confirm()` por toast/dialog (Shadcn/ui) |
-| Verificação de role para exclusão | Alta | Esconder botão "Deletar" para `clinic_user` |
-| Paginação de histórico | Média | Implementar paginação para pacientes com muitos procedimentos |
-| Memoização de cálculos | Baixa | `useMemo` para `totalGasto` e `totalProcedimentos` |
-| Impressão de ficha | Baixa | Gerar PDF com dados do paciente |
-| Edição inline | Baixa | Editar campos diretamente na página de detalhe |
+| Melhoria                          | Prioridade | Descrição                                                                        |
+| --------------------------------- | ---------- | -------------------------------------------------------------------------------- |
+| Remover chamada redundante        | Alta       | Eliminar `getPatientHistory(tenantId, patientId)` — usar apenas `patient.codigo` |
+| Toast notifications               | Alta       | Substituir `alert()` e `confirm()` por toast/dialog (Shadcn/ui)                  |
+| Verificação de role para exclusão | Alta       | Esconder botão "Deletar" para `clinic_user`                                      |
+| Paginação de histórico            | Média      | Implementar paginação para pacientes com muitos procedimentos                    |
+| Memoização de cálculos            | Baixa      | `useMemo` para `totalGasto` e `totalProcedimentos`                               |
+| Impressão de ficha                | Baixa      | Gerar PDF com dados do paciente                                                  |
+| Edição inline                     | Baixa      | Editar campos diretamente na página de detalhe                                   |
 
 ---
 
@@ -401,11 +401,11 @@ patients-detail (este doc)
 
 ### Páginas relacionadas
 
-| Página | Relação |
-|--------|---------|
-| `/clinic/patients` | Listagem — origem da navegação |
-| `/clinic/patients/{id}/edit` | Edição — acessível pelo botão "Editar Dados" |
-| `/clinic/requests/new` | Nova solicitação — acessível pelo botão "Novo Procedimento" |
+| Página                       | Relação                                                     |
+| ---------------------------- | ----------------------------------------------------------- |
+| `/clinic/patients`           | Listagem — origem da navegação                              |
+| `/clinic/patients/{id}/edit` | Edição — acessível pelo botão "Editar Dados"                |
+| `/clinic/requests/new`       | Nova solicitação — acessível pelo botão "Novo Procedimento" |
 
 ---
 
@@ -425,26 +425,26 @@ patients-detail (este doc)
 
 ## 17. Histórico de Mudanças
 
-| Data | Versão | Descrição |
-|------|--------|-----------|
-| 07/02/2026 | 1.0 | Documentação inicial (formato antigo) |
-| 09/02/2026 | 2.0 | Padronização para template de 20 seções |
+| Data       | Versão | Descrição                               |
+| ---------- | ------ | --------------------------------------- |
+| 07/02/2026 | 1.0    | Documentação inicial (formato antigo)   |
+| 09/02/2026 | 2.0    | Padronização para template de 20 seções |
 
 ---
 
 ## 18. Glossário
 
-| Termo | Descrição |
-|-------|-----------|
-| `tenant_id` | Identificador único da clínica no sistema multi-tenant |
-| `claims` | Custom Claims do Firebase Auth com role e tenant_id |
-| `patientId` | ID do documento Firestore do paciente (parâmetro da URL) |
-| `patient.codigo` | Código de negócio do paciente (PAC + 8 dígitos ou manual) |
-| `solicitacoes` | Coleção Firestore que armazena procedimentos/solicitações |
-| `paciente_codigo` | Campo na solicitação que vincula ao paciente |
-| `produtos_solicitados` | Array de produtos usados em cada procedimento |
-| `formatCurrency` | Função do `reportService` para formatar valores monetários |
-| `actionLoading` | Estado que indica ação destrutiva em andamento (desabilita botões) |
+| Termo                  | Descrição                                                          |
+| ---------------------- | ------------------------------------------------------------------ |
+| `tenant_id`            | Identificador único da clínica no sistema multi-tenant             |
+| `claims`               | Custom Claims do Firebase Auth com role e tenant_id                |
+| `patientId`            | ID do documento Firestore do paciente (parâmetro da URL)           |
+| `patient.codigo`       | Código de negócio do paciente (PAC + 8 dígitos ou manual)          |
+| `solicitacoes`         | Coleção Firestore que armazena procedimentos/solicitações          |
+| `paciente_codigo`      | Campo na solicitação que vincula ao paciente                       |
+| `produtos_solicitados` | Array de produtos usados em cada procedimento                      |
+| `formatCurrency`       | Função do `reportService` para formatar valores monetários         |
+| `actionLoading`        | Estado que indica ação destrutiva em andamento (desabilita botões) |
 
 ---
 
@@ -464,13 +464,13 @@ patients-detail (este doc)
 
 ### Anexo A — Seções da Interface
 
-| Seção | Descrição | Layout |
-|-------|-----------|--------|
-| Cabeçalho | Nome, código, botões Editar e Deletar | Flex com gap |
-| Ações Rápidas | "Listar Procedimentos" e "Novo Procedimento" | Grid 2 colunas (`md:grid-cols-2`), botões com `h-16` |
-| Dados do Paciente | Campos cadastrais exibidos condicionalmente | Card `bg-white rounded-lg shadow-sm border p-6` |
-| Estatísticas | Total procedimentos (azul), Valor gasto (verde), Último procedimento | Card com `bg-blue-50` e `bg-green-50` |
-| Histórico de Procedimentos | Lista de procedimentos com produtos utilizados | Cards com `border rounded-lg hover:bg-gray-50` |
+| Seção                      | Descrição                                                            | Layout                                               |
+| -------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
+| Cabeçalho                  | Nome, código, botões Editar e Deletar                                | Flex com gap                                         |
+| Ações Rápidas              | "Listar Procedimentos" e "Novo Procedimento"                         | Grid 2 colunas (`md:grid-cols-2`), botões com `h-16` |
+| Dados do Paciente          | Campos cadastrais exibidos condicionalmente                          | Card `bg-white rounded-lg shadow-sm border p-6`      |
+| Estatísticas               | Total procedimentos (azul), Valor gasto (verde), Último procedimento | Card com `bg-blue-50` e `bg-green-50`                |
+| Histórico de Procedimentos | Lista de procedimentos com produtos utilizados                       | Cards com `border rounded-lg hover:bg-gray-50`       |
 
 ### Anexo B — Estrutura do Layout
 

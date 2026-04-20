@@ -1,18 +1,14 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Edit, Trash2, Calendar, FileText, List, Plus } from "lucide-react";
-import { Patient } from "@/types/patient";
-import {
-  getPatientById,
-  getPatientHistory,
-  deletePatient,
-} from "@/lib/services/patientService";
-import { formatCurrency } from "@/lib/services/reportService";
-import { Timestamp } from "firebase/firestore";
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Edit, Trash2, Calendar, FileText, List, Plus } from 'lucide-react';
+import { Patient } from '@/types/patient';
+import { getPatientById, getPatientHistory, deletePatient } from '@/lib/services/patientService';
+import { formatCurrency } from '@/lib/services/reportService';
+import { Timestamp } from 'firebase/firestore';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -50,27 +46,27 @@ export default function PatientDetailPage() {
         setHistory(fullHistory);
       }
     } catch (error) {
-      console.error("Erro ao carregar paciente:", error);
+      console.error('Erro ao carregar paciente:', error);
     } finally {
       setLoading(false);
     }
   }
 
   async function handleDelete() {
-    if (!tenantId || !confirm("Tem certeza que deseja deletar este paciente?")) return;
+    if (!tenantId || !confirm('Tem certeza que deseja deletar este paciente?')) return;
 
     try {
       setActionLoading(true);
       const result = await deletePatient(tenantId, patientId);
 
       if (result.success) {
-        alert("Paciente deletado com sucesso!");
-        router.push("/clinic/patients");
+        alert('Paciente deletado com sucesso!');
+        router.push('/clinic/patients');
       } else {
-        alert(result.error || "Erro ao deletar paciente");
+        alert(result.error || 'Erro ao deletar paciente');
       }
     } catch (error) {
-      alert("Erro ao deletar paciente");
+      alert('Erro ao deletar paciente');
     } finally {
       setActionLoading(false);
     }
@@ -78,7 +74,7 @@ export default function PatientDetailPage() {
 
   function formatDate(timestamp: Timestamp | Date): string {
     const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
-    return date.toLocaleDateString("pt-BR");
+    return date.toLocaleDateString('pt-BR');
   }
 
   function calculateTotalValue(procedimento: any): number {
@@ -122,212 +118,204 @@ export default function PatientDetailPage() {
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">{patient.nome}</h1>
-          <p className="text-gray-600 mt-1">Código: {patient.codigo}</p>
+            Voltar
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gray-900">{patient.nome}</h1>
+            <p className="text-gray-600 mt-1">Código: {patient.codigo}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/clinic/patients/${patientId}/edit`)}
+              disabled={actionLoading}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Editar Dados
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDelete}
+              disabled={actionLoading}
+              className="text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Deletar
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
+
+        {/* Ações Rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Button
+            onClick={() => {
+              // Scroll para a seção de histórico
+              const historicoSection = document.getElementById('historico-procedimentos');
+              historicoSection?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="h-16"
             variant="outline"
-            onClick={() => router.push(`/clinic/patients/${patientId}/edit`)}
-            disabled={actionLoading}
           >
-            <Edit className="w-4 h-4 mr-2" />
-            Editar Dados
+            <List className="w-5 h-5 mr-2" />
+            Listar Procedimentos ({history.length})
           </Button>
           <Button
-            variant="outline"
-            onClick={handleDelete}
-            disabled={actionLoading}
-            className="text-red-600 hover:bg-red-50"
+            onClick={() => {
+              // Navegar para novo procedimento com dados pré-preenchidos
+              const params = new URLSearchParams({
+                patientCode: patient.codigo,
+                patientName: patient.nome,
+              });
+              router.push(`/clinic/requests/new?${params.toString()}`);
+            }}
+            className="h-16"
           >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Deletar
+            <Plus className="w-5 h-5 mr-2" />
+            Novo Procedimento
           </Button>
         </div>
-      </div>
 
-      {/* Ações Rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Button
-          onClick={() => {
-            // Scroll para a seção de histórico
-            const historicoSection = document.getElementById("historico-procedimentos");
-            historicoSection?.scrollIntoView({ behavior: "smooth" });
-          }}
-          className="h-16"
-          variant="outline"
-        >
-          <List className="w-5 h-5 mr-2" />
-          Listar Procedimentos ({history.length})
-        </Button>
-        <Button
-          onClick={() => {
-            // Navegar para novo procedimento com dados pré-preenchidos
-            const params = new URLSearchParams({
-              patientCode: patient.codigo,
-              patientName: patient.nome,
-            });
-            router.push(`/clinic/requests/new?${params.toString()}`);
-          }}
-          className="h-16"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Novo Procedimento
-        </Button>
-      </div>
+        {/* Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Dados do Paciente */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Dados do Paciente</h2>
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Dados do Paciente */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Dados do Paciente</h2>
-
-          <div>
-            <p className="text-sm text-gray-600">Nome Completo</p>
-            <p className="font-medium text-gray-900">{patient.nome}</p>
-          </div>
-
-          {patient.telefone && (
             <div>
-              <p className="text-sm text-gray-600">Telefone</p>
-              <p className="font-medium text-gray-900">{patient.telefone}</p>
+              <p className="text-sm text-gray-600">Nome Completo</p>
+              <p className="font-medium text-gray-900">{patient.nome}</p>
             </div>
-          )}
 
-          {patient.email && (
-            <div>
-              <p className="text-sm text-gray-600">Email</p>
-              <p className="font-medium text-gray-900">{patient.email}</p>
-            </div>
-          )}
-
-          {patient.data_nascimento && (
-            <div>
-              <p className="text-sm text-gray-600">Data de Nascimento</p>
-              <p className="font-medium text-gray-900">{patient.data_nascimento}</p>
-            </div>
-          )}
-
-          {patient.cpf && (
-            <div>
-              <p className="text-sm text-gray-600">CPF</p>
-              <p className="font-medium text-gray-900">{patient.cpf}</p>
-            </div>
-          )}
-
-          {patient.observacoes && (
-            <div>
-              <p className="text-sm text-gray-600">Observações</p>
-              <p className="font-medium text-gray-900">{patient.observacoes}</p>
-            </div>
-          )}
-
-          <div className="pt-4 border-t">
-            <p className="text-sm text-gray-600">Cadastrado em</p>
-            <p className="font-medium text-gray-900">{formatDate(patient.created_at)}</p>
-          </div>
-        </div>
-
-        {/* Estatísticas */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Estatísticas</h2>
-
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <div className="flex items-center gap-2 mb-1">
-              <Calendar className="w-5 h-5 text-blue-600" />
-              <p className="text-sm text-blue-600 font-medium">Total de Procedimentos</p>
-            </div>
-            <p className="text-3xl font-bold text-blue-900">{totalProcedimentos}</p>
-          </div>
-
-          <div className="p-4 bg-green-50 rounded-lg">
-            <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-5 h-5 text-green-600" />
-              <p className="text-sm text-green-600 font-medium">Valor Total Gasto</p>
-            </div>
-            <p className="text-3xl font-bold text-green-900">
-              {formatCurrency(totalGasto)}
-            </p>
-          </div>
-
-          {history.length > 0 && (
-            <div className="pt-4 border-t">
-              <p className="text-sm text-gray-600">Último Procedimento</p>
-              <p className="font-medium text-gray-900">
-                {formatDate(history[0].dt_procedimento)}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Histórico de Procedimentos */}
-      <div id="historico-procedimentos" className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          Histórico de Procedimentos
-        </h2>
-
-        {history.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">
-            Nenhum procedimento realizado
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {history.map((proc) => (
-              <div
-                key={proc.id}
-                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {formatDate(proc.dt_procedimento)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Status: <span className="capitalize">{proc.status}</span>
-                    </p>
-                  </div>
-                  <p className="text-lg font-bold text-gray-900">
-                    {formatCurrency(calculateTotalValue(proc))}
-                  </p>
-                </div>
-
-                {proc.produtos_solicitados && proc.produtos_solicitados.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Produtos Utilizados:
-                    </p>
-                    <div className="space-y-1">
-                      {proc.produtos_solicitados.map((produto: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between text-sm text-gray-600"
-                        >
-                          <span>
-                            {produto.nome_produto} (Lote: {produto.lote})
-                          </span>
-                          <span>
-                            {produto.quantidade}x {formatCurrency(produto.valor_unitario)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {proc.observacoes && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-sm text-gray-600">{proc.observacoes}</p>
-                  </div>
-                )}
+            {patient.telefone && (
+              <div>
+                <p className="text-sm text-gray-600">Telefone</p>
+                <p className="font-medium text-gray-900">{patient.telefone}</p>
               </div>
-            ))}
+            )}
+
+            {patient.email && (
+              <div>
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="font-medium text-gray-900">{patient.email}</p>
+              </div>
+            )}
+
+            {patient.data_nascimento && (
+              <div>
+                <p className="text-sm text-gray-600">Data de Nascimento</p>
+                <p className="font-medium text-gray-900">{patient.data_nascimento}</p>
+              </div>
+            )}
+
+            {patient.cpf && (
+              <div>
+                <p className="text-sm text-gray-600">CPF</p>
+                <p className="font-medium text-gray-900">{patient.cpf}</p>
+              </div>
+            )}
+
+            {patient.observacoes && (
+              <div>
+                <p className="text-sm text-gray-600">Observações</p>
+                <p className="font-medium text-gray-900">{patient.observacoes}</p>
+              </div>
+            )}
+
+            <div className="pt-4 border-t">
+              <p className="text-sm text-gray-600">Cadastrado em</p>
+              <p className="font-medium text-gray-900">{formatDate(patient.created_at)}</p>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Estatísticas */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Estatísticas</h2>
+
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <p className="text-sm text-blue-600 font-medium">Total de Procedimentos</p>
+              </div>
+              <p className="text-3xl font-bold text-blue-900">{totalProcedimentos}</p>
+            </div>
+
+            <div className="p-4 bg-green-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <FileText className="w-5 h-5 text-green-600" />
+                <p className="text-sm text-green-600 font-medium">Valor Total Gasto</p>
+              </div>
+              <p className="text-3xl font-bold text-green-900">{formatCurrency(totalGasto)}</p>
+            </div>
+
+            {history.length > 0 && (
+              <div className="pt-4 border-t">
+                <p className="text-sm text-gray-600">Último Procedimento</p>
+                <p className="font-medium text-gray-900">
+                  {formatDate(history[0].dt_procedimento)}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Histórico de Procedimentos */}
+        <div
+          id="historico-procedimentos"
+          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+        >
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Histórico de Procedimentos</h2>
+
+          {history.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">Nenhum procedimento realizado</p>
+          ) : (
+            <div className="space-y-4">
+              {history.map((proc) => (
+                <div
+                  key={proc.id}
+                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {formatDate(proc.dt_procedimento)}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Status: <span className="capitalize">{proc.status}</span>
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900">
+                      {formatCurrency(calculateTotalValue(proc))}
+                    </p>
+                  </div>
+
+                  {proc.produtos_solicitados && proc.produtos_solicitados.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Produtos Utilizados:</p>
+                      <div className="space-y-1">
+                        {proc.produtos_solicitados.map((produto: any, idx: number) => (
+                          <div key={idx} className="flex justify-between text-sm text-gray-600">
+                            <span>
+                              {produto.nome_produto} (Lote: {produto.lote})
+                            </span>
+                            <span>
+                              {produto.quantidade}x {formatCurrency(produto.valor_unitario)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {proc.observacoes && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-sm text-gray-600">{proc.observacoes}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

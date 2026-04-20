@@ -1,13 +1,13 @@
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from 'firebase/firestore';
 
 /**
  * Status do onboarding da clínica
  */
 export type OnboardingStatus =
-  | "pending_setup"      // Aguardando configuração inicial
-  | "pending_plan"       // Aguardando seleção de plano
-  | "pending_payment"    // Aguardando confirmação de pagamento
-  | "completed";         // Onboarding completo
+  | 'pending_setup' // Aguardando configuração inicial
+  | 'pending_plan' // Aguardando seleção de plano
+  | 'pending_payment' // Aguardando confirmação de pagamento
+  | 'completed'; // Onboarding completo
 
 /**
  * Dados de onboarding do tenant
@@ -18,8 +18,8 @@ export interface TenantOnboarding {
   setup_completed: boolean;
   plan_selected: boolean;
   payment_confirmed: boolean;
-  selected_plan_id?: "semestral" | "anual";
-  payment_method?: "credit_card" | "pix" | "boleto";
+  selected_plan_id?: 'semestral' | 'anual';
+  payment_method?: 'credit_card' | 'pix' | 'boleto';
   payment_data?: PaymentData;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -30,9 +30,9 @@ export interface TenantOnboarding {
  * Dados de pagamento (PagSeguro)
  */
 export interface PaymentData {
-  provider: "pagseguro" | "mock"; // mock para MVP
-  subscription_id?: string;        // ID da assinatura recorrente
-  transaction_id?: string;         // ID da transação
+  provider: 'pagseguro' | 'mock'; // mock para MVP
+  subscription_id?: string; // ID da assinatura recorrente
+  transaction_id?: string; // ID da transação
   payment_status: PaymentStatus;
   amount: number;
   payment_date?: Timestamp;
@@ -45,19 +45,19 @@ export interface PaymentData {
  * Status do pagamento
  */
 export type PaymentStatus =
-  | "pending"           // Aguardando pagamento
-  | "processing"        // Processando pagamento
-  | "approved"          // Pagamento aprovado
-  | "rejected"          // Pagamento rejeitado
-  | "cancelled"         // Pagamento cancelado
-  | "refunded";         // Pagamento reembolsado
+  | 'pending' // Aguardando pagamento
+  | 'processing' // Processando pagamento
+  | 'approved' // Pagamento aprovado
+  | 'rejected' // Pagamento rejeitado
+  | 'cancelled' // Pagamento cancelado
+  | 'refunded'; // Pagamento reembolsado
 
 /**
  * Dados para configuração inicial da clínica
  */
 export interface ClinicSetupData {
   name: string;
-  document_type: "cnpj" | "cpf";
+  document_type: 'cnpj' | 'cpf';
   document_number: string;
   email: string;
   phone: string;
@@ -71,8 +71,8 @@ export interface ClinicSetupData {
  * Dados para seleção de plano
  */
 export interface PlanSelectionData {
-  plan_id: "semestral" | "anual";
-  payment_method: "credit_card" | "pix" | "boleto";
+  plan_id: 'semestral' | 'anual';
+  payment_method: 'credit_card' | 'pix' | 'boleto';
 }
 
 /**
@@ -81,8 +81,8 @@ export interface PlanSelectionData {
 export interface PaymentCreationResponse {
   success: boolean;
   payment_id?: string;
-  payment_url?: string;  // URL para redirecionamento (PagSeguro)
-  qr_code?: string;      // QR Code para PIX
+  payment_url?: string; // URL para redirecionamento (PagSeguro)
+  qr_code?: string; // QR Code para PIX
   error?: string;
 }
 
@@ -101,14 +101,14 @@ export interface PaymentWebhookData {
 export interface PaymentMethod {
   id: string;
   tenant_id: string;
-  type: "credit_card";
-  card_first_digits: string;   // Primeiros 4 dígitos (ex: "4532")
-  card_last_digits: string;    // Últimos 4 dígitos (ex: "1234")
-  card_brand: string;          // Bandeira (visa, mastercard, elo, etc.)
-  card_holder_name: string;    // Nome do titular
-  expiry_month: string;        // Mês de expiração (01-12)
-  expiry_year: string;         // Ano de expiração (20XX)
-  is_default: boolean;         // Se é o método padrão
+  type: 'credit_card';
+  card_first_digits: string; // Primeiros 4 dígitos (ex: "4532")
+  card_last_digits: string; // Últimos 4 dígitos (ex: "1234")
+  card_brand: string; // Bandeira (visa, mastercard, elo, etc.)
+  card_holder_name: string; // Nome do titular
+  expiry_month: string; // Mês de expiração (01-12)
+  expiry_year: string; // Ano de expiração (20XX)
+  is_default: boolean; // Se é o método padrão
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -121,12 +121,12 @@ export interface PaymentHistory {
   tenant_id: string;
   payment_method_id?: string;
   transaction_id: string;
-  description: string;         // Ex: "Assinatura Semestral - Curva Mestra"
-  amount: number;              // Valor em centavos
+  description: string; // Ex: "Assinatura Semestral - Curva Mestra"
+  amount: number; // Valor em centavos
   status: PaymentStatus;
-  card_first_digits?: string;  // Primeiros 4 dígitos do cartão usado
-  card_last_digits?: string;   // Últimos 4 dígitos do cartão usado
-  card_brand?: string;         // Bandeira do cartão usado
+  card_first_digits?: string; // Primeiros 4 dígitos do cartão usado
+  card_last_digits?: string; // Últimos 4 dígitos do cartão usado
+  card_brand?: string; // Bandeira do cartão usado
   payment_date: Timestamp;
   created_at: Timestamp;
 }

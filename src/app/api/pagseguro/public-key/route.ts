@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
 // Chave pública gerada para integração PagSeguro
 // Formato: x.509 (SPKI), 2048 bits
@@ -29,7 +29,7 @@ export async function GET() {
     {
       status: 200,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     }
   );

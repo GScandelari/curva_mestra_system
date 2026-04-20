@@ -14,35 +14,35 @@ export interface PlanConfig {
 
 export const PLANS: Record<string, PlanConfig> = {
   semestral: {
-    id: "semestral",
-    name: "Plano Semestral",
-    description: "6 meses de acesso completo ao sistema",
-    price: 59.90,
-    duration: "6 meses",
+    id: 'semestral',
+    name: 'Plano Semestral',
+    description: '6 meses de acesso completo ao sistema',
+    price: 59.9,
+    duration: '6 meses',
     maxUsers: 5, // Máximo 5 usuários (incluindo admin)
     features: [
-      "Gestão completa de estoque",
-      "Até 5 usuários",
-      "Controle de lotes e validades",
-      "Rastreamento por paciente",
-      "Relatórios e alertas",
-      "Suporte por email",
+      'Gestão completa de estoque',
+      'Até 5 usuários',
+      'Controle de lotes e validades',
+      'Rastreamento por paciente',
+      'Relatórios e alertas',
+      'Suporte por email',
     ],
   },
   anual: {
-    id: "anual",
-    name: "Plano Anual",
-    description: "12 meses de acesso completo ao sistema",
-    price: 49.90,
-    duration: "12 meses",
+    id: 'anual',
+    name: 'Plano Anual',
+    description: '12 meses de acesso completo ao sistema',
+    price: 49.9,
+    duration: '12 meses',
     maxUsers: 5, // Máximo 5 usuários (incluindo admin)
     features: [
-      "Gestão completa de estoque",
-      "Até 5 usuários",
-      "Controle de lotes e validades",
-      "Rastreamento por paciente",
-      "Relatórios e alertas",
-      "Suporte prioritário",
+      'Gestão completa de estoque',
+      'Até 5 usuários',
+      'Controle de lotes e validades',
+      'Rastreamento por paciente',
+      'Relatórios e alertas',
+      'Suporte prioritário',
     ],
   },
 };
@@ -52,11 +52,11 @@ export const PLANS: Record<string, PlanConfig> = {
  */
 export function formatPlanPrice(planId: string): string {
   const plan = PLANS[planId];
-  if (!plan) return "N/A";
+  if (!plan) return 'N/A';
 
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
   }).format(plan.price);
 }
 

@@ -3,21 +3,21 @@
  * Multi-Tenant SaaS para Clínicas de Harmonização
  */
 
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from 'firebase/firestore';
 
 // ============================================================================
 // USER & AUTH
 // ============================================================================
 
-export type UserRole = "clinic_admin" | "clinic_user" | "system_admin" | "clinic_consultant";
+export type UserRole = 'clinic_admin' | 'clinic_user' | 'system_admin' | 'clinic_consultant';
 
 export interface CustomClaims {
-  tenant_id: string | null;           // null para consultores
+  tenant_id: string | null; // null para consultores
   role: UserRole;
   is_system_admin: boolean;
-  is_consultant?: boolean;            // true para clinic_consultant
-  consultant_id?: string;             // ID do consultor
-  authorized_tenants?: string[];      // Tenants com acesso (para consultores)
+  is_consultant?: boolean; // true para clinic_consultant
+  consultant_id?: string; // ID do consultor
+  authorized_tenants?: string[]; // Tenants com acesso (para consultores)
   active: boolean;
   requirePasswordChange?: boolean;
 }
@@ -30,8 +30,8 @@ export interface User {
   role: UserRole;
   active: boolean;
   requirePasswordChange?: boolean; // Flag para forçar troca de senha no próximo login
-  passwordResetAt?: Timestamp;     // Data da última redefinição de senha pelo admin
-  passwordChangedAt?: Timestamp;   // Data da última troca de senha pelo próprio usuário
+  passwordResetAt?: Timestamp; // Data da última redefinição de senha pelo admin
+  passwordChangedAt?: Timestamp; // Data da última troca de senha pelo próprio usuário
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -40,22 +40,22 @@ export interface User {
 // TENANT
 // ============================================================================
 
-export type DocumentType = "cnpj" | "cpf";
+export type DocumentType = 'cnpj' | 'cpf';
 
 export type SuspensionReason =
-  | "payment_failure"      // Falta de pagamento
-  | "contract_breach"      // Quebra de contrato
-  | "terms_violation"      // Violação dos termos de uso
-  | "fraud_detected"       // Fraude detectada
-  | "other";               // Outro motivo
+  | 'payment_failure' // Falta de pagamento
+  | 'contract_breach' // Quebra de contrato
+  | 'terms_violation' // Violação dos termos de uso
+  | 'fraud_detected' // Fraude detectada
+  | 'other'; // Outro motivo
 
 export interface SuspensionInfo {
   suspended: boolean;
   reason: SuspensionReason;
-  details: string;                  // Detalhes adicionais do motivo
+  details: string; // Detalhes adicionais do motivo
   suspended_at: Timestamp;
-  suspended_by: string;             // UID do system_admin que suspendeu
-  contact_email: string;            // Email para contato (suporte)
+  suspended_by: string; // UID do system_admin que suspendeu
+  contact_email: string; // Email para contato (suporte)
 }
 
 export interface Address {
@@ -68,19 +68,19 @@ export interface Address {
 export interface Tenant {
   id: string;
   name: string;
-  document_type: DocumentType;    // NOVO: tipo de documento
-  document_number: string;          // NOVO: CPF ou CNPJ unificado
-  cnpj?: string;                    // DEPRECATED: manter compatibilidade
+  document_type: DocumentType; // NOVO: tipo de documento
+  document_number: string; // NOVO: CPF ou CNPJ unificado
+  cnpj?: string; // DEPRECATED: manter compatibilidade
   email: string;
   phone?: string;
   address?: string | Address;
   plan_id: string;
-  max_users: number;                // NOVO: 1 para CPF, 5 para CNPJ
+  max_users: number; // NOVO: 1 para CPF, 5 para CNPJ
   active: boolean;
-  suspension?: SuspensionInfo;      // NOVO: Informações de suspensão
-  consultant_id?: string;           // ID do consultor atual
-  consultant_code?: string;         // Código 6 dígitos (desnormalizado)
-  consultant_name?: string;         // Nome do consultor (desnormalizado)
+  suspension?: SuspensionInfo; // NOVO: Informações de suspensão
+  consultant_id?: string; // ID do consultor atual
+  consultant_code?: string; // Código 6 dígitos (desnormalizado)
+  consultant_name?: string; // Nome do consultor (desnormalizado)
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -113,11 +113,11 @@ export interface ProdutoMaster {
 // ============================================================================
 
 export type NFImportStatus =
-  | "pending"
-  | "processing"
-  | "success"
-  | "error"
-  | "novo_produto_pendente";
+  | 'pending'
+  | 'processing'
+  | 'success'
+  | 'error'
+  | 'novo_produto_pendente';
 
 export interface NFImport {
   id: string;
@@ -164,12 +164,12 @@ export interface InventoryItem {
 // ============================================================================
 
 export type SolicitacaoStatus =
-  | "criada"
-  | "agendada"
-  | "concluida"
-  | "aprovada"
-  | "reprovada"
-  | "cancelada";
+  | 'criada'
+  | 'agendada'
+  | 'concluida'
+  | 'aprovada'
+  | 'reprovada'
+  | 'cancelada';
 
 export interface StatusHistoryEntry {
   status: SolicitacaoStatus;
@@ -210,7 +210,7 @@ export interface ProdutoSolicitado {
 // LICENÇAS
 // ============================================================================
 
-export type LicenseStatus = "ativa" | "pendente" | "expirada" | "suspensa";
+export type LicenseStatus = 'ativa' | 'pendente' | 'expirada' | 'suspensa';
 
 export interface License {
   id: string;
@@ -252,11 +252,11 @@ export interface AlertaVencimento {
 // ============================================================================
 
 export type AccessRequestStatus =
-  | "pendente" // Aguardando aprovação
-  | "aprovada" // Aprovada e clínica criada
-  | "rejeitada"; // Recusada por admin
+  | 'pendente' // Aguardando aprovação
+  | 'aprovada' // Aprovada e clínica criada
+  | 'rejeitada'; // Recusada por admin
 
-export type AccessRequestType = "clinica" | "autonomo";
+export type AccessRequestType = 'clinica' | 'autonomo';
 
 export interface AccessRequest {
   id: string;
@@ -308,7 +308,7 @@ export interface TenantLimits {
 // DOCUMENTOS LEGAIS
 // ============================================================================
 
-export type DocumentStatus = "ativo" | "inativo" | "rascunho";
+export type DocumentStatus = 'ativo' | 'inativo' | 'rascunho';
 
 export interface LegalDocument {
   id: string;
@@ -366,50 +366,50 @@ export interface ApiResponse<T> {
 // ============================================================================
 
 export interface PasswordResetToken {
-  id: string;                    // Document ID
-  token_hash: string;            // SHA-256 hash do token (nunca armazena raw)
-  user_id: string;               // Firebase Auth UID
-  user_email: string;            // Email do usuário
-  tenant_id?: string;            // Multi-tenant
-  expires_at: Timestamp;         // 30 minutos
+  id: string; // Document ID
+  token_hash: string; // SHA-256 hash do token (nunca armazena raw)
+  user_id: string; // Firebase Auth UID
+  user_email: string; // Email do usuário
+  tenant_id?: string; // Multi-tenant
+  expires_at: Timestamp; // 30 minutos
   created_at: Timestamp;
-  created_by: string;            // UID do admin que iniciou
-  used_at?: Timestamp;           // Marcado quando usado (one-time)
-  invalidated_at?: Timestamp;    // Se invalidado manualmente
+  created_by: string; // UID do admin que iniciou
+  used_at?: Timestamp; // Marcado quando usado (one-time)
+  invalidated_at?: Timestamp; // Se invalidado manualmente
 }
 
 // ============================================================================
 // CONSULTORES
 // ============================================================================
 
-export type ConsultantStatus = "active" | "inactive" | "suspended";
+export type ConsultantStatus = 'active' | 'inactive' | 'suspended';
 
 export interface Consultant {
   id: string;
-  user_id: string;                    // Firebase Auth UID
-  code: string;                       // 6 dígitos únicos (ex: "847291")
+  user_id: string; // Firebase Auth UID
+  code: string; // 6 dígitos únicos (ex: "847291")
   name: string;
   email: string;
   phone: string;
   status: ConsultantStatus;
-  authorized_tenants: string[];       // Lista de tenant_ids autorizados
+  authorized_tenants: string[]; // Lista de tenant_ids autorizados
   created_at: Timestamp;
   updated_at: Timestamp;
-  created_by?: string;                // UID do admin que criou
+  created_by?: string; // UID do admin que criou
 }
 
-export type ConsultantClaimStatus = "pending" | "approved" | "rejected";
+export type ConsultantClaimStatus = 'pending' | 'approved' | 'rejected';
 
 export interface ConsultantClaim {
   id: string;
-  consultant_id: string;              // ID do consultor solicitante
-  consultant_name: string;            // Nome (desnormalizado)
-  consultant_code: string;            // Código (desnormalizado)
-  tenant_id: string;                  // ID da clínica solicitada
-  tenant_name: string;                // Nome da clínica (desnormalizado)
-  tenant_document: string;            // CNPJ/CPF da clínica (desnormalizado)
+  consultant_id: string; // ID do consultor solicitante
+  consultant_name: string; // Nome (desnormalizado)
+  consultant_code: string; // Código (desnormalizado)
+  tenant_id: string; // ID da clínica solicitada
+  tenant_name: string; // Nome da clínica (desnormalizado)
+  tenant_document: string; // CNPJ/CPF da clínica (desnormalizado)
   status: ConsultantClaimStatus;
-  approved_by?: string;               // UID do admin que aprovou
+  approved_by?: string; // UID do admin que aprovou
   approved_by_name?: string;
   approved_at?: Timestamp;
   rejected_by?: string;

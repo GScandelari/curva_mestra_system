@@ -14,11 +14,13 @@
 Página para clinic_admin aprovar ou rejeitar solicitações de acesso à clínica. Exibe cards com pendentes, vagas disponíveis e usuários ativos. Tabela de solicitações com ações de aprovar/rejeitar. Rejeição inclui dialog com motivo opcional.
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(clinic)/clinic/access-requests/page.tsx`
 - **Rota:** `/clinic/access-requests`
 - **Layout:** Clinic Layout
 
 ### 1.2 Dependências
+
 - **accessRequestService:** `listAccessRequests()`, `approveAccessRequest()`, `rejectAccessRequest()`, `getTenantLimits()`
 - **Types:** `AccessRequest`, `TenantLimits`
 - **Hooks:** `useAuth()`, `useToast()`
@@ -27,35 +29,39 @@ Página para clinic_admin aprovar ou rejeitar solicitações de acesso à clíni
 
 ## 2. Cards de Estatísticas
 
-| Card | Valor |
-|------|-------|
-| Pendentes | `requests.length` |
+| Card              | Valor                                          |
+| ----------------- | ---------------------------------------------- |
+| Pendentes         | `requests.length`                              |
 | Vagas Disponíveis | `limits.available_slots` de `limits.max_users` |
-| Usuários Ativos | `limits.current_users` |
+| Usuários Ativos   | `limits.current_users`                         |
 
 ---
 
 ## 3. Tabela de Solicitações
 
-| Coluna | Descrição |
-|--------|-----------|
-| Solicitante | full_name + email |
-| Data | `created_at.toDate().toLocaleDateString("pt-BR")` |
-| Ações | Aprovar (default) + Rejeitar (destructive) |
+| Coluna      | Descrição                                         |
+| ----------- | ------------------------------------------------- |
+| Solicitante | full_name + email                                 |
+| Data        | `created_at.toDate().toLocaleDateString("pt-BR")` |
+| Ações       | Aprovar (default) + Rejeitar (destructive)        |
 
 ---
 
 ## 4. Casos de Uso
 
 ### 4.1 Aprovar Solicitação
+
 **Fluxo:**
+
 1. Verifica `available_slots > 0`
 2. `approveAccessRequest(id, { uid, name })`
 3. Toast: "O usuário receberá um email com código de ativação"
 4. Recarrega lista
 
 ### 4.2 Rejeitar Solicitação
+
 **Fluxo:**
+
 1. Abre Dialog com campo de motivo (opcional, Textarea)
 2. `rejectAccessRequest(id, { uid, name }, rejectionReason)`
 3. Toast: "O solicitante será notificado"
@@ -64,6 +70,7 @@ Página para clinic_admin aprovar ou rejeitar solicitações de acesso à clíni
 ---
 
 ## 5. Observações
+
 - Carrega `listAccessRequests({ status: "pendente", tenant_id })` (apenas pendentes)
 - Alert de limite quando `available_slots <= 0`
 - Botão "Atualizar" manual para recarregar
@@ -75,9 +82,9 @@ Página para clinic_admin aprovar ou rejeitar solicitações de acesso à clíni
 
 ## 6. Histórico de Mudanças
 
-| Data | Versão | Autor | Descrição |
-|------|--------|-------|-----------|
-| 07/02/2026 | 1.0 | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição            |
+| ---------- | ------ | ------------------ | -------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
 
 ---
 

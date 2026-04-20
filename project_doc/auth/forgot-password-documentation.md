@@ -35,11 +35,13 @@ A página Forgot Password é o **ponto de entrada** do fluxo de recuperação de
 ```
 
 ### 1.3 Localização
+
 - **Arquivo:** `src/app/(auth)/forgot-password/page.tsx`
 - **Rota:** `/forgot-password`
 - **Layout:** Auth Layout (sem navegação principal)
 
 ### 1.4 Dependências Principais
+
 - **Firebase Auth:** `sendPasswordResetEmail`
 - **Firebase Config:** Configuração de email templates
 - **Next.js:** Roteamento e componentes
@@ -56,10 +58,11 @@ O Firebase Auth possui um método nativo para envio de emails de reset:
 sendPasswordResetEmail(auth, email, {
   url: `${window.location.origin}/login`,
   handleCodeInApp: false,
-})
+});
 ```
 
 **Parâmetros:**
+
 - `auth`: Instância do Firebase Auth
 - `email`: Email do usuário
 - `options`: Configurações adicionais
@@ -67,6 +70,7 @@ sendPasswordResetEmail(auth, email, {
   - `handleCodeInApp`: Se deve processar código no app (false = usa link)
 
 **O que o Firebase faz:**
+
 1. Verifica se email existe no sistema
 2. Gera link de reset com código único
 3. Envia email usando template configurado
@@ -96,11 +100,13 @@ sendPasswordResetEmail(auth, email, {
 
 **Ator:** Usuário que Esqueceu a Senha  
 **Pré-condições:**
+
 - Usuário possui conta no sistema
 - Email está cadastrado no Firebase Auth
 - Usuário não está autenticado
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/forgot-password`
 2. Sistema exibe formulário com campo de email
 3. Usuário digita email: "usuario@exemplo.com"
@@ -113,21 +119,24 @@ sendPasswordResetEmail(auth, email, {
 10. Usuário recebe email na caixa de entrada
 
 **Pós-condições:**
+
 - Email enviado com link de reset
 - Link válido por tempo limitado (configurado no Firebase)
 - Usuário pode clicar no link para redefinir senha
 
 **Mensagem de Sucesso:**
+
 ```
 ✓ Email enviado com sucesso!
 
-Verifique sua caixa de entrada e siga as instruções 
+Verifique sua caixa de entrada e siga as instruções
 para redefinir sua senha.
 
 Não se esqueça de verificar a pasta de spam.
 ```
 
 **Conteúdo do Email (Firebase):**
+
 - Assunto: "Redefinir senha - Curva Mestra"
 - Corpo: Template configurado no Firebase Console
 - Link: `https://app.com/__/auth/action?mode=resetPassword&oobCode=[code]`
@@ -139,9 +148,11 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Email não está cadastrado no sistema
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/forgot-password`
 2. Usuário digita email não cadastrado: "naoexiste@exemplo.com"
 3. Usuário clica em "Enviar link de recuperação"
@@ -151,11 +162,13 @@ Não se esqueça de verificar a pasta de spam.
 7. Sistema exibe mensagem: "Usuário não encontrado"
 
 **Pós-condições:**
+
 - Email NÃO enviado
 - Usuário permanece na página
 - Pode tentar com outro email
 
 **Consideração de Segurança:**
+
 - Alguns sistemas não revelam se email existe (previne enumeração)
 - Este sistema opta por informar claramente (melhor UX)
 - Trade-off entre segurança e usabilidade
@@ -166,9 +179,11 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário digita email com formato incorreto
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/forgot-password`
 2. Usuário digita: "emailinvalido" (sem @)
 3. Usuário clica em "Enviar link de recuperação"
@@ -178,10 +193,12 @@ Não se esqueça de verificar a pasta de spam.
 7. Sistema exibe mensagem: "Email inválido"
 
 **Pós-condições:**
+
 - Email NÃO enviado
 - Usuário corrige formato
 
 **Validação:**
+
 - HTML5 validation (type="email") previne alguns casos
 - Firebase valida formato completo
 - Mensagem clara para correção
@@ -192,10 +209,12 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário ou Bot  
 **Pré-condições:**
+
 - Múltiplas tentativas em curto período
 - Firebase detecta abuso
 
 **Fluxo Principal:**
+
 1. Usuário tenta enviar email múltiplas vezes
 2. Firebase detecta rate limiting
 3. Firebase retorna erro `auth/too-many-requests`
@@ -203,11 +222,13 @@ Não se esqueça de verificar a pasta de spam.
 5. Sistema exibe mensagem: "Muitas tentativas. Tente novamente mais tarde"
 
 **Pós-condições:**
+
 - Email NÃO enviado
 - Usuário deve aguardar antes de tentar novamente
 - Proteção contra spam e abuso
 
 **Rate Limiting:**
+
 - Gerenciado automaticamente pelo Firebase
 - Baseado em IP e email
 - Tempo de bloqueio varia (geralmente minutos)
@@ -219,10 +240,12 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Problema de conectividade
 - Rede instável ou offline
 
 **Fluxo Principal:**
+
 1. Usuário tenta enviar email
 2. Requisição falha por problema de rede
 3. Firebase retorna erro `auth/network-request-failed`
@@ -230,6 +253,7 @@ Não se esqueça de verificar a pasta de spam.
 5. Sistema exibe mensagem: "Erro de conexão. Verifique sua internet"
 
 **Pós-condições:**
+
 - Email NÃO enviado
 - Usuário pode tentar novamente quando conexão estabilizar
 
@@ -239,10 +263,12 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário Impaciente  
 **Pré-condições:**
+
 - Usuário já solicitou reset
 - Email ainda não chegou (pode estar em trânsito)
 
 **Fluxo Principal:**
+
 1. Usuário solicita reset pela primeira vez
 2. Email é enviado (mas ainda não chegou)
 3. Usuário aguarda 30 segundos
@@ -251,11 +277,13 @@ Não se esqueça de verificar a pasta de spam.
 6. Usuário recebe dois emails
 
 **Pós-condições:**
+
 - Dois emails enviados
 - Ambos os links funcionam
 - Último link usado invalida os anteriores (comportamento do Firebase)
 
 **Comportamento:**
+
 - Firebase não bloqueia múltiplos envios
 - Cada solicitação gera novo link
 - Links anteriores podem ser invalidados após uso do mais recente
@@ -266,15 +294,18 @@ Não se esqueça de verificar a pasta de spam.
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário está em `/forgot-password`
 - Lembrou a senha ou desistiu
 
 **Fluxo Principal:**
+
 1. Usuário visualiza página
 2. Usuário clica em "Voltar para login"
 3. Sistema redireciona para `/login`
 
 **Pós-condições:**
+
 - Usuário na página de login
 - Pode fazer login normalmente
 
@@ -375,48 +406,56 @@ Não se esqueça de verificar a pasta de spam.
 ## 5. Regras de Negócio
 
 ### RN-001: Email Obrigatório
+
 **Descrição:** Campo de email é obrigatório para solicitar reset  
 **Aplicação:** Validação HTML5 (required) e Firebase  
 **Exceções:** Nenhuma  
 **Justificativa:** Não há como enviar email sem endereço
 
 ### RN-002: Validação de Formato
+
 **Descrição:** Email deve ter formato válido (contém @, domínio, etc)  
 **Aplicação:** HTML5 type="email" e Firebase  
 **Exceções:** Nenhuma  
 **Justificativa:** Previne erros de digitação
 
 ### RN-003: Verificação de Existência
+
 **Descrição:** Email deve existir no sistema para enviar reset  
 **Aplicação:** Firebase verifica antes de enviar  
 **Exceções:** Nenhuma  
 **Justificativa:** Não faz sentido enviar email para conta inexistente
 
 ### RN-004: Rate Limiting Automático
+
 **Descrição:** Firebase limita número de tentativas por período  
 **Aplicação:** Automático, baseado em IP e email  
 **Exceções:** Nenhuma  
 **Justificativa:** Previne spam e abuso
 
 ### RN-005: Link com Expiração
+
 **Descrição:** Link de reset expira após tempo configurado (padrão 1 hora)  
 **Aplicação:** Gerenciado pelo Firebase  
 **Exceções:** Nenhuma  
 **Justificativa:** Segurança - limita janela de vulnerabilidade
 
 ### RN-006: Tradução de Erros
+
 **Descrição:** Erros do Firebase são traduzidos para português  
 **Aplicação:** Função `translateFirebaseError`  
 **Exceções:** Nenhuma  
 **Justificativa:** Melhor experiência do usuário
 
 ### RN-007: Feedback Claro
+
 **Descrição:** Usuário sempre recebe feedback sobre ação (sucesso ou erro)  
 **Aplicação:** Mensagens visuais após submissão  
 **Exceções:** Nenhuma  
 **Justificativa:** Usuário precisa saber o que aconteceu
 
 ---
+
 ## 6. Estados da Interface
 
 ### 6.1 Estado: Formulário Inicial
@@ -425,10 +464,12 @@ Não se esqueça de verificar a pasta de spam.
 **Exibição:**
 
 **Card Header:**
+
 - Título: "Recuperar Senha"
 - Descrição: "Digite seu email para receber o link de recuperação"
 
 **Card Content:**
+
 - **Campo Email:**
   - Type: email
   - Placeholder: "seu@email.com"
@@ -442,6 +483,7 @@ Não se esqueça de verificar a pasta de spam.
   - Full width
 
 **Card Footer:**
+
 - Link: "Voltar para login" (com ícone de seta)
   - Destino: `/login`
   - Estilo: Texto com hover
@@ -450,6 +492,7 @@ Não se esqueça de verificar a pasta de spam.
 
 **Quando:** Usuário submeteu formulário  
 **Exibição:**
+
 - Campo de email desabilitado
 - Botão desabilitado
 - Texto do botão: "Enviando..."
@@ -463,25 +506,30 @@ Não se esqueça de verificar a pasta de spam.
 **Exibição:**
 
 **Ícone:**
+
 - Email (Mail) em círculo verde
 - Tamanho: 6x6
 - Cor: Verde (green-600)
 
 **Mensagem Principal:**
+
 - "Email enviado com sucesso!"
 - Fonte: Semibold
 
 **Mensagem Secundária:**
+
 - "Verifique sua caixa de entrada e siga as instruções para redefinir sua senha."
 - Cor: Muted foreground
 
 **Aviso:**
+
 - "Não se esqueça de verificar a pasta de spam."
 - Tamanho: Extra small
 - Cor: Muted foreground
 - Margem superior
 
 **Comportamento:**
+
 - Formulário não é mais exibido
 - Apenas mensagem de sucesso
 - Link "Voltar para login" permanece
@@ -490,6 +538,7 @@ Não se esqueça de verificar a pasta de spam.
 
 **Quando:** Falha ao enviar email  
 **Exibição:**
+
 - Formulário permanece visível
 - Alert vermelho acima do botão
 - Mensagem de erro traduzida
@@ -498,6 +547,7 @@ Não se esqueça de verificar a pasta de spam.
 - Usuário pode tentar novamente
 
 **Mensagens de Erro:**
+
 - "Usuário não encontrado"
 - "Email inválido"
 - "Muitas tentativas. Tente novamente mais tarde"
@@ -566,11 +616,13 @@ Não se esqueça de verificar a pasta de spam.
 ### 7.3 Elementos de UI
 
 **Card:**
+
 - Componente: Shadcn/ui Card
 - Largura: Responsiva
 - Centralizado na tela
 
 **Input Email:**
+
 - Componente: Shadcn/ui Input
 - Type: email (validação HTML5)
 - Required: true
@@ -578,18 +630,21 @@ Não se esqueça de verificar a pasta de spam.
 - Disabled durante processamento
 
 **Botão:**
+
 - Componente: Shadcn/ui Button
 - Variant: Default (primary)
 - Full width: true
 - Disabled durante processamento
 
 **Link Voltar:**
+
 - Componente: Next.js Link
 - Ícone: ArrowLeft (Lucide)
 - Estilo: Texto com hover
 - Cor: Muted foreground → Primary
 
 **Ícone de Sucesso:**
+
 - Componente: Mail (Lucide)
 - Tamanho: h-6 w-6
 - Cor: green-600
@@ -602,22 +657,26 @@ Não se esqueça de verificar a pasta de spam.
 ### 8.1 Validações de Frontend
 
 **Email:**
+
 - Obrigatório (HTML5 required)
 - Formato de email (HTML5 type="email")
 - Validação básica do navegador
 
 **Limitações:**
+
 - Não valida se email existe (feito pelo Firebase)
 - Não valida domínio (ex: @gmail.com vs @gmial.com)
 
 ### 8.2 Validações do Firebase
 
 **Email:**
+
 - Formato completo (regex avançado)
 - Existência no sistema
 - Rate limiting (automático)
 
 **Erros Retornados:**
+
 - `auth/user-not-found`: Email não cadastrado
 - `auth/invalid-email`: Formato inválido
 - `auth/too-many-requests`: Muitas tentativas
@@ -628,16 +687,16 @@ Não se esqueça de verificar a pasta de spam.
 ```typescript
 const translateFirebaseError = (errorCode: string): string => {
   switch (errorCode) {
-    case "auth/user-not-found":
-      return "Usuário não encontrado";
-    case "auth/invalid-email":
-      return "Email inválido";
-    case "auth/too-many-requests":
-      return "Muitas tentativas. Tente novamente mais tarde";
-    case "auth/network-request-failed":
-      return "Erro de conexão. Verifique sua internet";
+    case 'auth/user-not-found':
+      return 'Usuário não encontrado';
+    case 'auth/invalid-email':
+      return 'Email inválido';
+    case 'auth/too-many-requests':
+      return 'Muitas tentativas. Tente novamente mais tarde';
+    case 'auth/network-request-failed':
+      return 'Erro de conexão. Verifique sua internet';
     default:
-      return "Erro ao enviar email. Tente novamente";
+      return 'Erro ao enviar email. Tente novamente';
   }
 };
 ```
@@ -649,25 +708,29 @@ const translateFirebaseError = (errorCode: string): string => {
 ### 9.1 Firebase Auth - sendPasswordResetEmail
 
 **Método:**
+
 ```typescript
 sendPasswordResetEmail(auth, email, {
   url: `${window.location.origin}/login`,
   handleCodeInApp: false,
-})
+});
 ```
 
 **Parâmetros:**
+
 - `auth`: Instância do Firebase Auth
 - `email`: Email do usuário
 - `options.url`: URL de retorno após reset
 - `options.handleCodeInApp`: false (usa link externo)
 
 **Retorno:**
+
 - Promise<void>
 - Resolve se email enviado
 - Reject com erro se falha
 
 **Configuração Necessária:**
+
 - Template de email no Firebase Console
 - Domínio autorizado
 - SMTP configurado (gerenciado pelo Firebase)
@@ -675,9 +738,11 @@ sendPasswordResetEmail(auth, email, {
 ### 9.2 Firebase Console - Email Templates
 
 **Localização:**
+
 - Firebase Console → Authentication → Templates
 
 **Configurações:**
+
 - Assunto do email
 - Corpo do email (HTML)
 - Remetente (nome e email)
@@ -685,6 +750,7 @@ sendPasswordResetEmail(auth, email, {
 - Idioma
 
 **Variáveis Disponíveis:**
+
 - `%LINK%`: Link de reset
 - `%EMAIL%`: Email do usuário
 - `%APP_NAME%`: Nome do app
@@ -700,6 +766,7 @@ sendPasswordResetEmail(auth, email, {
 ## 10. Segurança
 
 ### 10.1 Proteções Implementadas
+
 - ✅ Rate limiting automático (Firebase)
 - ✅ Validação de formato de email
 - ✅ Links com expiração (1 hora padrão)
@@ -710,18 +777,21 @@ sendPasswordResetEmail(auth, email, {
 ### 10.2 Considerações de Segurança
 
 **Enumeração de Usuários:**
+
 - Sistema informa se email existe
 - Trade-off: Segurança vs UX
 - Decisão: Priorizar UX (informar claramente)
 - Alternativa: Sempre mostrar sucesso (mais seguro, pior UX)
 
 **Rate Limiting:**
+
 - Gerenciado pelo Firebase
 - Baseado em IP e email
 - Previne spam e brute force
 - Não há configuração manual
 
 **Links de Reset:**
+
 - Gerados pelo Firebase (seguros)
 - Expiração configurável
 - Uso único (invalidados após uso)
@@ -730,14 +800,17 @@ sendPasswordResetEmail(auth, email, {
 ### 10.3 Vetores de Ataque Mitigados
 
 **Spam de Emails:**
+
 - Rate limiting previne envio massivo
 - Firebase bloqueia IPs suspeitos
 
 **Enumeração de Contas:**
+
 - Parcialmente mitigado (informa se existe)
 - Rate limiting dificulta enumeração em massa
 
 **Phishing:**
+
 - Emails vêm de domínio Firebase oficial
 - Links apontam para domínio autorizado
 - Usuário pode verificar remetente
@@ -749,26 +822,31 @@ sendPasswordResetEmail(auth, email, {
 ### 11.1 Métricas Estimadas
 
 **Carregamento da Página:**
+
 - Tempo: ~300-500ms
 - Componentes: Leves (apenas um input)
 - Bundle: Pequeno
 
 **Envio de Email:**
+
 - Tempo: ~1-3 segundos
 - Depende: Firebase e servidor de email
 - Feedback: Imediato (loading state)
 
 **Total do Fluxo:**
+
 - Acesso → Preenchimento → Envio: ~5-10 segundos
 - Usuário recebe email: ~30 segundos a 2 minutos
 
 ### 11.2 Otimizações Implementadas
+
 - ✅ Autofocus no campo de email (UX)
 - ✅ Feedback imediato (loading state)
 - ✅ Validação HTML5 (previne requisições inválidas)
 - ✅ Componentes leves (Shadcn/ui)
 
 ### 11.3 Gargalos Potenciais
+
 - Envio de email pelo Firebase (depende de serviço externo)
 - Entrega de email (pode cair em spam)
 - Processamento do servidor de email do destinatário
@@ -778,6 +856,7 @@ sendPasswordResetEmail(auth, email, {
 ## 12. Melhorias Futuras
 
 ### 12.1 Funcionalidades
+
 - [ ] Captcha para prevenir bots
 - [ ] Verificação de email em tempo real (API)
 - [ ] Sugestão de correção de email (ex: gmial → gmail)
@@ -788,6 +867,7 @@ sendPasswordResetEmail(auth, email, {
 - [ ] Link para FAQ ou suporte
 
 ### 12.2 UX/UI
+
 - [ ] Animação de envio de email
 - [ ] Countdown para tentar novamente (rate limit)
 - [ ] Indicador de força de conexão
@@ -797,6 +877,7 @@ sendPasswordResetEmail(auth, email, {
 - [ ] Ilustração ou ícone mais visual
 
 ### 12.3 Segurança
+
 - [ ] Captcha obrigatório após X tentativas
 - [ ] Não revelar se email existe (mais seguro)
 - [ ] Auditoria de tentativas de reset
@@ -805,6 +886,7 @@ sendPasswordResetEmail(auth, email, {
 - [ ] Geolocalização de tentativas
 
 ### 12.4 Comunicação
+
 - [ ] Customização completa do email
 - [ ] Múltiplos idiomas no email
 - [ ] Email com design responsivo
@@ -818,6 +900,7 @@ sendPasswordResetEmail(auth, email, {
 ### 13.1 Decisões de Arquitetura
 
 **Por que usar sendPasswordResetEmail do Firebase?**
+
 - Simplicidade de implementação
 - Infraestrutura de email confiável
 - Não requer servidor SMTP próprio
@@ -826,6 +909,7 @@ sendPasswordResetEmail(auth, email, {
 - Segurança gerenciada pelo Firebase
 
 **Por que não implementar sistema próprio?**
+
 - Complexidade adicional
 - Requer servidor SMTP
 - Requer gerenciamento de templates
@@ -834,12 +918,14 @@ sendPasswordResetEmail(auth, email, {
 - Firebase já resolve tudo isso
 
 **Por que informar se email existe?**
+
 - Melhor experiência do usuário
 - Feedback claro e honesto
 - Usuário sabe se digitou errado
 - Trade-off aceitável para este sistema
 
 ### 13.2 Padrões Utilizados
+
 - **Página Simples:** Foco em uma única ação
 - **Feedback Claro:** Sempre informa resultado
 - **Validação Progressiva:** HTML5 → Firebase
@@ -847,6 +933,7 @@ sendPasswordResetEmail(auth, email, {
 - **Mensagens Traduzidas:** Português claro
 
 ### 13.3 Limitações Conhecidas
+
 - ⚠️ Depende de configuração no Firebase Console
 - ⚠️ Customização limitada do email
 - ⚠️ Não há controle sobre entrega (pode cair em spam)
@@ -855,6 +942,7 @@ sendPasswordResetEmail(auth, email, {
 - ⚠️ Não há verificação de identidade adicional
 
 ### 13.4 Dependências Críticas
+
 - **Firebase Auth:** Envio de email
 - **Firebase Console:** Configuração de templates
 - **Servidor de Email:** Entrega de emails
@@ -866,26 +954,32 @@ sendPasswordResetEmail(auth, email, {
 ## 14. Mensagens do Sistema
 
 ### 14.1 Título e Descrição
+
 - "Recuperar Senha"
 - "Digite seu email para receber o link de recuperação"
 
 ### 14.2 Labels e Placeholders
+
 - Label: "Email"
 - Placeholder: "seu@email.com"
 
 ### 14.3 Botões
+
 - "Enviar link de recuperação" (normal)
 - "Enviando..." (processando)
 
 ### 14.4 Links
+
 - "Voltar para login"
 
 ### 14.5 Mensagens de Sucesso
+
 - "Email enviado com sucesso!"
 - "Verifique sua caixa de entrada e siga as instruções para redefinir sua senha."
 - "Não se esqueça de verificar a pasta de spam."
 
 ### 14.6 Mensagens de Erro
+
 - "Usuário não encontrado"
 - "Email inválido"
 - "Muitas tentativas. Tente novamente mais tarde"
@@ -896,15 +990,15 @@ sendPasswordResetEmail(auth, email, {
 
 ## 15. Comparação com Outras Páginas
 
-| Aspecto | Forgot Password | Reset Password | Change Password |
-|---------|-----------------|----------------|-----------------|
-| **Iniciado por** | Usuário | Usuário | Admin (força) |
-| **Autenticação** | Não logado | Não logado | Logado |
-| **Requer senha** | Não | Não | Sim (atual) |
-| **Usa token** | Sim (Firebase) | Sim (custom) | Não |
-| **Envia email** | Sim | Não | Não |
-| **Próxima etapa** | Email → Reset | Define senha | Dashboard |
-| **Bloqueio** | Opcional | Opcional | Obrigatório |
+| Aspecto           | Forgot Password | Reset Password | Change Password |
+| ----------------- | --------------- | -------------- | --------------- |
+| **Iniciado por**  | Usuário         | Usuário        | Admin (força)   |
+| **Autenticação**  | Não logado      | Não logado     | Logado          |
+| **Requer senha**  | Não             | Não            | Sim (atual)     |
+| **Usa token**     | Sim (Firebase)  | Sim (custom)   | Não             |
+| **Envia email**   | Sim             | Não            | Não             |
+| **Próxima etapa** | Email → Reset   | Define senha   | Dashboard       |
+| **Bloqueio**      | Opcional        | Opcional       | Obrigatório     |
 
 ---
 
@@ -913,28 +1007,33 @@ sendPasswordResetEmail(auth, email, {
 ### 16.1 Testes Funcionais
 
 **Envio Bem-Sucedido:**
+
 1. Digitar email válido → Email enviado
 2. Verificar mensagem de sucesso → Exibida
 3. Verificar recebimento de email → Email na caixa
 4. Clicar no link do email → Redireciona para reset
 
 **Validações:**
+
 1. Email vazio → Erro HTML5
 2. Email inválido → Erro do Firebase
 3. Email não cadastrado → Erro "Usuário não encontrado"
 4. Múltiplas tentativas → Rate limiting
 
 **Navegação:**
+
 1. Clicar "Voltar para login" → Redireciona para /login
 2. Acessar diretamente /forgot-password → Página carrega
 
 ### 16.2 Testes de Segurança
+
 1. Tentar enviar múltiplos emails → Rate limiting ativo
 2. Tentar com email malicioso → Validação bloqueia
 3. Verificar HTTPS → Obrigatório
 4. Verificar expiração de link → Expira após 1 hora
 
 ### 16.3 Testes de UI
+
 1. Responsividade mobile → OK
 2. Responsividade tablet → OK
 3. Responsividade desktop → OK
@@ -942,6 +1041,7 @@ sendPasswordResetEmail(auth, email, {
 5. Acessibilidade (screen readers) → OK
 
 ### 16.4 Testes de Email
+
 1. Email chega na caixa de entrada → OK
 2. Email não cai em spam → Verificar
 3. Link do email funciona → OK
@@ -954,6 +1054,7 @@ sendPasswordResetEmail(auth, email, {
 ### 17.1 Email Não Chega
 
 **Possíveis Causas:**
+
 - Email caiu em spam
 - Email incorreto
 - Problema no servidor de email
@@ -961,6 +1062,7 @@ sendPasswordResetEmail(auth, email, {
 - Configuração incorreta no Firebase
 
 **Soluções:**
+
 - Verificar pasta de spam
 - Verificar email digitado
 - Aguardar alguns minutos
@@ -970,12 +1072,14 @@ sendPasswordResetEmail(auth, email, {
 ### 17.2 Link do Email Não Funciona
 
 **Possíveis Causas:**
+
 - Link expirou (> 1 hora)
 - Link já foi usado
 - Domínio não autorizado no Firebase
 - Problema de configuração
 
 **Soluções:**
+
 - Solicitar novo reset
 - Verificar configuração de domínios autorizados
 - Verificar template no Firebase Console
@@ -984,10 +1088,12 @@ sendPasswordResetEmail(auth, email, {
 ### 17.3 Erro "Muitas Tentativas"
 
 **Possíveis Causas:**
+
 - Múltiplas tentativas em curto período
 - Rate limiting do Firebase ativo
 
 **Soluções:**
+
 - Aguardar alguns minutos (5-15 min)
 - Tentar de outro dispositivo/rede
 - Contatar suporte se persistir
@@ -995,11 +1101,13 @@ sendPasswordResetEmail(auth, email, {
 ### 17.4 Erro "Usuário Não Encontrado"
 
 **Possíveis Causas:**
+
 - Email não cadastrado
 - Erro de digitação
 - Conta foi deletada
 
 **Soluções:**
+
 - Verificar email correto
 - Tentar com outro email
 - Registrar nova conta
@@ -1038,11 +1146,13 @@ sendPasswordResetEmail(auth, email, {
 ### 18.2 Exemplo de Template
 
 **Assunto:**
+
 ```
 Redefinir senha - Curva Mestra
 ```
 
 **Corpo (HTML):**
+
 ```html
 <p>Olá,</p>
 <p>Você solicitou a redefinição de senha para sua conta no Curva Mestra.</p>
@@ -1050,7 +1160,7 @@ Redefinir senha - Curva Mestra
 <p><a href="%LINK%">Redefinir Senha</a></p>
 <p>Este link expira em 1 hora.</p>
 <p>Se você não solicitou esta redefinição, ignore este email.</p>
-<p>Atenciosamente,<br>Equipe Curva Mestra</p>
+<p>Atenciosamente,<br />Equipe Curva Mestra</p>
 ```
 
 ---
@@ -1070,16 +1180,19 @@ Redefinir senha - Curva Mestra
 ## 20. Referências
 
 ### 20.1 Documentação Relacionada
+
 - Reset Password Documentation - `project_doc/reset-password-documentation.md`
 - Change Password Documentation - `project_doc/change-password-documentation.md`
 - Login Page Documentation - `project_doc/login-page-documentation.md`
 - Template de Documentação - `project_doc/TEMPLATE-page-documentation.md`
 
 ### 20.2 Código Fonte
+
 - **Página:** `src/app/(auth)/forgot-password/page.tsx`
 - **Firebase Config:** `src/lib/firebase.ts`
 
 ### 20.3 Links Externos
+
 - [Firebase Authentication](https://firebase.google.com/docs/auth)
 - [Firebase sendPasswordResetEmail](https://firebase.google.com/docs/auth/web/manage-users#send_a_password_reset_email)
 - [Firebase Email Templates](https://firebase.google.com/docs/auth/custom-email-handler)

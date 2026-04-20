@@ -3,26 +3,26 @@
  * Trigger que processa e-mails na fila automaticamente
  */
 
-import * as functions from "firebase-functions/v2";
-import * as admin from "firebase-admin";
-import { sendEmail } from "./services/emailService";
+import * as functions from 'firebase-functions/v2';
+import * as admin from 'firebase-admin';
+import { sendEmail } from './services/emailService';
 
 const db = admin.firestore();
 
 export const processEmailQueue = functions.firestore.onDocumentCreated(
   {
-    document: "email_queue/{emailId}",
-    region: "southamerica-east1",
+    document: 'email_queue/{emailId}',
+    region: 'southamerica-east1',
     timeoutSeconds: 60,
-    memory: "256MiB",
-    secrets: ["SMTP_USER", "SMTP_PASS"],
+    memory: '256MiB',
+    secrets: ['SMTP_USER', 'SMTP_PASS'],
   },
   async (event) => {
     const emailData = event.data?.data();
     const emailId = event.params.emailId;
 
     if (!emailData) {
-      console.error("❌ Dados de e-mail não encontrados");
+      console.error('❌ Dados de e-mail não encontrados');
       return;
     }
 
@@ -32,7 +32,7 @@ export const processEmailQueue = functions.firestore.onDocumentCreated(
 
     try {
       // Verificar se o e-mail já foi processado
-      if (emailData.status !== "pending") {
+      if (emailData.status !== 'pending') {
         console.log(`⏭️ E-mail já processado (status: ${emailData.status})`);
         return;
       }
@@ -45,8 +45,8 @@ export const processEmailQueue = functions.firestore.onDocumentCreated(
       });
 
       // Atualizar status para "sent"
-      await db.collection("email_queue").doc(emailId).update({
-        status: "sent",
+      await db.collection('email_queue').doc(emailId).update({
+        status: 'sent',
         sent_at: admin.firestore.FieldValue.serverTimestamp(),
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -56,8 +56,8 @@ export const processEmailQueue = functions.firestore.onDocumentCreated(
       console.error(`❌ Erro ao enviar e-mail ${emailId}:`, error);
 
       // Atualizar status para "failed"
-      await db.collection("email_queue").doc(emailId).update({
-        status: "failed",
+      await db.collection('email_queue').doc(emailId).update({
+        status: 'failed',
         error_message: error.message,
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });

@@ -27,12 +27,12 @@ Formulário de edição dos dados cadastrais de um paciente existente. Carrega o
 
 ## 2. Tipos de Usuários
 
-| Tipo | Acesso | Permissões |
-|------|--------|------------|
-| `clinic_admin` | Total | Acessa, visualiza e edita dados do paciente |
-| `clinic_user` | Bloqueado | Redirecionado automaticamente para `/clinic/patients` via `useEffect` |
+| Tipo                | Acesso    | Permissões                                                            |
+| ------------------- | --------- | --------------------------------------------------------------------- |
+| `clinic_admin`      | Total     | Acessa, visualiza e edita dados do paciente                           |
+| `clinic_user`       | Bloqueado | Redirecionado automaticamente para `/clinic/patients` via `useEffect` |
 | `clinic_consultant` | Bloqueado | Redirecionado automaticamente para `/clinic/patients` via `useEffect` |
-| `system_admin` | N/A | Não acessa rotas do módulo clínica |
+| `system_admin`      | N/A       | Não acessa rotas do módulo clínica                                    |
 
 ---
 
@@ -40,45 +40,45 @@ Formulário de edição dos dados cadastrais de um paciente existente. Carrega o
 
 ### 3.1 Documento Firestore — `tenants/{tenant_id}/patients/{patient_id}`
 
-| Campo | Tipo | Editável | Descrição |
-|-------|------|----------|-----------|
-| `tenant_id` | `string` | Não | ID do tenant (isolamento multi-tenant) |
-| `codigo` | `string` | Não | Código único do paciente (exibido como disabled) |
-| `nome` | `string` | Sim | Nome completo do paciente |
-| `telefone` | `string \| null` | Sim | Telefone formatado |
-| `email` | `string \| null` | Sim | Email em lowercase |
-| `data_nascimento` | `string \| null` | Sim | Data formatada DD/MM/AAAA |
-| `cpf` | `string \| null` | Sim | CPF apenas dígitos (11 caracteres) |
-| `observacoes` | `string \| null` | Sim | Texto livre |
-| `created_by` | `string` | Não | UID do criador |
-| `created_by_name` | `string` | Não | displayName do criador |
-| `created_at` | `Timestamp` | Não | Data de criação |
-| `updated_at` | `Timestamp` | Auto | Atualizado via serverTimestamp |
+| Campo             | Tipo             | Editável | Descrição                                        |
+| ----------------- | ---------------- | -------- | ------------------------------------------------ |
+| `tenant_id`       | `string`         | Não      | ID do tenant (isolamento multi-tenant)           |
+| `codigo`          | `string`         | Não      | Código único do paciente (exibido como disabled) |
+| `nome`            | `string`         | Sim      | Nome completo do paciente                        |
+| `telefone`        | `string \| null` | Sim      | Telefone formatado                               |
+| `email`           | `string \| null` | Sim      | Email em lowercase                               |
+| `data_nascimento` | `string \| null` | Sim      | Data formatada DD/MM/AAAA                        |
+| `cpf`             | `string \| null` | Sim      | CPF apenas dígitos (11 caracteres)               |
+| `observacoes`     | `string \| null` | Sim      | Texto livre                                      |
+| `created_by`      | `string`         | Não      | UID do criador                                   |
+| `created_by_name` | `string`         | Não      | displayName do criador                           |
+| `created_at`      | `Timestamp`      | Não      | Data de criação                                  |
+| `updated_at`      | `Timestamp`      | Auto     | Atualizado via serverTimestamp                   |
 
 ### 3.2 Log de Auditoria — `tenants/{tenant_id}/patient_edit_logs`
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `patient_id` | `string` | ID do documento do paciente |
-| `patient_codigo` | `string` | Código do paciente |
-| `changes` | `array` | Lista de alterações `{ field, old_value, new_value }` |
-| `edited_by` | `string` | UID do usuário que editou |
-| `edited_by_name` | `string` | displayName do editor |
-| `edited_at` | `Timestamp` | Data da edição (serverTimestamp) |
+| Campo            | Tipo        | Descrição                                             |
+| ---------------- | ----------- | ----------------------------------------------------- |
+| `patient_id`     | `string`    | ID do documento do paciente                           |
+| `patient_codigo` | `string`    | Código do paciente                                    |
+| `changes`        | `array`     | Lista de alterações `{ field, old_value, new_value }` |
+| `edited_by`      | `string`    | UID do usuário que editou                             |
+| `edited_by_name` | `string`    | displayName do editor                                 |
+| `edited_at`      | `Timestamp` | Data da edição (serverTimestamp)                      |
 
 ### 3.3 Estado do Componente (useState)
 
 ```typescript
-const [loading, setLoading] = useState(false);         // submissão
-const [loadingData, setLoadingData] = useState(true);   // carregamento inicial
+const [loading, setLoading] = useState(false); // submissão
+const [loadingData, setLoadingData] = useState(true); // carregamento inicial
 const [patient, setPatient] = useState<Patient | null>(null);
 const [formData, setFormData] = useState({
-  nome: "",
-  telefone: "",
-  email: "",
-  data_nascimento: "",
-  cpf: "",
-  observacoes: "",
+  nome: '',
+  telefone: '',
+  email: '',
+  data_nascimento: '',
+  cpf: '',
+  observacoes: '',
 });
 ```
 
@@ -267,19 +267,19 @@ interface UpdatePatientInput {
 
 ## 7. Estados da Interface
 
-| Estado | Comportamento | Visual |
-|--------|---------------|--------|
-| Carregando dados (`loadingData=true`) | Spinner centralizado | `animate-spin` div com `h-8 w-8 border-b-2` |
-| Paciente não encontrado | Mensagem centralizada + botão Voltar | Texto "Paciente não encontrado" |
-| Formulário pronto | Campos pré-preenchidos com dados atuais | Inputs preenchidos, código disabled com fundo cinza |
-| Salvando (`loading=true`) | "Salvando...", campos e botões desabilitados | Todos inputs/buttons com `disabled` |
-| Sucesso | Alert + redirect para detalhe | `alert()` + `router.push("/clinic/patients/{id}")` |
-| Erro — nome vazio | Alert "Nome é obrigatório" | `alert()` |
-| Erro — CPF inválido | Alert "CPF inválido (deve ter 11 dígitos)" | `alert()` (do serviço) |
-| Erro — paciente não encontrado (serviço) | Alert "Paciente não encontrado" | `alert()` (do serviço) |
-| Erro genérico | Alert "Erro ao atualizar paciente" + console.error | `alert()` |
-| Erro ao carregar | Alert "Erro ao carregar dados do paciente" | `alert()` |
-| Sem permissão | Redirect automático | Nenhum visual |
+| Estado                                   | Comportamento                                      | Visual                                              |
+| ---------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
+| Carregando dados (`loadingData=true`)    | Spinner centralizado                               | `animate-spin` div com `h-8 w-8 border-b-2`         |
+| Paciente não encontrado                  | Mensagem centralizada + botão Voltar               | Texto "Paciente não encontrado"                     |
+| Formulário pronto                        | Campos pré-preenchidos com dados atuais            | Inputs preenchidos, código disabled com fundo cinza |
+| Salvando (`loading=true`)                | "Salvando...", campos e botões desabilitados       | Todos inputs/buttons com `disabled`                 |
+| Sucesso                                  | Alert + redirect para detalhe                      | `alert()` + `router.push("/clinic/patients/{id}")`  |
+| Erro — nome vazio                        | Alert "Nome é obrigatório"                         | `alert()`                                           |
+| Erro — CPF inválido                      | Alert "CPF inválido (deve ter 11 dígitos)"         | `alert()` (do serviço)                              |
+| Erro — paciente não encontrado (serviço) | Alert "Paciente não encontrado"                    | `alert()` (do serviço)                              |
+| Erro genérico                            | Alert "Erro ao atualizar paciente" + console.error | `alert()`                                           |
+| Erro ao carregar                         | Alert "Erro ao carregar dados do paciente"         | `alert()`                                           |
+| Sem permissão                            | Redirect automático                                | Nenhum visual                                       |
 
 ---
 
@@ -287,34 +287,37 @@ interface UpdatePatientInput {
 
 ### 8.1 Validações no Frontend
 
-| Campo | Validação | Mecanismo |
-|-------|-----------|-----------|
-| `nome` | Obrigatório | `required` (HTML) + `nome.trim()` no submit |
-| `email` | Formato email | `type="email"` (validação nativa do browser) |
-| `telefone` | Máscara de formatação | `formatPhone()` — limita a 15 caracteres |
-| `cpf` | Máscara de formatação | `formatCPF()` — limita a 14 caracteres |
-| `data_nascimento` | Máscara de formatação | `formatDate()` — limita a 10 caracteres |
+| Campo             | Validação             | Mecanismo                                    |
+| ----------------- | --------------------- | -------------------------------------------- |
+| `nome`            | Obrigatório           | `required` (HTML) + `nome.trim()` no submit  |
+| `email`           | Formato email         | `type="email"` (validação nativa do browser) |
+| `telefone`        | Máscara de formatação | `formatPhone()` — limita a 15 caracteres     |
+| `cpf`             | Máscara de formatação | `formatCPF()` — limita a 14 caracteres       |
+| `data_nascimento` | Máscara de formatação | `formatDate()` — limita a 10 caracteres      |
 
 ### 8.2 Validações no Serviço (`updatePatient`)
 
-| Validação | Condição | Mensagem de erro |
-|-----------|----------|------------------|
-| Paciente não encontrado | `getPatientById` retorna null | "Paciente não encontrado" |
-| CPF inválido | `cpf.length !== 11` (após remover formatação) | "CPF inválido (deve ter 11 dígitos)" |
+| Validação               | Condição                                      | Mensagem de erro                     |
+| ----------------------- | --------------------------------------------- | ------------------------------------ |
+| Paciente não encontrado | `getPatientById` retorna null                 | "Paciente não encontrado"            |
+| CPF inválido            | `cpf.length !== 11` (após remover formatação) | "CPF inválido (deve ter 11 dígitos)" |
 
 ### 8.3 Funções de Formatação (locais — duplicadas de patients-new)
 
 #### `formatPhone(value: string): string`
+
 - Remove caracteres não numéricos
 - Aplica máscara `(XX) XXXX-XXXX` para fixo (≤ 10 dígitos) ou `(XX) XXXXX-XXXX` para celular
 - Limita a 15 caracteres
 
 #### `formatCPF(value: string): string`
+
 - Remove caracteres não numéricos
 - Aplica máscara `XXX.XXX.XXX-XX`
 - Limita a 14 caracteres
 
 #### `formatDate(value: string): string`
+
 - Remove caracteres não numéricos
 - Aplica máscara `DD/MM/AAAA`
 - Limita a 10 caracteres
@@ -323,51 +326,51 @@ interface UpdatePatientInput {
 
 ## 9. Integrações
 
-| Integração | Tipo | Descrição |
-|------------|------|-----------|
-| Firebase Auth | Autenticação | `useAuth()` fornece `claims` (role, tenant_id) e `user` (uid, displayName) |
-| Firestore — patients | Leitura/Escrita | `getPatientById` (leitura) + `updatePatient` (escrita) |
-| Firestore — patient_edit_logs | Escrita | Log de auditoria criado automaticamente pelo serviço |
-| Next.js Router | Navegação | `useRouter()` + `useParams()` para rota dinâmica |
-| `patientService` | Serviço | `getPatientById()` e `updatePatient()` |
+| Integração                    | Tipo            | Descrição                                                                  |
+| ----------------------------- | --------------- | -------------------------------------------------------------------------- |
+| Firebase Auth                 | Autenticação    | `useAuth()` fornece `claims` (role, tenant_id) e `user` (uid, displayName) |
+| Firestore — patients          | Leitura/Escrita | `getPatientById` (leitura) + `updatePatient` (escrita)                     |
+| Firestore — patient_edit_logs | Escrita         | Log de auditoria criado automaticamente pelo serviço                       |
+| Next.js Router                | Navegação       | `useRouter()` + `useParams()` para rota dinâmica                           |
+| `patientService`              | Serviço         | `getPatientById()` e `updatePatient()`                                     |
 
 ---
 
 ## 10. Segurança
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Autenticação | `useAuth()` verifica se há usuário logado |
-| Autorização (frontend) | `useEffect` redireciona se `claims.role !== "clinic_admin"` |
-| Autorização (Firestore) | Regras RLS garantem `request.auth.token.tenant_id == tenantId` |
-| Multi-tenant | `claims.tenant_id` isola dados por tenant |
-| Auditoria | Log de edição em `patient_edit_logs` com detalhes campo a campo |
-| Sanitização | Campos passam por `.trim()` no serviço; email convertido para lowercase |
-| Prevenção de duplo-submit | Campos e botões desabilitados durante `loading` |
+| Aspecto                   | Implementação                                                           |
+| ------------------------- | ----------------------------------------------------------------------- |
+| Autenticação              | `useAuth()` verifica se há usuário logado                               |
+| Autorização (frontend)    | `useEffect` redireciona se `claims.role !== "clinic_admin"`             |
+| Autorização (Firestore)   | Regras RLS garantem `request.auth.token.tenant_id == tenantId`          |
+| Multi-tenant              | `claims.tenant_id` isola dados por tenant                               |
+| Auditoria                 | Log de edição em `patient_edit_logs` com detalhes campo a campo         |
+| Sanitização               | Campos passam por `.trim()` no serviço; email convertido para lowercase |
+| Prevenção de duplo-submit | Campos e botões desabilitados durante `loading`                         |
 
 ---
 
 ## 11. Performance
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Carregamento único | `getPatientById` chamado uma vez no mount |
-| Atualização seletiva | Apenas campos alterados são escritos no Firestore |
+| Aspecto                 | Implementação                                                       |
+| ----------------------- | ------------------------------------------------------------------- |
+| Carregamento único      | `getPatientById` chamado uma vez no mount                           |
+| Atualização seletiva    | Apenas campos alterados são escritos no Firestore                   |
 | Dois estados de loading | `loadingData` (carregamento) e `loading` (salvamento) independentes |
-| Sem re-fetch | Após salvar, redireciona para detalhe (que faz seu próprio fetch) |
+| Sem re-fetch            | Após salvar, redireciona para detalhe (que faz seu próprio fetch)   |
 
 ---
 
 ## 12. Acessibilidade
 
-| Aspecto | Status | Detalhes |
-|---------|--------|----------|
-| Labels nos campos | Parcial | Labels com `<label>` mas sem `htmlFor`/`id` |
-| Campo obrigatório | Sim | Asterisco visual `*` + atributo `required` |
-| Campo desabilitado | Sim | Código com `disabled` + nota explicativa textual |
-| Feedback de erro | Limitado | Apenas `alert()` nativo |
-| Estado de loading | Parcial | Texto muda para "Salvando..." mas sem aria-busy |
-| Navegação por teclado | Sim | Form nativo com `onSubmit` |
+| Aspecto               | Status   | Detalhes                                         |
+| --------------------- | -------- | ------------------------------------------------ |
+| Labels nos campos     | Parcial  | Labels com `<label>` mas sem `htmlFor`/`id`      |
+| Campo obrigatório     | Sim      | Asterisco visual `*` + atributo `required`       |
+| Campo desabilitado    | Sim      | Código com `disabled` + nota explicativa textual |
+| Feedback de erro      | Limitado | Apenas `alert()` nativo                          |
+| Estado de loading     | Parcial  | Texto muda para "Salvando..." mas sem aria-busy  |
+| Navegação por teclado | Sim      | Form nativo com `onSubmit`                       |
 
 ---
 
@@ -375,33 +378,33 @@ interface UpdatePatientInput {
 
 ### 13.1 Cenários de Teste Recomendados
 
-| Cenário | Tipo | Descrição |
-|---------|------|-----------|
-| Carregar dados existentes | E2E | Verificar pré-preenchimento dos campos |
-| Editar nome e salvar | E2E | Verificar atualização no Firestore e log de auditoria |
-| Nome vazio | Unitário | Verificar alert "Nome é obrigatório" |
-| CPF inválido | Integração | Verificar erro "CPF inválido (deve ter 11 dígitos)" |
-| Paciente não encontrado | E2E | Verificar tela de erro |
-| Código não editável | E2E | Verificar que input código está disabled |
-| Log de auditoria | Integração | Verificar que `patient_edit_logs` registra campos alterados |
-| Sem alterações | Integração | Verificar que log não é criado se nada mudou |
-| Acesso sem permissão | E2E | Acessar como clinic_user e verificar redirect |
-| Cancelar edição | E2E | Clicar cancelar e verificar que nada foi salvo |
-| Campos desabilitados durante loading | E2E | Verificar disabled em todos inputs durante salvamento |
+| Cenário                              | Tipo       | Descrição                                                   |
+| ------------------------------------ | ---------- | ----------------------------------------------------------- |
+| Carregar dados existentes            | E2E        | Verificar pré-preenchimento dos campos                      |
+| Editar nome e salvar                 | E2E        | Verificar atualização no Firestore e log de auditoria       |
+| Nome vazio                           | Unitário   | Verificar alert "Nome é obrigatório"                        |
+| CPF inválido                         | Integração | Verificar erro "CPF inválido (deve ter 11 dígitos)"         |
+| Paciente não encontrado              | E2E        | Verificar tela de erro                                      |
+| Código não editável                  | E2E        | Verificar que input código está disabled                    |
+| Log de auditoria                     | Integração | Verificar que `patient_edit_logs` registra campos alterados |
+| Sem alterações                       | Integração | Verificar que log não é criado se nada mudou                |
+| Acesso sem permissão                 | E2E        | Acessar como clinic_user e verificar redirect               |
+| Cancelar edição                      | E2E        | Clicar cancelar e verificar que nada foi salvo              |
+| Campos desabilitados durante loading | E2E        | Verificar disabled em todos inputs durante salvamento       |
 
 ---
 
 ## 14. Melhorias Futuras
 
-| Melhoria | Prioridade | Descrição |
-|----------|------------|-----------|
-| Toast notifications | Alta | Substituir `alert()` nativo por toast (Shadcn/ui) |
-| Funções de formatação compartilhadas | Alta | Extrair `formatPhone`, `formatCPF`, `formatDate` para módulo reutilizável (duplicadas de patients-new) |
-| Validação de CPF | Média | Implementar validação de dígitos verificadores |
-| Validação de data | Média | Verificar se data de nascimento é válida e no passado |
-| Labels acessíveis | Média | Vincular `<label>` aos inputs via `htmlFor`/`id` |
-| Confirmação de saída | Baixa | Avisar ao sair se houver alterações não salvas |
-| Diff visual | Baixa | Mostrar visualmente quais campos foram alterados |
+| Melhoria                             | Prioridade | Descrição                                                                                              |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------ |
+| Toast notifications                  | Alta       | Substituir `alert()` nativo por toast (Shadcn/ui)                                                      |
+| Funções de formatação compartilhadas | Alta       | Extrair `formatPhone`, `formatCPF`, `formatDate` para módulo reutilizável (duplicadas de patients-new) |
+| Validação de CPF                     | Média      | Implementar validação de dígitos verificadores                                                         |
+| Validação de data                    | Média      | Verificar se data de nascimento é válida e no passado                                                  |
+| Labels acessíveis                    | Média      | Vincular `<label>` aos inputs via `htmlFor`/`id`                                                       |
+| Confirmação de saída                 | Baixa      | Avisar ao sair se houver alterações não salvas                                                         |
+| Diff visual                          | Baixa      | Mostrar visualmente quais campos foram alterados                                                       |
 
 ---
 
@@ -421,11 +424,11 @@ patients-edit (este doc)
 
 ### Páginas relacionadas
 
-| Página | Relação |
-|--------|---------|
-| `/clinic/patients/{id}` | Detalhe — origem da navegação e destino após salvar |
-| `/clinic/patients` | Listagem — destino do redirect de permissão |
-| `/clinic/patients/new` | Cadastro — compartilha funções de formatação (duplicadas) |
+| Página                  | Relação                                                   |
+| ----------------------- | --------------------------------------------------------- |
+| `/clinic/patients/{id}` | Detalhe — origem da navegação e destino após salvar       |
+| `/clinic/patients`      | Listagem — destino do redirect de permissão               |
+| `/clinic/patients/new`  | Cadastro — compartilha funções de formatação (duplicadas) |
 
 ---
 
@@ -445,25 +448,25 @@ patients-edit (este doc)
 
 ## 17. Histórico de Mudanças
 
-| Data | Versão | Descrição |
-|------|--------|-----------|
-| 07/02/2026 | 1.0 | Documentação inicial (formato antigo) |
-| 09/02/2026 | 2.0 | Padronização para template de 20 seções |
+| Data       | Versão | Descrição                               |
+| ---------- | ------ | --------------------------------------- |
+| 07/02/2026 | 1.0    | Documentação inicial (formato antigo)   |
+| 09/02/2026 | 2.0    | Padronização para template de 20 seções |
 
 ---
 
 ## 18. Glossário
 
-| Termo | Descrição |
-|-------|-----------|
-| `tenant_id` | Identificador único da clínica no sistema multi-tenant |
-| `claims` | Custom Claims do Firebase Auth com role e tenant_id |
-| `patientId` | ID do documento Firestore do paciente (parâmetro da URL) |
-| `updatePatient` | Função do `patientService` que atualiza e cria log de auditoria |
-| `PatientEditLog` | Tipo que representa o log de auditoria de edição |
-| `changes` | Array de objetos `{ field, old_value, new_value }` no log |
-| `loadingData` | Estado de carregamento inicial dos dados |
-| `loading` | Estado de submissão do formulário |
+| Termo            | Descrição                                                       |
+| ---------------- | --------------------------------------------------------------- |
+| `tenant_id`      | Identificador único da clínica no sistema multi-tenant          |
+| `claims`         | Custom Claims do Firebase Auth com role e tenant_id             |
+| `patientId`      | ID do documento Firestore do paciente (parâmetro da URL)        |
+| `updatePatient`  | Função do `patientService` que atualiza e cria log de auditoria |
+| `PatientEditLog` | Tipo que representa o log de auditoria de edição                |
+| `changes`        | Array de objetos `{ field, old_value, new_value }` no log       |
+| `loadingData`    | Estado de carregamento inicial dos dados                        |
+| `loading`        | Estado de submissão do formulário                               |
 
 ---
 
@@ -482,15 +485,15 @@ patients-edit (este doc)
 
 ### Anexo A — Campos do Formulário
 
-| Campo | Tipo | Obrigatório | Editável | Formatação | Placeholder | maxLength |
-|-------|------|-------------|----------|------------|-------------|-----------|
-| `codigo` | Input | - | Não | - | (valor atual) | - |
-| `nome` | Input | Sim | Sim | Nenhuma | "Nome do paciente" | - |
-| `telefone` | Input | Não | Sim | `formatPhone` | "(00) 00000-0000" | 15 |
-| `email` | Input | Não | Sim | `type="email"` | "email@exemplo.com" | - |
-| `data_nascimento` | Input | Não | Sim | `formatDate` | "DD/MM/AAAA" | 10 |
-| `cpf` | Input | Não | Sim | `formatCPF` | "000.000.000-00" | 14 |
-| `observacoes` | Textarea | Não | Sim | Nenhuma | "Informações adicionais..." | - |
+| Campo             | Tipo     | Obrigatório | Editável | Formatação     | Placeholder                 | maxLength |
+| ----------------- | -------- | ----------- | -------- | -------------- | --------------------------- | --------- |
+| `codigo`          | Input    | -           | Não      | -              | (valor atual)               | -         |
+| `nome`            | Input    | Sim         | Sim      | Nenhuma        | "Nome do paciente"          | -         |
+| `telefone`        | Input    | Não         | Sim      | `formatPhone`  | "(00) 00000-0000"           | 15        |
+| `email`           | Input    | Não         | Sim      | `type="email"` | "email@exemplo.com"         | -         |
+| `data_nascimento` | Input    | Não         | Sim      | `formatDate`   | "DD/MM/AAAA"                | 10        |
+| `cpf`             | Input    | Não         | Sim      | `formatCPF`    | "000.000.000-00"            | 14        |
+| `observacoes`     | Textarea | Não         | Sim      | Nenhuma        | "Informações adicionais..." | -         |
 
 ### Anexo B — Layout do Formulário
 

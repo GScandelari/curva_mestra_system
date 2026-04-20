@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import type { UserRole } from "@/types";
-import { needsOnboarding, getNextOnboardingStep } from "@/lib/services/tenantOnboardingService";
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import type { UserRole } from '@/types';
+import { needsOnboarding, getNextOnboardingStep } from '@/lib/services/tenantOnboardingService';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -37,19 +37,19 @@ export function ProtectedRoute({
 
       // Se requer autenticação e não está autenticado
       if (requireAuth && !user) {
-        router.push("/login");
+        router.push('/login');
         return;
       }
 
       // Se está autenticado mas não tem claims (ainda não configurado)
       if (user && !claims) {
-        router.push("/waiting-approval");
+        router.push('/waiting-approval');
         return;
       }
 
       // Se tem claims mas não está ativo (aguardando aprovação)
       if (user && claims && claims.active === false) {
-        router.push("/waiting-approval");
+        router.push('/waiting-approval');
         return;
       }
 
@@ -58,10 +58,10 @@ export function ProtectedRoute({
         !skipOnboardingCheck &&
         user &&
         claims?.tenant_id &&
-        (role === "clinic_admin" || role === "clinic_user")
+        (role === 'clinic_admin' || role === 'clinic_user')
       ) {
         // Não verificar se já está em rota de setup
-        const isSetupRoute = pathname?.startsWith("/clinic/setup");
+        const isSetupRoute = pathname?.startsWith('/clinic/setup');
 
         if (!isSetupRoute) {
           setCheckingOnboarding(true);
@@ -74,19 +74,19 @@ export function ProtectedRoute({
 
               // Redirecionar para a etapa pendente
               switch (nextStep) {
-                case "pending_setup":
-                  router.push("/clinic/setup");
+                case 'pending_setup':
+                  router.push('/clinic/setup');
                   return;
-                case "pending_plan":
-                  router.push("/clinic/setup/plan");
+                case 'pending_plan':
+                  router.push('/clinic/setup/plan');
                   return;
-                case "pending_payment":
-                  router.push("/clinic/setup/payment");
+                case 'pending_payment':
+                  router.push('/clinic/setup/payment');
                   return;
               }
             }
           } catch (error) {
-            console.error("Erro ao verificar onboarding:", error);
+            console.error('Erro ao verificar onboarding:', error);
           } finally {
             setCheckingOnboarding(false);
           }
@@ -104,7 +104,17 @@ export function ProtectedRoute({
     }
 
     checkAccess();
-  }, [user, loading, claims, role, allowedRoles, requireAuth, skipOnboardingCheck, pathname, router]);
+  }, [
+    user,
+    loading,
+    claims,
+    role,
+    allowedRoles,
+    requireAuth,
+    skipOnboardingCheck,
+    pathname,
+    router,
+  ]);
 
   // Mostrar loading enquanto verifica autenticação ou onboarding
   if (loading || checkingOnboarding) {
@@ -113,7 +123,7 @@ export function ProtectedRoute({
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground">
-            {checkingOnboarding ? "Verificando configuração..." : "Carregando..."}
+            {checkingOnboarding ? 'Verificando configuração...' : 'Carregando...'}
           </p>
         </div>
       </div>
@@ -156,17 +166,17 @@ export function ProtectedRoute({
  */
 function redirectToDashboard(role: UserRole, router: any) {
   switch (role) {
-    case "system_admin":
-      router.push("/admin/dashboard");
+    case 'system_admin':
+      router.push('/admin/dashboard');
       break;
-    case "clinic_admin":
-    case "clinic_user":
-      router.push("/clinic/dashboard");
+    case 'clinic_admin':
+    case 'clinic_user':
+      router.push('/clinic/dashboard');
       break;
-    case "clinic_consultant":
-      router.push("/consultant/dashboard");
+    case 'clinic_consultant':
+      router.push('/consultant/dashboard');
       break;
     default:
-      router.push("/dashboard");
+      router.push('/dashboard');
   }
 }

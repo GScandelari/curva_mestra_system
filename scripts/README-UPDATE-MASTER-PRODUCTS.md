@@ -28,6 +28,7 @@ CODIGO3 NOME DO PRODUTO 3
 ```
 
 **Exemplo real:**
+
 ```
 Preenchedores
 9980012 FILL 1ML
@@ -137,6 +138,7 @@ Os grupos identificados no arquivo `lista_completa.txt`:
 Acesse: https://console.firebase.google.com/project/curva-mestra/firestore/data/master_products
 
 Verifique:
+
 - ✅ Produtos antigos estão com `active: false`
 - ✅ Novos produtos têm `active: true`
 - ✅ Todos os produtos têm o campo `grupo`
@@ -160,6 +162,7 @@ firebase firestore:get master_products --where "grupo==Preenchedores"
 ## ⚠️ Avisos Importantes
 
 1. **Backup Recomendado**: Fazer backup do Firestore antes de executar
+
    ```bash
    gcloud firestore export gs://curva-mestra-backup/$(date +%Y%m%d)
    ```
@@ -181,12 +184,10 @@ admin.initializeApp();
 const db = admin.firestore();
 
 async function revert() {
-  const snapshot = await db.collection('master_products')
-    .where('active', '==', false)
-    .get();
+  const snapshot = await db.collection('master_products').where('active', '==', false).get();
 
   const batch = db.batch();
-  snapshot.forEach(doc => {
+  snapshot.forEach((doc) => {
     batch.update(doc.ref, { active: true });
   });
 
@@ -200,11 +201,13 @@ revert();
 ## 📝 Logs e Debugging
 
 O script gera logs detalhados:
+
 - ✅ Sucesso
-- ⚠️  Avisos (linhas inválidas, produtos sem grupo)
+- ⚠️ Avisos (linhas inválidas, produtos sem grupo)
 - ❌ Erros
 
 Para debugging adicional, adicione:
+
 ```javascript
 console.log('Debug:', JSON.stringify(produto, null, 2));
 ```
@@ -212,14 +215,17 @@ console.log('Debug:', JSON.stringify(produto, null, 2));
 ## 🆘 Problemas Comuns
 
 ### Erro: "Arquivo não encontrado"
+
 - Verificar se `_lista_produtos_rennova_/lista_completa.txt` existe
 - Verificar path relativo do script
 
 ### Erro: "Permission denied"
+
 - Verificar credenciais Firebase Admin
 - Verificar regras de segurança do Firestore
 
 ### Produtos não aparecem na aplicação
+
 - Verificar campo `active: true`
 - Verificar queries que filtram produtos master
 - Verificar se o código está correto (7 dígitos)

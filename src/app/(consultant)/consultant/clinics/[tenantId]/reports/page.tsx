@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   FileBarChart,
   DollarSign,
@@ -15,8 +15,8 @@ import {
   Eye,
   X,
   ArrowLeft,
-} from "lucide-react";
-import { ReadOnlyBanner } from "@/components/consultant/ReadOnlyBanner";
+} from 'lucide-react';
+import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import {
   generateStockValueReport,
   generateExpirationReport,
@@ -27,7 +27,7 @@ import {
   type StockValueReport,
   type ExpirationReport,
   type ConsumptionReport,
-} from "@/lib/services/reportService";
+} from '@/lib/services/reportService';
 
 export default function ConsultantReportsPage() {
   const router = useRouter();
@@ -47,15 +47,15 @@ export default function ConsultantReportsPage() {
 
   // Relatório de Consumo
   const [consumptionReport, setConsumptionReport] = useState<ConsumptionReport | null>(null);
-  const [consumptionStartDate, setConsumptionStartDate] = useState("");
-  const [consumptionEndDate, setConsumptionEndDate] = useState("");
+  const [consumptionStartDate, setConsumptionStartDate] = useState('');
+  const [consumptionEndDate, setConsumptionEndDate] = useState('');
 
   useEffect(() => {
     if (authLoading) return;
 
     if (claims) {
       if (!authorizedTenants.includes(tenantId)) {
-        router.push("/consultant/clinics");
+        router.push('/consultant/clinics');
         return;
       }
     }
@@ -67,8 +67,8 @@ export default function ConsultantReportsPage() {
     const lastMonth = new Date();
     lastMonth.setMonth(today.getMonth() - 1);
 
-    setConsumptionStartDate(lastMonth.toISOString().split("T")[0]);
-    setConsumptionEndDate(today.toISOString().split("T")[0]);
+    setConsumptionStartDate(lastMonth.toISOString().split('T')[0]);
+    setConsumptionEndDate(today.toISOString().split('T')[0]);
   }, []);
 
   async function handleGenerateStockReport() {
@@ -76,12 +76,12 @@ export default function ConsultantReportsPage() {
 
     try {
       setLoading(true);
-      setActiveReport("stock");
+      setActiveReport('stock');
       const report = await generateStockValueReport(tenantId);
       setStockReport(report);
     } catch (error) {
-      console.error("Erro ao gerar relatório:", error);
-      alert("Erro ao gerar relatório");
+      console.error('Erro ao gerar relatório:', error);
+      alert('Erro ao gerar relatório');
     } finally {
       setLoading(false);
     }
@@ -92,12 +92,12 @@ export default function ConsultantReportsPage() {
 
     try {
       setLoading(true);
-      setActiveReport("expiration");
+      setActiveReport('expiration');
       const report = await generateExpirationReport(tenantId, expirationDays);
       setExpirationReport(report);
     } catch (error) {
-      console.error("Erro ao gerar relatório:", error);
-      alert("Erro ao gerar relatório");
+      console.error('Erro ao gerar relatório:', error);
+      alert('Erro ao gerar relatório');
     } finally {
       setLoading(false);
     }
@@ -105,13 +105,13 @@ export default function ConsultantReportsPage() {
 
   async function handleGenerateConsumptionReport() {
     if (!tenantId || !consumptionStartDate || !consumptionEndDate) {
-      alert("Selecione o período");
+      alert('Selecione o período');
       return;
     }
 
     try {
       setLoading(true);
-      setActiveReport("consumption");
+      setActiveReport('consumption');
       const report = await generateConsumptionReport(
         tenantId,
         new Date(consumptionStartDate),
@@ -119,8 +119,8 @@ export default function ConsultantReportsPage() {
       );
       setConsumptionReport(report);
     } catch (error) {
-      console.error("Erro ao gerar relatório:", error);
-      alert("Erro ao gerar relatório");
+      console.error('Erro ao gerar relatório:', error);
+      alert('Erro ao gerar relatório');
     } finally {
       setLoading(false);
     }
@@ -129,40 +129,40 @@ export default function ConsultantReportsPage() {
   function handleExportStockReport() {
     if (!stockReport) return;
     const data = stockReport.por_produto.map((item) => ({
-      "Código": item.codigo,
-      "Nome": item.nome,
-      "Quantidade Total": item.quantidade_total,
-      "Valor Unitário": formatDecimalBR(item.valor_unitario, 2),
-      "Valor Total": formatDecimalBR(item.valor_total, 2),
-      "Lotes": item.lotes,
+      Código: item.codigo,
+      Nome: item.nome,
+      'Quantidade Total': item.quantidade_total,
+      'Valor Unitário': formatDecimalBR(item.valor_unitario, 2),
+      'Valor Total': formatDecimalBR(item.valor_total, 2),
+      Lotes: item.lotes,
     }));
-    exportToExcel(data, "relatorio_valor_estoque");
+    exportToExcel(data, 'relatorio_valor_estoque');
   }
 
   function handleExportExpirationReport() {
     if (!expirationReport) return;
     const data = expirationReport.produtos_vencendo.map((item) => ({
-      "Código": item.codigo,
-      "Nome": item.nome,
-      "Lote": item.lote,
-      "Quantidade": item.quantidade,
-      "Validade": item.dt_validade,
-      "Dias para Vencer": item.dias_para_vencer,
-      "Valor Total": formatDecimalBR(item.valor_total, 2),
+      Código: item.codigo,
+      Nome: item.nome,
+      Lote: item.lote,
+      Quantidade: item.quantidade,
+      Validade: item.dt_validade,
+      'Dias para Vencer': item.dias_para_vencer,
+      'Valor Total': formatDecimalBR(item.valor_total, 2),
     }));
-    exportToExcel(data, "relatorio_produtos_vencendo");
+    exportToExcel(data, 'relatorio_produtos_vencendo');
   }
 
   function handleExportConsumptionReport() {
     if (!consumptionReport) return;
     const data = consumptionReport.por_produto.map((item) => ({
-      "Código": item.codigo,
-      "Nome": item.nome,
-      "Quantidade Consumida": item.quantidade_consumida,
-      "Valor Total": formatDecimalBR(item.valor_total, 2),
-      "Procedimentos": item.procedimentos,
+      Código: item.codigo,
+      Nome: item.nome,
+      'Quantidade Consumida': item.quantidade_consumida,
+      'Valor Total': formatDecimalBR(item.valor_total, 2),
+      Procedimentos: item.procedimentos,
     }));
-    exportToExcel(data, "relatorio_consumo_produtos");
+    exportToExcel(data, 'relatorio_consumo_produtos');
   }
 
   if (authLoading) {
@@ -179,10 +179,7 @@ export default function ConsultantReportsPage() {
     <div className="container py-8">
       <div className="space-y-6">
         {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => router.push(`/consultant/clinics/${tenantId}`)}
-        >
+        <Button variant="ghost" onClick={() => router.push(`/consultant/clinics/${tenantId}`)}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar
         </Button>
@@ -214,12 +211,8 @@ export default function ConsultantReportsPage() {
                 <p className="text-sm text-gray-600">Valor total em estoque</p>
               </div>
             </div>
-            <Button
-              onClick={handleGenerateStockReport}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading && activeReport === "stock" ? "Gerando..." : "Gerar Relatório"}
+            <Button onClick={handleGenerateStockReport} disabled={loading} className="w-full">
+              {loading && activeReport === 'stock' ? 'Gerando...' : 'Gerar Relatório'}
             </Button>
           </div>
 
@@ -244,12 +237,8 @@ export default function ConsultantReportsPage() {
                 max="365"
               />
             </div>
-            <Button
-              onClick={handleGenerateExpirationReport}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading && activeReport === "expiration" ? "Gerando..." : "Gerar Relatório"}
+            <Button onClick={handleGenerateExpirationReport} disabled={loading} className="w-full">
+              {loading && activeReport === 'expiration' ? 'Gerando...' : 'Gerar Relatório'}
             </Button>
           </div>
 
@@ -282,18 +271,14 @@ export default function ConsultantReportsPage() {
                 />
               </div>
             </div>
-            <Button
-              onClick={handleGenerateConsumptionReport}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading && activeReport === "consumption" ? "Gerando..." : "Gerar Relatório"}
+            <Button onClick={handleGenerateConsumptionReport} disabled={loading} className="w-full">
+              {loading && activeReport === 'consumption' ? 'Gerando...' : 'Gerar Relatório'}
             </Button>
           </div>
         </div>
 
         {/* Report Results */}
-        {stockReport && activeReport === "stock" && (
+        {stockReport && activeReport === 'stock' && (
           <div className="bg-white rounded-lg shadow-sm border-2 border-blue-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -336,12 +321,24 @@ export default function ConsultantReportsPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qtd Total</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Lotes</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor Unit.</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Código
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Produto
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Qtd Total
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Lotes
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Valor Unit.
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Valor Total
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -349,8 +346,12 @@ export default function ConsultantReportsPage() {
                     <tr key={idx}>
                       <td className="px-4 py-3 text-sm text-gray-900">{produto.codigo}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{produto.nome}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">{produto.quantidade_total}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-600">{produto.lotes}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-900">
+                        {produto.quantidade_total}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600">
+                        {produto.lotes}
+                      </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-900">
                         {formatCurrency(produto.valor_unitario)}
                       </td>
@@ -365,7 +366,7 @@ export default function ConsultantReportsPage() {
           </div>
         )}
 
-        {expirationReport && activeReport === "expiration" && (
+        {expirationReport && activeReport === 'expiration' && (
           <div className="bg-white rounded-lg shadow-sm border-2 border-orange-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -390,7 +391,9 @@ export default function ConsultantReportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="p-4 bg-orange-50 rounded-lg">
                 <p className="text-sm text-orange-600 font-medium">Produtos em Risco</p>
-                <p className="text-2xl font-bold text-orange-900">{expirationReport.total_produtos}</p>
+                <p className="text-2xl font-bold text-orange-900">
+                  {expirationReport.total_produtos}
+                </p>
               </div>
               <div className="p-4 bg-red-50 rounded-lg">
                 <p className="text-sm text-red-600 font-medium">Valor em Risco</p>
@@ -404,29 +407,46 @@ export default function ConsultantReportsPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lote</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Quantidade</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Validade</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Dias</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Produto
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Lote
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Quantidade
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Validade
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Dias
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Valor
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {expirationReport.produtos_vencendo.map((produto) => (
-                    <tr key={produto.id} className={produto.dias_para_vencer <= 7 ? "bg-red-50" : ""}>
+                    <tr
+                      key={produto.id}
+                      className={produto.dias_para_vencer <= 7 ? 'bg-red-50' : ''}
+                    >
                       <td className="px-4 py-3 text-sm text-gray-900">{produto.nome}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{produto.lote}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">{produto.quantidade}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-900">
+                        {produto.quantidade}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{produto.dt_validade}</td>
                       <td className="px-4 py-3 text-sm text-right">
                         <span
                           className={`font-medium ${
                             produto.dias_para_vencer <= 7
-                              ? "text-red-600"
+                              ? 'text-red-600'
                               : produto.dias_para_vencer <= 15
-                              ? "text-orange-600"
-                              : "text-green-600"
+                                ? 'text-orange-600'
+                                : 'text-green-600'
                           }`}
                         >
                           {produto.dias_para_vencer}
@@ -443,7 +463,7 @@ export default function ConsultantReportsPage() {
           </div>
         )}
 
-        {consumptionReport && activeReport === "consumption" && (
+        {consumptionReport && activeReport === 'consumption' && (
           <div className="bg-white rounded-lg shadow-sm border-2 border-green-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -468,11 +488,15 @@ export default function ConsultantReportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-600 font-medium">Total Procedimentos</p>
-                <p className="text-2xl font-bold text-blue-900">{consumptionReport.total_procedimentos}</p>
+                <p className="text-2xl font-bold text-blue-900">
+                  {consumptionReport.total_procedimentos}
+                </p>
               </div>
               <div className="p-4 bg-green-50 rounded-lg">
                 <p className="text-sm text-green-600 font-medium">Produtos Consumidos</p>
-                <p className="text-2xl font-bold text-green-900">{consumptionReport.total_produtos_consumidos}</p>
+                <p className="text-2xl font-bold text-green-900">
+                  {consumptionReport.total_produtos_consumidos}
+                </p>
               </div>
               <div className="p-4 bg-purple-50 rounded-lg">
                 <p className="text-sm text-purple-600 font-medium">Valor Total</p>
@@ -487,18 +511,30 @@ export default function ConsultantReportsPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qtd Consumida</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Procedimentos</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Produto
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Qtd Consumida
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Procedimentos
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Valor Total
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {consumptionReport.por_produto.map((produto, idx) => (
                     <tr key={idx}>
                       <td className="px-4 py-3 text-sm text-gray-900">{produto.nome}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">{produto.quantidade_consumida}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-600">{produto.procedimentos}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-900">
+                        {produto.quantidade_consumida}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600">
+                        {produto.procedimentos}
+                      </td>
                       <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
                         {formatCurrency(produto.valor_total)}
                       </td>
@@ -513,18 +549,30 @@ export default function ConsultantReportsPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paciente</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Procedimentos</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Produtos</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Paciente
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Procedimentos
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Produtos
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Valor Total
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {consumptionReport.por_paciente.map((paciente, idx) => (
                     <tr key={idx}>
                       <td className="px-4 py-3 text-sm text-gray-900">{paciente.nome}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">{paciente.procedimentos}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-600">{paciente.produtos_consumidos}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-900">
+                        {paciente.procedimentos}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600">
+                        {paciente.produtos_consumidos}
+                      </td>
                       <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
                         {formatCurrency(paciente.valor_total)}
                       </td>

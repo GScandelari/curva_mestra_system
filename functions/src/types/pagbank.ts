@@ -11,8 +11,8 @@ export interface PagBankPlanRequest {
   reference: string; // Ex: "PLAN_SEMESTRAL_clinic123"
   preApproval: {
     name: string; // Nome do plano
-    charge: "AUTO"; // Cobrança automática
-    period: "MONTHLY" | "SEMIANNUAL" | "ANNUAL" | "YEARLY";
+    charge: 'AUTO'; // Cobrança automática
+    period: 'MONTHLY' | 'SEMIANNUAL' | 'ANNUAL' | 'YEARLY';
     amountPerPayment: string; // Valor total do período (ex: "359.40")
   };
 }
@@ -35,7 +35,7 @@ export interface PagBankSubscriberRequest {
     number: string;
   };
   document: {
-    type: "CPF" | "CNPJ";
+    type: 'CPF' | 'CNPJ';
     value: string; // Sem formatação
   };
   address: {
@@ -45,7 +45,7 @@ export interface PagBankSubscriberRequest {
     district: string;
     city: string;
     state: string; // Sigla (SP, RJ, etc)
-    country: "BRA";
+    country: 'BRA';
     postalCode: string; // CEP sem formatação
   };
 }
@@ -76,23 +76,23 @@ export interface PagBankSubscriptionRequest {
       district: string;
       city: string;
       state: string;
-      country: "BRA";
+      country: 'BRA';
       postalCode: string;
     };
     documents: Array<{
-      type: "CPF" | "CNPJ";
+      type: 'CPF' | 'CNPJ';
       value: string;
     }>;
   };
   paymentMethod: {
-    type: "CREDITCARD";
+    type: 'CREDITCARD';
     creditCard: {
       token: string; // Token do cartão gerado no frontend
       holder: {
         name: string;
         birthDate: string; // DD/MM/YYYY
         documents: Array<{
-          type: "CPF";
+          type: 'CPF';
           value: string;
         }>;
         billingAddress: {
@@ -102,7 +102,7 @@ export interface PagBankSubscriptionRequest {
           district: string;
           city: string;
           state: string;
-          country: "BRA";
+          country: 'BRA';
           postalCode: string;
         };
         phone: {
@@ -123,15 +123,15 @@ export interface PagBankSubscriptionResponse {
 }
 
 export type PagBankSubscriptionStatus =
-  | "INITIATED"
-  | "PENDING"
-  | "ACTIVE"
-  | "PAYMENT_METHOD_CHANGE"
-  | "SUSPENDED"
-  | "CANCELLED"
-  | "CANCELLED_BY_RECEIVER"
-  | "CANCELLED_BY_SENDER"
-  | "EXPIRED";
+  | 'INITIATED'
+  | 'PENDING'
+  | 'ACTIVE'
+  | 'PAYMENT_METHOD_CHANGE'
+  | 'SUSPENDED'
+  | 'CANCELLED'
+  | 'CANCELLED_BY_RECEIVER'
+  | 'CANCELLED_BY_SENDER'
+  | 'EXPIRED';
 
 // ============================================================================
 // WEBHOOK NOTIFICATIONS

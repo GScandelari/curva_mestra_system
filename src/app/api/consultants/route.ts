@@ -4,10 +4,10 @@
  * POST - Criar consultor (system_admin)
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import type { UserRole, Consultant } from "@/types";
-import { FieldValue } from "firebase-admin/firestore";
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import type { UserRole, Consultant } from '@/types';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * Gera código único de 6 dígitos
@@ -20,8 +20,8 @@ async function generateUniqueCode(): Promise<string> {
     code = String(Math.floor(100000 + Math.random() * 900000));
 
     const existing = await adminDb
-      .collection("consultants")
-      .where("code", "==", code)
+      .collection('consultants')
+      .where('code', '==', code)
       .limit(1)
       .get();
 
@@ -32,7 +32,7 @@ async function generateUniqueCode(): Promise<string> {
     attempts++;
   } while (attempts < 10);
 
-  throw new Error("Falha ao gerar código único após 10 tentativas");
+  throw new Error('Falha ao gerar código único após 10 tentativas');
 }
 
 /**
@@ -103,8 +103,8 @@ function generateConsultantWelcomeEmail(
  * Gera senha temporária segura
  */
 function generateTempPassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let password = "";
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let password = '';
   for (let i = 0; i < 12; i++) {
     password += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -117,29 +117,29 @@ function generateTempPassword(): string {
 export async function GET(req: NextRequest) {
   try {
     // Verificar autenticação via Authorization header
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Token não fornecido" }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     // Apenas system_admin pode listar consultores
     if (!decodedToken.is_system_admin) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
     // Buscar parâmetros de filtro
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
-    const search = searchParams.get("search");
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
 
     // Query base
-    let query = adminDb.collection("consultants").orderBy("created_at", "desc");
+    let query = adminDb.collection('consultants').orderBy('created_at', 'desc');
 
     if (status) {
-      query = query.where("status", "==", status) as any;
+      query = query.where('status', '==', status) as any;
     }
 
     const snapshot = await query.get();
@@ -165,9 +165,9 @@ export async function GET(req: NextRequest) {
       data: consultants,
     });
   } catch (error: any) {
-    console.error("Erro ao listar consultores:", error);
+    console.error('Erro ao listar consultores:', error);
     return NextResponse.json(
-      { error: error.message || "Erro ao listar consultores" },
+      { error: error.message || 'Erro ao listar consultores' },
       { status: 500 }
     );
   }
@@ -179,17 +179,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Verificar autenticação
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Token não fornecido" }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
     // Apenas system_admin pode criar consultores
     if (!decodedToken.is_system_admin) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
     // Validar campos obrigatórios
     if (!name || !email || !phone) {
       return NextResponse.json(
-        { error: "Todos os campos são obrigatórios: name, email, phone" },
+        { error: 'Todos os campos são obrigatórios: name, email, phone' },
         { status: 400 }
       );
     }
@@ -206,16 +206,13 @@ export async function POST(req: NextRequest) {
     // Verificar duplicidade de email
     const emailLower = email.toLowerCase();
     const existingByEmail = await adminDb
-      .collection("consultants")
-      .where("email", "==", emailLower)
+      .collection('consultants')
+      .where('email', '==', emailLower)
       .limit(1)
       .get();
 
     if (!existingByEmail.empty) {
-      return NextResponse.json(
-        { error: "Já existe um consultor com este email" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Já existe um consultor com este email' }, { status: 400 });
     }
 
     // Gerar código único
@@ -235,9 +232,9 @@ export async function POST(req: NextRequest) {
       });
       userId = userRecord.uid;
     } catch (authError: any) {
-      if (authError.code === "auth/email-already-exists") {
+      if (authError.code === 'auth/email-already-exists') {
         return NextResponse.json(
-          { error: "Este email já está em uso no sistema" },
+          { error: 'Este email já está em uso no sistema' },
           { status: 400 }
         );
       }
@@ -251,19 +248,19 @@ export async function POST(req: NextRequest) {
       name,
       email: emailLower,
       phone,
-      status: "active",
+      status: 'active',
       authorized_tenants: [],
       created_at: FieldValue.serverTimestamp(),
       updated_at: FieldValue.serverTimestamp(),
       created_by: decodedToken.uid,
     };
 
-    const consultantRef = await adminDb.collection("consultants").add(consultantData);
+    const consultantRef = await adminDb.collection('consultants').add(consultantData);
 
     // Definir Custom Claims para o usuário
     await adminAuth.setCustomUserClaims(userId, {
       tenant_id: null,
-      role: "clinic_consultant" as UserRole,
+      role: 'clinic_consultant' as UserRole,
       is_system_admin: false,
       is_consultant: true,
       consultant_id: consultantRef.id,
@@ -273,28 +270,31 @@ export async function POST(req: NextRequest) {
     });
 
     // Criar documento na collection users
-    await adminDb.collection("users").doc(userId).set({
-      email: emailLower,
-      full_name: name,
-      phone,
-      role: "clinic_consultant" as UserRole,
-      tenant_id: null,
-      active: true,
-      requirePasswordChange: true,
-      created_at: FieldValue.serverTimestamp(),
-      updated_at: FieldValue.serverTimestamp(),
-    });
+    await adminDb
+      .collection('users')
+      .doc(userId)
+      .set({
+        email: emailLower,
+        full_name: name,
+        phone,
+        role: 'clinic_consultant' as UserRole,
+        tenant_id: null,
+        active: true,
+        requirePasswordChange: true,
+        created_at: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
+      });
 
     // Enviar e-mail de boas-vindas via fila
     try {
       const emailHtml = generateConsultantWelcomeEmail(name, emailLower, code, tempPassword);
 
-      await adminDb.collection("email_queue").add({
+      await adminDb.collection('email_queue').add({
         to: emailLower,
-        subject: "Bem-vindo ao Curva Mestra - Portal do Consultor",
+        subject: 'Bem-vindo ao Curva Mestra - Portal do Consultor',
         body: emailHtml,
-        status: "pending",
-        type: "consultant_welcome",
+        status: 'pending',
+        type: 'consultant_welcome',
         metadata: {
           user_id: userId,
           consultant_id: consultantRef.id,
@@ -304,12 +304,12 @@ export async function POST(req: NextRequest) {
 
       console.log(`E-mail de boas-vindas adicionado à fila para ${emailLower}`);
     } catch (emailError) {
-      console.warn("Erro ao adicionar e-mail à fila:", emailError);
+      console.warn('Erro ao adicionar e-mail à fila:', emailError);
     }
 
     return NextResponse.json({
       success: true,
-      message: "Consultor criado com sucesso",
+      message: 'Consultor criado com sucesso',
       data: {
         id: consultantRef.id,
         user_id: userId,
@@ -317,13 +317,13 @@ export async function POST(req: NextRequest) {
         name,
         email: emailLower,
         phone,
-        status: "active",
+        status: 'active',
       },
     });
   } catch (error: any) {
-    console.error("Erro ao criar consultor:", error);
+    console.error('Erro ao criar consultor:', error);
     return NextResponse.json(
-      { error: error.message || "Erro ao criar consultor" },
+      { error: error.message || 'Erro ao criar consultor' },
       { status: 500 }
     );
   }

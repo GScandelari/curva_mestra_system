@@ -6,10 +6,10 @@
  * Body: { token: string, new_password: string }
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { consumeToken, invalidateUserTokens } from "@/lib/services/passwordResetService";
-import { FieldValue } from "firebase-admin/firestore";
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { consumeToken, invalidateUserTokens } from '@/lib/services/passwordResetService';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,15 +17,12 @@ export async function POST(request: NextRequest) {
 
     // Validar parâmetros
     if (!token) {
-      return NextResponse.json(
-        { success: false, error: "Token não fornecido" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Token não fornecido' }, { status: 400 });
     }
 
     if (!new_password) {
       return NextResponse.json(
-        { success: false, error: "Nova senha não fornecida" },
+        { success: false, error: 'Nova senha não fornecida' },
         { status: 400 }
       );
     }
@@ -33,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Validar força da senha
     if (new_password.length < 6) {
       return NextResponse.json(
-        { success: false, error: "A senha deve ter pelo menos 6 caracteres" },
+        { success: false, error: 'A senha deve ter pelo menos 6 caracteres' },
         { status: 400 }
       );
     }
@@ -42,10 +39,7 @@ export async function POST(request: NextRequest) {
     const consumeResult = await consumeToken(token);
 
     if (!consumeResult.success) {
-      return NextResponse.json(
-        { success: false, error: consumeResult.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: consumeResult.error }, { status: 400 });
     }
 
     const userId = consumeResult.userId!;
@@ -68,9 +62,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Atualizar documento do usuário no Firestore
-    const userDoc = await adminDb.collection("users").doc(userId).get();
+    const userDoc = await adminDb.collection('users').doc(userId).get();
     if (userDoc.exists) {
-      await adminDb.collection("users").doc(userId).update({
+      await adminDb.collection('users').doc(userId).update({
         requirePasswordChange: false,
         passwordChangedAt: FieldValue.serverTimestamp(),
         updated_at: FieldValue.serverTimestamp(),
@@ -84,28 +78,28 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Senha redefinida com sucesso! Você já pode fazer login.",
+      message: 'Senha redefinida com sucesso! Você já pode fazer login.',
     });
   } catch (error: any) {
-    console.error("Erro ao redefinir senha:", error);
+    console.error('Erro ao redefinir senha:', error);
 
     // Verificar erros específicos do Firebase Auth
-    if (error.code === "auth/user-not-found") {
+    if (error.code === 'auth/user-not-found') {
       return NextResponse.json(
-        { success: false, error: "Usuário não encontrado" },
+        { success: false, error: 'Usuário não encontrado' },
         { status: 404 }
       );
     }
 
-    if (error.code === "auth/weak-password") {
+    if (error.code === 'auth/weak-password') {
       return NextResponse.json(
-        { success: false, error: "A senha é muito fraca. Use pelo menos 6 caracteres" },
+        { success: false, error: 'A senha é muito fraca. Use pelo menos 6 caracteres' },
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { success: false, error: "Erro ao redefinir senha. Tente novamente." },
+      { success: false, error: 'Erro ao redefinir senha. Tente novamente.' },
       { status: 500 }
     );
   }

@@ -1,21 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  FileBarChart,
-  Building2,
-  AlertTriangle,
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { ClinicSelector } from "@/components/consultant/ClinicSelector";
-import { ReadOnlyBanner } from "@/components/consultant/ReadOnlyBanner";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FileBarChart, Building2, AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { ClinicSelector } from '@/components/consultant/ClinicSelector';
+import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 
 interface Clinic {
   id: string;
@@ -40,7 +30,7 @@ export default function ConsultantReportsPage() {
       setLoading(true);
       const token = await user.getIdToken();
 
-      const response = await fetch("/api/consultants/me/clinics", {
+      const response = await fetch('/api/consultants/me/clinics', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -49,7 +39,7 @@ export default function ConsultantReportsPage() {
         setClinics(data.data || []);
       }
     } catch (error) {
-      console.error("Erro ao carregar clínicas:", error);
+      console.error('Erro ao carregar clínicas:', error);
     } finally {
       setLoading(false);
     }
@@ -74,9 +64,7 @@ export default function ConsultantReportsPage() {
             <FileBarChart className="h-8 w-8 text-sky-600" />
             Relatórios
           </h1>
-          <p className="text-muted-foreground">
-            Visualize relatórios das clínicas vinculadas
-          </p>
+          <p className="text-muted-foreground">Visualize relatórios das clínicas vinculadas</p>
         </div>
 
         <ReadOnlyBanner />
@@ -86,15 +74,10 @@ export default function ConsultantReportsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Selecionar Clínica</CardTitle>
-              <CardDescription>
-                Escolha uma clínica para visualizar os relatórios
-              </CardDescription>
+              <CardDescription>Escolha uma clínica para visualizar os relatórios</CardDescription>
             </CardHeader>
             <CardContent>
-              <ClinicSelector
-                clinics={clinics}
-                className="max-w-md"
-              />
+              <ClinicSelector clinics={clinics} className="max-w-md" />
             </CardContent>
           </Card>
         )}
@@ -106,8 +89,8 @@ export default function ConsultantReportsPage() {
               <AlertTriangle className="h-12 w-12 mx-auto text-amber-500 mb-4" />
               <h3 className="text-xl font-semibold mb-2">Em Desenvolvimento</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Os relatórios consolidados para consultores estão sendo desenvolvidos.
-                Em breve você poderá visualizar análises detalhadas de todas as suas clínicas.
+                Os relatórios consolidados para consultores estão sendo desenvolvidos. Em breve você
+                poderá visualizar análises detalhadas de todas as suas clínicas.
               </p>
             </div>
           </CardContent>

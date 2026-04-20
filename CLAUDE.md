@@ -1,27 +1,30 @@
 # Regras do Projeto [Curva Mestra]
+
 **Sistema SaaS Multi-Tenant para Clínicas de Harmonização Facial e Corporal**  
 Gestão inteligente de estoque Rennova via DANFE (NF-e) + controle de lotes, validades, licenças e consumo por paciente.
 
 ## Stack
+
 **100% Firebase (Google Cloud) – Zero DevOps, MVP em 5 semanas**
 
 ```yaml
-Frontend:     Next.js 15 (App Router) + TypeScript + Tailwind CSS + Shadcn/ui + Lucide Icons
-PWA/Mobile:   Next.js PWA + Capacitor (iOS/Android via web)
-Backend:      Firebase Functions 2nd gen (TypeScript + Python 3.11)
-Banco:        Firestore in Native Mode (multi-tenant com tenant_id + RLS)
-Auth:         Firebase Authentication + Custom Claims + Magic Link + 2FA
-Storage:      Firebase Storage (/danfe/{tenant_id}/{nf_id}.pdf)
-OCR + IA:     Python (pytesseract + pdf2image + OpenCV) + Vertex AI Gemini 1.5 Flash (fallback)
-Real-time:    Firestore Realtime Listeners + TanStack Query
-Fila/Cron:    Firebase Scheduled Functions + Extensions (Trigger Email, TTL)
-Deploy:       Firebase Hosting + Functions (firebase deploy)
+Frontend: Next.js 15 (App Router) + TypeScript + Tailwind CSS + Shadcn/ui + Lucide Icons
+PWA/Mobile: Next.js PWA + Capacitor (iOS/Android via web)
+Backend: Firebase Functions 2nd gen (TypeScript + Python 3.11)
+Banco: Firestore in Native Mode (multi-tenant com tenant_id + RLS)
+Auth: Firebase Authentication + Custom Claims + Magic Link + 2FA
+Storage: Firebase Storage (/danfe/{tenant_id}/{nf_id}.pdf)
+OCR + IA: Python (pytesseract + pdf2image + OpenCV) + Vertex AI Gemini 1.5 Flash (fallback)
+Real-time: Firestore Realtime Listeners + TanStack Query
+Fila/Cron: Firebase Scheduled Functions + Extensions (Trigger Email, TTL)
+Deploy: Firebase Hosting + Functions (firebase deploy)
 Monitoramento: Firebase Crashlytics + Performance + Google Cloud Logging
-Testes:       Firebase Emulator Suite + Playwright E2E + Jest
-CI/CD:        GitHub Actions + firebase preview channels
+Testes: Firebase Emulator Suite + Playwright E2E + Jest
+CI/CD: GitHub Actions + firebase preview channels
 ```
 
 ## Convencoes
+
 **1. Nomeação e Estrutura**
 
 ```text
@@ -51,9 +54,10 @@ src/
 ```
 
 **3. Regras de Segurança Firestore (RLS)**
+
 ```js
 match /tenants/{tenantId}/{document=**} {
-  allow read, write: if request.auth != null 
+  allow read, write: if request.auth != null
     && request.auth.token.tenant_id == tenantId
     && request.auth.token.active == true;
 }
@@ -63,6 +67,7 @@ match /tenants/{tenantId}/{document=**} {
 ```
 
 **4. Convenções de Código**
+
 ```ts
 // Arquivos
 components/ui/button.tsx
@@ -90,18 +95,20 @@ NOME_PRODUTO = tudo até "Lt:"
 ```
 
 **6. Status Padronizados**
+
 ```ts
 // NF Import
-"pending" | "processing" | "success" | "error" | "novo_produto_pendente"
+'pending' | 'processing' | 'success' | 'error' | 'novo_produto_pendente';
 
 // Solicitação
-"criada" | "agendada" | "aprovada" | "reprovada" | "cancelada"
+'criada' | 'agendada' | 'aprovada' | 'reprovada' | 'cancelada';
 
 // Licença
-"ativa" | "pendente" | "expirada" | "suspensa"
+'ativa' | 'pendente' | 'expirada' | 'suspensa';
 ```
 
 **7. Roles e Permissões**
+
 ```json
 // NF-e 026229 - 25/03/2025 (já extraída corretamente)
 {
@@ -114,13 +121,14 @@ NOME_PRODUTO = tudo até "Lt:"
       "quantidade": 5,
       "dt_validade": "01/06/2029",
       "valor_unitario": 1.55
-    },
+    }
     // ... demais 12 produtos
   ]
 }
 ```
 
 **9. Comandos Úteis (salve no terminal)**
+
 ```bash
 # Local com emuladores
 firebase emulators:start
@@ -144,7 +152,7 @@ Upload DANFE + trigger automático → inventory realtime
 Dashboard com alertas de vencimento/estoque
 Sistema de solicitações com status agendada/aprovada
 
-*NUNCA quebre o multi-tenant. NUNCA ignore o parser Rennova. NUNCA deploy sem testar com a NF-e 026229.*
+_NUNCA quebre o multi-tenant. NUNCA ignore o parser Rennova. NUNCA deploy sem testar com a NF-e 026229._
 
 Projeto iniciado em: 07/11/2025
 Stack travada até v1.0 (Firebase only)
@@ -153,18 +161,21 @@ Claude AI é o arquiteto oficial – siga este arquivo à risca.
 ## Funcionalidades Desabilitadas
 
 ### Importação de PDF (DANFE Rennova)
+
 **Status**: DESABILITADO permanentemente (por ora)
 **Motivo**: Decisão de simplificar o MVP e focar apenas em cadastro manual
 **Arquivos Afetados**:
+
 - `src/app/api/parse-nf/route.ts` (API route não utilizada - manter para referência futura)
 
 **Decisão de Produto**:
+
 1. MVP irá operar APENAS com cadastro manual de produtos no Portal Admin
 2. Funcionalidade de importação via DANFE pode ser implementada no futuro
 3. API route `/api/parse-nf` permanece no código como referência, mas não está conectada à interface
 
 **Sistema Atual**:
+
 - System Admin cadastra produtos manualmente em `/admin/products/new`
 - Campos: código (7-8 dígitos) e nome do produto (uppercase automático)
 - Produtos ficam disponíveis no catálogo master para todas as clínicas
-

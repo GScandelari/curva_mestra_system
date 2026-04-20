@@ -1,18 +1,12 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -20,37 +14,28 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Calendar,
-  User,
-  Package,
-  AlertTriangle,
-  Check,
-  X,
-  Trash2,
-  Plus,
-} from "lucide-react";
-import { listInventory, type InventoryItem } from "@/lib/services/inventoryService";
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
+import { Calendar, User, Package, AlertTriangle, Check, X, Trash2, Plus } from 'lucide-react';
+import { listInventory, type InventoryItem } from '@/lib/services/inventoryService';
 import {
   createSolicitacaoWithConsumption,
   updateSolicitacaoAgendada,
   type CreateSolicitacaoInput,
-} from "@/lib/services/solicitacaoService";
-import { searchPatients } from "@/lib/services/patientService";
-import type { Patient } from "@/types/patient";
+} from '@/lib/services/solicitacaoService';
+import { searchPatients } from '@/lib/services/patientService';
+import type { Patient } from '@/types/patient';
 
-type Step = "dados_paciente" | "adicionar_produtos" | "revisao";
+type Step = 'dados_paciente' | 'adicionar_produtos' | 'revisao';
 
 interface ProdutoSelecionado {
   inventory_item_id: string;
@@ -80,30 +65,32 @@ export default function NovaSolicitacaoPage() {
 
   // Verificar permissão - apenas clinic_admin pode criar procedimentos
   useEffect(() => {
-    if (claims && claims.role !== "clinic_admin") {
-      router.push("/clinic/requests");
+    if (claims && claims.role !== 'clinic_admin') {
+      router.push('/clinic/requests');
     }
   }, [claims, router]);
 
   // Modo de edição
-  const editId = searchParams.get("edit");
+  const editId = searchParams.get('edit');
   const isEditMode = !!editId;
-  const createdAtParam = searchParams.get("createdAt"); // Data de criação do procedimento original
+  const createdAtParam = searchParams.get('createdAt'); // Data de criação do procedimento original
 
   // Pegar parâmetros da URL para pré-preenchimento
-  const patientCodeParam = searchParams.get("patientCode") || searchParams.get("pacienteCodigo");
-  const patientNameParam = searchParams.get("patientName") || searchParams.get("pacienteNome");
+  const patientCodeParam = searchParams.get('patientCode') || searchParams.get('pacienteCodigo');
+  const patientNameParam = searchParams.get('patientName') || searchParams.get('pacienteNome');
 
   // Estados do formulário
-  const [step, setStep] = useState<Step>("dados_paciente");
-  const [codigoPaciente, setCodigoPaciente] = useState(patientCodeParam || "");
-  const [nomePaciente, setNomePaciente] = useState(patientNameParam || "");
-  const [dtProcedimento, setDtProcedimento] = useState("");
-  const [observacoes, setObservacoes] = useState("");
+  const [step, setStep] = useState<Step>('dados_paciente');
+  const [codigoPaciente, setCodigoPaciente] = useState(patientCodeParam || '');
+  const [nomePaciente, setNomePaciente] = useState(patientNameParam || '');
+  const [dtProcedimento, setDtProcedimento] = useState('');
+  const [observacoes, setObservacoes] = useState('');
 
   // Estados do autocomplete
-  const [patientSearchTerm, setPatientSearchTerm] = useState("");
-  const [patientSearchFilter, setPatientSearchFilter] = useState<"all" | "codigo" | "nome" | "telefone">("all");
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [patientSearchFilter, setPatientSearchFilter] = useState<
+    'all' | 'codigo' | 'nome' | 'telefone'
+  >('all');
   const [patientSuggestions, setPatientSuggestions] = useState<Patient[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchingPatients, setSearchingPatients] = useState(false);
@@ -112,13 +99,13 @@ export default function NovaSolicitacaoPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([]);
-  const [selectedProductCode, setSelectedProductCode] = useState(""); // Mudou de ID para CODE
-  const [quantidadeSolicitada, setQuantidadeSolicitada] = useState("1");
+  const [selectedProductCode, setSelectedProductCode] = useState(''); // Mudou de ID para CODE
+  const [quantidadeSolicitada, setQuantidadeSolicitada] = useState('1');
 
   // Estados de loading e erro
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Debounce para busca de pacientes
@@ -138,7 +125,7 @@ export default function NovaSolicitacaoPage() {
         setPatientSuggestions(results);
         setShowSuggestions(results.length > 0);
       } catch (error) {
-        console.error("Erro ao buscar pacientes:", error);
+        console.error('Erro ao buscar pacientes:', error);
         setPatientSuggestions([]);
       } finally {
         setSearchingPatients(false);
@@ -165,7 +152,7 @@ export default function NovaSolicitacaoPage() {
   const handleSelectPatient = (patient: Patient) => {
     setCodigoPaciente(patient.codigo);
     setNomePaciente(patient.nome);
-    setPatientSearchTerm("");
+    setPatientSearchTerm('');
     setShowSuggestions(false);
     setPatientSuggestions([]);
   };
@@ -209,9 +196,7 @@ export default function NovaSolicitacaoPage() {
     });
 
     // Ordenar produtos por nome
-    return produtosAgrupados.sort((a, b) =>
-      a.nome_produto.localeCompare(b.nome_produto)
-    );
+    return produtosAgrupados.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto));
   };
 
   // Carregar inventário ao iniciar
@@ -234,11 +219,11 @@ export default function NovaSolicitacaoPage() {
         const agrupados = agruparProdutosPorCodigo(availableItems);
         setProdutosAgrupados(agrupados);
       } catch (err: any) {
-        console.error("Erro ao carregar inventário:", err);
+        console.error('Erro ao carregar inventário:', err);
         toast({
-          title: "Erro ao carregar inventário",
-          description: "Não foi possível carregar os produtos disponíveis",
-          variant: "destructive",
+          title: 'Erro ao carregar inventário',
+          description: 'Não foi possível carregar os produtos disponíveis',
+          variant: 'destructive',
         });
       } finally {
         setLoading(false);
@@ -254,19 +239,19 @@ export default function NovaSolicitacaoPage() {
 
     try {
       // Data do procedimento
-      const dtParam = searchParams.get("dtProcedimento");
+      const dtParam = searchParams.get('dtProcedimento');
       if (dtParam) {
         setDtProcedimento(dtParam);
       }
 
       // Observações
-      const obsParam = searchParams.get("observacoes");
+      const obsParam = searchParams.get('observacoes');
       if (obsParam) {
         setObservacoes(obsParam);
       }
 
       // Produtos
-      const produtosParam = searchParams.get("produtos");
+      const produtosParam = searchParams.get('produtos');
       if (produtosParam) {
         try {
           const produtos = JSON.parse(produtosParam);
@@ -281,11 +266,11 @@ export default function NovaSolicitacaoPage() {
           }));
           setProdutosSelecionados(produtosSelecionados);
         } catch (e) {
-          console.error("Erro ao parsear produtos:", e);
+          console.error('Erro ao parsear produtos:', e);
         }
       }
     } catch (error) {
-      console.error("Erro ao carregar dados de edição:", error);
+      console.error('Erro ao carregar dados de edição:', error);
     }
   }, [isEditMode, searchParams]);
 
@@ -294,7 +279,7 @@ export default function NovaSolicitacaoPage() {
     if (!isEditMode || produtosSelecionados.length === 0 || inventoryItems.length === 0) return;
 
     // Verificar se já tem quantidade_disponivel > 0 (já foi atualizado)
-    const jaAtualizado = produtosSelecionados.some(p => p.quantidade_disponivel > 0);
+    const jaAtualizado = produtosSelecionados.some((p) => p.quantidade_disponivel > 0);
     if (jaAtualizado) return;
 
     const produtosAtualizados = produtosSelecionados.map((produtoSelecionado) => {
@@ -321,15 +306,15 @@ export default function NovaSolicitacaoPage() {
   // Validações
   const validatePaciente = () => {
     if (!codigoPaciente.trim()) {
-      setError("Código do paciente é obrigatório");
+      setError('Código do paciente é obrigatório');
       return false;
     }
     if (!nomePaciente.trim()) {
-      setError("Nome do paciente é obrigatório");
+      setError('Nome do paciente é obrigatório');
       return false;
     }
     if (!dtProcedimento) {
-      setError("Data do procedimento é obrigatória");
+      setError('Data do procedimento é obrigatória');
       return false;
     }
 
@@ -350,22 +335,22 @@ export default function NovaSolicitacaoPage() {
         // Se a data de criação for anterior à data do procedimento, permitir edição
         if (createdAtParam < dtProcedimento) {
           // Permitido: foi agendado antes da data do procedimento
-          setError("");
+          setError('');
           return true;
         }
       }
 
-      setError("Data do procedimento não pode ser no passado");
+      setError('Data do procedimento não pode ser no passado');
       return false;
     }
 
-    setError("");
+    setError('');
     return true;
   };
 
   const handleContinuarParaProdutos = () => {
     if (validatePaciente()) {
-      setStep("adicionar_produtos");
+      setStep('adicionar_produtos');
     }
   };
 
@@ -374,9 +359,7 @@ export default function NovaSolicitacaoPage() {
     codigoProduto: string,
     quantidadeDesejada: number
   ): ProdutoSelecionado[] => {
-    const produtoAgrupado = produtosAgrupados.find(
-      (p) => p.codigo_produto === codigoProduto
-    );
+    const produtoAgrupado = produtosAgrupados.find((p) => p.codigo_produto === codigoProduto);
 
     if (!produtoAgrupado) return [];
 
@@ -387,10 +370,7 @@ export default function NovaSolicitacaoPage() {
     for (const lote of produtoAgrupado.lotes) {
       if (quantidadeRestante <= 0) break;
 
-      const quantidadeDoLote = Math.min(
-        quantidadeRestante,
-        lote.quantidade_disponivel
-      );
+      const quantidadeDoLote = Math.min(quantidadeRestante, lote.quantidade_disponivel);
 
       alocacoes.push({
         inventory_item_id: lote.id,
@@ -411,9 +391,9 @@ export default function NovaSolicitacaoPage() {
   const handleAdicionarProduto = () => {
     if (!selectedProductCode) {
       toast({
-        title: "Selecione um produto",
-        description: "Escolha um produto do inventário",
-        variant: "destructive",
+        title: 'Selecione um produto',
+        description: 'Escolha um produto do inventário',
+        variant: 'destructive',
       });
       return;
     }
@@ -421,39 +401,35 @@ export default function NovaSolicitacaoPage() {
     const quantidade = parseInt(quantidadeSolicitada);
     if (isNaN(quantidade) || quantidade <= 0) {
       toast({
-        title: "Quantidade inválida",
-        description: "Informe uma quantidade válida",
-        variant: "destructive",
+        title: 'Quantidade inválida',
+        description: 'Informe uma quantidade válida',
+        variant: 'destructive',
       });
       return;
     }
 
-    const produtoAgrupado = produtosAgrupados.find(
-      (p) => p.codigo_produto === selectedProductCode
-    );
+    const produtoAgrupado = produtosAgrupados.find((p) => p.codigo_produto === selectedProductCode);
 
     if (!produtoAgrupado) return;
 
     // Verificar se há estoque suficiente
     if (quantidade > produtoAgrupado.quantidade_total) {
       toast({
-        title: "Estoque insuficiente",
+        title: 'Estoque insuficiente',
         description: `Disponível: ${produtoAgrupado.quantidade_total} unidades`,
-        variant: "destructive",
+        variant: 'destructive',
       });
       return;
     }
 
     // Verificar se já foi adicionado
-    const jaAdicionado = produtosSelecionados.some(
-      (p) => p.produto_codigo === selectedProductCode
-    );
+    const jaAdicionado = produtosSelecionados.some((p) => p.produto_codigo === selectedProductCode);
 
     if (jaAdicionado) {
       toast({
-        title: "Produto já adicionado",
-        description: "Este produto já está na lista. Remova-o para adicionar novamente",
-        variant: "destructive",
+        title: 'Produto já adicionado',
+        description: 'Este produto já está na lista. Remova-o para adicionar novamente',
+        variant: 'destructive',
       });
       return;
     }
@@ -463,26 +439,29 @@ export default function NovaSolicitacaoPage() {
 
     if (alocacoes.length === 0) {
       toast({
-        title: "Erro ao alocar produto",
-        description: "Não foi possível alocar o produto",
-        variant: "destructive",
+        title: 'Erro ao alocar produto',
+        description: 'Não foi possível alocar o produto',
+        variant: 'destructive',
       });
       return;
     }
 
     // Adicionar todas as alocações
     setProdutosSelecionados([...produtosSelecionados, ...alocacoes]);
-    setSelectedProductCode("");
-    setQuantidadeSolicitada("1");
+    setSelectedProductCode('');
+    setQuantidadeSolicitada('1');
 
     // Mensagem detalhada sobre os lotes alocados
-    const lotesUsados = alocacoes.map((a) => `${a.lote} (${a.quantidade_solicitada} un)`).join(", ");
+    const lotesUsados = alocacoes
+      .map((a) => `${a.lote} (${a.quantidade_solicitada} un)`)
+      .join(', ');
 
     toast({
-      title: "Produto adicionado",
-      description: alocacoes.length === 1
-        ? `${produtoAgrupado.nome_produto} - Lote: ${lotesUsados}`
-        : `${produtoAgrupado.nome_produto} - Lotes: ${lotesUsados}`,
+      title: 'Produto adicionado',
+      description:
+        alocacoes.length === 1
+          ? `${produtoAgrupado.nome_produto} - Lote: ${lotesUsados}`
+          : `${produtoAgrupado.nome_produto} - Lotes: ${lotesUsados}`,
     });
   };
 
@@ -495,15 +474,15 @@ export default function NovaSolicitacaoPage() {
   const handleIrParaRevisao = () => {
     if (produtosSelecionados.length === 0) {
       toast({
-        title: "Adicione produtos",
-        description: "Adicione pelo menos um produto ao procedimento",
-        variant: "destructive",
+        title: 'Adicione produtos',
+        description: 'Adicione pelo menos um produto ao procedimento',
+        variant: 'destructive',
       });
       return;
     }
 
     setValidationErrors([]);
-    setStep("revisao");
+    setStep('revisao');
   };
 
   const handleConfirmarSolicitacao = async () => {
@@ -534,22 +513,22 @@ export default function NovaSolicitacaoPage() {
           tenantId,
           editId,
           user.uid,
-          user.displayName || user.email || "Usuário",
+          user.displayName || user.email || 'Usuário',
           updatePayload
         );
 
         if (result.success) {
           toast({
-            title: "Procedimento atualizado com sucesso!",
-            description: "As reservas de produtos foram ajustadas",
+            title: 'Procedimento atualizado com sucesso!',
+            description: 'As reservas de produtos foram ajustadas',
           });
 
           router.push(`/clinic/requests/${editId}`);
         } else {
           toast({
-            title: "Erro ao atualizar procedimento",
-            description: result.error || "Ocorreu um erro ao processar a atualização",
-            variant: "destructive",
+            title: 'Erro ao atualizar procedimento',
+            description: result.error || 'Ocorreu um erro ao processar a atualização',
+            variant: 'destructive',
           });
         }
       } else {
@@ -568,36 +547,36 @@ export default function NovaSolicitacaoPage() {
         const result = await createSolicitacaoWithConsumption(
           tenantId,
           user.uid,
-          user.displayName || user.email || "Usuário",
+          user.displayName || user.email || 'Usuário',
           input
         );
 
         if (result.success) {
           toast({
-            title: "Procedimento criado com sucesso!",
-            description: "Os produtos foram reservados no inventário",
+            title: 'Procedimento criado com sucesso!',
+            description: 'Os produtos foram reservados no inventário',
           });
 
           router.push(`/clinic/requests/${result.solicitacaoId}`);
         } else {
           if (result.validationErrors && result.validationErrors.length > 0) {
             setValidationErrors(result.validationErrors);
-            setStep("revisao"); // Voltar para revisão
+            setStep('revisao'); // Voltar para revisão
           }
 
           toast({
-            title: "Erro ao criar procedimento",
-            description: result.error || "Ocorreu um erro ao processar o procedimento",
-            variant: "destructive",
+            title: 'Erro ao criar procedimento',
+            description: result.error || 'Ocorreu um erro ao processar o procedimento',
+            variant: 'destructive',
           });
         }
       }
     } catch (err: any) {
-      console.error(`Erro ao ${isEditMode ? "atualizar" : "criar"} procedimento:`, err);
+      console.error(`Erro ao ${isEditMode ? 'atualizar' : 'criar'} procedimento:`, err);
       toast({
-        title: `Erro ao ${isEditMode ? "atualizar" : "criar"} procedimento`,
-        description: "Ocorreu um erro inesperado",
-        variant: "destructive",
+        title: `Erro ao ${isEditMode ? 'atualizar' : 'criar'} procedimento`,
+        description: 'Ocorreu um erro inesperado',
+        variant: 'destructive',
       });
     } finally {
       setSaving(false);
@@ -611,586 +590,549 @@ export default function NovaSolicitacaoPage() {
 
   // Helper para formatar data sem problemas de timezone
   const formatarDataLocal = (dataString: string) => {
-    if (!dataString) return "";
-    const [ano, mes, dia] = dataString.split("-");
+    if (!dataString) return '';
+    const [ano, mes, dia] = dataString.split('-');
     return `${dia}/${mes}/${ano}`;
   };
 
   return (
     <div className="container py-8">
-          <div className="space-y-6">
-            {/* Header */}
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">
-                {isEditMode ? "Editar Procedimento" : "Novo Procedimento"}
-              </h2>
-              <p className="text-muted-foreground">
-                {isEditMode
-                  ? "Modifique os dados do procedimento agendado"
-                  : "Registre o consumo de produtos para um procedimento"
-                }
-              </p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">
+            {isEditMode ? 'Editar Procedimento' : 'Novo Procedimento'}
+          </h2>
+          <p className="text-muted-foreground">
+            {isEditMode
+              ? 'Modifique os dados do procedimento agendado'
+              : 'Registre o consumo de produtos para um procedimento'}
+          </p>
+        </div>
+
+        {/* Progress Indicator */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                step === 'dados_paciente'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              1
             </div>
+            <span className="text-sm">Dados do Paciente</span>
+          </div>
 
-            {/* Progress Indicator */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    step === "dados_paciente"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  1
-                </div>
-                <span className="text-sm">Dados do Paciente</span>
-              </div>
+          <div className="h-[2px] w-12 bg-border" />
 
-              <div className="h-[2px] w-12 bg-border" />
-
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    step === "adicionar_produtos"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  2
-                </div>
-                <span className="text-sm">Adicionar Produtos</span>
-              </div>
-
-              <div className="h-[2px] w-12 bg-border" />
-
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    step === "revisao"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  3
-                </div>
-                <span className="text-sm">Revisão e Confirmação</span>
-              </div>
+          <div className="flex items-center gap-2">
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                step === 'adicionar_produtos'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              2
             </div>
+            <span className="text-sm">Adicionar Produtos</span>
+          </div>
 
-            {/* PASSO 1: Dados do Paciente */}
-            {step === "dados_paciente" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Informações do Paciente e Procedimento
-                  </CardTitle>
-                  <CardDescription>
-                    Informe os dados do paciente e a data do procedimento
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Erro</AlertTitle>
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
+          <div className="h-[2px] w-12 bg-border" />
 
-                  {/* Campo de Busca de Paciente com Autocomplete */}
-                  <div className="space-y-2">
-                    <Label htmlFor="patient-search">
-                      Buscar Paciente *
-                    </Label>
+          <div className="flex items-center gap-2">
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                step === 'revisao'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              3
+            </div>
+            <span className="text-sm">Revisão e Confirmação</span>
+          </div>
+        </div>
 
-                    {/* Filtro de busca */}
-                    <div className="flex gap-2 mb-2">
-                      <button
-                        type="button"
-                        onClick={() => setPatientSearchFilter("all")}
-                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                          patientSearchFilter === "all"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                        }`}
-                      >
-                        Todos
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPatientSearchFilter("codigo")}
-                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                          patientSearchFilter === "codigo"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                        }`}
-                      >
-                        Código
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPatientSearchFilter("nome")}
-                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                          patientSearchFilter === "nome"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                        }`}
-                      >
-                        Nome
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPatientSearchFilter("telefone")}
-                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                          patientSearchFilter === "telefone"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                        }`}
-                      >
-                        Telefone
-                      </button>
-                    </div>
+        {/* PASSO 1: Dados do Paciente */}
+        {step === 'dados_paciente' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Informações do Paciente e Procedimento
+              </CardTitle>
+              <CardDescription>
+                Informe os dados do paciente e a data do procedimento
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Erro</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-                    <div id="patient-search-container" className="relative">
-                      <Input
-                        id="patient-search"
-                        placeholder={
-                          patientSearchFilter === "all"
-                            ? "Digite código, nome ou telefone..."
-                            : patientSearchFilter === "codigo"
-                            ? "Digite o código do paciente..."
-                            : patientSearchFilter === "nome"
-                            ? "Digite o nome do paciente..."
-                            : "Digite o telefone do paciente..."
-                        }
-                        value={patientSearchTerm}
-                        onChange={(e) => setPatientSearchTerm(e.target.value)}
-                        onFocus={() => {
-                          if (patientSuggestions.length > 0) {
-                            setShowSuggestions(true);
-                          }
-                        }}
-                      />
+              {/* Campo de Busca de Paciente com Autocomplete */}
+              <div className="space-y-2">
+                <Label htmlFor="patient-search">Buscar Paciente *</Label>
 
-                      {/* Lista de Sugestões */}
-                      {showSuggestions && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                          {searchingPatients ? (
-                            <div className="p-3 text-center text-sm text-gray-500">
-                              Buscando...
-                            </div>
-                          ) : patientSuggestions.length === 0 ? (
-                            <div className="p-3 text-center text-sm text-gray-500">
-                              Nenhum paciente encontrado
-                            </div>
-                          ) : (
-                            patientSuggestions.map((patient) => (
-                              <button
-                                key={patient.id}
-                                type="button"
-                                onClick={() => handleSelectPatient(patient)}
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-gray-900">
-                                      {patient.nome}
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                      Código: {patient.codigo}
-                                    </p>
-                                    {patient.telefone && (
-                                      <p className="text-xs text-gray-500 mt-0.5">
-                                        Tel: {patient.telefone}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </button>
-                            ))
-                          )}
+                {/* Filtro de busca */}
+                <div className="flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setPatientSearchFilter('all')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      patientSearchFilter === 'all'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPatientSearchFilter('codigo')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      patientSearchFilter === 'codigo'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Código
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPatientSearchFilter('nome')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      patientSearchFilter === 'nome'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Nome
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPatientSearchFilter('telefone')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      patientSearchFilter === 'telefone'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Telefone
+                  </button>
+                </div>
+
+                <div id="patient-search-container" className="relative">
+                  <Input
+                    id="patient-search"
+                    placeholder={
+                      patientSearchFilter === 'all'
+                        ? 'Digite código, nome ou telefone...'
+                        : patientSearchFilter === 'codigo'
+                          ? 'Digite o código do paciente...'
+                          : patientSearchFilter === 'nome'
+                            ? 'Digite o nome do paciente...'
+                            : 'Digite o telefone do paciente...'
+                    }
+                    value={patientSearchTerm}
+                    onChange={(e) => setPatientSearchTerm(e.target.value)}
+                    onFocus={() => {
+                      if (patientSuggestions.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                  />
+
+                  {/* Lista de Sugestões */}
+                  {showSuggestions && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {searchingPatients ? (
+                        <div className="p-3 text-center text-sm text-gray-500">Buscando...</div>
+                      ) : patientSuggestions.length === 0 ? (
+                        <div className="p-3 text-center text-sm text-gray-500">
+                          Nenhum paciente encontrado
                         </div>
+                      ) : (
+                        patientSuggestions.map((patient) => (
+                          <button
+                            key={patient.id}
+                            type="button"
+                            onClick={() => handleSelectPatient(patient)}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900">{patient.nome}</p>
+                                <p className="text-sm text-gray-600">Código: {patient.codigo}</p>
+                                {patient.telefone && (
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    Tel: {patient.telefone}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        ))
                       )}
                     </div>
-                    {patientSearchTerm.length > 0 && patientSearchTerm.length < 2 && (
-                      <p className="text-xs text-gray-500">
-                        Digite pelo menos 2 caracteres para buscar
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Paciente Selecionado */}
-                  {(codigoPaciente || nomePaciente) && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-blue-900">
-                            Paciente Selecionado
-                          </p>
-                          <p className="text-lg font-bold text-blue-900 mt-1">
-                            {nomePaciente}
-                          </p>
-                          <p className="text-sm text-blue-700">
-                            Código: {codigoPaciente}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setCodigoPaciente("");
-                            setNomePaciente("");
-                            setPatientSearchTerm("");
-                          }}
-                          className="text-blue-700 hover:text-blue-900 hover:bg-blue-100"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
                   )}
+                </div>
+                {patientSearchTerm.length > 0 && patientSearchTerm.length < 2 && (
+                  <p className="text-xs text-gray-500">
+                    Digite pelo menos 2 caracteres para buscar
+                  </p>
+                )}
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="dt-procedimento">
-                      Data do Procedimento *
-                    </Label>
-                    <Input
-                      id="dt-procedimento"
-                      type="date"
-                      value={dtProcedimento}
-                      onChange={(e) => setDtProcedimento(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="observacoes">Observações (opcional)</Label>
-                    <Input
-                      id="observacoes"
-                      placeholder="Informações adicionais sobre o procedimento"
-                      value={observacoes}
-                      onChange={(e) => setObservacoes(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button onClick={handleContinuarParaProdutos}>
-                      Continuar <Package className="ml-2 h-4 w-4" />
+              {/* Paciente Selecionado */}
+              {(codigoPaciente || nomePaciente) && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-900">Paciente Selecionado</p>
+                      <p className="text-lg font-bold text-blue-900 mt-1">{nomePaciente}</p>
+                      <p className="text-sm text-blue-700">Código: {codigoPaciente}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setCodigoPaciente('');
+                        setNomePaciente('');
+                        setPatientSearchTerm('');
+                      }}
+                      className="text-blue-700 hover:text-blue-900 hover:bg-blue-100"
+                    >
+                      <X className="w-4 h-4" />
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
 
-            {/* PASSO 2: Adicionar Produtos */}
-            {step === "adicionar_produtos" && (
-              <div className="space-y-4">
-                {/* Resumo do Paciente */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resumo</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <Label className="text-muted-foreground">Paciente</Label>
-                        <p className="font-medium">
-                          {nomePaciente} ({codigoPaciente})
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground">
-                          Data do Procedimento
-                        </Label>
-                        <p className="font-medium">
-                          {formatarDataLocal(dtProcedimento)}
-                        </p>
-                      </div>
-                      {observacoes && (
-                        <div>
-                          <Label className="text-muted-foreground">Observações</Label>
-                          <p className="font-medium">{observacoes}</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Adicionar Produtos */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Package className="h-5 w-5" />
-                      Adicionar Produtos do Inventário
-                    </CardTitle>
-                    <CardDescription>
-                      Selecione os produtos utilizados no procedimento
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="md:col-span-2 space-y-2">
-                        <Label htmlFor="produto">Produto</Label>
-                        <Select
-                          value={selectedProductCode}
-                          onValueChange={setSelectedProductCode}
-                          disabled={loading}
-                        >
-                          <SelectTrigger id="produto">
-                            <SelectValue placeholder="Selecione um produto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {produtosAgrupados.map((produto) => (
-                              <SelectItem key={produto.codigo_produto} value={produto.codigo_produto}>
-                                {produto.nome_produto} - {produto.quantidade_total} unidades disponíveis
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="quantidade">Quantidade</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="quantidade"
-                            type="number"
-                            min="1"
-                            value={quantidadeSolicitada}
-                            onChange={(e) => setQuantidadeSolicitada(e.target.value)}
-                          />
-                          <Button onClick={handleAdicionarProduto}>
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Lista de Produtos Adicionados */}
-                    {produtosSelecionados.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Produtos Adicionados ({produtosSelecionados.length})</Label>
-                        <div className="border rounded-lg">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Produto</TableHead>
-                                <TableHead>Lote</TableHead>
-                                <TableHead className="text-right">Quantidade</TableHead>
-                                <TableHead className="text-right">Disponível</TableHead>
-                                <TableHead className="text-right">Valor Unit.</TableHead>
-                                <TableHead className="text-right">Total</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {produtosSelecionados.map((produto) => (
-                                <TableRow key={produto.inventory_item_id}>
-                                  <TableCell className="font-medium">
-                                    {produto.produto_nome}
-                                    <div className="text-xs text-muted-foreground">
-                                      {produto.produto_codigo}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>{produto.lote}</TableCell>
-                                  <TableCell className="text-right">
-                                    {produto.quantidade_solicitada}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Badge variant="outline">
-                                      {produto.quantidade_disponivel}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    R$ {produto.valor_unitario.toFixed(2)}
-                                  </TableCell>
-                                  <TableCell className="text-right font-medium">
-                                    R${" "}
-                                    {(
-                                      produto.quantidade_solicitada *
-                                      produto.valor_unitario
-                                    ).toFixed(2)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() =>
-                                        handleRemoverProduto(produto.inventory_item_id)
-                                      }
-                                    >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-right font-bold">
-                                  Valor Total:
-                                </TableCell>
-                                <TableCell className="text-right font-bold">
-                                  R$ {valorTotal.toFixed(2)}
-                                </TableCell>
-                                <TableCell></TableCell>
-                              </TableRow>
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex justify-between">
-                      <Button variant="outline" onClick={() => setStep("dados_paciente")}>
-                        Voltar
-                      </Button>
-                      <Button onClick={handleIrParaRevisao}>
-                        Revisar Procedimento <Check className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="space-y-2">
+                <Label htmlFor="dt-procedimento">Data do Procedimento *</Label>
+                <Input
+                  id="dt-procedimento"
+                  type="date"
+                  value={dtProcedimento}
+                  onChange={(e) => setDtProcedimento(e.target.value)}
+                />
               </div>
-            )}
 
-            {/* PASSO 3: Revisão e Confirmação */}
-            {step === "revisao" && (
-              <div className="space-y-4">
-                {validationErrors.length > 0 && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Erros de Validação</AlertTitle>
-                    <AlertDescription>
-                      <ul className="list-disc list-inside">
-                        {validationErrors.map((err, index) => (
-                          <li key={index}>{err}</li>
+              <div className="space-y-2">
+                <Label htmlFor="observacoes">Observações (opcional)</Label>
+                <Input
+                  id="observacoes"
+                  placeholder="Informações adicionais sobre o procedimento"
+                  value={observacoes}
+                  onChange={(e) => setObservacoes(e.target.value)}
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleContinuarParaProdutos}>
+                  Continuar <Package className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PASSO 2: Adicionar Produtos */}
+        {step === 'adicionar_produtos' && (
+          <div className="space-y-4">
+            {/* Resumo do Paciente */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Resumo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <Label className="text-muted-foreground">Paciente</Label>
+                    <p className="font-medium">
+                      {nomePaciente} ({codigoPaciente})
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Data do Procedimento</Label>
+                    <p className="font-medium">{formatarDataLocal(dtProcedimento)}</p>
+                  </div>
+                  {observacoes && (
+                    <div>
+                      <Label className="text-muted-foreground">Observações</Label>
+                      <p className="font-medium">{observacoes}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Adicionar Produtos */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Adicionar Produtos do Inventário
+                </CardTitle>
+                <CardDescription>Selecione os produtos utilizados no procedimento</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="produto">Produto</Label>
+                    <Select
+                      value={selectedProductCode}
+                      onValueChange={setSelectedProductCode}
+                      disabled={loading}
+                    >
+                      <SelectTrigger id="produto">
+                        <SelectValue placeholder="Selecione um produto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {produtosAgrupados.map((produto) => (
+                          <SelectItem key={produto.codigo_produto} value={produto.codigo_produto}>
+                            {produto.nome_produto} - {produto.quantidade_total} unidades disponíveis
+                          </SelectItem>
                         ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="quantidade">Quantidade</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="quantidade"
+                        type="number"
+                        min="1"
+                        value={quantidadeSolicitada}
+                        onChange={(e) => setQuantidadeSolicitada(e.target.value)}
+                      />
+                      <Button onClick={handleAdicionarProduto}>
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lista de Produtos Adicionados */}
+                {produtosSelecionados.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Produtos Adicionados ({produtosSelecionados.length})</Label>
+                    <div className="border rounded-lg">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Produto</TableHead>
+                            <TableHead>Lote</TableHead>
+                            <TableHead className="text-right">Quantidade</TableHead>
+                            <TableHead className="text-right">Disponível</TableHead>
+                            <TableHead className="text-right">Valor Unit.</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="w-[50px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {produtosSelecionados.map((produto) => (
+                            <TableRow key={produto.inventory_item_id}>
+                              <TableCell className="font-medium">
+                                {produto.produto_nome}
+                                <div className="text-xs text-muted-foreground">
+                                  {produto.produto_codigo}
+                                </div>
+                              </TableCell>
+                              <TableCell>{produto.lote}</TableCell>
+                              <TableCell className="text-right">
+                                {produto.quantidade_solicitada}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant="outline">{produto.quantidade_disponivel}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                R$ {produto.valor_unitario.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                R${' '}
+                                {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(
+                                  2
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoverProduto(produto.inventory_item_id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-right font-bold">
+                              Valor Total:
+                            </TableCell>
+                            <TableCell className="text-right font-bold">
+                              R$ {valorTotal.toFixed(2)}
+                            </TableCell>
+                            <TableCell></TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
                 )}
 
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Atenção!</AlertTitle>
-                  <AlertDescription>
-                    {isEditMode
-                      ? "Ao confirmar, as reservas de produtos serão ajustadas automaticamente no inventário. Produtos removidos terão suas reservas liberadas, e novos produtos serão reservados."
-                      : "Ao confirmar, os produtos serão RESERVADOS no inventário e o procedimento será criado com status \"Agendado\". Os produtos só serão consumidos quando o procedimento for concluído."
-                    }
-                  </AlertDescription>
-                </Alert>
-
-                {/* Revisão dos Dados */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Dados do Paciente</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label className="text-muted-foreground">Código</Label>
-                        <p className="font-medium">{codigoPaciente}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground">Nome</Label>
-                        <p className="font-medium">{nomePaciente}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground">
-                          Data do Procedimento
-                        </Label>
-                        <p className="font-medium">
-                          {formatarDataLocal(dtProcedimento)}
-                        </p>
-                      </div>
-                      {observacoes && (
-                        <div className="md:col-span-3">
-                          <Label className="text-muted-foreground">Observações</Label>
-                          <p className="font-medium">{observacoes}</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Produtos a Consumir</CardTitle>
-                    <CardDescription>
-                      {produtosSelecionados.length} produto(s) - Total: R${" "}
-                      {valorTotal.toFixed(2)}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Produto</TableHead>
-                          <TableHead>Lote</TableHead>
-                          <TableHead className="text-right">Quantidade</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {produtosSelecionados.map((produto) => (
-                          <TableRow key={produto.inventory_item_id}>
-                            <TableCell>
-                              <div className="font-medium">{produto.produto_nome}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {produto.produto_codigo}
-                              </div>
-                            </TableCell>
-                            <TableCell>{produto.lote}</TableCell>
-                            <TableCell className="text-right">
-                              {produto.quantidade_solicitada}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              R${" "}
-                              {(
-                                produto.quantidade_solicitada * produto.valor_unitario
-                              ).toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-
                 <div className="flex justify-between">
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep("adicionar_produtos")}
-                    disabled={saving}
-                  >
+                  <Button variant="outline" onClick={() => setStep('dados_paciente')}>
                     Voltar
                   </Button>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push("/clinic/requests")}
-                      disabled={saving}
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleConfirmarSolicitacao} disabled={saving}>
-                      {saving ? (
-                        "Processando..."
-                      ) : (
-                        <>
-                          <Check className="mr-2 h-4 w-4" />
-                          {isEditMode ? "Confirmar Alterações" : "Confirmar e Reservar Produtos"}
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                  <Button onClick={handleIrParaRevisao}>
+                    Revisar Procedimento <Check className="ml-2 h-4 w-4" />
+                  </Button>
                 </div>
-              </div>
-            )}
+              </CardContent>
+            </Card>
           </div>
+        )}
+
+        {/* PASSO 3: Revisão e Confirmação */}
+        {step === 'revisao' && (
+          <div className="space-y-4">
+            {validationErrors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Erros de Validação</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc list-inside">
+                    {validationErrors.map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Atenção!</AlertTitle>
+              <AlertDescription>
+                {isEditMode
+                  ? 'Ao confirmar, as reservas de produtos serão ajustadas automaticamente no inventário. Produtos removidos terão suas reservas liberadas, e novos produtos serão reservados.'
+                  : 'Ao confirmar, os produtos serão RESERVADOS no inventário e o procedimento será criado com status "Agendado". Os produtos só serão consumidos quando o procedimento for concluído.'}
+              </AlertDescription>
+            </Alert>
+
+            {/* Revisão dos Dados */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Dados do Paciente</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Código</Label>
+                    <p className="font-medium">{codigoPaciente}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Nome</Label>
+                    <p className="font-medium">{nomePaciente}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Data do Procedimento</Label>
+                    <p className="font-medium">{formatarDataLocal(dtProcedimento)}</p>
+                  </div>
+                  {observacoes && (
+                    <div className="md:col-span-3">
+                      <Label className="text-muted-foreground">Observações</Label>
+                      <p className="font-medium">{observacoes}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Produtos a Consumir</CardTitle>
+                <CardDescription>
+                  {produtosSelecionados.length} produto(s) - Total: R$ {valorTotal.toFixed(2)}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Lote</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {produtosSelecionados.map((produto) => (
+                      <TableRow key={produto.inventory_item_id}>
+                        <TableCell>
+                          <div className="font-medium">{produto.produto_nome}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {produto.produto_codigo}
+                          </div>
+                        </TableCell>
+                        <TableCell>{produto.lote}</TableCell>
+                        <TableCell className="text-right">
+                          {produto.quantidade_solicitada}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          R$ {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setStep('adicionar_produtos')}
+                disabled={saving}
+              >
+                Voltar
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/clinic/requests')}
+                  disabled={saving}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Cancelar
+                </Button>
+                <Button onClick={handleConfirmarSolicitacao} disabled={saving}>
+                  {saving ? (
+                    'Processando...'
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      {isEditMode ? 'Confirmar Alterações' : 'Confirmar e Reservar Produtos'}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

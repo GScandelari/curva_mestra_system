@@ -27,12 +27,12 @@ Página de gerenciamento da clínica organizada em abas (tabs). Permite ao `clin
 
 ## 2. Tipos de Usuários
 
-| Tipo | Acesso | Permissões |
-|------|--------|------------|
-| `clinic_admin` | Total | Vê 3 abas: Licença, Usuários, Alertas |
-| `clinic_user` | Parcial | Vê apenas 1 aba: Licença. Se tentar acessar abas restritas via URL, é redirecionado para Licença |
-| `clinic_consultant` | Parcial | Mesmo comportamento de clinic_user (sem verificação explícita) |
-| `system_admin` | N/A | Não acessa rotas do módulo clínica |
+| Tipo                | Acesso  | Permissões                                                                                       |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `clinic_admin`      | Total   | Vê 3 abas: Licença, Usuários, Alertas                                                            |
+| `clinic_user`       | Parcial | Vê apenas 1 aba: Licença. Se tentar acessar abas restritas via URL, é redirecionado para Licença |
+| `clinic_consultant` | Parcial | Mesmo comportamento de clinic_user (sem verificação explícita)                                   |
+| `system_admin`      | N/A     | Não acessa rotas do módulo clínica                                                               |
 
 ---
 
@@ -41,18 +41,18 @@ Página de gerenciamento da clínica organizada em abas (tabs). Permite ao `clin
 ### 3.1 Estado do Componente (useState)
 
 ```typescript
-const isAdmin = claims?.role === "clinic_admin";
-const defaultTab = searchParams.get("tab") || "license";
+const isAdmin = claims?.role === 'clinic_admin';
+const defaultTab = searchParams.get('tab') || 'license';
 const [activeTab, setActiveTab] = useState(defaultTab);
 ```
 
 ### 3.2 Abas Disponíveis
 
-| Aba | Valor URL | Componente | Ícone | Acesso |
-|-----|-----------|------------|-------|--------|
-| Licença | `?tab=license` | `LicenseTab` | `Shield` | Todos |
-| Usuários | `?tab=users` | `UsersTab` | `Users` | Apenas admin |
-| Alertas | `?tab=alerts` | `AlertsTab` | `Bell` | Apenas admin |
+| Aba      | Valor URL      | Componente   | Ícone    | Acesso       |
+| -------- | -------------- | ------------ | -------- | ------------ |
+| Licença  | `?tab=license` | `LicenseTab` | `Shield` | Todos        |
+| Usuários | `?tab=users`   | `UsersTab`   | `Users`  | Apenas admin |
+| Alertas  | `?tab=alerts`  | `AlertsTab`  | `Bell`   | Apenas admin |
 
 ### 3.3 Componentes Dinâmicos
 
@@ -66,6 +66,7 @@ const UsersTab = dynamic(() => import("@/components/clinic/UsersTab"), {
 ```
 
 Componentes carregados:
+
 - `@/components/clinic/UsersTab` — gerenciamento de usuários
 - `@/components/clinic/LicenseTab` — informações de licença
 - `@/components/clinic/AlertsTab` — configuração de alertas
@@ -211,13 +212,13 @@ Componentes carregados:
 
 ## 7. Estados da Interface
 
-| Estado | Comportamento | Visual |
-|--------|---------------|--------|
-| Admin — 3 abas | Grid 3 colunas: Licença, Usuários, Alertas | TabsList com `grid-cols-3` |
-| Não-admin — 1 aba | Grid 1 coluna: apenas Licença | TabsList com `grid-cols-1` |
-| Carregando aba | Texto "Carregando..." centralizado | Fallback do `next/dynamic` |
-| Aba ativa | Conteúdo da aba renderizado abaixo do TabsList | TabsContent visível |
-| Troca de aba | URL atualizada, conteúdo muda sem reload | pushState + rerender |
+| Estado            | Comportamento                                  | Visual                     |
+| ----------------- | ---------------------------------------------- | -------------------------- |
+| Admin — 3 abas    | Grid 3 colunas: Licença, Usuários, Alertas     | TabsList com `grid-cols-3` |
+| Não-admin — 1 aba | Grid 1 coluna: apenas Licença                  | TabsList com `grid-cols-1` |
+| Carregando aba    | Texto "Carregando..." centralizado             | Fallback do `next/dynamic` |
+| Aba ativa         | Conteúdo da aba renderizado abaixo do TabsList | TabsContent visível        |
+| Troca de aba      | URL atualizada, conteúdo muda sem reload       | pushState + rerender       |
 
 ---
 
@@ -225,61 +226,61 @@ Componentes carregados:
 
 ### 8.1 Validações no Frontend
 
-| Validação | Condição | Comportamento |
-|-----------|----------|---------------|
-| Role do usuário | `claims?.role === "clinic_admin"` | Controla visibilidade das abas |
-| Aba restrita via URL | `!isAdmin && (tab === "users" \|\| tab === "alerts")` | Força `activeTab = "license"` |
-| Tab param inválido | Sem verificação explícita | Shadcn Tabs ignora valores não-registrados |
+| Validação            | Condição                                              | Comportamento                              |
+| -------------------- | ----------------------------------------------------- | ------------------------------------------ |
+| Role do usuário      | `claims?.role === "clinic_admin"`                     | Controla visibilidade das abas             |
+| Aba restrita via URL | `!isAdmin && (tab === "users" \|\| tab === "alerts")` | Força `activeTab = "license"`              |
+| Tab param inválido   | Sem verificação explícita                             | Shadcn Tabs ignora valores não-registrados |
 
 ---
 
 ## 9. Integrações
 
-| Integração | Tipo | Descrição |
-|------------|------|-----------|
-| Firebase Auth | Autenticação | `useAuth()` fornece `claims.role` |
-| Next.js Dynamic | Carregamento | `next/dynamic` com `ssr: false` para cada aba |
-| Next.js useSearchParams | URL | Leitura do query param `tab` |
-| Browser History | URL | `window.history.pushState` para atualizar URL sem reload |
-| `LicenseTab` | Componente | Gerenciamento de licença da clínica |
-| `UsersTab` | Componente | Gerenciamento de usuários |
-| `AlertsTab` | Componente | Configuração de alertas |
+| Integração              | Tipo         | Descrição                                                |
+| ----------------------- | ------------ | -------------------------------------------------------- |
+| Firebase Auth           | Autenticação | `useAuth()` fornece `claims.role`                        |
+| Next.js Dynamic         | Carregamento | `next/dynamic` com `ssr: false` para cada aba            |
+| Next.js useSearchParams | URL          | Leitura do query param `tab`                             |
+| Browser History         | URL          | `window.history.pushState` para atualizar URL sem reload |
+| `LicenseTab`            | Componente   | Gerenciamento de licença da clínica                      |
+| `UsersTab`              | Componente   | Gerenciamento de usuários                                |
+| `AlertsTab`             | Componente   | Configuração de alertas                                  |
 
 ---
 
 ## 10. Segurança
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Autenticação | `useAuth()` verifica se há usuário logado |
-| Autorização (visual) | Abas restritas não são renderizadas para não-admins |
-| Autorização (URL) | `useEffect` redireciona para "license" se não-admin acessa tab restrita |
-| Multi-tenant | Delegado aos componentes filhos (LicenseTab, UsersTab, AlertsTab) |
-| Firestore RLS | Delegado aos componentes filhos |
+| Aspecto              | Implementação                                                           |
+| -------------------- | ----------------------------------------------------------------------- |
+| Autenticação         | `useAuth()` verifica se há usuário logado                               |
+| Autorização (visual) | Abas restritas não são renderizadas para não-admins                     |
+| Autorização (URL)    | `useEffect` redireciona para "license" se não-admin acessa tab restrita |
+| Multi-tenant         | Delegado aos componentes filhos (LicenseTab, UsersTab, AlertsTab)       |
+| Firestore RLS        | Delegado aos componentes filhos                                         |
 
 ---
 
 ## 11. Performance
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Carregamento dinâmico | `next/dynamic` com `ssr: false` — cada aba carregada apenas quando necessário |
-| Sem SSR | `ssr: false` evita renderização no servidor (componentes usam APIs do browser) |
-| Fallback de loading | Texto "Carregando..." enquanto componente é carregado |
-| URL sem reload | `pushState` em vez de `router.push` — não recarrega a página |
-| Componentes cacheados | Após primeiro carregamento, componente fica em memória |
+| Aspecto               | Implementação                                                                  |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Carregamento dinâmico | `next/dynamic` com `ssr: false` — cada aba carregada apenas quando necessário  |
+| Sem SSR               | `ssr: false` evita renderização no servidor (componentes usam APIs do browser) |
+| Fallback de loading   | Texto "Carregando..." enquanto componente é carregado                          |
+| URL sem reload        | `pushState` em vez de `router.push` — não recarrega a página                   |
+| Componentes cacheados | Após primeiro carregamento, componente fica em memória                         |
 
 ---
 
 ## 12. Acessibilidade
 
-| Aspecto | Status | Detalhes |
-|---------|--------|----------|
-| Tabs semânticas | Sim | Componente Shadcn `Tabs` com roles ARIA corretos |
-| Ícones nas abas | Sim | Ícones + texto label — acessível |
-| Navegação por teclado | Sim | Shadcn Tabs suporta Arrow keys nativamente |
-| Fallback de carregamento | Parcial | Texto "Carregando..." sem role="status" |
-| Grid adaptivo | Sim | Layout ajusta ao número de abas visíveis |
+| Aspecto                  | Status  | Detalhes                                         |
+| ------------------------ | ------- | ------------------------------------------------ |
+| Tabs semânticas          | Sim     | Componente Shadcn `Tabs` com roles ARIA corretos |
+| Ícones nas abas          | Sim     | Ícones + texto label — acessível                 |
+| Navegação por teclado    | Sim     | Shadcn Tabs suporta Arrow keys nativamente       |
+| Fallback de carregamento | Parcial | Texto "Carregando..." sem role="status"          |
+| Grid adaptivo            | Sim     | Layout ajusta ao número de abas visíveis         |
 
 ---
 
@@ -287,27 +288,27 @@ Componentes carregados:
 
 ### 13.1 Cenários de Teste Recomendados
 
-| Cenário | Tipo | Descrição |
-|---------|------|-----------|
-| Acesso como admin | E2E | Verificar 3 abas visíveis (Licença, Usuários, Alertas) |
-| Acesso como clinic_user | E2E | Verificar apenas 1 aba visível (Licença) |
-| Navegação por URL | E2E | Acessar `?tab=users` como admin e verificar aba correta |
-| Proteção de URL | E2E | Acessar `?tab=users` como clinic_user e verificar redirect para license |
-| Troca de aba | E2E | Clicar em aba e verificar URL atualizada |
-| Botão voltar do browser | E2E | Trocar aba, clicar voltar, verificar aba anterior restaurada |
-| Carregamento dinâmico | E2E | Verificar que "Carregando..." aparece antes do componente |
-| Aba padrão | E2E | Acessar sem `?tab=` e verificar que Licença é selecionada |
+| Cenário                 | Tipo | Descrição                                                               |
+| ----------------------- | ---- | ----------------------------------------------------------------------- |
+| Acesso como admin       | E2E  | Verificar 3 abas visíveis (Licença, Usuários, Alertas)                  |
+| Acesso como clinic_user | E2E  | Verificar apenas 1 aba visível (Licença)                                |
+| Navegação por URL       | E2E  | Acessar `?tab=users` como admin e verificar aba correta                 |
+| Proteção de URL         | E2E  | Acessar `?tab=users` como clinic_user e verificar redirect para license |
+| Troca de aba            | E2E  | Clicar em aba e verificar URL atualizada                                |
+| Botão voltar do browser | E2E  | Trocar aba, clicar voltar, verificar aba anterior restaurada            |
+| Carregamento dinâmico   | E2E  | Verificar que "Carregando..." aparece antes do componente               |
+| Aba padrão              | E2E  | Acessar sem `?tab=` e verificar que Licença é selecionada               |
 
 ---
 
 ## 14. Melhorias Futuras
 
-| Melhoria | Prioridade | Descrição |
-|----------|------------|-----------|
-| Breadcrumb | Baixa | Adicionar navegação por breadcrumb |
-| Skeleton loading | Baixa | Substituir "Carregando..." por skeleton UI |
-| Suspense | Baixa | Migrar de `next/dynamic` para React Suspense nativo |
-| Prefetch de abas | Baixa | Pré-carregar componentes de abas adjacentes |
+| Melhoria         | Prioridade | Descrição                                           |
+| ---------------- | ---------- | --------------------------------------------------- |
+| Breadcrumb       | Baixa      | Adicionar navegação por breadcrumb                  |
+| Skeleton loading | Baixa      | Substituir "Carregando..." por skeleton UI          |
+| Suspense         | Baixa      | Migrar de `next/dynamic` para React Suspense nativo |
+| Prefetch de abas | Baixa      | Pré-carregar componentes de abas adjacentes         |
 
 ---
 
@@ -327,12 +328,12 @@ my-clinic (este doc)
 
 ### Páginas relacionadas
 
-| Página | Relação |
-|--------|---------|
-| Dashboard | Navegação principal da clínica |
-| Licença | Conteúdo da aba Licença |
-| Usuários | Conteúdo da aba Usuários |
-| Configurações (Alertas) | Conteúdo da aba Alertas |
+| Página                  | Relação                        |
+| ----------------------- | ------------------------------ |
+| Dashboard               | Navegação principal da clínica |
+| Licença                 | Conteúdo da aba Licença        |
+| Usuários                | Conteúdo da aba Usuários       |
+| Configurações (Alertas) | Conteúdo da aba Alertas        |
 
 ---
 
@@ -350,26 +351,26 @@ my-clinic (este doc)
 
 ## 17. Histórico de Mudanças
 
-| Data | Versão | Descrição |
-|------|--------|-----------|
-| 07/02/2026 | 1.0 | Documentação inicial (formato antigo) |
-| 09/02/2026 | 2.0 | Padronização para template de 20 seções |
+| Data       | Versão | Descrição                               |
+| ---------- | ------ | --------------------------------------- |
+| 07/02/2026 | 1.0    | Documentação inicial (formato antigo)   |
+| 09/02/2026 | 2.0    | Padronização para template de 20 seções |
 
 ---
 
 ## 18. Glossário
 
-| Termo | Descrição |
-|-------|-----------|
-| `claims` | Custom Claims do Firebase Auth com role e tenant_id |
-| `isAdmin` | Booleano derivado de `claims?.role === "clinic_admin"` |
-| `activeTab` | Estado que controla a aba ativa ("license", "users", "alerts") |
-| `pushState` | Método do browser para atualizar URL sem reload |
+| Termo          | Descrição                                                       |
+| -------------- | --------------------------------------------------------------- |
+| `claims`       | Custom Claims do Firebase Auth com role e tenant_id             |
+| `isAdmin`      | Booleano derivado de `claims?.role === "clinic_admin"`          |
+| `activeTab`    | Estado que controla a aba ativa ("license", "users", "alerts")  |
+| `pushState`    | Método do browser para atualizar URL sem reload                 |
 | `next/dynamic` | Função do Next.js para carregamento dinâmico com code-splitting |
-| `ssr: false` | Opção que desabilita Server-Side Rendering para o componente |
-| `LicenseTab` | Componente dinâmico de gerenciamento de licença |
-| `UsersTab` | Componente dinâmico de gerenciamento de usuários |
-| `AlertsTab` | Componente dinâmico de configuração de alertas |
+| `ssr: false`   | Opção que desabilita Server-Side Rendering para o componente    |
+| `LicenseTab`   | Componente dinâmico de gerenciamento de licença                 |
+| `UsersTab`     | Componente dinâmico de gerenciamento de usuários                |
+| `AlertsTab`    | Componente dinâmico de configuração de alertas                  |
 
 ---
 
@@ -403,6 +404,6 @@ container mx-auto p-6 max-w-7xl
 
 ### Anexo B — URL Query Parameters
 
-| Parâmetro | Valores | Default | Descrição |
-|-----------|---------|---------|-----------|
-| `tab` | `license`, `users`, `alerts` | `license` | Controla aba ativa |
+| Parâmetro | Valores                      | Default   | Descrição          |
+| --------- | ---------------------------- | --------- | ------------------ |
+| `tab`     | `license`, `users`, `alerts` | `license` | Controla aba ativa |

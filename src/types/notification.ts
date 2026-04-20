@@ -3,20 +3,20 @@
  * Curva Mestra - Multi-Tenant SaaS
  */
 
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from 'firebase/firestore';
 
 export type NotificationType =
-  | "expiring" // Produto próximo do vencimento
-  | "expired" // Produto vencido
-  | "low_stock" // Estoque baixo
-  | "request_approved" // Solicitação aprovada
-  | "request_rejected" // Solicitação reprovada
-  | "request_created" // Nova solicitação criada (para admins)
-  | "new_user" // Novo usuário adicionado à clínica
-  | "license_expiring" // Licença próxima do vencimento
-  | "license_expired"; // Licença expirada
+  | 'expiring' // Produto próximo do vencimento
+  | 'expired' // Produto vencido
+  | 'low_stock' // Estoque baixo
+  | 'request_approved' // Solicitação aprovada
+  | 'request_rejected' // Solicitação reprovada
+  | 'request_created' // Nova solicitação criada (para admins)
+  | 'new_user' // Novo usuário adicionado à clínica
+  | 'license_expiring' // Licença próxima do vencimento
+  | 'license_expired'; // Licença expirada
 
-export type NotificationPriority = "low" | "medium" | "high" | "urgent";
+export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface Notification {
   id: string;
@@ -96,13 +96,13 @@ export interface CreateNotificationInput {
   inventory_id?: string;
   request_id?: string;
   user_id?: string;
-  metadata?: Notification["metadata"];
+  metadata?: Notification['metadata'];
 }
 
 // Configurações padrão
 export const DEFAULT_NOTIFICATION_SETTINGS: Omit<
   NotificationSettings,
-  "tenant_id" | "updated_at" | "updated_by"
+  'tenant_id' | 'updated_at' | 'updated_by'
 > = {
   enable_expiry_alerts: true,
   expiry_warning_days: 30,

@@ -19,8 +19,8 @@ import {
   Timestamp,
   onSnapshot,
   type Unsubscribe,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type {
   Notification,
   NotificationSettings,
@@ -28,8 +28,8 @@ import type {
   CreateNotificationInput,
   NotificationType,
   NotificationPriority,
-} from "@/types/notification";
-import { DEFAULT_NOTIFICATION_SETTINGS } from "@/types/notification";
+} from '@/types/notification';
+import { DEFAULT_NOTIFICATION_SETTINGS } from '@/types/notification';
 
 /**
  * Busca configurações de notificação de um tenant
@@ -38,10 +38,7 @@ export async function getNotificationSettings(
   tenantId: string
 ): Promise<NotificationSettings | null> {
   try {
-    const settingsRef = doc(
-      db,
-      `tenants/${tenantId}/settings/notifications`
-    );
+    const settingsRef = doc(db, `tenants/${tenantId}/settings/notifications`);
     const settingsSnap = await getDoc(settingsRef);
 
     if (!settingsSnap.exists()) {
@@ -50,7 +47,7 @@ export async function getNotificationSettings(
 
     return settingsSnap.data() as NotificationSettings;
   } catch (error) {
-    console.error("Erro ao buscar configurações de notificação:", error);
+    console.error('Erro ao buscar configurações de notificação:', error);
     throw error;
   }
 }
@@ -64,10 +61,7 @@ export async function saveNotificationSettings(
   userId: string
 ): Promise<void> {
   try {
-    const settingsRef = doc(
-      db,
-      `tenants/${tenantId}/settings/notifications`
-    );
+    const settingsRef = doc(db, `tenants/${tenantId}/settings/notifications`);
 
     const dataToSave = {
       ...settings,
@@ -79,11 +73,8 @@ export async function saveNotificationSettings(
     await updateDoc(settingsRef, dataToSave);
   } catch (error: any) {
     // Se documento não existe, criar com valores padrão
-    if (error.code === "not-found") {
-      const settingsRef = doc(
-        db,
-        `tenants/${tenantId}/settings/notifications`
-      );
+    if (error.code === 'not-found') {
+      const settingsRef = doc(db, `tenants/${tenantId}/settings/notifications`);
       await updateDoc(settingsRef, {
         ...DEFAULT_NOTIFICATION_SETTINGS,
         ...settings,
@@ -92,7 +83,7 @@ export async function saveNotificationSettings(
         updated_by: userId,
       });
     } else {
-      console.error("Erro ao salvar configurações:", error);
+      console.error('Erro ao salvar configurações:', error);
       throw error;
     }
   }
@@ -106,10 +97,7 @@ export async function initializeNotificationSettings(
   userId: string
 ): Promise<void> {
   try {
-    const settingsRef = doc(
-      db,
-      `tenants/${tenantId}/settings/notifications`
-    );
+    const settingsRef = doc(db, `tenants/${tenantId}/settings/notifications`);
 
     await updateDoc(settingsRef, {
       ...DEFAULT_NOTIFICATION_SETTINGS,
@@ -118,7 +106,7 @@ export async function initializeNotificationSettings(
       updated_by: userId,
     });
   } catch (error) {
-    console.error("Erro ao inicializar configurações:", error);
+    console.error('Erro ao inicializar configurações:', error);
     throw error;
   }
 }
@@ -126,16 +114,11 @@ export async function initializeNotificationSettings(
 /**
  * Cria uma nova notificação
  */
-export async function createNotification(
-  input: CreateNotificationInput
-): Promise<string> {
+export async function createNotification(input: CreateNotificationInput): Promise<string> {
   try {
-    const notificationsRef = collection(
-      db,
-      `tenants/${input.tenant_id}/notifications`
-    );
+    const notificationsRef = collection(db, `tenants/${input.tenant_id}/notifications`);
 
-    const notification: Omit<Notification, "id"> = {
+    const notification: Omit<Notification, 'id'> = {
       tenant_id: input.tenant_id,
       type: input.type,
       priority: input.priority,
@@ -153,7 +136,7 @@ export async function createNotification(
     const docRef = await addDoc(notificationsRef, notification);
     return docRef.id;
   } catch (error) {
-    console.error("Erro ao criar notificação:", error);
+    console.error('Erro ao criar notificação:', error);
     throw error;
   }
 }
@@ -167,22 +150,15 @@ export async function getNotifications(
   onlyUnread: boolean = false
 ): Promise<Notification[]> {
   try {
-    const notificationsRef = collection(
-      db,
-      `tenants/${tenantId}/notifications`
-    );
+    const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
 
-    let q = query(
-      notificationsRef,
-      orderBy("created_at", "desc"),
-      limit(limitCount)
-    );
+    let q = query(notificationsRef, orderBy('created_at', 'desc'), limit(limitCount));
 
     if (onlyUnread) {
       q = query(
         notificationsRef,
-        where("read", "==", false),
-        orderBy("created_at", "desc"),
+        where('read', '==', false),
+        orderBy('created_at', 'desc'),
         limit(limitCount)
       );
     }
@@ -194,7 +170,7 @@ export async function getNotifications(
       ...doc.data(),
     })) as Notification[];
   } catch (error) {
-    console.error("Erro ao buscar notificações:", error);
+    console.error('Erro ao buscar notificações:', error);
     throw error;
   }
 }
@@ -202,22 +178,16 @@ export async function getNotifications(
 /**
  * Marca uma notificação como lida
  */
-export async function markAsRead(
-  tenantId: string,
-  notificationId: string
-): Promise<void> {
+export async function markAsRead(tenantId: string, notificationId: string): Promise<void> {
   try {
-    const notificationRef = doc(
-      db,
-      `tenants/${tenantId}/notifications/${notificationId}`
-    );
+    const notificationRef = doc(db, `tenants/${tenantId}/notifications/${notificationId}`);
 
     await updateDoc(notificationRef, {
       read: true,
       read_at: Timestamp.now(),
     });
   } catch (error) {
-    console.error("Erro ao marcar notificação como lida:", error);
+    console.error('Erro ao marcar notificação como lida:', error);
     throw error;
   }
 }
@@ -227,12 +197,9 @@ export async function markAsRead(
  */
 export async function markAllAsRead(tenantId: string): Promise<void> {
   try {
-    const notificationsRef = collection(
-      db,
-      `tenants/${tenantId}/notifications`
-    );
+    const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
 
-    const q = query(notificationsRef, where("read", "==", false));
+    const q = query(notificationsRef, where('read', '==', false));
     const snapshot = await getDocs(q);
 
     const batch = writeBatch(db);
@@ -246,7 +213,7 @@ export async function markAllAsRead(tenantId: string): Promise<void> {
 
     await batch.commit();
   } catch (error) {
-    console.error("Erro ao marcar todas como lidas:", error);
+    console.error('Erro ao marcar todas como lidas:', error);
     throw error;
   }
 }
@@ -254,18 +221,12 @@ export async function markAllAsRead(tenantId: string): Promise<void> {
 /**
  * Deleta uma notificação
  */
-export async function deleteNotification(
-  tenantId: string,
-  notificationId: string
-): Promise<void> {
+export async function deleteNotification(tenantId: string, notificationId: string): Promise<void> {
   try {
-    const notificationRef = doc(
-      db,
-      `tenants/${tenantId}/notifications/${notificationId}`
-    );
+    const notificationRef = doc(db, `tenants/${tenantId}/notifications/${notificationId}`);
     await deleteDoc(notificationRef);
   } catch (error) {
-    console.error("Erro ao deletar notificação:", error);
+    console.error('Erro ao deletar notificação:', error);
     throw error;
   }
 }
@@ -275,12 +236,9 @@ export async function deleteNotification(
  */
 export async function deleteReadNotifications(tenantId: string): Promise<void> {
   try {
-    const notificationsRef = collection(
-      db,
-      `tenants/${tenantId}/notifications`
-    );
+    const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
 
-    const q = query(notificationsRef, where("read", "==", true));
+    const q = query(notificationsRef, where('read', '==', true));
     const snapshot = await getDocs(q);
 
     const batch = writeBatch(db);
@@ -291,7 +249,7 @@ export async function deleteReadNotifications(tenantId: string): Promise<void> {
 
     await batch.commit();
   } catch (error) {
-    console.error("Erro ao deletar notificações lidas:", error);
+    console.error('Erro ao deletar notificações lidas:', error);
     throw error;
   }
 }
@@ -299,14 +257,9 @@ export async function deleteReadNotifications(tenantId: string): Promise<void> {
 /**
  * Busca estatísticas de notificações
  */
-export async function getNotificationStats(
-  tenantId: string
-): Promise<NotificationStats> {
+export async function getNotificationStats(tenantId: string): Promise<NotificationStats> {
   try {
-    const notificationsRef = collection(
-      db,
-      `tenants/${tenantId}/notifications`
-    );
+    const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
 
     const snapshot = await getDocs(notificationsRef);
 
@@ -345,7 +298,7 @@ export async function getNotificationStats(
 
     return stats;
   } catch (error) {
-    console.error("Erro ao buscar estatísticas:", error);
+    console.error('Erro ao buscar estatísticas:', error);
     throw error;
   }
 }
@@ -358,18 +311,15 @@ export function subscribeToNotifications(
   callback: (notifications: Notification[]) => void,
   onlyUnread: boolean = false
 ): Unsubscribe {
-  const notificationsRef = collection(
-    db,
-    `tenants/${tenantId}/notifications`
-  );
+  const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
 
-  let q = query(notificationsRef, orderBy("created_at", "desc"), limit(50));
+  let q = query(notificationsRef, orderBy('created_at', 'desc'), limit(50));
 
   if (onlyUnread) {
     q = query(
       notificationsRef,
-      where("read", "==", false),
-      orderBy("created_at", "desc"),
+      where('read', '==', false),
+      orderBy('created_at', 'desc'),
       limit(50)
     );
   }
@@ -385,7 +335,7 @@ export function subscribeToNotifications(
       callback(notifications);
     },
     (error) => {
-      console.error("Erro no listener de notificações:", error);
+      console.error('Erro no listener de notificações:', error);
     }
   );
 }
@@ -404,11 +354,11 @@ export async function createExpiringProductNotification(
   productId: string
 ): Promise<void> {
   const priority: NotificationPriority =
-    daysUntilExpiry <= 7 ? "urgent" : daysUntilExpiry <= 15 ? "high" : "medium";
+    daysUntilExpiry <= 7 ? 'urgent' : daysUntilExpiry <= 15 ? 'high' : 'medium';
 
   await createNotification({
     tenant_id: tenantId,
-    type: "expiring",
+    type: 'expiring',
     priority,
     title: `Produto próximo do vencimento`,
     message: `${productName} (lote ${batchNumber}) vence em ${daysUntilExpiry} dias`,
@@ -438,8 +388,8 @@ export async function createLowStockNotification(
 ): Promise<void> {
   await createNotification({
     tenant_id: tenantId,
-    type: "low_stock",
-    priority: "high",
+    type: 'low_stock',
+    priority: 'high',
     title: `Estoque baixo`,
     message: `${productName} com apenas ${currentQuantity} unidades (mínimo: ${minQuantity})`,
     inventory_id: inventoryId,
@@ -463,8 +413,8 @@ export async function createRequestApprovedNotification(
 ): Promise<void> {
   await createNotification({
     tenant_id: tenantId,
-    type: "request_approved",
-    priority: "medium",
+    type: 'request_approved',
+    priority: 'medium',
     title: `Solicitação aprovada`,
     message: `Sua solicitação #${requestNumber} foi aprovada`,
     request_id: requestId,
@@ -484,8 +434,8 @@ export async function createRequestRejectedNotification(
 ): Promise<void> {
   await createNotification({
     tenant_id: tenantId,
-    type: "request_rejected",
-    priority: "medium",
+    type: 'request_rejected',
+    priority: 'medium',
     title: `Solicitação reprovada`,
     message: `Sua solicitação #${requestNumber} foi reprovada`,
     request_id: requestId,

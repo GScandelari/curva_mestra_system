@@ -1,35 +1,21 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  CreditCard,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
-import {
-  confirmPayment,
-  getTenantOnboarding,
-} from "@/lib/services/tenantOnboardingService";
-import { PLANS } from "@/lib/constants/plans";
-import { Timestamp } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase";
-import Script from "next/script";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { CreditCard, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { confirmPayment, getTenantOnboarding } from '@/lib/services/tenantOnboardingService';
+import { PLANS } from '@/lib/constants/plans';
+import { Timestamp } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase';
+import Script from 'next/script';
 
 // Declarar tipo global para PagSeguroDirectPayment
 declare global {
@@ -43,21 +29,21 @@ export default function PaymentPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState("");
-  const [planId, setPlanId] = useState<"semestral" | "anual" | null>(null);
+  const [error, setError] = useState('');
+  const [planId, setPlanId] = useState<'semestral' | 'anual' | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
   // Dados do cartão
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardHolder, setCardHolder] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
 
   // Dados do titular
-  const [holderCpf, setHolderCpf] = useState("");
-  const [holderBirthDate, setHolderBirthDate] = useState("");
-  const [holderPhone, setHolderPhone] = useState("");
+  const [holderCpf, setHolderCpf] = useState('');
+  const [holderBirthDate, setHolderBirthDate] = useState('');
+  const [holderPhone, setHolderPhone] = useState('');
 
   const tenantId = claims?.tenant_id;
 
@@ -82,26 +68,26 @@ export default function PaymentPage() {
 
       // Se não completou setup, volta para setup
       if (!onboarding?.setup_completed) {
-        router.push("/clinic/setup");
+        router.push('/clinic/setup');
         return;
       }
 
       // Se não selecionou plano, volta para seleção
       if (!onboarding?.plan_selected || !onboarding.selected_plan_id) {
-        router.push("/clinic/setup/plan");
+        router.push('/clinic/setup/plan');
         return;
       }
 
       // Se já confirmou pagamento, vai para success
       if (onboarding?.payment_confirmed) {
-        router.push("/clinic/setup/success");
+        router.push('/clinic/setup/success');
         return;
       }
 
       setPlanId(onboarding.selected_plan_id);
     } catch (error) {
-      console.error("Erro ao verificar status:", error);
-      setError("Erro ao carregar informações");
+      console.error('Erro ao verificar status:', error);
+      setError('Erro ao carregar informações');
     } finally {
       setLoading(false);
     }
@@ -110,12 +96,12 @@ export default function PaymentPage() {
   async function initPagSeguro() {
     try {
       // Obter session ID
-      const response = await fetch("/api/pagseguro/session");
+      const response = await fetch('/api/pagseguro/session');
       const data = await response.json();
 
       if (!data.sessionId) {
-        console.warn("[PagSeguro] Falha ao obter session ID - modo MOCK ativado");
-        setSessionId("MOCK_SESSION");
+        console.warn('[PagSeguro] Falha ao obter session ID - modo MOCK ativado');
+        setSessionId('MOCK_SESSION');
         return;
       }
 
@@ -126,23 +112,23 @@ export default function PaymentPage() {
         window.PagSeguroDirectPayment.setSessionId(data.sessionId);
         // Session configurada (log removido por segurança)
       } else {
-        console.warn("[PagSeguro] SDK não disponível - modo MOCK");
+        console.warn('[PagSeguro] SDK não disponível - modo MOCK');
       }
     } catch (error: any) {
-      console.error("[PagSeguro] Erro ao inicializar:", error);
-      console.warn("[PagSeguro] Continuando em modo MOCK");
-      setSessionId("MOCK_SESSION");
+      console.error('[PagSeguro] Erro ao inicializar:', error);
+      console.warn('[PagSeguro] Continuando em modo MOCK');
+      setSessionId('MOCK_SESSION');
     }
   }
 
   function formatCardNumber(value: string) {
-    const cleaned = value.replace(/\D/g, "");
-    const formatted = cleaned.match(/.{1,4}/g)?.join(" ") || cleaned;
+    const cleaned = value.replace(/\D/g, '');
+    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
     return formatted.substring(0, 19); // 16 dígitos + 3 espaços
   }
 
   function formatExpiry(value: string) {
-    const cleaned = value.replace(/\D/g, "");
+    const cleaned = value.replace(/\D/g, '');
     if (cleaned.length >= 2) {
       return `${cleaned.substring(0, 2)}/${cleaned.substring(2, 4)}`;
     }
@@ -150,30 +136,28 @@ export default function PaymentPage() {
   }
 
   function formatCpf(value: string) {
-    const cleaned = value.replace(/\D/g, "");
+    const cleaned = value.replace(/\D/g, '');
     if (cleaned.length <= 11) {
       return cleaned
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
     }
     return value;
   }
 
   function formatPhone(value: string) {
-    const cleaned = value.replace(/\D/g, "");
+    const cleaned = value.replace(/\D/g, '');
     if (cleaned.length <= 11) {
-      return cleaned
-        .replace(/(\d{2})(\d)/, "($1) $2")
-        .replace(/(\d{5})(\d)/, "$1-$2");
+      return cleaned.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
     }
     return value;
   }
 
   function formatDate(value: string) {
-    const cleaned = value.replace(/\D/g, "");
+    const cleaned = value.replace(/\D/g, '');
 
-    if (cleaned.length === 0) return "";
+    if (cleaned.length === 0) return '';
 
     let formatted = cleaned.substring(0, 2); // DD
 
@@ -192,35 +176,35 @@ export default function PaymentPage() {
     // Detectar bandeira pelo BIN (primeiros 6 dígitos)
     const binNum = parseInt(bin);
 
-    if (bin.startsWith("4")) return "visa";
-    if (binNum >= 510000 && binNum <= 559999) return "mastercard";
-    if (bin.startsWith("34") || bin.startsWith("37")) return "amex";
-    if (bin.startsWith("6011") || bin.startsWith("65")) return "discover";
-    if (bin.startsWith("636")) return "elo";
-    if (bin.startsWith("606282")) return "hipercard";
+    if (bin.startsWith('4')) return 'visa';
+    if (binNum >= 510000 && binNum <= 559999) return 'mastercard';
+    if (bin.startsWith('34') || bin.startsWith('37')) return 'amex';
+    if (bin.startsWith('6011') || bin.startsWith('65')) return 'discover';
+    if (bin.startsWith('636')) return 'elo';
+    if (bin.startsWith('606282')) return 'hipercard';
 
-    return "visa"; // default
+    return 'visa'; // default
   }
 
   async function handlePayment() {
     if (!tenantId || !planId) {
-      setError("Erro: Dados incompletos");
+      setError('Erro: Dados incompletos');
       return;
     }
 
     // Validações básicas
     if (!cardNumber || !cardHolder || !cardExpiry || !cardCvv) {
-      setError("Preencha todos os dados do cartão");
+      setError('Preencha todos os dados do cartão');
       return;
     }
 
     if (!holderCpf || !holderBirthDate || !holderPhone) {
-      setError("Preencha todos os dados do titular");
+      setError('Preencha todos os dados do titular');
       return;
     }
 
     setProcessing(true);
-    setError("");
+    setError('');
 
     try {
       let cardToken: string;
@@ -228,7 +212,7 @@ export default function PaymentPage() {
       // Verificar se SDK do PagSeguro está disponível
       if (window.PagSeguroDirectPayment && sessionId) {
         // Obter bandeira do cartão
-        const cardBin = cardNumber.replace(/\D/g, "").substring(0, 6);
+        const cardBin = cardNumber.replace(/\D/g, '').substring(0, 6);
 
         const cardBrand = await new Promise<string>((resolve, reject) => {
           window.PagSeguroDirectPayment.getBrand({
@@ -237,7 +221,7 @@ export default function PaymentPage() {
               resolve(response.brand.name);
             },
             error: (error: any) => {
-              console.error("[PagSeguro] Erro ao obter bandeira:", error);
+              console.error('[PagSeguro] Erro ao obter bandeira:', error);
               // Fallback: detectar bandeira pelo BIN
               resolve(detectCardBrand(cardBin));
             },
@@ -245,10 +229,10 @@ export default function PaymentPage() {
         });
 
         // Obter token do cartão
-        const expiryParts = cardExpiry.split("/");
+        const expiryParts = cardExpiry.split('/');
         cardToken = await new Promise<string>((resolve, reject) => {
           window.PagSeguroDirectPayment.createCardToken({
-            cardNumber: cardNumber.replace(/\D/g, ""),
+            cardNumber: cardNumber.replace(/\D/g, ''),
             brand: cardBrand,
             cvv: cardCvv,
             expirationMonth: expiryParts[0],
@@ -258,19 +242,19 @@ export default function PaymentPage() {
               resolve(response.card.token);
             },
             error: (error: any) => {
-              console.error("[PagSeguro] Erro ao criar token:", error);
-              reject(new Error(error.message || "Erro ao processar cartão"));
+              console.error('[PagSeguro] Erro ao criar token:', error);
+              reject(new Error(error.message || 'Erro ao processar cartão'));
             },
           });
         });
       } else {
         // Modo MOCK para desenvolvimento
-        console.warn("[PagSeguro] SDK não disponível - usando modo MOCK");
+        console.warn('[PagSeguro] SDK não disponível - usando modo MOCK');
         cardToken = `MOCK_TOKEN_${Date.now()}`;
       }
 
       // Chamar Cloud Function diretamente
-      const createSubscription = httpsCallable(functions, "createPagBankSubscription");
+      const createSubscription = httpsCallable(functions, 'createPagBankSubscription');
 
       const result = await createSubscription({
         tenant_id: tenantId,
@@ -288,19 +272,19 @@ export default function PaymentPage() {
       if (responseData.subscription_code) {
         // Atualizar onboarding
         await confirmPayment(tenantId, {
-          provider: "pagseguro",
-          payment_status: "approved",
+          provider: 'pagseguro',
+          payment_status: 'approved',
           transaction_id: responseData.subscription_code,
           payment_date: Timestamp.now(),
         });
 
-        router.push("/clinic/setup/success");
+        router.push('/clinic/setup/success');
       } else {
-        setError(responseData.error || "Pagamento recusado. Verifique os dados e tente novamente.");
+        setError(responseData.error || 'Pagamento recusado. Verifique os dados e tente novamente.');
       }
     } catch (err: any) {
-      console.error("[Pagamento] Erro:", err);
-      setError(err.message || "Erro ao processar pagamento");
+      console.error('[Pagamento] Erro:', err);
+      setError(err.message || 'Erro ao processar pagamento');
     } finally {
       setProcessing(false);
     }
@@ -331,7 +315,7 @@ export default function PaymentPage() {
   }
 
   const plan = PLANS[planId];
-  const commitmentMonths = planId === "anual" ? 12 : 6;
+  const commitmentMonths = planId === 'anual' ? 12 : 6;
   const monthlyAmount = plan.price;
 
   return (
@@ -344,7 +328,7 @@ export default function PaymentPage() {
           setScriptLoaded(true);
         }}
         onError={(e) => {
-          console.error("[PagSeguro] Erro ao carregar script - fallback para modo MOCK");
+          console.error('[PagSeguro] Erro ao carregar script - fallback para modo MOCK');
           // Continuar sem o SDK (modo mock)
           setScriptLoaded(true);
         }}
@@ -355,11 +339,7 @@ export default function PaymentPage() {
         <div className="max-w-7xl mx-auto mb-6">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-primary">Curva Mestra</h1>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/login")}
-            >
+            <Button variant="ghost" size="sm" onClick={() => router.push('/login')}>
               Sair
             </Button>
           </div>
@@ -374,9 +354,7 @@ export default function PaymentPage() {
                 </div>
               </div>
               <h1 className="text-3xl font-bold mb-2">Pagamento</h1>
-              <p className="text-muted-foreground">
-                Confirme seu plano e finalize a assinatura
-              </p>
+              <p className="text-muted-foreground">Confirme seu plano e finalize a assinatura</p>
             </div>
 
             {error && (
@@ -398,22 +376,16 @@ export default function PaymentPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium">{plan.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {plan.description}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{plan.description}</p>
                   </div>
-                  <Badge variant="secondary">
-                    {commitmentMonths} meses de compromisso
-                  </Badge>
+                  <Badge variant="secondary">{commitmentMonths} meses de compromisso</Badge>
                 </div>
 
                 <div className="border-t pt-4 space-y-3">
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="font-medium">Valor Mensal</p>
-                      <p className="text-sm text-muted-foreground">
-                        Cobrança recorrente
-                      </p>
+                      <p className="text-sm text-muted-foreground">Cobrança recorrente</p>
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-primary">
@@ -431,16 +403,19 @@ export default function PaymentPage() {
                   </p>
                   <ul className="text-sm text-amber-900 space-y-1 ml-6 list-disc">
                     <li>
-                      <strong>Pagamento mensal:</strong> R$ {monthlyAmount.toFixed(2)} cobrado todo mês automaticamente
+                      <strong>Pagamento mensal:</strong> R$ {monthlyAmount.toFixed(2)} cobrado todo
+                      mês automaticamente
                     </li>
                     <li>
                       <strong>Período de compromisso:</strong> {commitmentMonths} meses mínimos
                     </li>
                     <li>
-                      <strong>Renovação automática:</strong> Após {commitmentMonths} meses, continua mensalmente
+                      <strong>Renovação automática:</strong> Após {commitmentMonths} meses, continua
+                      mensalmente
                     </li>
                     <li>
-                      <strong>Cancelamento:</strong> Pode cancelar após o período de compromisso sem multa
+                      <strong>Cancelamento:</strong> Pode cancelar após o período de compromisso sem
+                      multa
                     </li>
                   </ul>
                 </div>
@@ -461,9 +436,7 @@ export default function PaymentPage() {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>Dados do Cartão</CardTitle>
-                <CardDescription>
-                  Pagamento seguro via PagSeguro (Sandbox)
-                </CardDescription>
+                <CardDescription>Pagamento seguro via PagSeguro (Sandbox)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -483,9 +456,7 @@ export default function PaymentPage() {
                     id="cardHolder"
                     placeholder="Como impresso no cartão"
                     value={cardHolder}
-                    onChange={(e) =>
-                      setCardHolder(e.target.value.toUpperCase())
-                    }
+                    onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
                   />
                 </div>
 
@@ -508,9 +479,7 @@ export default function PaymentPage() {
                       placeholder="000"
                       type="password"
                       value={cardCvv}
-                      onChange={(e) =>
-                        setCardCvv(e.target.value.replace(/\D/g, ""))
-                      }
+                      onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
                       maxLength={4}
                     />
                   </div>
@@ -542,9 +511,7 @@ export default function PaymentPage() {
                     type="text"
                     placeholder="DD/MM/AAAA"
                     value={holderBirthDate}
-                    onChange={(e) =>
-                      setHolderBirthDate(formatDate(e.target.value))
-                    }
+                    onChange={(e) => setHolderBirthDate(formatDate(e.target.value))}
                     maxLength={10}
                     inputMode="numeric"
                   />
@@ -590,11 +557,11 @@ export default function PaymentPage() {
               </Button>
 
               <p className="text-xs text-center text-muted-foreground">
-                Ao confirmar, você concorda com os{" "}
+                Ao confirmar, você concorda com os{' '}
                 <a href="#" className="text-primary hover:underline">
                   Termos de Uso
-                </a>{" "}
-                e{" "}
+                </a>{' '}
+                e{' '}
                 <a href="#" className="text-primary hover:underline">
                   Política de Privacidade
                 </a>
