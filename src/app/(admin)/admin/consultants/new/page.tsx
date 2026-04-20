@@ -56,7 +56,7 @@ export default function NewConsultantPage() {
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email é obrigatório';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    } else if (!/^[^@\s]+@[^@\s]+$/.test(formData.email)) {
       newErrors.email = 'Email inválido';
     }
 

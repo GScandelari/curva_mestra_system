@@ -49,7 +49,7 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
     to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
     subject: options.subject,
     html: options.html,
-    text: options.text || options.html.replace(/<[^>]*>/g, ''), // Fallback text
+    text: options.text || options.html.split(/<[^>]*>/).join(''), // Fallback text
   };
 
   try {

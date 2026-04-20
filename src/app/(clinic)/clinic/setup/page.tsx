@@ -89,7 +89,7 @@ export default function ClinicSetupPage() {
             }
 
             // Extrai cidade e estado
-            const cityStateMatch = secondLastPart.match(/(.+)\s*-\s*([A-Z]{2})/);
+            const cityStateMatch = secondLastPart.match(/([^-]+)\s*-\s*([A-Z]{2})/);
             if (cityStateMatch) {
               city = cityStateMatch[1].trim();
               state = cityStateMatch[2].trim();
