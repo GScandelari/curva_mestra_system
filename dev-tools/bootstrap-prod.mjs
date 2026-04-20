@@ -187,7 +187,7 @@ async function importRennovaProducts() {
   const lines = csvContent.split('\n').filter((l) => l.trim());
   const productLines = lines.slice(1); // pula cabeçalho
   const validLines = productLines.filter((l) => {
-    const [codigo, nome] = l.split(';').map((s) => s.trim().replace(/"/g, ''));
+    const [codigo, nome] = l.split(';').map((s) => s.trim().replaceAll('"', ''));
     return codigo && nome;
   });
 
@@ -202,7 +202,7 @@ async function importRennovaProducts() {
   let skipped = 0;
 
   for (const line of validLines) {
-    const [codigo, nome] = line.split(';').map((s) => s.trim().replace(/"/g, ''));
+    const [codigo, nome] = line.split(';').map((s) => s.trim().replaceAll('"', ''));
     const productRef = productsRef.doc(codigo);
     const productDoc = await productRef.get();
 
