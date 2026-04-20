@@ -44,6 +44,41 @@ interface RecentProcedure {
   dt_procedimento: any;
 }
 
+function parseInventoryDate(dt_validade: unknown): Date | null {
+  if (!dt_validade) return null;
+  if (typeof dt_validade === 'string') {
+    if (dt_validade.includes('/')) {
+      const [day, month, year] = dt_validade.split('/');
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+    return new Date(dt_validade);
+  }
+  if (typeof dt_validade === 'object' && 'toDate' in (dt_validade as object)) {
+    return (dt_validade as { toDate: () => Date }).toDate();
+  }
+  return null;
+}
+
+function computeInventoryStats(
+  docs: { data: () => Record<string, unknown> }[],
+  cutoffDate: Date
+): InventoryStats {
+  let total_items = 0;
+  let expiring_soon = 0;
+  let low_stock = 0;
+
+  for (const doc of docs) {
+    const data = doc.data();
+    if ((data.quantidade_disponivel as number) <= 0) continue;
+    total_items++;
+    const expDate = parseInventoryDate(data.dt_validade);
+    if (expDate && expDate <= cutoffDate) expiring_soon++;
+    if ((data.quantidade_disponivel as number) <= 5) low_stock++;
+  }
+
+  return { total_items, expiring_soon, low_stock };
+}
+
 export default function ClinicDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -96,45 +131,10 @@ export default function ClinicDetailPage() {
         const inventoryRef = collection(db, `tenants/${tenantId}/inventory`);
         const inventorySnapshot = await getDocs(inventoryRef);
 
-        let totalItems = 0;
-        let expiringSoon = 0;
-        let lowStock = 0;
-
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-        inventorySnapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          if (data.quantidade_disponivel > 0) {
-            totalItems++;
-
-            // Check expiring
-            if (data.dt_validade) {
-              let expirationDate: Date;
-              if (typeof data.dt_validade === 'string') {
-                if (data.dt_validade.includes('/')) {
-                  const [day, month, year] = data.dt_validade.split('/');
-                  expirationDate = new Date(Number(year), Number(month) - 1, Number(day));
-                } else {
-                  expirationDate = new Date(data.dt_validade);
-                }
-              } else {
-                expirationDate = data.dt_validade.toDate();
-              }
-
-              if (expirationDate <= thirtyDaysFromNow) {
-                expiringSoon++;
-              }
-            }
-
-            // Check low stock
-            if (data.quantidade_disponivel <= 5) {
-              lowStock++;
-            }
-          }
-        });
-
-        setStats({ total_items: totalItems, expiring_soon: expiringSoon, low_stock: lowStock });
+        setStats(computeInventoryStats(inventorySnapshot.docs, thirtyDaysFromNow));
       } catch (e) {
         console.error('Error loading inventory stats:', e);
       }

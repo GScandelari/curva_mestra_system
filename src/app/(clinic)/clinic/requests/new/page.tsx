@@ -37,6 +37,33 @@ import type { Patient } from '@/types/patient';
 
 type Step = 'dados_paciente' | 'adicionar_produtos' | 'revisao';
 
+function agruparProdutosPorCodigo(items: InventoryItem[]): ProdutoAgrupado[] {
+  const gruposPorCodigo = new Map<string, InventoryItem[]>();
+
+  for (const item of items) {
+    const grupo = gruposPorCodigo.get(item.codigo_produto) ?? [];
+    grupo.push(item);
+    gruposPorCodigo.set(item.codigo_produto, grupo);
+  }
+
+  const result: ProdutoAgrupado[] = [];
+
+  gruposPorCodigo.forEach((lotes, codigo) => {
+    const lotesOrdenados = lotes.sort(
+      (a, b) => new Date(a.dt_validade).getTime() - new Date(b.dt_validade).getTime()
+    );
+    const quantidadeTotal = lotesOrdenados.reduce((sum, l) => sum + l.quantidade_disponivel, 0);
+    result.push({
+      codigo_produto: codigo,
+      nome_produto: lotesOrdenados[0].nome_produto,
+      quantidade_total: quantidadeTotal,
+      lotes: lotesOrdenados,
+    });
+  });
+
+  return result.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto));
+}
+
 interface ProdutoSelecionado {
   inventory_item_id: string;
   produto_codigo: string;
@@ -155,48 +182,6 @@ export default function NovaSolicitacaoPage() {
     setPatientSearchTerm('');
     setShowSuggestions(false);
     setPatientSuggestions([]);
-  };
-
-  // Função para agrupar produtos por código e ordenar lotes por FEFO
-  const agruparProdutosPorCodigo = (items: any[]): ProdutoAgrupado[] => {
-    const gruposPorCodigo = new Map<string, InventoryItem[]>();
-
-    // Agrupar por código
-    items.forEach((item) => {
-      const codigo = item.codigo_produto;
-      if (!gruposPorCodigo.has(codigo)) {
-        gruposPorCodigo.set(codigo, []);
-      }
-      gruposPorCodigo.get(codigo)!.push(item);
-    });
-
-    // Transformar em array e ordenar lotes por validade (FEFO)
-    const produtosAgrupados: ProdutoAgrupado[] = [];
-
-    gruposPorCodigo.forEach((lotes, codigo) => {
-      // Ordenar lotes por data de validade (mais próximo primeiro)
-      const lotesOrdenados = lotes.sort((a, b) => {
-        const dataA = new Date(a.dt_validade).getTime();
-        const dataB = new Date(b.dt_validade).getTime();
-        return dataA - dataB; // Crescente = mais próximo primeiro
-      });
-
-      // Calcular quantidade total
-      const quantidadeTotal = lotesOrdenados.reduce(
-        (sum, lote) => sum + lote.quantidade_disponivel,
-        0
-      );
-
-      produtosAgrupados.push({
-        codigo_produto: codigo,
-        nome_produto: lotesOrdenados[0].nome_produto,
-        quantidade_total: quantidadeTotal,
-        lotes: lotesOrdenados,
-      });
-    });
-
-    // Ordenar produtos por nome
-    return produtosAgrupados.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto));
   };
 
   // Carregar inventário ao iniciar
