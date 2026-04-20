@@ -393,11 +393,21 @@ export default function NovaSolicitacaoPage() {
     quantidade: number,
     produtoAgrupado: ProdutoAgrupado | undefined
   ): { title: string; description: string } | null {
-    if (!code) return { title: 'Selecione um produto', description: 'Escolha um produto do inventário' };
-    if (Number.isNaN(quantidade) || quantidade <= 0) return { title: 'Quantidade inválida', description: 'Informe uma quantidade válida' };
+    if (!code)
+      return { title: 'Selecione um produto', description: 'Escolha um produto do inventário' };
+    if (Number.isNaN(quantidade) || quantidade <= 0)
+      return { title: 'Quantidade inválida', description: 'Informe uma quantidade válida' };
     if (!produtoAgrupado) return null;
-    if (quantidade > produtoAgrupado.quantidade_total) return { title: 'Estoque insuficiente', description: `Disponível: ${produtoAgrupado.quantidade_total} unidades` };
-    if (produtosSelecionados.some((p) => p.produto_codigo === code)) return { title: 'Produto já adicionado', description: 'Este produto já está na lista. Remova-o para adicionar novamente' };
+    if (quantidade > produtoAgrupado.quantidade_total)
+      return {
+        title: 'Estoque insuficiente',
+        description: `Disponível: ${produtoAgrupado.quantidade_total} unidades`,
+      };
+    if (produtosSelecionados.some((p) => p.produto_codigo === code))
+      return {
+        title: 'Produto já adicionado',
+        description: 'Este produto já está na lista. Remova-o para adicionar novamente',
+      };
     return null;
   }
 
@@ -405,7 +415,11 @@ export default function NovaSolicitacaoPage() {
     const quantidade = parseInt(quantidadeSolicitada);
     const produtoAgrupado = produtosAgrupados.find((p) => p.codigo_produto === selectedProductCode);
 
-    const validationError = validateProductSelection(selectedProductCode, quantidade, produtoAgrupado);
+    const validationError = validateProductSelection(
+      selectedProductCode,
+      quantidade,
+      produtoAgrupado
+    );
     if (validationError) {
       toast({ ...validationError, variant: 'destructive' });
       return;
@@ -479,13 +493,26 @@ export default function NovaSolicitacaoPage() {
     };
     if (observacoes) updatePayload.observacoes = observacoes;
 
-    const result = await updateSolicitacaoAgendada(tenantId, editId, user!.uid, userName, updatePayload);
+    const result = await updateSolicitacaoAgendada(
+      tenantId,
+      editId,
+      user!.uid,
+      userName,
+      updatePayload
+    );
 
     if (result.success) {
-      toast({ title: 'Procedimento atualizado com sucesso!', description: 'As reservas de produtos foram ajustadas' });
+      toast({
+        title: 'Procedimento atualizado com sucesso!',
+        description: 'As reservas de produtos foram ajustadas',
+      });
       router.push(`/clinic/requests/${editId}`);
     } else {
-      toast({ title: 'Erro ao atualizar procedimento', description: result.error || 'Ocorreu um erro ao processar a atualização', variant: 'destructive' });
+      toast({
+        title: 'Erro ao atualizar procedimento',
+        description: result.error || 'Ocorreu um erro ao processar a atualização',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -501,14 +528,21 @@ export default function NovaSolicitacaoPage() {
     const result = await createSolicitacaoWithConsumption(tenantId, user!.uid, userName, input);
 
     if (result.success) {
-      toast({ title: 'Procedimento criado com sucesso!', description: 'Os produtos foram reservados no inventário' });
+      toast({
+        title: 'Procedimento criado com sucesso!',
+        description: 'Os produtos foram reservados no inventário',
+      });
       router.push(`/clinic/requests/${result.solicitacaoId}`);
     } else {
       if (result.validationErrors && result.validationErrors.length > 0) {
         setValidationErrors(result.validationErrors);
         setStep('revisao');
       }
-      toast({ title: 'Erro ao criar procedimento', description: result.error || 'Ocorreu um erro ao processar o procedimento', variant: 'destructive' });
+      toast({
+        title: 'Erro ao criar procedimento',
+        description: result.error || 'Ocorreu um erro ao processar o procedimento',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -529,7 +563,11 @@ export default function NovaSolicitacaoPage() {
     } catch (err: any) {
       const action = isEditMode ? 'atualizar' : 'criar';
       console.error(`Erro ao ${action} procedimento:`, err);
-      toast({ title: `Erro ao ${action} procedimento`, description: 'Ocorreu um erro inesperado', variant: 'destructive' });
+      toast({
+        title: `Erro ao ${action} procedimento`,
+        description: 'Ocorreu um erro inesperado',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }

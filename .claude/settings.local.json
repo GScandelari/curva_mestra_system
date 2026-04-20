@@ -108,7 +108,11 @@
       "Bash(git -C \"c:/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra\" add ONLY_FOR_DEVS/GitHub_Workflows.md)",
       "Bash(git -C 'c:/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra' commit -m ':*)",
       "Bash(gh secret *)",
-      "Bash(where gh *)"
+      "Bash(where gh *)",
+      "Bash(sed -n '88,91p' \"/c/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra/scripts/update-master-products-with-groups.js\")",
+      "Bash(sed -n '51,54p' \"/c/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra/functions/src/services/emailService.ts\")",
+      "Bash(sed -n '91,94p' \"/c/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra/src/app/\\(clinic\\)/clinic/setup/page.tsx\")",
+      "Bash(npm run *)"
     ],
     "deny": [],
     "ask": []
