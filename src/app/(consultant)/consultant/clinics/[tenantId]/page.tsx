@@ -19,6 +19,11 @@ import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { formatTimestamp } from '@/lib/utils';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  parseInventoryDate,
+  computeInventoryStats,
+  type InventoryStats,
+} from '@/lib/inventoryUtils';
 
 interface TenantDetails {
   id: string;
@@ -29,12 +34,6 @@ interface TenantDetails {
   phone?: string;
   active?: boolean;
   created_at?: any;
-}
-
-interface InventoryStats {
-  total_items: number;
-  expiring_soon: number;
-  low_stock: number;
 }
 
 interface RecentProcedure {
@@ -96,45 +95,10 @@ export default function ClinicDetailPage() {
         const inventoryRef = collection(db, `tenants/${tenantId}/inventory`);
         const inventorySnapshot = await getDocs(inventoryRef);
 
-        let totalItems = 0;
-        let expiringSoon = 0;
-        let lowStock = 0;
-
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-        inventorySnapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          if (data.quantidade_disponivel > 0) {
-            totalItems++;
-
-            // Check expiring
-            if (data.dt_validade) {
-              let expirationDate: Date;
-              if (typeof data.dt_validade === 'string') {
-                if (data.dt_validade.includes('/')) {
-                  const [day, month, year] = data.dt_validade.split('/');
-                  expirationDate = new Date(Number(year), Number(month) - 1, Number(day));
-                } else {
-                  expirationDate = new Date(data.dt_validade);
-                }
-              } else {
-                expirationDate = data.dt_validade.toDate();
-              }
-
-              if (expirationDate <= thirtyDaysFromNow) {
-                expiringSoon++;
-              }
-            }
-
-            // Check low stock
-            if (data.quantidade_disponivel <= 5) {
-              lowStock++;
-            }
-          }
-        });
-
-        setStats({ total_items: totalItems, expiring_soon: expiringSoon, low_stock: lowStock });
+        setStats(computeInventoryStats(inventorySnapshot.docs, thirtyDaysFromNow));
       } catch (e) {
         console.error('Error loading inventory stats:', e);
       }
