@@ -19,7 +19,8 @@ function getEmailTransporter() {
   return nodemailer.createTransport({
     host: 'smtp.zoho.com',
     port: 587,
-    secure: false, // true para 465, false para outros ports
+    secure: false,
+    requireTLS: true,
     auth: {
       user: smtpUser,
       pass: smtpPass,
