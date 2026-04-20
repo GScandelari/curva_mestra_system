@@ -138,7 +138,7 @@ export default function EditTenantPage() {
     if (!name.trim()) return 'Nome da clínica é obrigatório';
     if (!validateDocument(cnpj)) return 'CPF/CNPJ inválido. Verifique os dígitos verificadores.';
     if (!email.trim()) return 'Email é obrigatório';
-    const docType = getDocumentType(cnpj.replace(/\D/g, ''));
+    const docType = getDocumentType(cnpj.replaceAll(/\D/g, ''));
     if (!docType) return 'Tipo de documento inválido';
     return null;
   }
@@ -155,7 +155,7 @@ export default function EditTenantPage() {
     }
 
     setLoading(true);
-    const documentNumbers = cnpj.replace(/\D/g, '');
+    const documentNumbers = cnpj.replaceAll(/\D/g, '');
     const docType = getDocumentType(documentNumbers)!;
 
     try {
