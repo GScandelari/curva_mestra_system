@@ -27,6 +27,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, User, Package, AlertTriangle, Check, X, Trash2, Plus } from 'lucide-react';
 import { listInventory, type InventoryItem } from '@/lib/services/inventoryService';
+import { agruparProdutosPorCodigo, type ProdutoAgrupado } from '@/lib/inventoryUtils';
 import {
   createSolicitacaoWithConsumption,
   updateSolicitacaoAgendada,
@@ -37,33 +38,6 @@ import type { Patient } from '@/types/patient';
 
 type Step = 'dados_paciente' | 'adicionar_produtos' | 'revisao';
 
-function agruparProdutosPorCodigo(items: InventoryItem[]): ProdutoAgrupado[] {
-  const gruposPorCodigo = new Map<string, InventoryItem[]>();
-
-  for (const item of items) {
-    const grupo = gruposPorCodigo.get(item.codigo_produto) ?? [];
-    grupo.push(item);
-    gruposPorCodigo.set(item.codigo_produto, grupo);
-  }
-
-  const result: ProdutoAgrupado[] = [];
-
-  gruposPorCodigo.forEach((lotes, codigo) => {
-    const lotesOrdenados = lotes.sort(
-      (a, b) => new Date(a.dt_validade).getTime() - new Date(b.dt_validade).getTime()
-    );
-    const quantidadeTotal = lotesOrdenados.reduce((sum, l) => sum + l.quantidade_disponivel, 0);
-    result.push({
-      codigo_produto: codigo,
-      nome_produto: lotesOrdenados[0].nome_produto,
-      quantidade_total: quantidadeTotal,
-      lotes: lotesOrdenados,
-    });
-  });
-
-  return result.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto));
-}
-
 interface ProdutoSelecionado {
   inventory_item_id: string;
   produto_codigo: string;
@@ -72,14 +46,6 @@ interface ProdutoSelecionado {
   quantidade_solicitada: number;
   quantidade_disponivel: number;
   valor_unitario: number;
-}
-
-// Interface para produto agrupado (soma de todos os lotes)
-interface ProdutoAgrupado {
-  codigo_produto: string;
-  nome_produto: string;
-  quantidade_total: number;
-  lotes: InventoryItem[]; // Ordenados por validade (FEFO)
 }
 
 export default function NovaSolicitacaoPage() {
@@ -124,7 +90,7 @@ export default function NovaSolicitacaoPage() {
 
   // Estados de produtos
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado[]>([]);
+  const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado<InventoryItem>[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([]);
   const [selectedProductCode, setSelectedProductCode] = useState(''); // Mudou de ID para CODE
   const [quantidadeSolicitada, setQuantidadeSolicitada] = useState('1');
@@ -376,7 +342,7 @@ export default function NovaSolicitacaoPage() {
   function validateProductSelection(
     code: string,
     quantidade: number,
-    produtoAgrupado: ProdutoAgrupado | undefined
+    produtoAgrupado: ProdutoAgrupado<InventoryItem> | undefined
   ): { title: string; description: string } | null {
     if (!code)
       return { title: 'Selecione um produto', description: 'Escolha um produto do inventário' };

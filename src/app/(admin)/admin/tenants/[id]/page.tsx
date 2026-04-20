@@ -48,23 +48,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-
-function formatCNPJInput(value: string): string {
-  const numbers = value.replace(/\D/g, '').slice(0, 14);
-  return numbers
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2');
-}
-
-function formatPhoneInput(value: string): string {
-  const numbers = value.replace(/\D/g, '').slice(0, 11);
-  if (numbers.length <= 10) {
-    return numbers.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
-  }
-  return numbers.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
-}
+import { formatCNPJInput, formatPhoneInput } from '@/lib/formatters';
 
 async function getAdminToken(): Promise<string> {
   const token = await auth.currentUser?.getIdToken();

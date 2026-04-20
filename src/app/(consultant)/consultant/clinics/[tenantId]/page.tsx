@@ -19,6 +19,11 @@ import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { formatTimestamp } from '@/lib/utils';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  parseInventoryDate,
+  computeInventoryStats,
+  type InventoryStats,
+} from '@/lib/inventoryUtils';
 
 interface TenantDetails {
   id: string;
@@ -31,52 +36,11 @@ interface TenantDetails {
   created_at?: any;
 }
 
-interface InventoryStats {
-  total_items: number;
-  expiring_soon: number;
-  low_stock: number;
-}
-
 interface RecentProcedure {
   id: string;
   paciente_nome: string;
   status: string;
   dt_procedimento: any;
-}
-
-function parseInventoryDate(dt_validade: unknown): Date | null {
-  if (!dt_validade) return null;
-  if (typeof dt_validade === 'string') {
-    if (dt_validade.includes('/')) {
-      const [day, month, year] = dt_validade.split('/');
-      return new Date(Number(year), Number(month) - 1, Number(day));
-    }
-    return new Date(dt_validade);
-  }
-  if (typeof dt_validade === 'object' && 'toDate' in (dt_validade as object)) {
-    return (dt_validade as { toDate: () => Date }).toDate();
-  }
-  return null;
-}
-
-function computeInventoryStats(
-  docs: { data: () => Record<string, unknown> }[],
-  cutoffDate: Date
-): InventoryStats {
-  let total_items = 0;
-  let expiring_soon = 0;
-  let low_stock = 0;
-
-  for (const doc of docs) {
-    const data = doc.data();
-    if ((data.quantidade_disponivel as number) <= 0) continue;
-    total_items++;
-    const expDate = parseInventoryDate(data.dt_validade);
-    if (expDate && expDate <= cutoffDate) expiring_soon++;
-    if ((data.quantidade_disponivel as number) <= 5) low_stock++;
-  }
-
-  return { total_items, expiring_soon, low_stock };
 }
 
 export default function ClinicDetailPage() {

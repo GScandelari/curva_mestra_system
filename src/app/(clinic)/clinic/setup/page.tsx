@@ -21,29 +21,7 @@ import { getTenant } from '@/lib/services/tenantServiceDirect';
 import { ClinicSetupData } from '@/types/onboarding';
 import { validateCNPJ } from '@/types/tenant';
 import { InfoIcon } from 'lucide-react';
-
-function parseAddressFromString(address: string): { city: string; state: string; cep: string } {
-  const result = { city: '', state: '', cep: '' };
-  const parts = address.split(',');
-  if (parts.length < 2) return result;
-
-  const lastPart = parts[parts.length - 1].trim();
-  const secondLastPart = parts[parts.length - 2].trim();
-
-  const cepMatch = lastPart.match(/\d{5}-?\d{3}/);
-  if (cepMatch) result.cep = cepMatch[0];
-
-  const dashIdx = secondLastPart.lastIndexOf(' - ');
-  if (dashIdx !== -1) {
-    const candidate = secondLastPart.slice(dashIdx + 3).trim();
-    if (candidate.length === 2 && candidate === candidate.toUpperCase()) {
-      result.city = secondLastPart.slice(0, dashIdx).trim();
-      result.state = candidate;
-    }
-  }
-
-  return result;
-}
+import { parseAddressFromString } from '@/lib/formatters';
 
 export default function ClinicSetupPage() {
   const { user, claims, signOut } = useAuth();
