@@ -1,30 +1,17 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Users,
-  Loader2,
-  Copy,
-  Building2,
-  Save,
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { formatTimestamp } from "@/lib/utils";
-import type { Consultant } from "@/types";
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Users, Loader2, Copy, Building2, Save } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { formatTimestamp } from '@/lib/utils';
+import type { Consultant } from '@/types';
 
 export default function ConsultantDetailPage() {
   const router = useRouter();
@@ -38,9 +25,9 @@ export default function ConsultantDetailPage() {
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
+    name: '',
+    email: '',
+    phone: '',
   });
 
   useEffect(() => {
@@ -64,41 +51,37 @@ export default function ConsultantDetailPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao carregar consultor");
+        throw new Error(data.error || 'Erro ao carregar consultor');
       }
 
       setConsultant(data.data);
       setFormData({
-        name: data.data.name || "",
-        email: data.data.email || "",
-        phone: data.data.phone || "",
+        name: data.data.name || '',
+        email: data.data.email || '',
+        phone: data.data.phone || '',
       });
     } catch (err: any) {
-      toast({ title: err.message || "Erro ao carregar consultor", variant: "destructive" });
-      router.push("/admin/consultants");
+      toast({ title: err.message || 'Erro ao carregar consultor', variant: 'destructive' });
+      router.push('/admin/consultants');
     } finally {
       setLoading(false);
     }
   };
 
   const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 11);
+    const digits = value.replace(/\D/g, '').slice(0, 11);
     if (digits.length <= 10) {
-      return digits
-        .replace(/(\d{2})(\d)/, "($1) $2")
-        .replace(/(\d{4})(\d)/, "$1-$2");
+      return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
     }
-    return digits
-      .replace(/(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{5})(\d)/, "$1-$2");
+    return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
   };
 
   const handleChange = (field: string, value: string) => {
     let formattedValue = value;
 
-    if (field === "phone") {
+    if (field === 'phone') {
       formattedValue = formatPhone(value);
-    } else if (field === "name") {
+    } else if (field === 'name') {
       formattedValue = value.toUpperCase();
     }
 
@@ -114,9 +97,9 @@ export default function ConsultantDetailPage() {
       const token = await user.getIdToken();
 
       const response = await fetch(`/api/consultants/${consultantId}`, {
-        method: "PUT",
+        method: 'PUT',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -129,13 +112,13 @@ export default function ConsultantDetailPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao atualizar consultor");
+        throw new Error(data.error || 'Erro ao atualizar consultor');
       }
 
-      toast({ title: "Consultor atualizado com sucesso!" });
+      toast({ title: 'Consultor atualizado com sucesso!' });
       loadConsultant();
     } catch (err: any) {
-      toast({ title: err.message || "Erro ao atualizar consultor", variant: "destructive" });
+      toast({ title: err.message || 'Erro ao atualizar consultor', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -144,17 +127,17 @@ export default function ConsultantDetailPage() {
   const copyCode = () => {
     if (consultant?.code) {
       navigator.clipboard.writeText(consultant.code);
-      toast({ title: "Código copiado" });
+      toast({ title: 'Código copiado' });
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "active":
+      case 'active':
         return <Badge variant="default">Ativo</Badge>;
-      case "suspended":
+      case 'suspended':
         return <Badge variant="destructive">Suspenso</Badge>;
-      case "inactive":
+      case 'inactive':
         return <Badge variant="secondary">Inativo</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -172,9 +155,7 @@ export default function ConsultantDetailPage() {
   if (!consultant) {
     return (
       <div className="container py-8">
-        <div className="text-center py-8 text-muted-foreground">
-          Consultor não encontrado
-        </div>
+        <div className="text-center py-8 text-muted-foreground">Consultor não encontrado</div>
       </div>
     );
   }
@@ -187,7 +168,7 @@ export default function ConsultantDetailPage() {
           <Button
             variant="ghost"
             className="mb-4"
-            onClick={() => router.push("/admin/consultants")}
+            onClick={() => router.push('/admin/consultants')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
@@ -198,9 +179,7 @@ export default function ConsultantDetailPage() {
                 <Users className="h-8 w-8 text-sky-600" />
                 {consultant.name}
               </h1>
-              <p className="text-muted-foreground">
-                Detalhes e configurações do consultor
-              </p>
+              <p className="text-muted-foreground">Detalhes e configurações do consultor</p>
             </div>
             {getStatusBadge(consultant.status)}
           </div>
@@ -220,12 +199,7 @@ export default function ConsultantDetailPage() {
                 <p className="text-4xl font-bold font-mono text-sky-700 tracking-widest">
                   {consultant.code}
                 </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  onClick={copyCode}
-                >
+                <Button variant="ghost" size="sm" className="mt-2" onClick={copyCode}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copiar Código
                 </Button>
@@ -262,9 +236,7 @@ export default function ConsultantDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Editar Dados</CardTitle>
-            <CardDescription>
-              Altere os dados de contato do consultor
-            </CardDescription>
+            <CardDescription>Altere os dados de contato do consultor</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -273,7 +245,7 @@ export default function ConsultantDetailPage() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
+                  onChange={(e) => handleChange('name', e.target.value)}
                   className="uppercase"
                 />
               </div>
@@ -284,7 +256,7 @@ export default function ConsultantDetailPage() {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
+                  onChange={(e) => handleChange('email', e.target.value)}
                 />
               </div>
             </div>
@@ -294,7 +266,7 @@ export default function ConsultantDetailPage() {
               <Input
                 id="phone"
                 value={formData.phone}
-                onChange={(e) => handleChange("phone", e.target.value)}
+                onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="(00) 00000-0000"
                 className="max-w-xs"
               />
@@ -318,9 +290,7 @@ export default function ConsultantDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Clínicas Vinculadas</CardTitle>
-            <CardDescription>
-              Lista de clínicas que este consultor tem acesso
-            </CardDescription>
+            <CardDescription>Lista de clínicas que este consultor tem acesso</CardDescription>
           </CardHeader>
           <CardContent>
             {consultant.authorized_tenants?.length === 0 ? (

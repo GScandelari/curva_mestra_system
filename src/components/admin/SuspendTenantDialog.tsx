@@ -3,11 +3,11 @@
  * Permite system_admin suspender uma clínica com motivo e detalhes
  */
 
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -16,20 +16,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { AlertCircle, Ban, CheckCircle } from "lucide-react";
-import type { SuspensionReason, Tenant } from "@/types";
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { AlertCircle, Ban, CheckCircle } from 'lucide-react';
+import type { SuspensionReason, Tenant } from '@/types';
 
 interface SuspendTenantDialogProps {
   tenant: Tenant;
@@ -43,53 +43,47 @@ const REASON_OPTIONS: {
   description: string;
 }[] = [
   {
-    value: "payment_failure",
-    label: "Falha no Pagamento",
-    description: "Pendências no pagamento da assinatura",
+    value: 'payment_failure',
+    label: 'Falha no Pagamento',
+    description: 'Pendências no pagamento da assinatura',
   },
   {
-    value: "contract_breach",
-    label: "Quebra de Contrato",
-    description: "Violação aos termos contratuais",
+    value: 'contract_breach',
+    label: 'Quebra de Contrato',
+    description: 'Violação aos termos contratuais',
   },
   {
-    value: "terms_violation",
-    label: "Violação dos Termos de Uso",
-    description: "Uso inadequado da plataforma",
+    value: 'terms_violation',
+    label: 'Violação dos Termos de Uso',
+    description: 'Uso inadequado da plataforma',
   },
   {
-    value: "fraud_detected",
-    label: "Fraude Detectada",
-    description: "Atividades suspeitas ou fraudulentas",
+    value: 'fraud_detected',
+    label: 'Fraude Detectada',
+    description: 'Atividades suspeitas ou fraudulentas',
   },
   {
-    value: "other",
-    label: "Outro Motivo",
-    description: "Motivos administrativos",
+    value: 'other',
+    label: 'Outro Motivo',
+    description: 'Motivos administrativos',
   },
 ];
 
-export function SuspendTenantDialog({
-  tenant,
-  onSuccess,
-  children,
-}: SuspendTenantDialogProps) {
+export function SuspendTenantDialog({ tenant, onSuccess, children }: SuspendTenantDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [reason, setReason] = useState<SuspensionReason | "">("");
-  const [details, setDetails] = useState("");
-  const [contactEmail, setContactEmail] = useState(
-    "scandelari.guilherme@curvamestra.com.br"
-  );
+  const [reason, setReason] = useState<SuspensionReason | ''>('');
+  const [details, setDetails] = useState('');
+  const [contactEmail, setContactEmail] = useState('scandelari.guilherme@curvamestra.com.br');
 
   const handleSuspend = async () => {
     if (!reason || !details.trim()) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Preencha todos os campos obrigatórios",
-        variant: "destructive",
+        title: 'Campos obrigatórios',
+        description: 'Preencha todos os campos obrigatórios',
+        variant: 'destructive',
       });
       return;
     }
@@ -100,9 +94,9 @@ export function SuspendTenantDialog({
       const token = await user?.getIdToken();
 
       const response = await fetch(`/api/tenants/${tenant.id}/suspend`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -115,27 +109,27 @@ export function SuspendTenantDialog({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao suspender clínica");
+        throw new Error(data.error || 'Erro ao suspender clínica');
       }
 
       toast({
-        title: "Clínica suspensa com sucesso",
+        title: 'Clínica suspensa com sucesso',
         description: `${data.users_affected} usuário(s) desativado(s)`,
       });
 
       setOpen(false);
-      setReason("");
-      setDetails("");
+      setReason('');
+      setDetails('');
 
       if (onSuccess) {
         onSuccess();
       }
     } catch (error: any) {
-      console.error("Erro ao suspender clínica:", error);
+      console.error('Erro ao suspender clínica:', error);
       toast({
-        title: "Erro ao suspender clínica",
+        title: 'Erro ao suspender clínica',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -160,8 +154,8 @@ export function SuspendTenantDialog({
             Suspender Clínica
           </DialogTitle>
           <DialogDescription>
-            Bloqueie o acesso de todos os usuários desta clínica. Esta ação pode
-            ser revertida a qualquer momento.
+            Bloqueie o acesso de todos os usuários desta clínica. Esta ação pode ser revertida a
+            qualquer momento.
           </DialogDescription>
         </DialogHeader>
 
@@ -186,9 +180,7 @@ export function SuspendTenantDialog({
                   <SelectItem key={option.value} value={option.value}>
                     <div className="flex flex-col">
                       <span className="font-medium">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {option.description}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{option.description}</span>
                     </div>
                   </SelectItem>
                 ))}
@@ -228,22 +220,16 @@ export function SuspendTenantDialog({
 
           {/* Aviso */}
           <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-            <p className="text-sm text-destructive font-medium mb-1">
-              ⚠️ Atenção
-            </p>
+            <p className="text-sm text-destructive font-medium mb-1">⚠️ Atenção</p>
             <p className="text-xs text-muted-foreground">
-              Todos os usuários desta clínica serão imediatamente desconectados e
-              não poderão mais acessar o sistema até que a suspensão seja removida.
+              Todos os usuários desta clínica serão imediatamente desconectados e não poderão mais
+              acessar o sistema até que a suspensão seja removida.
             </p>
           </div>
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
             Cancelar
           </Button>
           <Button
@@ -295,7 +281,7 @@ export function ReactivateTenantDialog({
       const token = await user?.getIdToken();
 
       const response = await fetch(`/api/tenants/${tenant.id}/suspend`, {
-        method: "DELETE",
+        method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -304,11 +290,11 @@ export function ReactivateTenantDialog({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao reativar clínica");
+        throw new Error(data.error || 'Erro ao reativar clínica');
       }
 
       toast({
-        title: "Clínica reativada com sucesso",
+        title: 'Clínica reativada com sucesso',
         description: `${data.users_affected} usuário(s) reativado(s)`,
       });
 
@@ -318,11 +304,11 @@ export function ReactivateTenantDialog({
         onSuccess();
       }
     } catch (error: any) {
-      console.error("Erro ao reativar clínica:", error);
+      console.error('Erro ao reativar clínica:', error);
       toast({
-        title: "Erro ao reativar clínica",
+        title: 'Erro ao reativar clínica',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -347,8 +333,7 @@ export function ReactivateTenantDialog({
             Reativar Clínica
           </DialogTitle>
           <DialogDescription>
-            Remova a suspensão e permita que os usuários acessem novamente a
-            plataforma.
+            Remova a suspensão e permita que os usuários acessem novamente a plataforma.
           </DialogDescription>
         </DialogHeader>
 
@@ -362,30 +347,21 @@ export function ReactivateTenantDialog({
           {/* Informação da Suspensão Atual */}
           {tenant.suspension && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="text-sm font-medium text-amber-900 mb-1">
-                Suspensão Atual
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {tenant.suspension.details}
-              </p>
+              <p className="text-sm font-medium text-amber-900 mb-1">Suspensão Atual</p>
+              <p className="text-xs text-muted-foreground">{tenant.suspension.details}</p>
             </div>
           )}
 
           {/* Confirmação */}
           <div className="rounded-lg border border-green-200 bg-green-50 p-3">
             <p className="text-sm text-green-900">
-              ✓ Todos os usuários poderão acessar o sistema novamente após a
-              reativação.
+              ✓ Todos os usuários poderão acessar o sistema novamente após a reativação.
             </p>
           </div>
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
             Cancelar
           </Button>
           <Button onClick={handleReactivate} disabled={isLoading}>

@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { LogIn } from "lucide-react";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { LogIn } from 'lucide-react';
 
 export default function Home() {
   const [countdown, setCountdown] = useState({
@@ -16,7 +16,7 @@ export default function Home() {
 
   useEffect(() => {
     // Data de lançamento: 15/04/2026
-    const launchDate = new Date("2026-04-15T00:00:00").getTime();
+    const launchDate = new Date('2026-04-15T00:00:00').getTime();
 
     const updateCountdown = () => {
       const now = new Date().getTime();
@@ -38,7 +38,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const formatNumber = (num: number) => String(num).padStart(2, "0");
+  const formatNumber = (num: number) => String(num).padStart(2, '0');
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#1a1a1a] to-[#2d2d2d] text-white">
@@ -88,10 +88,10 @@ export default function Home() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {[
-              { value: countdown.days, label: "Dias" },
-              { value: countdown.hours, label: "Horas" },
-              { value: countdown.minutes, label: "Minutos" },
-              { value: countdown.seconds, label: "Segundos" },
+              { value: countdown.days, label: 'Dias' },
+              { value: countdown.hours, label: 'Horas' },
+              { value: countdown.minutes, label: 'Minutos' },
+              { value: countdown.seconds, label: 'Segundos' },
             ].map((item, index) => (
               <div
                 key={index}
@@ -118,13 +118,13 @@ export default function Home() {
               </h3>
               <ul className="space-y-3 w-full">
                 {[
-                  "Controle de Notas Fiscais e Estoque",
-                  "Gestão de Lotes",
-                  "Rastreamento de Validade",
-                  "Relatórios Detalhados",
-                  "Notificações e Alertas",
-                  "Agendamento e Histórico de Procedimentos",
-                  "Conexão com Consultor Rennova",
+                  'Controle de Notas Fiscais e Estoque',
+                  'Gestão de Lotes',
+                  'Rastreamento de Validade',
+                  'Relatórios Detalhados',
+                  'Notificações e Alertas',
+                  'Agendamento e Histórico de Procedimentos',
+                  'Conexão com Consultor Rennova',
                 ].map((feature, index) => (
                   <li
                     key={index}
@@ -143,11 +143,11 @@ export default function Home() {
               </h3>
               <ul className="space-y-3 w-full">
                 {[
-                  "Redução de Desperdício",
-                  "Visão Holística da Clínica",
-                  "Colaboração Interativa do Consultor Rennova",
-                  "Maior Eficiência",
-                  "Decisões Baseadas em Dados",
+                  'Redução de Desperdício',
+                  'Visão Holística da Clínica',
+                  'Colaboração Interativa do Consultor Rennova',
+                  'Maior Eficiência',
+                  'Decisões Baseadas em Dados',
                 ].map((benefit, index) => (
                   <li
                     key={index}
@@ -168,32 +168,20 @@ export default function Home() {
                 <div className="text-center border-b border-[#D4AF37]/30 pb-4">
                   <p className="text-white/90 font-light mb-3 text-lg">Plano Semestral</p>
                   <div className="flex items-baseline justify-center gap-1 mb-2">
-                    <strong className="text-[#FFD700] font-semibold text-3xl">
-                      R$ 59,90
-                    </strong>
+                    <strong className="text-[#FFD700] font-semibold text-3xl">R$ 59,90</strong>
                     <span className="text-white/70 text-sm">/mês</span>
                   </div>
-                  <p className="text-white/60 text-sm">
-                    Pagamento mensal da licença
-                  </p>
-                  <p className="text-white/50 text-xs mt-1">
-                    (6 meses de compromisso)
-                  </p>
+                  <p className="text-white/60 text-sm">Pagamento mensal da licença</p>
+                  <p className="text-white/50 text-xs mt-1">(6 meses de compromisso)</p>
                 </div>
                 <div className="text-center pb-4">
                   <p className="text-white/90 font-light mb-3 text-lg">Plano Anual</p>
                   <div className="flex items-baseline justify-center gap-1 mb-2">
-                    <strong className="text-[#FFD700] font-semibold text-3xl">
-                      R$ 49,90
-                    </strong>
+                    <strong className="text-[#FFD700] font-semibold text-3xl">R$ 49,90</strong>
                     <span className="text-white/70 text-sm">/mês</span>
                   </div>
-                  <p className="text-white/60 text-sm">
-                    Pagamento mensal da licença
-                  </p>
-                  <p className="text-white/50 text-xs mt-1">
-                    (12 meses de compromisso)
-                  </p>
+                  <p className="text-white/60 text-sm">Pagamento mensal da licença</p>
+                  <p className="text-white/50 text-xs mt-1">(12 meses de compromisso)</p>
                   <div className="mt-2">
                     <span className="inline-block px-3 py-1 bg-green-600/20 text-green-400 text-xs rounded-full border border-green-600/30">
                       Economize R$ 120,00/ano
@@ -227,9 +215,10 @@ export default function Home() {
                 </h3>
 
                 <p className="text-lg text-white/80 max-w-2xl mx-auto leading-relaxed">
-                  Garanta seu acesso antecipado ao <span className="text-[#FFD700] font-semibold">Curva Mestra</span> e
-                  aproveite <span className="text-[#FFD700] font-semibold">condições especiais</span> de lançamento para
-                  clínicas e profissionais autônomos.
+                  Garanta seu acesso antecipado ao{' '}
+                  <span className="text-[#FFD700] font-semibold">Curva Mestra</span> e aproveite{' '}
+                  <span className="text-[#FFD700] font-semibold">condições especiais</span> de
+                  lançamento para clínicas e profissionais autônomos.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
@@ -246,13 +235,21 @@ export default function Home() {
                 <div className="flex items-center justify-center gap-8 pt-6 text-sm text-white/60">
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     <span>Sem custo de adesão</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     <span>Configuração facilitada</span>
                   </div>
@@ -264,9 +261,7 @@ export default function Home() {
 
         {/* Social Links */}
         <footer className="text-center mt-8">
-          <p className="text-[#D4AF37] text-lg mb-4">
-            Siga-nos no Instagram para novidades
-          </p>
+          <p className="text-[#D4AF37] text-lg mb-4">Siga-nos no Instagram para novidades</p>
           <a
             href="https://instagram.com/curvamestra"
             target="_blank"

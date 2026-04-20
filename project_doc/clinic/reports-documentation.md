@@ -26,12 +26,12 @@ Página central de geração de relatórios da clínica. Oferece três tipos de 
 
 ## 2. Tipos de Usuários
 
-| Tipo | Acesso | Permissões |
-|------|--------|------------|
-| `clinic_admin` | Total | Gera e exporta todos os relatórios |
-| `clinic_user` | Total | Gera e exporta todos os relatórios (sem restrição de role) |
-| `clinic_consultant` | N/A | Não acessa rotas de relatórios da clínica |
-| `system_admin` | N/A | Não acessa rotas do módulo clínica |
+| Tipo                | Acesso | Permissões                                                 |
+| ------------------- | ------ | ---------------------------------------------------------- |
+| `clinic_admin`      | Total  | Gera e exporta todos os relatórios                         |
+| `clinic_user`       | Total  | Gera e exporta todos os relatórios (sem restrição de role) |
+| `clinic_consultant` | N/A    | Não acessa rotas de relatórios da clínica                  |
+| `system_admin`      | N/A    | Não acessa rotas do módulo clínica                         |
 
 **Nota**: A página não possui restrição explícita de role — tanto `clinic_admin` quanto `clinic_user` podem acessar.
 
@@ -108,8 +108,8 @@ const [stockReport, setStockReport] = useState<StockValueReport | null>(null);
 const [expirationReport, setExpirationReport] = useState<ExpirationReport | null>(null);
 const [expirationDays, setExpirationDays] = useState(30);
 const [consumptionReport, setConsumptionReport] = useState<ConsumptionReport | null>(null);
-const [consumptionStartDate, setConsumptionStartDate] = useState("");
-const [consumptionEndDate, setConsumptionEndDate] = useState("");
+const [consumptionStartDate, setConsumptionStartDate] = useState('');
+const [consumptionEndDate, setConsumptionEndDate] = useState('');
 ```
 
 ---
@@ -269,18 +269,19 @@ const [consumptionEndDate, setConsumptionEndDate] = useState("");
 
 ## 7. Estados da Interface
 
-| Estado | Comportamento | Visual |
-|--------|---------------|--------|
-| Inicial | 3 cards de relatório em grid responsivo | Grid `md:grid-cols-3` |
-| Gerando (`loading=true`) | Texto "Gerando..." no botão ativo, todos botões desabilitados | Botão com texto alterado |
-| Preview — Estoque | Card com borda azul, 3 cards resumo + tabela | `border-2 border-blue-200` |
-| Preview — Vencimento | Card com borda laranja, 2 cards resumo + tabela com cores | `border-2 border-orange-200` |
-| Preview — Consumo | Card com borda verde, 3 cards resumo + 2 tabelas | `border-2 border-green-200` |
-| Erro | Alert nativo com "Erro ao gerar relatório" | `alert()` |
+| Estado                   | Comportamento                                                 | Visual                       |
+| ------------------------ | ------------------------------------------------------------- | ---------------------------- |
+| Inicial                  | 3 cards de relatório em grid responsivo                       | Grid `md:grid-cols-3`        |
+| Gerando (`loading=true`) | Texto "Gerando..." no botão ativo, todos botões desabilitados | Botão com texto alterado     |
+| Preview — Estoque        | Card com borda azul, 3 cards resumo + tabela                  | `border-2 border-blue-200`   |
+| Preview — Vencimento     | Card com borda laranja, 2 cards resumo + tabela com cores     | `border-2 border-orange-200` |
+| Preview — Consumo        | Card com borda verde, 3 cards resumo + 2 tabelas              | `border-2 border-green-200`  |
+| Erro                     | Alert nativo com "Erro ao gerar relatório"                    | `alert()`                    |
 
 ### 7.1 Controles do Preview
 
 Cada preview possui:
+
 - Badge "Preview" com ícone Eye (cor temática do relatório)
 - Botão "Fechar" (ghost) com ícone X — seta estado do relatório para `null`
 - Botão "Exportar Excel" (default) com ícone Download
@@ -291,64 +292,64 @@ Cada preview possui:
 
 ### 8.1 Validações no Frontend
 
-| Validação | Condição | Comportamento |
-|-----------|----------|---------------|
-| `tenantId` ausente | `!tenantId` | Funções retornam sem executar |
+| Validação                        | Condição                                         | Comportamento                  |
+| -------------------------------- | ------------------------------------------------ | ------------------------------ | --- | --------------------- |
+| `tenantId` ausente               | `!tenantId`                                      | Funções retornam sem executar  |
 | Período não preenchido (consumo) | `!consumptionStartDate \|\| !consumptionEndDate` | `alert("Selecione o período")` |
-| Antecedência inválida | `parseInt(value) || 30` | Fallback para 30 dias |
-| Relatório não gerado (export) | `!stockReport` (etc.) | Função retorna sem executar |
+| Antecedência inválida            | `parseInt(value)                                 |                                | 30` | Fallback para 30 dias |
+| Relatório não gerado (export)    | `!stockReport` (etc.)                            | Função retorna sem executar    |
 
 ---
 
 ## 9. Integrações
 
-| Integração | Tipo | Descrição |
-|------------|------|-----------|
-| Firebase Auth | Autenticação | `useAuth()` fornece `claims.tenant_id` |
-| `reportService` | Serviço | 3 funções de geração + `exportToExcel` + formatadores |
-| Firestore — inventory | Leitura | Dados do inventário para relatórios de estoque e vencimento |
-| Firestore — solicitacoes | Leitura | Dados de consumo para relatório de consumo |
-| Firestore — patients | Leitura | Dados de pacientes para relatório de consumo |
-| Excel (XLSX) | Exportação | `exportToExcel` gera arquivo .xlsx para download |
+| Integração               | Tipo         | Descrição                                                   |
+| ------------------------ | ------------ | ----------------------------------------------------------- |
+| Firebase Auth            | Autenticação | `useAuth()` fornece `claims.tenant_id`                      |
+| `reportService`          | Serviço      | 3 funções de geração + `exportToExcel` + formatadores       |
+| Firestore — inventory    | Leitura      | Dados do inventário para relatórios de estoque e vencimento |
+| Firestore — solicitacoes | Leitura      | Dados de consumo para relatório de consumo                  |
+| Firestore — patients     | Leitura      | Dados de pacientes para relatório de consumo                |
+| Excel (XLSX)             | Exportação   | `exportToExcel` gera arquivo .xlsx para download            |
 
 ---
 
 ## 10. Segurança
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Autenticação | `useAuth()` verifica se há usuário logado |
-| Multi-tenant | `claims.tenant_id` isola dados por tenant |
-| Autorização | **Sem restrição de role** — qualquer usuário autenticado pode gerar relatórios |
-| Firestore RLS | Regras garantem `request.auth.token.tenant_id == tenantId` |
-| Exportação | Dados são processados no cliente — nenhum arquivo é enviado ao servidor |
+| Aspecto       | Implementação                                                                  |
+| ------------- | ------------------------------------------------------------------------------ |
+| Autenticação  | `useAuth()` verifica se há usuário logado                                      |
+| Multi-tenant  | `claims.tenant_id` isola dados por tenant                                      |
+| Autorização   | **Sem restrição de role** — qualquer usuário autenticado pode gerar relatórios |
+| Firestore RLS | Regras garantem `request.auth.token.tenant_id == tenantId`                     |
+| Exportação    | Dados são processados no cliente — nenhum arquivo é enviado ao servidor        |
 
 ---
 
 ## 11. Performance
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Geração sob demanda | Relatórios gerados apenas quando usuário clica |
-| Um relatório por vez | Estado `loading` compartilhado impede geração simultânea |
+| Aspecto                 | Implementação                                                  |
+| ----------------------- | -------------------------------------------------------------- |
+| Geração sob demanda     | Relatórios gerados apenas quando usuário clica                 |
+| Um relatório por vez    | Estado `loading` compartilhado impede geração simultânea       |
 | Renderização de tabelas | Tabelas HTML nativas com `overflow-x-auto` para responsividade |
-| Sem paginação de tabela | Todos os dados exibidos de uma vez no preview |
-| Período padrão | `useEffect` calcula último mês apenas no mount |
-| Dados em memória | Relatórios ficam no state até serem substituídos ou fechados |
+| Sem paginação de tabela | Todos os dados exibidos de uma vez no preview                  |
+| Período padrão          | `useEffect` calcula último mês apenas no mount                 |
+| Dados em memória        | Relatórios ficam no state até serem substituídos ou fechados   |
 
 ---
 
 ## 12. Acessibilidade
 
-| Aspecto | Status | Detalhes |
-|---------|--------|----------|
-| Labels nos inputs | Sim | Labels com `<label>` para antecedência e datas |
-| Tabelas semânticas | Sim | `<table>`, `<thead>`, `<tbody>`, `<th>` com uppercase |
-| Cores de urgência | Limitado | Cores usadas sem indicador textual alternativo (números ajudam) |
-| Badge de preview | Parcial | Badge com ícone Eye + texto "Preview" |
-| Feedback de erro | Limitado | Apenas `alert()` nativo |
-| Input de data | Sim | `type="date"` com date picker nativo do browser |
-| Input numérico | Sim | `type="number"` com min/max |
+| Aspecto            | Status   | Detalhes                                                        |
+| ------------------ | -------- | --------------------------------------------------------------- |
+| Labels nos inputs  | Sim      | Labels com `<label>` para antecedência e datas                  |
+| Tabelas semânticas | Sim      | `<table>`, `<thead>`, `<tbody>`, `<th>` com uppercase           |
+| Cores de urgência  | Limitado | Cores usadas sem indicador textual alternativo (números ajudam) |
+| Badge de preview   | Parcial  | Badge com ícone Eye + texto "Preview"                           |
+| Feedback de erro   | Limitado | Apenas `alert()` nativo                                         |
+| Input de data      | Sim      | `type="date"` com date picker nativo do browser                 |
+| Input numérico     | Sim      | `type="number"` com min/max                                     |
 
 ---
 
@@ -356,34 +357,34 @@ Cada preview possui:
 
 ### 13.1 Cenários de Teste Recomendados
 
-| Cenário | Tipo | Descrição |
-|---------|------|-----------|
-| Gerar relatório de estoque | E2E | Verificar cards resumo e tabela por produto |
-| Gerar relatório de vencimento | E2E | Verificar cores por dias para vencer |
-| Gerar relatório de consumo | E2E | Verificar tabelas por produto e por paciente |
-| Exportar cada relatório | E2E | Verificar download de Excel |
-| Período padrão | Unitário | Verificar que datas são inicializadas com último mês |
-| Antecedência custom | E2E | Alterar para 90 dias e verificar resultado |
-| Período vazio (consumo) | E2E | Verificar alert "Selecione o período" |
-| Fechar preview | E2E | Verificar que card de preview é removido |
-| Loading compartilhado | E2E | Verificar que botões ficam desabilitados durante geração |
-| Cores de urgência | Visual | Verificar vermelho (≤7d), laranja (≤15d), verde (>15d) |
-| Fundo vermelho em linha crítica | Visual | Verificar `bg-red-50` para ≤ 7 dias |
+| Cenário                         | Tipo     | Descrição                                                |
+| ------------------------------- | -------- | -------------------------------------------------------- |
+| Gerar relatório de estoque      | E2E      | Verificar cards resumo e tabela por produto              |
+| Gerar relatório de vencimento   | E2E      | Verificar cores por dias para vencer                     |
+| Gerar relatório de consumo      | E2E      | Verificar tabelas por produto e por paciente             |
+| Exportar cada relatório         | E2E      | Verificar download de Excel                              |
+| Período padrão                  | Unitário | Verificar que datas são inicializadas com último mês     |
+| Antecedência custom             | E2E      | Alterar para 90 dias e verificar resultado               |
+| Período vazio (consumo)         | E2E      | Verificar alert "Selecione o período"                    |
+| Fechar preview                  | E2E      | Verificar que card de preview é removido                 |
+| Loading compartilhado           | E2E      | Verificar que botões ficam desabilitados durante geração |
+| Cores de urgência               | Visual   | Verificar vermelho (≤7d), laranja (≤15d), verde (>15d)   |
+| Fundo vermelho em linha crítica | Visual   | Verificar `bg-red-50` para ≤ 7 dias                      |
 
 ---
 
 ## 14. Melhorias Futuras
 
-| Melhoria | Prioridade | Descrição |
-|----------|------------|-----------|
-| Gráficos | Alta | Adicionar visualizações gráficas (barras, pizza) aos relatórios |
-| Restrição de role | Média | Avaliar se clinic_user deve ter acesso a todos os relatórios |
-| Toast notifications | Média | Substituir `alert()` por toast para erros |
-| Paginação de tabelas | Média | Limitar exibição para relatórios com muitos itens |
-| Relatório de PDF | Média | Gerar PDF para impressão além do Excel |
-| Cache de relatórios | Baixa | Armazenar relatório gerado para evitar re-geração |
-| Agendamento | Baixa | Gerar relatórios automaticamente em horários programados |
-| Filtros adicionais | Baixa | Filtrar por categoria de produto, fornecedor, etc. |
+| Melhoria             | Prioridade | Descrição                                                       |
+| -------------------- | ---------- | --------------------------------------------------------------- |
+| Gráficos             | Alta       | Adicionar visualizações gráficas (barras, pizza) aos relatórios |
+| Restrição de role    | Média      | Avaliar se clinic_user deve ter acesso a todos os relatórios    |
+| Toast notifications  | Média      | Substituir `alert()` por toast para erros                       |
+| Paginação de tabelas | Média      | Limitar exibição para relatórios com muitos itens               |
+| Relatório de PDF     | Média      | Gerar PDF para impressão além do Excel                          |
+| Cache de relatórios  | Baixa      | Armazenar relatório gerado para evitar re-geração               |
+| Agendamento          | Baixa      | Gerar relatórios automaticamente em horários programados        |
+| Filtros adicionais   | Baixa      | Filtrar por categoria de produto, fornecedor, etc.              |
 
 ---
 
@@ -406,12 +407,12 @@ reports (este doc)
 
 ### Páginas relacionadas
 
-| Página | Relação |
-|--------|---------|
-| Dashboard | Visão resumida que complementa os relatórios |
-| Inventário | Fonte dos dados de estoque e vencimento |
-| Solicitações | Fonte dos dados de consumo |
-| Pacientes | Associação para relatório de consumo por paciente |
+| Página       | Relação                                           |
+| ------------ | ------------------------------------------------- |
+| Dashboard    | Visão resumida que complementa os relatórios      |
+| Inventário   | Fonte dos dados de estoque e vencimento           |
+| Solicitações | Fonte dos dados de consumo                        |
+| Pacientes    | Associação para relatório de consumo por paciente |
 
 ---
 
@@ -431,27 +432,27 @@ reports (este doc)
 
 ## 17. Histórico de Mudanças
 
-| Data | Versão | Descrição |
-|------|--------|-----------|
-| 07/02/2026 | 1.0 | Documentação inicial (formato antigo) |
-| 09/02/2026 | 2.0 | Padronização para template de 20 seções |
+| Data       | Versão | Descrição                               |
+| ---------- | ------ | --------------------------------------- |
+| 07/02/2026 | 1.0    | Documentação inicial (formato antigo)   |
+| 09/02/2026 | 2.0    | Padronização para template de 20 seções |
 
 ---
 
 ## 18. Glossário
 
-| Termo | Descrição |
-|-------|-----------|
-| `tenant_id` | Identificador único da clínica no sistema multi-tenant |
-| `claims` | Custom Claims do Firebase Auth com role e tenant_id |
-| `StockValueReport` | Tipo do relatório de valor do estoque |
-| `ExpirationReport` | Tipo do relatório de produtos vencendo |
-| `ConsumptionReport` | Tipo do relatório de consumo por período |
-| `activeReport` | Estado que controla qual preview está ativo ("stock", "expiration", "consumption") |
-| `formatCurrency` | Função de formatação monetária BRL para exibição |
-| `formatDecimalBR` | Função de formatação decimal BR para exportação |
-| `exportToExcel` | Função que gera e baixa arquivo .xlsx |
-| `expirationDays` | Número de dias de antecedência para relatório de vencimento |
+| Termo               | Descrição                                                                          |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `tenant_id`         | Identificador único da clínica no sistema multi-tenant                             |
+| `claims`            | Custom Claims do Firebase Auth com role e tenant_id                                |
+| `StockValueReport`  | Tipo do relatório de valor do estoque                                              |
+| `ExpirationReport`  | Tipo do relatório de produtos vencendo                                             |
+| `ConsumptionReport` | Tipo do relatório de consumo por período                                           |
+| `activeReport`      | Estado que controla qual preview está ativo ("stock", "expiration", "consumption") |
+| `formatCurrency`    | Função de formatação monetária BRL para exibição                                   |
+| `formatDecimalBR`   | Função de formatação decimal BR para exportação                                    |
+| `exportToExcel`     | Função que gera e baixa arquivo .xlsx                                              |
+| `expirationDays`    | Número de dias de antecedência para relatório de vencimento                        |
 
 ---
 
@@ -469,27 +470,27 @@ reports (este doc)
 
 ### Anexo A — Tipos de Relatórios
 
-| Relatório | Cor | Ícone | Serviço | Parâmetros |
-|-----------|-----|-------|---------|------------|
-| Valor do Estoque | Azul | `DollarSign` | `generateStockValueReport` | Nenhum |
-| Produtos Vencendo | Laranja | `AlertTriangle` | `generateExpirationReport` | `expirationDays` (1-365, default 30) |
-| Consumo por Período | Verde | `TrendingUp` | `generateConsumptionReport` | `startDate`, `endDate` (default: último mês) |
+| Relatório           | Cor     | Ícone           | Serviço                     | Parâmetros                                   |
+| ------------------- | ------- | --------------- | --------------------------- | -------------------------------------------- |
+| Valor do Estoque    | Azul    | `DollarSign`    | `generateStockValueReport`  | Nenhum                                       |
+| Produtos Vencendo   | Laranja | `AlertTriangle` | `generateExpirationReport`  | `expirationDays` (1-365, default 30)         |
+| Consumo por Período | Verde   | `TrendingUp`    | `generateConsumptionReport` | `startDate`, `endDate` (default: último mês) |
 
 ### Anexo B — Nomes de Arquivo na Exportação
 
-| Relatório | Nome do arquivo |
-|-----------|-----------------|
-| Valor do Estoque | `relatorio_valor_estoque.xlsx` |
+| Relatório         | Nome do arquivo                    |
+| ----------------- | ---------------------------------- |
+| Valor do Estoque  | `relatorio_valor_estoque.xlsx`     |
 | Produtos Vencendo | `relatorio_produtos_vencendo.xlsx` |
-| Consumo | `relatorio_consumo_produtos.xlsx` |
+| Consumo           | `relatorio_consumo_produtos.xlsx`  |
 
 ### Anexo C — Cores de Urgência (Vencimento)
 
-| Dias para vencer | Cor do texto | Fundo da linha |
-|------------------|-------------|----------------|
-| ≤ 7 dias | `text-red-600` | `bg-red-50` |
-| ≤ 15 dias | `text-orange-600` | Normal |
-| > 15 dias | `text-green-600` | Normal |
+| Dias para vencer | Cor do texto      | Fundo da linha |
+| ---------------- | ----------------- | -------------- |
+| ≤ 7 dias         | `text-red-600`    | `bg-red-50`    |
+| ≤ 15 dias        | `text-orange-600` | Normal         |
+| > 15 dias        | `text-green-600`  | Normal         |
 
 ### Anexo D — Estrutura do Layout
 

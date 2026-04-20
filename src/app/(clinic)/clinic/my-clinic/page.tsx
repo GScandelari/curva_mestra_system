@@ -1,32 +1,26 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Shield, Bell } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Users, Shield, Bell } from 'lucide-react';
 
 // Import page components (we'll create these next)
-import dynamic from "next/dynamic";
+import dynamic from 'next/dynamic';
 
-const UsersTab = dynamic(() => import("@/components/clinic/UsersTab"), {
+const UsersTab = dynamic(() => import('@/components/clinic/UsersTab'), {
   ssr: false,
   loading: () => <div className="p-8 text-center">Carregando...</div>,
 });
 
-const LicenseTab = dynamic(() => import("@/components/clinic/LicenseTab"), {
+const LicenseTab = dynamic(() => import('@/components/clinic/LicenseTab'), {
   ssr: false,
   loading: () => <div className="p-8 text-center">Carregando...</div>,
 });
 
-const AlertsTab = dynamic(() => import("@/components/clinic/AlertsTab"), {
+const AlertsTab = dynamic(() => import('@/components/clinic/AlertsTab'), {
   ssr: false,
   loading: () => <div className="p-8 text-center">Carregando...</div>,
 });
@@ -36,13 +30,13 @@ export default function MyClinicPage() {
   const searchParams = useSearchParams();
   const { claims } = useAuth();
 
-  const isAdmin = claims?.role === "clinic_admin";
-  const defaultTab = searchParams.get("tab") || "license";
+  const isAdmin = claims?.role === 'clinic_admin';
+  const defaultTab = searchParams.get('tab') || 'license';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   // Sincronizar activeTab com URL ao montar ou quando searchParams mudar
   useEffect(() => {
-    const urlTab = searchParams.get("tab");
+    const urlTab = searchParams.get('tab');
     if (urlTab && urlTab !== activeTab) {
       setActiveTab(urlTab);
     }
@@ -50,8 +44,8 @@ export default function MyClinicPage() {
 
   // Redirect non-admins if they try to access admin-only tabs
   useEffect(() => {
-    if (!isAdmin && (activeTab === "users" || activeTab === "alerts")) {
-      setActiveTab("license");
+    if (!isAdmin && (activeTab === 'users' || activeTab === 'alerts')) {
+      setActiveTab('license');
     }
   }, [isAdmin, activeTab]);
 
@@ -60,8 +54,8 @@ export default function MyClinicPage() {
     setActiveTab(value);
     // Atualizar URL sem reload usando window.history
     const url = new URL(window.location.href);
-    url.searchParams.set("tab", value);
-    window.history.pushState({}, "", url.toString());
+    url.searchParams.set('tab', value);
+    window.history.pushState({}, '', url.toString());
   };
 
   return (

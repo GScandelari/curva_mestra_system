@@ -3,11 +3,11 @@
  * Gerencia tokens de uso único para reset de senha seguro
  */
 
-import crypto from "crypto";
-import { adminDb } from "@/lib/firebase-admin";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import crypto from 'crypto';
+import { adminDb } from '@/lib/firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
-const PASSWORD_RESET_TOKENS_COLLECTION = "password_reset_tokens";
+const PASSWORD_RESET_TOKENS_COLLECTION = 'password_reset_tokens';
 const TOKEN_EXPIRY_MINUTES = 30;
 
 /**
@@ -29,26 +29,27 @@ interface PasswordResetTokenData {
  * Gera um token seguro de 32 bytes (64 caracteres hex)
  */
 export function generateResetToken(): string {
-  return crypto.randomBytes(32).toString("hex");
+  return crypto.randomBytes(32).toString('hex');
 }
 
 /**
  * Cria hash SHA-256 do token para armazenamento seguro
  */
 export function hashToken(token: string): string {
-  return crypto.createHash("sha256").update(token).digest("hex");
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 /**
  * Mascara email para exibição (ex: j***@gmail.com)
  */
 export function maskEmail(email: string): string {
-  const [localPart, domain] = email.split("@");
+  const [localPart, domain] = email.split('@');
   if (!localPart || !domain) return email;
 
-  const maskedLocal = localPart.length <= 2
-    ? localPart[0] + "***"
-    : localPart[0] + "***" + localPart[localPart.length - 1];
+  const maskedLocal =
+    localPart.length <= 2
+      ? localPart[0] + '***'
+      : localPart[0] + '***' + localPart[localPart.length - 1];
 
   return `${maskedLocal}@${domain}`;
 }
@@ -74,7 +75,7 @@ export async function createPasswordResetToken(
   expiresAt.setMinutes(expiresAt.getMinutes() + TOKEN_EXPIRY_MINUTES);
 
   // Criar documento no Firestore
-  const tokenData: Omit<PasswordResetTokenData, "used_at" | "invalidated_at"> = {
+  const tokenData: Omit<PasswordResetTokenData, 'used_at' | 'invalidated_at'> = {
     token_hash: tokenHash,
     user_id: userId,
     user_email: userEmail,
@@ -109,12 +110,12 @@ export async function validateToken(rawToken: string): Promise<{
     // Buscar token pelo hash
     const snapshot = await adminDb
       .collection(PASSWORD_RESET_TOKENS_COLLECTION)
-      .where("token_hash", "==", tokenHash)
+      .where('token_hash', '==', tokenHash)
       .limit(1)
       .get();
 
     if (snapshot.empty) {
-      return { valid: false, error: "Token inválido ou expirado" };
+      return { valid: false, error: 'Token inválido ou expirado' };
     }
 
     const tokenDoc = snapshot.docs[0];
@@ -122,18 +123,21 @@ export async function validateToken(rawToken: string): Promise<{
 
     // Verificar se já foi usado
     if (tokenData.used_at) {
-      return { valid: false, error: "Este link já foi utilizado. Solicite um novo reset de senha." };
+      return {
+        valid: false,
+        error: 'Este link já foi utilizado. Solicite um novo reset de senha.',
+      };
     }
 
     // Verificar se foi invalidado
     if (tokenData.invalidated_at) {
-      return { valid: false, error: "Este link foi invalidado. Solicite um novo reset de senha." };
+      return { valid: false, error: 'Este link foi invalidado. Solicite um novo reset de senha.' };
     }
 
     // Verificar expiração
     const expiresAt = tokenData.expires_at.toDate();
     if (new Date() > expiresAt) {
-      return { valid: false, error: "Este link expirou. Solicite um novo reset de senha." };
+      return { valid: false, error: 'Este link expirou. Solicite um novo reset de senha.' };
     }
 
     return {
@@ -143,8 +147,8 @@ export async function validateToken(rawToken: string): Promise<{
       emailMasked: maskEmail(tokenData.user_email),
     };
   } catch (error) {
-    console.error("Erro ao validar token:", error);
-    return { valid: false, error: "Erro ao validar token. Tente novamente." };
+    console.error('Erro ao validar token:', error);
+    return { valid: false, error: 'Erro ao validar token. Tente novamente.' };
   }
 }
 
@@ -164,12 +168,12 @@ export async function consumeToken(rawToken: string): Promise<{
     // Buscar token pelo hash
     const snapshot = await adminDb
       .collection(PASSWORD_RESET_TOKENS_COLLECTION)
-      .where("token_hash", "==", tokenHash)
+      .where('token_hash', '==', tokenHash)
       .limit(1)
       .get();
 
     if (snapshot.empty) {
-      return { success: false, error: "Token inválido ou expirado" };
+      return { success: false, error: 'Token inválido ou expirado' };
     }
 
     const tokenDoc = snapshot.docs[0];
@@ -177,18 +181,18 @@ export async function consumeToken(rawToken: string): Promise<{
 
     // Verificar se já foi usado
     if (tokenData.used_at) {
-      return { success: false, error: "Este link já foi utilizado" };
+      return { success: false, error: 'Este link já foi utilizado' };
     }
 
     // Verificar se foi invalidado
     if (tokenData.invalidated_at) {
-      return { success: false, error: "Este link foi invalidado" };
+      return { success: false, error: 'Este link foi invalidado' };
     }
 
     // Verificar expiração
     const expiresAt = tokenData.expires_at.toDate();
     if (new Date() > expiresAt) {
-      return { success: false, error: "Este link expirou" };
+      return { success: false, error: 'Este link expirou' };
     }
 
     // Marcar como usado
@@ -202,8 +206,8 @@ export async function consumeToken(rawToken: string): Promise<{
       userEmail: tokenData.user_email,
     };
   } catch (error) {
-    console.error("Erro ao consumir token:", error);
-    return { success: false, error: "Erro ao processar token. Tente novamente." };
+    console.error('Erro ao consumir token:', error);
+    return { success: false, error: 'Erro ao processar token. Tente novamente.' };
   }
 }
 
@@ -215,8 +219,8 @@ export async function invalidateUserTokens(userId: string): Promise<void> {
   try {
     const snapshot = await adminDb
       .collection(PASSWORD_RESET_TOKENS_COLLECTION)
-      .where("user_id", "==", userId)
-      .where("used_at", "==", null)
+      .where('user_id', '==', userId)
+      .where('used_at', '==', null)
       .get();
 
     const batch = adminDb.batch();
@@ -230,7 +234,7 @@ export async function invalidateUserTokens(userId: string): Promise<void> {
       await batch.commit();
     }
   } catch (error) {
-    console.error("Erro ao invalidar tokens do usuário:", error);
+    console.error('Erro ao invalidar tokens do usuário:', error);
     // Não lançar erro - invalidação é operação de limpeza
   }
 }
@@ -239,6 +243,6 @@ export async function invalidateUserTokens(userId: string): Promise<void> {
  * Gera o link completo de reset de senha
  */
 export function generateResetLink(token: string, baseUrl?: string): string {
-  const base = baseUrl || process.env.NEXT_PUBLIC_BASE_URL || "https://curvamestra.com.br";
+  const base = baseUrl || process.env.NEXT_PUBLIC_BASE_URL || 'https://curvamestra.com.br';
   return `${base}/reset-password/${token}`;
 }

@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from 'firebase/firestore';
 
 /**
  * Interface principal para Produto Master (Catálogo Rennova)
@@ -40,7 +40,7 @@ export interface UpdateMasterProductData {
  * Helper para formatar código do produto (7 dígitos)
  */
 export function formatProductCode(code: string): string {
-  const cleaned = code.replace(/\D/g, "");
+  const cleaned = code.replace(/\D/g, '');
   return cleaned.slice(0, 7);
 }
 
@@ -48,7 +48,7 @@ export function formatProductCode(code: string): string {
  * Helper para validar código do produto (7 dígitos)
  */
 export function validateProductCode(code: string): boolean {
-  const cleaned = code.replace(/\D/g, "");
+  const cleaned = code.replace(/\D/g, '');
   return cleaned.length === 7;
 }
 

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Building2, Mail, Phone, FileText, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Link from 'next/link';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Building2, Mail, Phone, FileText, ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ClinicCardProps {
   clinic: {
@@ -21,29 +21,29 @@ interface ClinicCardProps {
 }
 
 function formatDocument(type?: string, number?: string): string {
-  if (!number) return "—";
+  if (!number) return '—';
 
-  const clean = number.replace(/\D/g, "");
+  const clean = number.replace(/\D/g, '');
 
-  if (type === "cpf" || clean.length === 11) {
-    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (type === 'cpf' || clean.length === 11) {
+    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   }
 
   // CNPJ
-  return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
 }
 
 export function ClinicCard({ clinic, className }: ClinicCardProps) {
   return (
-    <Card className={cn("hover:shadow-md transition-shadow", className)}>
+    <Card className={cn('hover:shadow-md transition-shadow', className)}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-sky-600" />
             <CardTitle className="text-lg">{clinic.name}</CardTitle>
           </div>
-          <Badge variant={clinic.active ? "default" : "secondary"}>
-            {clinic.active ? "Ativa" : "Inativa"}
+          <Badge variant={clinic.active ? 'default' : 'secondary'}>
+            {clinic.active ? 'Ativa' : 'Inativa'}
           </Badge>
         </div>
       </CardHeader>
@@ -51,7 +51,8 @@ export function ClinicCard({ clinic, className }: ClinicCardProps) {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <FileText className="h-4 w-4" />
           <span>
-            {clinic.document_type?.toUpperCase()}: {formatDocument(clinic.document_type, clinic.document_number)}
+            {clinic.document_type?.toUpperCase()}:{' '}
+            {formatDocument(clinic.document_type, clinic.document_number)}
           </span>
         </div>
         {clinic.email && (

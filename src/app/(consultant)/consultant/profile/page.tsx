@@ -1,27 +1,14 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  User,
-  Copy,
-  Building2,
-  Mail,
-  Phone,
-  Calendar,
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { formatTimestamp } from "@/lib/utils";
-import type { Consultant } from "@/types";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { User, Copy, Building2, Mail, Phone, Calendar } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { formatTimestamp } from '@/lib/utils';
+import type { Consultant } from '@/types';
 
 export default function ConsultantProfilePage() {
   const { user, consultantId } = useAuth();
@@ -51,7 +38,7 @@ export default function ConsultantProfilePage() {
         setConsultant(data.data);
       }
     } catch (error) {
-      console.error("Erro ao carregar perfil:", error);
+      console.error('Erro ao carregar perfil:', error);
     } finally {
       setLoading(false);
     }
@@ -60,7 +47,7 @@ export default function ConsultantProfilePage() {
   const copyCode = () => {
     if (consultant?.code) {
       navigator.clipboard.writeText(consultant.code);
-      toast({ title: "Código copiado" });
+      toast({ title: 'Código copiado' });
     }
   };
 
@@ -83,9 +70,7 @@ export default function ConsultantProfilePage() {
             <User className="h-8 w-8 text-sky-600" />
             Meu Perfil
           </h1>
-          <p className="text-muted-foreground">
-            Informações da sua conta de consultor
-          </p>
+          <p className="text-muted-foreground">Informações da sua conta de consultor</p>
         </div>
 
         {/* Consultant Code Card */}
@@ -94,9 +79,7 @@ export default function ConsultantProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sky-100 text-sm mb-1">Seu código de consultor</p>
-                <p className="text-5xl font-bold font-mono tracking-widest">
-                  {consultant?.code}
-                </p>
+                <p className="text-5xl font-bold font-mono tracking-widest">{consultant?.code}</p>
                 <p className="text-sky-100 text-sm mt-2">
                   Compartilhe este código com as clínicas para vincular-se
                 </p>
@@ -117,9 +100,7 @@ export default function ConsultantProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle>Informações Pessoais</CardTitle>
-            <CardDescription>
-              Dados cadastrados no sistema
-            </CardDescription>
+            <CardDescription>Dados cadastrados no sistema</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center gap-4">
@@ -128,8 +109,8 @@ export default function ConsultantProfilePage() {
               </div>
               <div>
                 <h3 className="text-xl font-semibold">{consultant?.name}</h3>
-                <Badge variant={consultant?.status === "active" ? "default" : "destructive"}>
-                  {consultant?.status === "active" ? "Ativo" : "Inativo"}
+                <Badge variant={consultant?.status === 'active' ? 'default' : 'destructive'}>
+                  {consultant?.status === 'active' ? 'Ativo' : 'Inativo'}
                 </Badge>
               </div>
             </div>
@@ -157,7 +138,7 @@ export default function ConsultantProfilePage() {
                   Membro desde
                 </div>
                 <p className="font-medium">
-                  {consultant?.created_at ? formatTimestamp(consultant.created_at) : "—"}
+                  {consultant?.created_at ? formatTimestamp(consultant.created_at) : '—'}
                 </p>
               </div>
             </div>
@@ -171,18 +152,14 @@ export default function ConsultantProfilePage() {
               <Building2 className="h-5 w-5" />
               Clínicas Vinculadas
             </CardTitle>
-            <CardDescription>
-              Resumo das suas clínicas
-            </CardDescription>
+            <CardDescription>Resumo das suas clínicas</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-6">
               <p className="text-4xl font-bold text-sky-600">
                 {consultant?.authorized_tenants?.length || 0}
               </p>
-              <p className="text-muted-foreground">
-                clínica(s) vinculada(s) à sua conta
-              </p>
+              <p className="text-muted-foreground">clínica(s) vinculada(s) à sua conta</p>
             </div>
           </CardContent>
         </Card>

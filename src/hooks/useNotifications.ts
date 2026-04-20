@@ -3,8 +3,8 @@
  * Curva Mestra - Multi-Tenant SaaS
  */
 
-import { useState, useEffect, useCallback } from "react";
-import type { Notification, NotificationStats } from "@/types/notification";
+import { useState, useEffect, useCallback } from 'react';
+import type { Notification, NotificationStats } from '@/types/notification';
 import {
   subscribeToNotifications,
   getNotificationStats,
@@ -12,7 +12,7 @@ import {
   markAllAsRead,
   deleteNotification,
   deleteReadNotifications,
-} from "@/lib/services/notificationService";
+} from '@/lib/services/notificationService';
 
 interface UseNotificationsOptions {
   tenantId: string | null;
@@ -36,9 +36,7 @@ interface UseNotificationsReturn {
 /**
  * Hook para gerenciar notificações em tempo real
  */
-export function useNotifications(
-  options: UseNotificationsOptions
-): UseNotificationsReturn {
+export function useNotifications(options: UseNotificationsOptions): UseNotificationsReturn {
   const { tenantId, onlyUnread = false, playSound = false } = options;
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -53,8 +51,7 @@ export function useNotifications(
 
     try {
       // Som simples usando Web Audio API
-      const audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 
@@ -62,18 +59,15 @@ export function useNotifications(
       gainNode.connect(audioContext.destination);
 
       oscillator.frequency.value = 800;
-      oscillator.type = "sine";
+      oscillator.type = 'sine';
 
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(
-        0.01,
-        audioContext.currentTime + 0.5
-      );
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
 
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.5);
     } catch (err) {
-      console.error("Erro ao tocar som de notificação:", err);
+      console.error('Erro ao tocar som de notificação:', err);
     }
   }, [playSound]);
 
@@ -85,7 +79,7 @@ export function useNotifications(
       const statsData = await getNotificationStats(tenantId);
       setStats(statsData);
     } catch (err) {
-      console.error("Erro ao carregar estatísticas:", err);
+      console.error('Erro ao carregar estatísticas:', err);
     }
   }, [tenantId]);
 
@@ -137,8 +131,8 @@ export function useNotifications(
       try {
         await markAsRead(tenantId, notificationId);
       } catch (err) {
-        console.error("Erro ao marcar como lida:", err);
-        setError("Erro ao marcar notificação como lida");
+        console.error('Erro ao marcar como lida:', err);
+        setError('Erro ao marcar notificação como lida');
       }
     },
     [tenantId]
@@ -151,8 +145,8 @@ export function useNotifications(
     try {
       await markAllAsRead(tenantId);
     } catch (err) {
-      console.error("Erro ao marcar todas como lidas:", err);
-      setError("Erro ao marcar todas as notificações como lidas");
+      console.error('Erro ao marcar todas como lidas:', err);
+      setError('Erro ao marcar todas as notificações como lidas');
     }
   }, [tenantId]);
 
@@ -164,8 +158,8 @@ export function useNotifications(
       try {
         await deleteNotification(tenantId, notificationId);
       } catch (err) {
-        console.error("Erro ao deletar notificação:", err);
-        setError("Erro ao deletar notificação");
+        console.error('Erro ao deletar notificação:', err);
+        setError('Erro ao deletar notificação');
       }
     },
     [tenantId]
@@ -178,8 +172,8 @@ export function useNotifications(
     try {
       await deleteReadNotifications(tenantId);
     } catch (err) {
-      console.error("Erro ao limpar notificações lidas:", err);
-      setError("Erro ao limpar notificações lidas");
+      console.error('Erro ao limpar notificações lidas:', err);
+      setError('Erro ao limpar notificações lidas');
     }
   }, [tenantId]);
 

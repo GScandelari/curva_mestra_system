@@ -25,6 +25,7 @@ A página Accept Terms é uma **tela de bloqueio obrigatória** que exige que us
 ### 1.2 Quando Esta Página é Exibida?
 
 Usuário é redirecionado para `/accept-terms` quando:
+
 1. Possui documentos legais pendentes de aceitação
 2. Nova versão de documento foi publicada
 3. Novos documentos obrigatórios foram adicionados
@@ -51,11 +52,13 @@ Usuário é redirecionado para `/accept-terms` quando:
 ```
 
 ### 1.4 Localização
+
 - **Arquivo:** `src/app/(auth)/accept-terms/page.tsx`
 - **Rota:** `/accept-terms`
 - **Layout:** Auth Layout (sem navegação principal)
 
 ### 1.5 Dependências Principais
+
 - **Hook:** `src/hooks/usePendingTerms.ts`
 - **Interceptor:** `src/components/auth/TermsInterceptor.tsx`
 - **Firestore:** Coleções `legal_documents` e `user_document_acceptances`
@@ -68,41 +71,45 @@ Usuário é redirecionado para `/accept-terms` quando:
 ### 2.1 Estrutura de Dados
 
 **LegalDocument (legal_documents):**
+
 ```typescript
 interface LegalDocument {
   id: string;
-  title: string;                          // Ex: "Termos de Uso"
-  content: string;                        // Markdown
-  version: string;                        // Ex: "1.0", "2.1"
-  status: "ativo" | "inativo";
-  required_for_registration: boolean;     // Obrigatório no registro
-  required_for_existing_users: boolean;   // Obrigatório para usuários existentes
-  order: number;                          // Ordem de exibição
+  title: string; // Ex: "Termos de Uso"
+  content: string; // Markdown
+  version: string; // Ex: "1.0", "2.1"
+  status: 'ativo' | 'inativo';
+  required_for_registration: boolean; // Obrigatório no registro
+  required_for_existing_users: boolean; // Obrigatório para usuários existentes
+  order: number; // Ordem de exibição
   created_at: Timestamp;
   updated_at: Timestamp;
 }
 ```
 
 **UserDocumentAcceptance (user_document_acceptances):**
+
 ```typescript
 interface UserDocumentAcceptance {
-  user_id: string;              // UID do usuário
-  document_id: string;          // ID do documento
-  document_version: string;     // Versão aceita
-  accepted_at: Timestamp;       // Quando aceitou
-  ip_address: string | null;    // IP (pode ser capturado)
-  user_agent: string;           // Navegador/dispositivo
+  user_id: string; // UID do usuário
+  document_id: string; // ID do documento
+  document_version: string; // Versão aceita
+  accepted_at: Timestamp; // Quando aceitou
+  ip_address: string | null; // IP (pode ser capturado)
+  user_agent: string; // Navegador/dispositivo
 }
 ```
 
 ### 2.2 Tipos de Documentos
 
 **required_for_registration:**
+
 - Obrigatório durante o registro
 - Novos usuários devem aceitar
 - Geralmente: Termos de Uso, Política de Privacidade
 
 **required_for_existing_users:**
+
 - Obrigatório para usuários já cadastrados
 - Exibido quando nova versão é publicada
 - Bloqueia acesso até aceitação
@@ -110,12 +117,14 @@ interface UserDocumentAcceptance {
 ### 2.3 Versionamento
 
 **Como Funciona:**
+
 - Cada documento tem uma versão (ex: "1.0", "2.1")
 - Quando versão muda, usuários devem aceitar novamente
 - Sistema compara versão aceita vs versão atual
 - Se diferente → documento pendente
 
 **Exemplo:**
+
 ```
 Documento: "Termos de Uso"
 Versão atual: "2.0"
@@ -131,11 +140,13 @@ Resultado: Pendente (precisa aceitar v2.0)
 
 **Ator:** Usuário Autenticado  
 **Pré-condições:**
+
 - Usuário está logado
 - Possui documentos pendentes de aceitação
 - Documentos estão ativos no sistema
 
 **Fluxo Principal:**
+
 1. Usuário faz login
 2. TermsInterceptor detecta termos pendentes
 3. Sistema redireciona para `/accept-terms`
@@ -154,6 +165,7 @@ Resultado: Pendente (precisa aceitar v2.0)
 14. Sistema redireciona para `/` (página inicial)
 
 **Pós-condições:**
+
 - Aceitações registradas em `user_document_acceptances`
 - Usuário não tem mais termos pendentes
 - Acesso ao sistema liberado
@@ -165,10 +177,12 @@ Resultado: Pendente (precisa aceitar v2.0)
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário está em `/accept-terms`
 - Múltiplos documentos pendentes
 
 **Fluxo Principal:**
+
 1. Usuário visualiza 3 documentos
 2. Usuário marca apenas 2 checkboxes
 3. Usuário tenta clicar em "Aceitar Todos"
@@ -178,10 +192,12 @@ Resultado: Pendente (precisa aceitar v2.0)
 7. Usuário pode aceitar
 
 **Pós-condições:**
+
 - Validação frontend previne aceitação parcial
 - Todos os documentos devem ser aceitos
 
 **Regra de Negócio:**
+
 - Não é possível aceitar apenas alguns documentos
 - Todos são obrigatórios
 - Botão só habilita quando todos marcados
@@ -192,11 +208,13 @@ Resultado: Pendente (precisa aceitar v2.0)
 
 **Ator:** Usuário Existente  
 **Pré-condições:**
+
 - Usuário já aceitou Termos v1.0
 - Admin publicou Termos v2.0
 - Documento marcado como `required_for_existing_users: true`
 
 **Fluxo Principal:**
+
 1. Usuário faz login
 2. Sistema verifica termos pendentes
 3. Sistema compara versões:
@@ -210,6 +228,7 @@ Resultado: Pendente (precisa aceitar v2.0)
 8. Acesso liberado
 
 **Pós-condições:**
+
 - Nova versão aceita
 - Versão antiga substituída no registro
 - Usuário atualizado com nova política
@@ -220,20 +239,24 @@ Resultado: Pendente (precisa aceitar v2.0)
 
 **Ator:** Usuário Atualizado  
 **Pré-condições:**
+
 - Usuário já aceitou todos os termos
 - Todas as versões estão atualizadas
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/accept-terms` diretamente (URL)
 2. Sistema carrega documentos pendentes
 3. Sistema não encontra documentos pendentes
 4. Sistema redireciona automaticamente para `/`
 
 **Pós-condições:**
+
 - Usuário não vê página de termos
 - Redirecionado para página inicial
 
 **Comportamento:**
+
 - Página não é exibida se não há termos pendentes
 - Redirecionamento automático
 
@@ -243,10 +266,12 @@ Resultado: Pendente (precisa aceitar v2.0)
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário marcou todos os checkboxes
 - Problema de conexão ou Firestore
 
 **Fluxo Principal:**
+
 1. Usuário marca todos os checkboxes
 2. Usuário clica em "Aceitar Todos"
 3. Sistema tenta salvar no Firestore
@@ -257,6 +282,7 @@ Resultado: Pendente (precisa aceitar v2.0)
 8. Usuário pode tentar novamente
 
 **Pós-condições:**
+
 - Aceitações NÃO registradas
 - Usuário ainda bloqueado
 - Pode tentar novamente
@@ -267,20 +293,24 @@ Resultado: Pendente (precisa aceitar v2.0)
 
 **Ator:** Usuário Não Logado  
 **Pré-condições:**
+
 - Usuário não está autenticado
 - Tenta acessar `/accept-terms` diretamente
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/accept-terms` via URL
 2. Sistema verifica autenticação
 3. Sistema detecta que não está logado
 4. Sistema redireciona para `/login`
 
 **Pós-condições:**
+
 - Usuário redirecionado para login
 - Não vê página de termos
 
 **Regra de Negócio:**
+
 - Página requer autenticação
 - Apenas usuários logados podem aceitar termos
 
@@ -428,36 +458,42 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 ## 5. Regras de Negócio
 
 ### RN-001: Aceitação Obrigatória de Todos os Documentos
+
 **Descrição:** Usuário DEVE aceitar TODOS os documentos pendentes para continuar usando o sistema. Não é possível aceitar apenas alguns.  
 **Aplicação:** Botão "Aceitar Todos" só habilita quando todos os checkboxes estão marcados.  
 **Exceções:** Nenhuma. Todos os documentos são obrigatórios.  
 **Justificativa:** Garantir compliance legal completo. Evitar aceitação parcial que não protege a empresa.
 
 ### RN-002: Versionamento de Documentos
+
 **Descrição:** Cada documento possui uma versão (ex: "1.0", "2.1"). Quando a versão muda, usuários devem aceitar novamente.  
 **Aplicação:** Sistema compara versão aceita vs versão atual. Se diferente, documento aparece como pendente.  
 **Exceções:** Nenhuma.  
 **Justificativa:** Mudanças legais exigem nova aceitação. Usuário deve estar ciente das alterações.
 
 ### RN-003: Bloqueio de Acesso Até Aceitação
+
 **Descrição:** Usuário com termos pendentes NÃO pode acessar nenhuma rota protegida do sistema.  
 **Aplicação:** TermsInterceptor redireciona para `/accept-terms` em todas as rotas (exceto públicas).  
 **Exceções:** Rotas públicas: `/login`, `/register`, `/accept-terms`, `/clinic/setup/terms`, `/`  
 **Justificativa:** Garantir que usuário não use sistema sem aceitar termos. Proteção legal.
 
 ### RN-004: Registro de Aceitação com Metadados
+
 **Descrição:** Cada aceitação deve registrar: user_id, document_id, version, timestamp, user_agent.  
 **Aplicação:** Ao clicar "Aceitar Todos", sistema salva registro completo no Firestore.  
 **Exceções:** IP address é opcional (pode ser null).  
 **Justificativa:** Prova legal de aceitação. Rastreabilidade e auditoria.
 
 ### RN-005: Documentos Ativos vs Inativos
+
 **Descrição:** Apenas documentos com `status: "ativo"` são exibidos e exigidos.  
 **Aplicação:** Query no Firestore filtra por `status == "ativo"`.  
 **Exceções:** Documentos inativos não aparecem, mesmo que obrigatórios.  
 **Justificativa:** Permite desativar documentos sem deletá-los. Histórico preservado.
 
 ### RN-006: Ordem de Exibição
+
 **Descrição:** Documentos são exibidos na ordem definida pelo campo `order`.  
 **Aplicação:** Query usa `orderBy("order", "asc")`.  
 **Exceções:** Se dois documentos têm mesmo `order`, ordem é indefinida.  
@@ -468,17 +504,21 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 ## 6. Estados da Interface
 
 ### 6.1 Estado: Loading (Carregando)
+
 **Quando:** Ao entrar na página, enquanto busca documentos pendentes.  
-**Exibição:** 
+**Exibição:**
+
 - Tela com fundo `#f5f3ef`
 - Ícone de loading (Loader2) centralizado
 - Animação de spin
-**Interações:** Nenhuma (usuário aguarda)  
-**Duração:** ~1-3 segundos (depende da conexão)
+  **Interações:** Nenhuma (usuário aguarda)  
+  **Duração:** ~1-3 segundos (depende da conexão)
 
 ### 6.2 Estado: Documentos Pendentes (Principal)
+
 **Quando:** Após carregar, se há documentos pendentes.  
 **Exibição:**
+
 - Header com ícone FileText e título "Aceite os Termos"
 - Card para cada documento pendente:
   - Título do documento
@@ -488,48 +528,59 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 - Card final com botão "Aceitar Todos os Documentos"
 
 **Campos/Elementos:**
+
 - **Checkbox de aceitação** (obrigatório para cada documento)
 - **Botão "Aceitar Todos"** (desabilitado até todos marcados)
 
 **Interações:**
+
 - Usuário pode rolar conteúdo de cada documento
 - Usuário marca/desmarca checkboxes
 - Usuário clica "Aceitar Todos" (se todos marcados)
 
 ### 6.3 Estado: Salvando
+
 **Quando:** Após clicar "Aceitar Todos", enquanto salva no Firestore.  
 **Exibição:**
+
 - Botão muda para "Salvando..."
 - Ícone de loading (Loader2) com animação
 - Botão desabilitado
-**Interações:** Nenhuma (usuário aguarda)  
-**Duração:** ~1-2 segundos
+  **Interações:** Nenhuma (usuário aguarda)  
+  **Duração:** ~1-2 segundos
 
 ### 6.4 Estado: Sucesso
+
 **Quando:** Após salvar com sucesso todas as aceitações.  
 **Exibição:**
+
 - Toast de sucesso: "Termos aceitos com sucesso"
 - Redirecionamento automático para `/`
-**Interações:** Nenhuma (redirecionamento automático)
+  **Interações:** Nenhuma (redirecionamento automático)
 
 ### 6.5 Estado: Erro ao Carregar
+
 **Quando:** Erro ao buscar documentos do Firestore.  
 **Exibição:**
+
 - Toast de erro: "Erro ao carregar documentos"
 - Descrição do erro
 - Usuário permanece na página (pode recarregar)
-**Interações:** Usuário pode recarregar página (F5)
+  **Interações:** Usuário pode recarregar página (F5)
 
 ### 6.6 Estado: Erro ao Salvar
+
 **Quando:** Erro ao salvar aceitações no Firestore.  
 **Exibição:**
+
 - Toast de erro: "Erro ao salvar"
 - Descrição do erro
 - Usuário permanece na página
 - Botão volta ao estado normal
-**Interações:** Usuário pode tentar novamente
+  **Interações:** Usuário pode tentar novamente
 
 ### 6.7 Estado: Sem Documentos Pendentes
+
 **Quando:** Usuário já aceitou todos os termos.  
 **Exibição:** Nenhuma (redirecionamento imediato)  
 **Comportamento:** Sistema redireciona para `/` automaticamente
@@ -539,12 +590,14 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 ## 7. Componentes da Interface
 
 ### 7.1 Header Card
+
 - **Componente:** `Card` com `CardHeader`
 - **Ícone:** `FileText` (8x8, cor primary)
 - **Título:** "Aceite os Termos" (text-2xl)
 - **Descrição:** "Para continuar usando o sistema, você precisa aceitar os documentos abaixo"
 
 ### 7.2 Document Card (para cada documento)
+
 - **Componente:** `Card` com `CardHeader` e `CardContent`
 - **Header:**
   - Título do documento (text-xl)
@@ -556,6 +609,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
   - Label: "Li e aceito [nome do documento]"
 
 ### 7.3 Botão de Confirmação
+
 - **Componente:** `Button` (size="lg", full width)
 - **Estados:**
   - Normal: "Aceitar Todos os Documentos" + ícone CheckCircle2
@@ -564,6 +618,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 - **Comportamento:** Chama `handleAcceptAll()` ao clicar
 
 ### 7.4 Toast Notifications
+
 - **Sucesso:** "Termos aceitos com sucesso"
 - **Erro (carregar):** "Erro ao carregar documentos" + descrição
 - **Erro (salvar):** "Erro ao salvar" + descrição
@@ -574,6 +629,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 ## 8. Validações
 
 ### 8.1 Validações de Frontend
+
 - **Todos os checkboxes marcados:**
   - Validação: `documents.every((doc) => acceptances[doc.id])`
   - Quando: Antes de habilitar botão "Aceitar Todos"
@@ -587,6 +643,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
   - Ação: Redireciona para `/login`
 
 ### 8.2 Validações de Backend (Firestore)
+
 - **Documento existe:**
   - Validação: `document_id` existe na coleção `legal_documents`
   - Quando: Ao salvar aceitação
@@ -598,6 +655,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
   - Erro: Firestore retorna erro se usuário inválido
 
 ### 8.3 Validações de Permissão
+
 - **Firestore Rules:**
   - Usuário só pode criar aceitações para seu próprio `user_id`
   - Usuário só pode ler suas próprias aceitações
@@ -608,6 +666,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 ## 9. Integrações
 
 ### 9.1 Firebase Authentication
+
 - **Tipo:** Serviço de autenticação
 - **Método:** `auth.currentUser`
 - **Entrada:** Nenhuma (leitura de estado)
@@ -616,28 +675,30 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 - **Erros:** Se não autenticado, redireciona para `/login`
 
 ### 9.2 Firestore - Coleção `legal_documents`
+
 - **Operação:** Read (getDocs)
 - **Query:**
   ```typescript
   query(
-    collection(db, "legal_documents"),
-    where("status", "==", "ativo"),
-    where("required_for_existing_users", "==", true),
-    orderBy("order", "asc")
-  )
+    collection(db, 'legal_documents'),
+    where('status', '==', 'ativo'),
+    where('required_for_existing_users', '==', true),
+    orderBy('order', 'asc')
+  );
   ```
 - **Retorno:** Array de LegalDocument
 - **Campos utilizados:** id, title, content, version, status, required_for_existing_users, order
 - **Quando:** Ao carregar página (`loadPendingDocuments()`)
 
 ### 9.3 Firestore - Coleção `user_document_acceptances`
+
 - **Operação 1:** Read (getDocs) - Buscar aceitações existentes
   - **Query:**
     ```typescript
     query(
-      collection(db, "user_document_acceptances"),
-      where("user_id", "==", auth.currentUser.uid)
-    )
+      collection(db, 'user_document_acceptances'),
+      where('user_id', '==', auth.currentUser.uid)
+    );
     ```
   - **Retorno:** Array de aceitações do usuário
   - **Quando:** Ao carregar página
@@ -658,6 +719,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
   - **Quantidade:** Uma por documento pendente
 
 ### 9.4 ReactMarkdown
+
 - **Tipo:** Biblioteca de renderização
 - **Entrada:** String Markdown (campo `content` do documento)
 - **Retorno:** HTML renderizado
@@ -665,6 +727,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 - **Estilo:** Classe `prose prose-sm max-w-none`
 
 ### 9.5 Next.js Router
+
 - **Método:** `router.push()`
 - **Rotas:**
   - `/login` - Se não autenticado
@@ -677,6 +740,7 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 ## 10. Segurança
 
 ### 10.1 Proteções Implementadas
+
 - ✅ **Autenticação obrigatória:** Página só acessível por usuários logados
 - ✅ **Validação de propriedade:** Usuário só pode aceitar termos para si mesmo (user_id = auth.currentUser.uid)
 - ✅ **Timestamp do servidor:** Usa `serverTimestamp()` para evitar manipulação de data
@@ -685,35 +749,39 @@ ETAPA 2: EXIBIÇÃO E ACEITAÇÃO
 - ✅ **Firestore Rules:** Devem impedir que usuário crie aceitações para outros usuários
 
 ### 10.2 Vulnerabilidades Conhecidas
+
 - ⚠️ **IP Address não capturado:** Campo `ip_address` sempre null. Seria útil para auditoria.
 - ⚠️ **Sem rate limiting:** Usuário pode tentar salvar múltiplas vezes rapidamente
 - ⚠️ **Sem verificação de leitura:** Sistema não garante que usuário realmente leu o documento (apenas que marcou checkbox)
 
 **Mitigação:**
+
 - IP pode ser capturado via API externa ou Cloud Function
 - Rate limiting pode ser implementado no Firestore Rules
 - Verificação de leitura (scroll tracking) pode ser adicionada no futuro
 
 ### 10.3 Dados Sensíveis
+
 - **user_id:** Protegido por Firestore Rules (usuário só acessa seus próprios dados)
 - **document_version:** Não sensível, mas importante para auditoria
 - **accepted_at:** Timestamp crítico para prova legal
 - **user_agent:** Pode conter informações do dispositivo, mas não é PII
 
 ### 10.4 Firestore Rules Recomendadas
+
 ```javascript
 // user_document_acceptances
 match /user_document_acceptances/{acceptanceId} {
   // Usuário pode criar aceitação apenas para si mesmo
-  allow create: if request.auth != null 
+  allow create: if request.auth != null
     && request.resource.data.user_id == request.auth.uid;
-  
+
   // Usuário pode ler apenas suas próprias aceitações
-  allow read: if request.auth != null 
+  allow read: if request.auth != null
     && resource.data.user_id == request.auth.uid;
-  
+
   // Apenas admin pode modificar/deletar
-  allow update, delete: if request.auth != null 
+  allow update, delete: if request.auth != null
     && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
 }
 
@@ -721,9 +789,9 @@ match /user_document_acceptances/{acceptanceId} {
 match /legal_documents/{docId} {
   // Todos usuários autenticados podem ler documentos ativos
   allow read: if request.auth != null;
-  
+
   // Apenas admin pode criar/modificar/deletar
-  allow write: if request.auth != null 
+  allow write: if request.auth != null
     && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
 }
 ```
@@ -733,6 +801,7 @@ match /legal_documents/{docId} {
 ## 11. Performance
 
 ### 11.1 Métricas Estimadas
+
 - **Tempo de carregamento:** ~1-3 segundos (depende de quantidade de documentos e conexão)
 - **Tempo de resposta (salvar):** ~1-2 segundos (múltiplas escritas no Firestore)
 - **Tamanho do bundle:** ~15KB (ReactMarkdown adiciona peso)
@@ -742,6 +811,7 @@ match /legal_documents/{docId} {
   - N addDoc (onde N = número de documentos pendentes)
 
 ### 11.2 Otimizações Implementadas
+
 - ✅ **Query com filtros:** Busca apenas documentos ativos e obrigatórios
 - ✅ **Query com orderBy:** Ordenação no servidor (não no cliente)
 - ✅ **Redirecionamento antecipado:** Se não há termos pendentes, redireciona sem renderizar
@@ -749,24 +819,27 @@ match /legal_documents/{docId} {
 - ✅ **Promise.all:** Salva todas aceitações em paralelo (não sequencial)
 
 ### 11.3 Gargalos Identificados
+
 - ⚠️ **Múltiplas escritas no Firestore:** Se há 5 documentos, são 5 addDoc. Pode ser lento.
 - ⚠️ **ReactMarkdown:** Biblioteca pesada para renderizar Markdown. Pode impactar bundle size.
 - ⚠️ **Sem cache:** Documentos são buscados toda vez que página carrega
 
 **Plano de melhoria:**
+
 - **Batch write:** Usar `writeBatch()` para salvar todas aceitações em uma única operação
 - **Markdown alternativo:** Considerar biblioteca mais leve ou renderização server-side
 - **Cache:** Implementar cache de documentos (se não mudam frequentemente)
 
 ### 11.4 Exemplo de Otimização com Batch Write
+
 ```typescript
-import { writeBatch, doc } from "firebase/firestore";
+import { writeBatch, doc } from 'firebase/firestore';
 
 async function handleAcceptAllOptimized() {
   const batch = writeBatch(db);
-  
+
   documents.forEach((document) => {
-    const docRef = doc(collection(db, "user_document_acceptances"));
+    const docRef = doc(collection(db, 'user_document_acceptances'));
     batch.set(docRef, {
       user_id: auth.currentUser!.uid,
       document_id: document.id,
@@ -776,7 +849,7 @@ async function handleAcceptAllOptimized() {
       user_agent: navigator.userAgent,
     });
   });
-  
+
   await batch.commit(); // Uma única operação
 }
 ```
@@ -786,6 +859,7 @@ async function handleAcceptAllOptimized() {
 ## 12. Melhorias Futuras
 
 ### 12.1 Funcionalidades
+
 - [ ] **Captura de IP Address:** Implementar API ou Cloud Function para capturar IP real do usuário
 - [ ] **Tracking de leitura:** Verificar se usuário rolou até o final do documento antes de permitir aceitar
 - [ ] **Histórico de versões:** Mostrar ao usuário quais versões ele já aceitou anteriormente
@@ -795,6 +869,7 @@ async function handleAcceptAllOptimized() {
 - [ ] **Assinatura digital:** Implementar assinatura eletrônica mais robusta (ex: certificado digital)
 
 ### 12.2 UX/UI
+
 - [ ] **Indicador de progresso:** Mostrar "Documento 1 de 3" para múltiplos documentos
 - [ ] **Scroll automático:** Ao marcar checkbox, rolar para próximo documento
 - [ ] **Highlight de mudanças:** Se é nova versão, destacar o que mudou
@@ -804,6 +879,7 @@ async function handleAcceptAllOptimized() {
 - [ ] **Acessibilidade:** Melhorar navegação por teclado e screen readers
 
 ### 12.3 Performance
+
 - [ ] **Batch write:** Usar `writeBatch()` para salvar todas aceitações de uma vez
 - [ ] **Lazy loading de conteúdo:** Carregar conteúdo de documentos sob demanda (não todos de uma vez)
 - [ ] **Cache de documentos:** Implementar cache local para documentos que não mudam
@@ -811,12 +887,14 @@ async function handleAcceptAllOptimized() {
 - [ ] **Compressão de conteúdo:** Comprimir documentos longos no Firestore
 
 ### 12.4 Segurança
+
 - [ ] **Rate limiting:** Implementar limite de tentativas de aceitação
 - [ ] **Auditoria completa:** Registrar todas tentativas (sucesso e falha)
 - [ ] **Verificação de bot:** Adicionar CAPTCHA para prevenir automação
 - [ ] **Assinatura criptográfica:** Gerar hash do documento + timestamp + user_id para prova irrefutável
 
 ### 12.5 Administração
+
 - [ ] **Dashboard de aceitações:** Painel admin para ver quem aceitou/não aceitou
 - [ ] **Relatórios:** Gerar relatórios de compliance (% de usuários que aceitaram)
 - [ ] **Notificações:** Alertar admin quando nova versão é publicada
@@ -829,15 +907,17 @@ async function handleAcceptAllOptimized() {
 ### 13.1 Decisões de Arquitetura
 
 **Decisão 1: Múltiplas aceitações vs Aceitação única**
+
 - **Escolha:** Criar um registro separado para cada documento aceito
 - **Alternativa considerada:** Um único registro com array de documentos
-- **Justificativa:** 
+- **Justificativa:**
   - Facilita queries (buscar aceitações de documento específico)
   - Permite rastrear timestamp individual de cada aceitação
   - Mais flexível para auditoria e relatórios
   - Segue padrão de normalização de dados
 
 **Decisão 2: Redirecionamento automático vs Mensagem**
+
 - **Escolha:** Redirecionar automaticamente para `/` se não há termos pendentes
 - **Alternativa considerada:** Mostrar mensagem "Você já aceitou todos os termos"
 - **Justificativa:**
@@ -846,6 +926,7 @@ async function handleAcceptAllOptimized() {
   - Mais rápido (não precisa clicar em nada)
 
 **Decisão 3: ReactMarkdown vs HTML puro**
+
 - **Escolha:** Usar ReactMarkdown para renderizar conteúdo
 - **Alternativa considerada:** Armazenar HTML diretamente no Firestore
 - **Justificativa:**
@@ -857,16 +938,19 @@ async function handleAcceptAllOptimized() {
 ### 13.2 Padrões Utilizados
 
 **Padrão 1: Loading States**
+
 - **Descrição:** Três estados distintos: loading, saving, normal
 - **Aplicação:** Feedback visual claro para usuário em cada etapa
 - **Benefício:** Usuário sempre sabe o que está acontecendo
 
 **Padrão 2: Optimistic UI (NÃO usado)**
+
 - **Descrição:** Poderia atualizar UI antes de confirmar salvamento
 - **Por que não:** Aceitação de termos é crítica, precisa confirmação real
 - **Alternativa:** Aguardar confirmação do Firestore antes de redirecionar
 
 **Padrão 3: Controlled Components**
+
 - **Descrição:** Estado de checkboxes controlado por React (`acceptances` state)
 - **Aplicação:** Todos os checkboxes são controlled components
 - **Benefício:** Controle total sobre estado, fácil validação
@@ -882,21 +966,25 @@ async function handleAcceptAllOptimized() {
 ### 13.4 Notas de Implementação
 
 **Nota 1: serverTimestamp() vs new Date()**
+
 - Sempre usar `serverTimestamp()` para garantir timestamp consistente
 - Evita problemas de timezone e relógio do cliente desatualizado
 - Crítico para prova legal
 
 **Nota 2: Promise.all para múltiplas escritas**
+
 - Salva todas aceitações em paralelo (mais rápido)
 - Se uma falha, todas falham (comportamento desejado)
 - Alternativa: `writeBatch()` seria ainda melhor
 
 **Nota 3: Filtro de documentos obrigatórios**
+
 - Query busca `required_for_existing_users == true`
 - Ignora `required_for_registration` (já foi aceito no registro)
 - Se admin mudar flag, usuário verá documento como pendente
 
 **Nota 4: Comparação de versões**
+
 - Sistema compara string exata: "1.0" !== "1.1"
 - Não há versionamento semântico (major.minor.patch)
 - Admin deve gerenciar versões manualmente
@@ -906,75 +994,85 @@ async function handleAcceptAllOptimized() {
 ## 14. Mensagens do Sistema
 
 ### 14.1 Mensagens de Sucesso
-| Código | Mensagem | Contexto |
-|--------|----------|----------|
+
+| Código      | Mensagem                     | Contexto                     |
+| ----------- | ---------------------------- | ---------------------------- |
 | SUCCESS_001 | "Termos aceitos com sucesso" | Após salvar todas aceitações |
 
 ### 14.2 Mensagens de Erro
-| Código | Mensagem | Contexto |
-|--------|----------|----------|
-| ERROR_001 | "Erro ao carregar documentos" | Falha ao buscar documentos do Firestore |
-| ERROR_002 | "Erro ao salvar" | Falha ao salvar aceitações no Firestore |
-| ERROR_003 | "Você precisa estar autenticado" | Usuário não está logado |
+
+| Código    | Mensagem                         | Contexto                                |
+| --------- | -------------------------------- | --------------------------------------- |
+| ERROR_001 | "Erro ao carregar documentos"    | Falha ao buscar documentos do Firestore |
+| ERROR_002 | "Erro ao salvar"                 | Falha ao salvar aceitações no Firestore |
+| ERROR_003 | "Você precisa estar autenticado" | Usuário não está logado                 |
 
 ### 14.3 Mensagens de Atenção
-| Código | Mensagem | Contexto |
-|--------|----------|----------|
+
+| Código      | Mensagem                                                  | Contexto                                   |
+| ----------- | --------------------------------------------------------- | ------------------------------------------ |
 | WARNING_001 | "Você precisa aceitar todos os documentos para continuar" | Tentou aceitar sem marcar todos checkboxes |
 
 ### 14.4 Textos da Interface
-| Elemento | Texto |
-|----------|-------|
-| Título da página | "Aceite os Termos" |
-| Descrição | "Para continuar usando o sistema, você precisa aceitar os documentos abaixo" |
-| Checkbox label | "Li e aceito [nome do documento]" |
-| Botão normal | "Aceitar Todos os Documentos" |
-| Botão salvando | "Salvando..." |
-| Versão do documento | "Versão [X.X]" |
+
+| Elemento            | Texto                                                                        |
+| ------------------- | ---------------------------------------------------------------------------- |
+| Título da página    | "Aceite os Termos"                                                           |
+| Descrição           | "Para continuar usando o sistema, você precisa aceitar os documentos abaixo" |
+| Checkbox label      | "Li e aceito [nome do documento]"                                            |
+| Botão normal        | "Aceitar Todos os Documentos"                                                |
+| Botão salvando      | "Salvando..."                                                                |
+| Versão do documento | "Versão [X.X]"                                                               |
 
 ---
 
 ## 15. Comparação com Outras Páginas
 
 ### 15.1 Accept Terms vs Register
-| Aspecto | Accept Terms | Register |
-|---------|--------------|----------|
-| **Quando ocorre** | Após login, se há termos pendentes | Antes de criar conta |
-| **Documentos** | `required_for_existing_users` | `required_for_registration` |
-| **Bloqueio** | Bloqueia acesso ao sistema | Bloqueia criação de conta |
-| **Versionamento** | Sim (usuário deve aceitar novas versões) | Não (aceita versão atual) |
-| **Redirecionamento** | Para `/` após aceitar | Para `/waiting-approval` após registro |
-| **Obrigatoriedade** | Todos os documentos | Todos os documentos |
+
+| Aspecto              | Accept Terms                             | Register                               |
+| -------------------- | ---------------------------------------- | -------------------------------------- |
+| **Quando ocorre**    | Após login, se há termos pendentes       | Antes de criar conta                   |
+| **Documentos**       | `required_for_existing_users`            | `required_for_registration`            |
+| **Bloqueio**         | Bloqueia acesso ao sistema               | Bloqueia criação de conta              |
+| **Versionamento**    | Sim (usuário deve aceitar novas versões) | Não (aceita versão atual)              |
+| **Redirecionamento** | Para `/` após aceitar                    | Para `/waiting-approval` após registro |
+| **Obrigatoriedade**  | Todos os documentos                      | Todos os documentos                    |
 
 **Relação:**
+
 - Register aceita termos durante cadastro (primeira vez)
 - Accept Terms aceita novas versões ou novos documentos (usuários existentes)
 - Ambos usam mesma coleção `user_document_acceptances`
 
 ### 15.2 Accept Terms vs Waiting Approval
-| Aspecto | Accept Terms | Waiting Approval |
-|---------|--------------|------------------|
-| **Propósito** | Aceitar documentos legais | Aguardar aprovação de admin |
-| **Bloqueio** | Bloqueia por termos pendentes | Bloqueia por falta de custom claims |
-| **Ação do usuário** | Usuário aceita termos | Usuário aguarda passivamente |
-| **Duração** | Segundos (usuário decide) | Horas/dias (admin decide) |
-| **Resolução** | Usuário resolve sozinho | Admin resolve |
+
+| Aspecto             | Accept Terms                  | Waiting Approval                    |
+| ------------------- | ----------------------------- | ----------------------------------- |
+| **Propósito**       | Aceitar documentos legais     | Aguardar aprovação de admin         |
+| **Bloqueio**        | Bloqueia por termos pendentes | Bloqueia por falta de custom claims |
+| **Ação do usuário** | Usuário aceita termos         | Usuário aguarda passivamente        |
+| **Duração**         | Segundos (usuário decide)     | Horas/dias (admin decide)           |
+| **Resolução**       | Usuário resolve sozinho       | Admin resolve                       |
 
 **Relação:**
+
 - Ambos bloqueiam acesso ao sistema
 - Waiting Approval vem ANTES de Accept Terms no fluxo
 - Sequência: Register → Waiting Approval → Accept Terms → Sistema
 
 ### 15.3 Accept Terms vs Change Password
-| Aspecto | Accept Terms | Change Password |
-|---------|--------------|-----------------|
-| **Propósito** | Compliance legal | Segurança de senha |
-| **Bloqueio** | Via TermsInterceptor | Via ProtectedRoute |
-| **Flag** | Nenhuma (verifica documentos) | `requirePasswordChange` |
-| **Frequência** | Quando nova versão publicada | Quando admin força |
-| **Obrigatoriedade** | Sempre obrigatório | Apenas se flag ativa |
+
+| Aspecto             | Accept Terms                  | Change Password         |
+| ------------------- | ----------------------------- | ----------------------- |
+| **Propósito**       | Compliance legal              | Segurança de senha      |
+| **Bloqueio**        | Via TermsInterceptor          | Via ProtectedRoute      |
+| **Flag**            | Nenhuma (verifica documentos) | `requirePasswordChange` |
+| **Frequência**      | Quando nova versão publicada  | Quando admin força      |
+| **Obrigatoriedade** | Sempre obrigatório            | Apenas se flag ativa    |
 
 **Relação:**
+
 - Ambos são "bloqueios obrigatórios"
 - Podem ocorrer simultaneamente (usuário precisa fazer ambos)
 - Ordem: Change Password → Accept Terms (senha tem prioridade)
@@ -1002,23 +1100,26 @@ async function handleAcceptAllOptimized() {
 ### 16.1 Cenários de Teste Funcionais
 
 **Teste 1: Aceitação bem-sucedida de múltiplos documentos**
+
 - **Dado:** Usuário logado com 3 documentos pendentes
 - **Quando:** Marca todos os checkboxes e clica "Aceitar Todos"
-- **Então:** 
+- **Então:**
   - 3 registros criados em `user_document_acceptances`
   - Toast de sucesso exibido
   - Redirecionado para `/`
   - TermsInterceptor não bloqueia mais
 
 **Teste 2: Tentativa de aceitar sem marcar todos**
+
 - **Dado:** Usuário em `/accept-terms` com 2 documentos
 - **Quando:** Marca apenas 1 checkbox
-- **Então:** 
+- **Então:**
   - Botão "Aceitar Todos" permanece desabilitado
   - Não é possível clicar
   - Nenhuma aceitação registrada
 
 **Teste 3: Nova versão de documento**
+
 - **Dado:** Usuário aceitou Termos v1.0
 - **Quando:** Admin publica Termos v2.0
 - **Então:**
@@ -1027,6 +1128,7 @@ async function handleAcceptAllOptimized() {
   - Após aceitar, nova versão registrada
 
 **Teste 4: Usuário sem termos pendentes acessa página**
+
 - **Dado:** Usuário já aceitou todos os termos
 - **Quando:** Acessa `/accept-terms` diretamente
 - **Então:**
@@ -1034,6 +1136,7 @@ async function handleAcceptAllOptimized() {
   - Redirecionamento automático para `/`
 
 **Teste 5: Erro ao salvar aceitações**
+
 - **Dado:** Firestore indisponível ou erro de permissão
 - **Quando:** Usuário tenta aceitar termos
 - **Então:**
@@ -1044,16 +1147,19 @@ async function handleAcceptAllOptimized() {
 ### 16.2 Cenários de Teste de Segurança
 
 **Teste 6: Usuário não autenticado**
+
 - **Dado:** Usuário não está logado
 - **Quando:** Tenta acessar `/accept-terms`
 - **Então:** Redirecionado para `/login`
 
 **Teste 7: Manipulação de user_id**
+
 - **Dado:** Usuário tenta criar aceitação para outro user_id
 - **Quando:** Modifica payload antes de enviar
 - **Então:** Firestore Rules devem bloquear (se configuradas corretamente)
 
 **Teste 8: Timestamp manipulado**
+
 - **Dado:** Usuário tenta enviar timestamp customizado
 - **Quando:** Modifica `accepted_at` no payload
 - **Então:** `serverTimestamp()` sobrescreve valor (não é possível manipular)
@@ -1061,6 +1167,7 @@ async function handleAcceptAllOptimized() {
 ### 16.3 Cenários de Teste de Performance
 
 **Teste 9: Múltiplos documentos (10+)**
+
 - **Dado:** Sistema com 10 documentos pendentes
 - **Quando:** Usuário aceita todos
 - **Então:**
@@ -1069,6 +1176,7 @@ async function handleAcceptAllOptimized() {
   - Sem timeout
 
 **Teste 10: Documento muito longo**
+
 - **Dado:** Documento com 50+ páginas de texto
 - **Quando:** Usuário carrega página
 - **Então:**
@@ -1079,6 +1187,7 @@ async function handleAcceptAllOptimized() {
 ### 16.4 Cenários de Teste de UX
 
 **Teste 11: Navegação por teclado**
+
 - **Dado:** Usuário usa apenas teclado
 - **Quando:** Navega pela página
 - **Então:**
@@ -1087,6 +1196,7 @@ async function handleAcceptAllOptimized() {
   - Enter no botão aceita termos
 
 **Teste 12: Screen reader**
+
 - **Dado:** Usuário usa leitor de tela
 - **Quando:** Acessa página
 - **Então:**
@@ -1097,6 +1207,7 @@ async function handleAcceptAllOptimized() {
 ### 16.5 Cenários de Teste de Integração
 
 **Teste 13: Integração com TermsInterceptor**
+
 - **Dado:** Usuário com termos pendentes
 - **Quando:** Tenta acessar qualquer rota protegida
 - **Então:**
@@ -1105,6 +1216,7 @@ async function handleAcceptAllOptimized() {
   - Pode acessar rotas normalmente
 
 **Teste 14: Integração com usePendingTerms hook**
+
 - **Dado:** Hook verifica termos pendentes
 - **Quando:** Usuário aceita termos
 - **Então:**
@@ -1119,24 +1231,28 @@ async function handleAcceptAllOptimized() {
 ### 17.1 Problema: Página não carrega (loading infinito)
 
 **Sintomas:**
+
 - Ícone de loading não para de girar
 - Página nunca exibe documentos
 
 **Causas possíveis:**
+
 1. Erro na query do Firestore
 2. Firestore Rules bloqueando leitura
 3. Coleção `legal_documents` não existe
 4. Erro de autenticação
 
 **Solução:**
+
 ```typescript
 // Adicionar logs para debug
-console.log("Buscando documentos...");
-console.log("Usuário:", auth.currentUser?.uid);
-console.log("Documentos encontrados:", docs.length);
+console.log('Buscando documentos...');
+console.log('Usuário:', auth.currentUser?.uid);
+console.log('Documentos encontrados:', docs.length);
 ```
 
 **Verificar:**
+
 - Console do navegador para erros
 - Firestore Rules permitem leitura de `legal_documents`
 - Coleção existe e tem documentos ativos
@@ -1146,23 +1262,33 @@ console.log("Documentos encontrados:", docs.length);
 ### 17.2 Problema: Botão "Aceitar Todos" não habilita
 
 **Sintomas:**
+
 - Usuário marca todos os checkboxes
 - Botão permanece desabilitado
 
 **Causas possíveis:**
+
 1. Estado `acceptances` não está atualizando
 2. Lógica de validação incorreta
 3. Documento com ID undefined
 
 **Solução:**
+
 ```typescript
 // Debug do estado
-console.log("Acceptances:", acceptances);
-console.log("Documents:", documents.map(d => d.id));
-console.log("All accepted?", documents.every((doc) => acceptances[doc.id]));
+console.log('Acceptances:', acceptances);
+console.log(
+  'Documents:',
+  documents.map((d) => d.id)
+);
+console.log(
+  'All accepted?',
+  documents.every((doc) => acceptances[doc.id])
+);
 ```
 
 **Verificar:**
+
 - Todos os documentos têm ID válido
 - Estado `acceptances` tem entrada para cada documento
 - Lógica de validação está correta
@@ -1172,19 +1298,22 @@ console.log("All accepted?", documents.every((doc) => acceptances[doc.id]));
 ### 17.3 Problema: Erro ao salvar aceitações
 
 **Sintomas:**
+
 - Toast de erro: "Erro ao salvar"
 - Aceitações não são registradas
 
 **Causas possíveis:**
+
 1. Firestore Rules bloqueando escrita
 2. Campos obrigatórios faltando
 3. Tipo de dado incorreto
 4. Permissões insuficientes
 
 **Solução:**
+
 ```typescript
 // Verificar payload
-console.log("Salvando aceitação:", {
+console.log('Salvando aceitação:', {
   user_id: auth.currentUser!.uid,
   document_id: doc.id,
   document_version: doc.version,
@@ -1192,6 +1321,7 @@ console.log("Salvando aceitação:", {
 ```
 
 **Verificar:**
+
 - Firestore Rules permitem `create` em `user_document_acceptances`
 - Usuário está autenticado
 - Todos os campos estão presentes
@@ -1202,22 +1332,26 @@ console.log("Salvando aceitação:", {
 ### 17.4 Problema: Redirecionamento não funciona
 
 **Sintomas:**
+
 - Após aceitar termos, usuário não é redirecionado
 - Permanece em `/accept-terms`
 
 **Causas possíveis:**
+
 1. Erro no `router.push()`
 2. TermsInterceptor ainda detecta termos pendentes
 3. Aceitações não foram salvas corretamente
 
 **Solução:**
+
 ```typescript
 // Verificar redirecionamento
-console.log("Redirecionando para /");
-router.push("/");
+console.log('Redirecionando para /');
+router.push('/');
 ```
 
 **Verificar:**
+
 - Aceitações foram salvas no Firestore
 - `usePendingTerms` hook detecta mudança
 - Não há erro no console
@@ -1227,16 +1361,19 @@ router.push("/");
 ### 17.5 Problema: TermsInterceptor continua bloqueando
 
 **Sintomas:**
+
 - Usuário aceitou termos
 - Ainda é redirecionado para `/accept-terms`
 
 **Causas possíveis:**
+
 1. Hook `usePendingTerms` não atualizou
 2. Cache do hook desatualizado
 3. Aceitações não foram salvas
 4. Comparação de versões incorreta
 
 **Solução:**
+
 ```typescript
 // Forçar refetch do hook
 const { refetch } = usePendingTerms();
@@ -1244,6 +1381,7 @@ await refetch();
 ```
 
 **Verificar:**
+
 - Aceitações existem no Firestore
 - Versões correspondem (aceita == atual)
 - Hook está re-executando após mudança
@@ -1253,21 +1391,25 @@ await refetch();
 ### 17.6 Problema: Documento não renderiza (Markdown)
 
 **Sintomas:**
+
 - Conteúdo do documento aparece em branco
 - Markdown não é convertido para HTML
 
 **Causas possíveis:**
+
 1. Campo `content` vazio ou undefined
 2. ReactMarkdown não instalado
 3. Erro de sintaxe no Markdown
 
 **Solução:**
+
 ```typescript
 // Verificar conteúdo
-console.log("Conteúdo do documento:", doc.content);
+console.log('Conteúdo do documento:', doc.content);
 ```
 
 **Verificar:**
+
 - Campo `content` existe e tem texto
 - ReactMarkdown está instalado (`npm list react-markdown`)
 - Markdown tem sintaxe válida
@@ -1294,6 +1436,7 @@ console.log("Conteúdo do documento:", doc.content);
 ## 19. Referências
 
 ### 19.1 Documentação Relacionada
+
 - Login Page Documentation - `project_doc/login-page-documentation.md`
 - Register Page Documentation - `project_doc/register-page-documentation.md`
 - Waiting Approval Documentation - `project_doc/waiting-approval-documentation.md`
@@ -1301,6 +1444,7 @@ console.log("Conteúdo do documento:", doc.content);
 - Template de Documentação - `project_doc/TEMPLATE-page-documentation.md`
 
 ### 19.2 Links Externos
+
 - Firebase Authentication - https://firebase.google.com/docs/auth
 - Firestore Documentation - https://firebase.google.com/docs/firestore
 - ReactMarkdown - https://github.com/remarkjs/react-markdown
@@ -1308,6 +1452,7 @@ console.log("Conteúdo do documento:", doc.content);
 - LGPD (Lei Geral de Proteção de Dados) - https://www.gov.br/lgpd
 
 ### 19.3 Código Fonte
+
 - **Componente Principal:** `src/app/(auth)/accept-terms/page.tsx`
 - **Hook:** `src/hooks/usePendingTerms.ts`
 - **Interceptor:** `src/components/auth/TermsInterceptor.tsx`
@@ -1385,7 +1530,7 @@ console.log("Conteúdo do documento:", doc.content);
      │                     │                      │                     │
      │  Página inicial     │                      │                     │
      │<────────────────────┴──────────────────────┴─────────────────────┘
-     │                     
+     │
 ```
 
 ### Fluxo Alternativo: Erro ao Salvar
@@ -1425,4 +1570,3 @@ console.log("Conteúdo do documento:", doc.content);
 **Responsável:** Equipe de Desenvolvimento  
 **Revisado por:** Pendente  
 **Status:** Completo
-

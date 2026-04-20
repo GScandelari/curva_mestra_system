@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { ReactNode, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
+import { ReactNode, useState } from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
   Building2,
@@ -19,8 +19,8 @@ import {
   FileText,
   Settings,
   UserCheck,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -34,55 +34,55 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const navigation = [
     {
-      name: "Dashboard",
-      href: "/admin/dashboard",
+      name: 'Dashboard',
+      href: '/admin/dashboard',
       icon: LayoutDashboard,
     },
     {
-      name: "Clínicas",
-      href: "/admin/tenants",
+      name: 'Clínicas',
+      href: '/admin/tenants',
       icon: Building2,
     },
     {
-      name: "Usuários",
-      href: "/admin/users",
+      name: 'Usuários',
+      href: '/admin/users',
       icon: Users,
     },
     {
-      name: "Consultores",
-      href: "/admin/consultants",
+      name: 'Consultores',
+      href: '/admin/consultants',
       icon: UserCheck,
     },
     {
-      name: "Licenças",
-      href: "/admin/licenses",
+      name: 'Licenças',
+      href: '/admin/licenses',
       icon: CreditCard,
     },
     {
-      name: "Produtos Rennova",
-      href: "/admin/products",
+      name: 'Produtos Rennova',
+      href: '/admin/products',
       icon: Package,
     },
     {
-      name: "Solicitações de Acesso",
-      href: "/admin/access-requests",
+      name: 'Solicitações de Acesso',
+      href: '/admin/access-requests',
       icon: UserPlus,
     },
     {
-      name: "Documentos Legais",
-      href: "/admin/legal-documents",
+      name: 'Documentos Legais',
+      href: '/admin/legal-documents',
       icon: FileText,
     },
     {
-      name: "Configurações",
-      href: "/admin/settings",
+      name: 'Configurações',
+      href: '/admin/settings',
       icon: Settings,
     },
   ];
 
   const handleSignOut = async () => {
     await signOut();
-    router.push("/login");
+    router.push('/login');
   };
 
   return (
@@ -90,11 +90,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "bg-card border-r flex flex-col transition-all duration-300",
-          collapsed ? "w-16" : "w-64"
+          'bg-card border-r flex flex-col transition-all duration-300',
+          collapsed ? 'w-16' : 'w-64'
         )}
       >
-        <div className={cn("p-6", collapsed && "p-4")}>
+        <div className={cn('p-6', collapsed && 'p-4')}>
           {!collapsed ? (
             <>
               <h2 className="text-xl font-bold">System Admin</h2>
@@ -116,11 +116,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <Link key={item.href} href={item.href}>
                 <div
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    collapsed && "justify-center"
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    collapsed && 'justify-center'
                   )}
                   title={collapsed ? item.name : undefined}
                 >
@@ -153,11 +153,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           ) : (
             <>
               <Link href="/admin/profile">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-center p-2"
-                  title="Perfil"
-                >
+                <Button variant="ghost" className="w-full justify-center p-2" title="Perfil">
                   <User className="h-4 w-4" />
                 </Button>
               </Link>
@@ -176,13 +172,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="ghost"
             className="w-full justify-center p-2"
             onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? "Expandir menu" : "Recolher menu"}
+            title={collapsed ? 'Expandir menu' : 'Recolher menu'}
           >
-            {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
       </aside>

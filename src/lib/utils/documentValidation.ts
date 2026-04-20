@@ -2,13 +2,13 @@
  * Utilitários para validação e formatação de CPF e CNPJ
  */
 
-import type { DocumentType } from "@/types";
+import type { DocumentType } from '@/types';
 
 /**
  * Valida CPF
  */
 export function validateCPF(cpf: string): boolean {
-  const cleaned = cpf.replace(/\D/g, "");
+  const cleaned = cpf.replace(/\D/g, '');
 
   if (cleaned.length !== 11) return false;
 
@@ -40,7 +40,7 @@ export function validateCPF(cpf: string): boolean {
  * Valida CNPJ
  */
 export function validateCNPJ(cnpj: string): boolean {
-  const cleaned = cnpj.replace(/\D/g, "");
+  const cleaned = cnpj.replace(/\D/g, '');
 
   if (cleaned.length !== 14) return false;
 
@@ -83,7 +83,7 @@ export function validateCNPJ(cnpj: string): boolean {
  * Valida documento (CPF ou CNPJ) automaticamente
  */
 export function validateDocument(doc: string): boolean {
-  const cleaned = doc.replace(/\D/g, "");
+  const cleaned = doc.replace(/\D/g, '');
 
   if (cleaned.length === 11) {
     return validateCPF(doc);
@@ -98,28 +98,25 @@ export function validateDocument(doc: string): boolean {
  * Formata CPF (000.000.000-00)
  */
 export function formatCPF(cpf: string): string {
-  const cleaned = cpf.replace(/\D/g, "");
+  const cleaned = cpf.replace(/\D/g, '');
   if (cleaned.length !== 11) return cpf;
-  return cleaned.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+  return cleaned.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
 }
 
 /**
  * Formata CNPJ (00.000.000/0000-00)
  */
 export function formatCNPJ(cnpj: string): string {
-  const cleaned = cnpj.replace(/\D/g, "");
+  const cleaned = cnpj.replace(/\D/g, '');
   if (cleaned.length !== 14) return cnpj;
-  return cleaned.replace(
-    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
-    "$1.$2.$3/$4-$5"
-  );
+  return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
 }
 
 /**
  * Formata documento baseado no tipo
  */
 export function formatDocument(doc: string, type: DocumentType): string {
-  if (type === "cpf") {
+  if (type === 'cpf') {
     return formatCPF(doc);
   } else {
     return formatCNPJ(doc);
@@ -130,7 +127,7 @@ export function formatDocument(doc: string, type: DocumentType): string {
  * Formata documento automaticamente (detecta tipo)
  */
 export function formatDocumentAuto(doc: string): string {
-  const cleaned = doc.replace(/\D/g, "");
+  const cleaned = doc.replace(/\D/g, '');
 
   if (cleaned.length === 11) {
     return formatCPF(cleaned);
@@ -145,10 +142,10 @@ export function formatDocumentAuto(doc: string): string {
  * Detecta tipo de documento baseado no tamanho
  */
 export function getDocumentType(doc: string): DocumentType | null {
-  const cleaned = doc.replace(/\D/g, "");
+  const cleaned = doc.replace(/\D/g, '');
 
-  if (cleaned.length === 11) return "cpf";
-  if (cleaned.length === 14) return "cnpj";
+  if (cleaned.length === 11) return 'cpf';
+  if (cleaned.length === 14) return 'cnpj';
 
   return null;
 }
@@ -157,31 +154,31 @@ export function getDocumentType(doc: string): DocumentType | null {
  * Remove formatação do documento
  */
 export function cleanDocument(doc: string): string {
-  return doc.replace(/\D/g, "");
+  return doc.replace(/\D/g, '');
 }
 
 /**
  * Retorna o limite de usuários baseado no tipo de documento
  */
 export function getMaxUsersForDocumentType(type: DocumentType): number {
-  return type === "cpf" ? 1 : 5;
+  return type === 'cpf' ? 1 : 5;
 }
 
 /**
  * Máscara para input de CPF
  */
 export function maskCPF(value: string): string {
-  let cleaned = value.replace(/\D/g, "");
+  let cleaned = value.replace(/\D/g, '');
   cleaned = cleaned.substring(0, 11); // Máximo 11 dígitos
 
   if (cleaned.length <= 3) {
     return cleaned;
   } else if (cleaned.length <= 6) {
-    return cleaned.replace(/^(\d{3})(\d{0,3})/, "$1.$2");
+    return cleaned.replace(/^(\d{3})(\d{0,3})/, '$1.$2');
   } else if (cleaned.length <= 9) {
-    return cleaned.replace(/^(\d{3})(\d{3})(\d{0,3})/, "$1.$2.$3");
+    return cleaned.replace(/^(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3');
   } else {
-    return cleaned.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2})/, "$1.$2.$3-$4");
+    return cleaned.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4');
   }
 }
 
@@ -189,22 +186,19 @@ export function maskCPF(value: string): string {
  * Máscara para input de CNPJ
  */
 export function maskCNPJ(value: string): string {
-  let cleaned = value.replace(/\D/g, "");
+  let cleaned = value.replace(/\D/g, '');
   cleaned = cleaned.substring(0, 14); // Máximo 14 dígitos
 
   if (cleaned.length <= 2) {
     return cleaned;
   } else if (cleaned.length <= 5) {
-    return cleaned.replace(/^(\d{2})(\d{0,3})/, "$1.$2");
+    return cleaned.replace(/^(\d{2})(\d{0,3})/, '$1.$2');
   } else if (cleaned.length <= 8) {
-    return cleaned.replace(/^(\d{2})(\d{3})(\d{0,3})/, "$1.$2.$3");
+    return cleaned.replace(/^(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
   } else if (cleaned.length <= 12) {
-    return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, "$1.$2.$3/$4");
+    return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
   } else {
-    return cleaned.replace(
-      /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/,
-      "$1.$2.$3/$4-$5"
-    );
+    return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
   }
 }
 
@@ -212,7 +206,7 @@ export function maskCNPJ(value: string): string {
  * Aplica máscara baseado no tipo
  */
 export function maskDocument(value: string, type: DocumentType): string {
-  if (type === "cpf") {
+  if (type === 'cpf') {
     return maskCPF(value);
   } else {
     return maskCNPJ(value);

@@ -102,7 +102,13 @@
       "Bash(python3:*)",
       "Bash(printf:*)",
       "WebFetch(domain:status.cloud.google.com)",
-      "WebFetch(domain:curvamestra.com.br)"
+      "WebFetch(domain:curvamestra.com.br)",
+      "Bash(git -C \"c:/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra\" status)",
+      "Bash(git -C \"c:/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra\" log --oneline -5)",
+      "Bash(git -C \"c:/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra\" add ONLY_FOR_DEVS/GitHub_Workflows.md)",
+      "Bash(git -C 'c:/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra' commit -m ':*)",
+      "Bash(gh secret *)",
+      "Bash(where gh *)"
     ],
     "deny": [],
     "ask": []

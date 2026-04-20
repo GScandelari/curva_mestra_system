@@ -2,10 +2,10 @@
  * API Route: Gerenciar Solicitações de Acesso Antecipado
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { initializeApp, getApps } from "firebase/app";
-import bcrypt from "bcryptjs";
+import { NextRequest, NextResponse } from 'next/server';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { initializeApp, getApps } from 'firebase/app';
+import bcrypt from 'bcryptjs';
 import {
   validateEmail,
   validateDocument,
@@ -14,7 +14,7 @@ import {
   validatePassword,
   validateFullName,
   sanitizeString,
-} from "@/lib/validations/serverValidations";
+} from '@/lib/validations/serverValidations';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -37,28 +37,28 @@ export async function POST(req: NextRequest) {
 
     // Validações completas com mensagens específicas
     const requiredFields = [
-      "type",
-      "full_name",
-      "email",
-      "phone",
-      "business_name",
-      "document_type",
-      "document_number",
-      "password",
+      'type',
+      'full_name',
+      'email',
+      'phone',
+      'business_name',
+      'document_type',
+      'document_number',
+      'password',
     ];
 
     // Verificar campos obrigatórios
     for (const field of requiredFields) {
       if (!data[field]) {
         const fieldNames: Record<string, string> = {
-          type: "Tipo de conta",
-          full_name: "Nome completo",
-          email: "E-mail",
-          phone: "Telefone",
-          business_name: "Nome da empresa/profissional",
-          document_type: "Tipo de documento",
-          document_number: "Número do documento",
-          password: "Senha",
+          type: 'Tipo de conta',
+          full_name: 'Nome completo',
+          email: 'E-mail',
+          phone: 'Telefone',
+          business_name: 'Nome da empresa/profissional',
+          document_type: 'Tipo de documento',
+          document_number: 'Número do documento',
+          password: 'Senha',
         };
         return NextResponse.json(
           { error: `${fieldNames[field] || field} é obrigatório` },
@@ -70,28 +70,19 @@ export async function POST(req: NextRequest) {
     // Validar nome completo
     const nameValidation = validateFullName(data.full_name);
     if (!nameValidation.valid) {
-      return NextResponse.json(
-        { error: nameValidation.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: nameValidation.error }, { status: 400 });
     }
 
     // Validar email
     const emailValidation = validateEmail(data.email);
     if (!emailValidation.valid) {
-      return NextResponse.json(
-        { error: emailValidation.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: emailValidation.error }, { status: 400 });
     }
 
     // Validar telefone
     const phoneValidation = validatePhone(data.phone);
     if (!phoneValidation.valid) {
-      return NextResponse.json(
-        { error: phoneValidation.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: phoneValidation.error }, { status: 400 });
     }
 
     // Validar senha
@@ -100,22 +91,16 @@ export async function POST(req: NextRequest) {
       requireNumber: false,
     });
     if (!passwordValidation.valid) {
-      return NextResponse.json(
-        { error: passwordValidation.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: passwordValidation.error }, { status: 400 });
     }
 
     // Validar tipo
-    if (!["clinica", "autonomo"].includes(data.type)) {
-      return NextResponse.json(
-        { error: "Tipo deve ser 'clinica' ou 'autonomo'" },
-        { status: 400 }
-      );
+    if (!['clinica', 'autonomo'].includes(data.type)) {
+      return NextResponse.json({ error: "Tipo deve ser 'clinica' ou 'autonomo'" }, { status: 400 });
     }
 
     // Validar document_type
-    if (!["cpf", "cnpj"].includes(data.document_type)) {
+    if (!['cpf', 'cnpj'].includes(data.document_type)) {
       return NextResponse.json(
         { error: "Tipo de documento deve ser 'cpf' ou 'cnpj'" },
         { status: 400 }
@@ -123,28 +108,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Validar documento (CPF ou CNPJ)
-    const documentValidation = validateDocument(
-      data.document_number,
-      data.document_type
-    );
+    const documentValidation = validateDocument(data.document_number, data.document_type);
     if (!documentValidation.valid) {
-      return NextResponse.json(
-        { error: documentValidation.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: documentValidation.error }, { status: 400 });
     }
 
     // Limpar documento (remover formatação)
-    const cleanDocument = data.document_number.replace(/\D/g, "");
+    const cleanDocument = data.document_number.replace(/\D/g, '');
 
     // Validar CEP se fornecido
     if (data.cep) {
       const cepValidation = validateCEP(data.cep);
       if (!cepValidation.valid) {
-        return NextResponse.json(
-          { error: cepValidation.error },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: cepValidation.error }, { status: 400 });
       }
     }
 
@@ -164,28 +140,25 @@ export async function POST(req: NextRequest) {
       address: data.address || null,
       city: data.city || null,
       state: data.state || null,
-      cep: data.cep?.replace(/\D/g, "") || null,
-      status: "pendente",
+      cep: data.cep?.replace(/\D/g, '') || null,
+      status: 'pendente',
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     };
 
-    const docRef = await addDoc(
-      collection(db, "access_requests"),
-      accessRequestData
-    );
+    const docRef = await addDoc(collection(db, 'access_requests'), accessRequestData);
 
-    console.log("✅ Solicitação de acesso criada:", docRef.id);
+    console.log('✅ Solicitação de acesso criada:', docRef.id);
 
     return NextResponse.json({
       success: true,
-      message: "Solicitação enviada com sucesso!",
+      message: 'Solicitação enviada com sucesso!',
       id: docRef.id,
     });
   } catch (error: any) {
-    console.error("❌ Erro ao criar solicitação:", error);
+    console.error('❌ Erro ao criar solicitação:', error);
     return NextResponse.json(
-      { error: error.message || "Erro ao processar solicitação" },
+      { error: error.message || 'Erro ao processar solicitação' },
       { status: 500 }
     );
   }

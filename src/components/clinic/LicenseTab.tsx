@@ -1,25 +1,17 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import {
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  Calendar,
-  Users,
-  Package,
-} from "lucide-react";
-import { License, Tenant } from "@/types";
-import PaymentSection from "./PaymentSection";
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { CheckCircle, XCircle, Clock, AlertTriangle, Calendar, Users, Package } from 'lucide-react';
+import { License, Tenant } from '@/types';
+import PaymentSection from './PaymentSection';
 import {
   getActiveLicenseByTenant,
   getDaysUntilExpiration,
   isLicenseExpiringSoon,
-} from "@/lib/services/licenseService";
-import { Timestamp, doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+} from '@/lib/services/licenseService';
+import { Timestamp, doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function LicenseTab() {
   const { user, tenantId } = useAuth();
@@ -50,7 +42,7 @@ export default function LicenseTab() {
       setLicense(licenseData);
       setTenant(tenantData);
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
@@ -58,7 +50,7 @@ export default function LicenseTab() {
 
   async function loadTenant(tenantId: string): Promise<Tenant | null> {
     try {
-      const tenantRef = doc(db, "tenants", tenantId);
+      const tenantRef = doc(db, 'tenants', tenantId);
       const tenantDoc = await getDoc(tenantRef);
 
       if (tenantDoc.exists()) {
@@ -66,69 +58,66 @@ export default function LicenseTab() {
       }
       return null;
     } catch (error) {
-      console.error("Erro ao carregar tenant:", error);
+      console.error('Erro ao carregar tenant:', error);
       return null;
     }
   }
 
   function getPlanName(): string {
-    if (!tenant) return "Standard";
-    return tenant.document_type === "cpf" ? "Autônomo" : "Clínica";
+    if (!tenant) return 'Standard';
+    return tenant.document_type === 'cpf' ? 'Autônomo' : 'Clínica';
   }
 
   function getMaxUsers(): number {
     if (!tenant) return 5;
-    return tenant.max_users || (tenant.document_type === "cpf" ? 1 : 5);
+    return tenant.max_users || (tenant.document_type === 'cpf' ? 1 : 5);
   }
 
   function getFeatures(): string[] {
     if (!tenant) {
       return [
-        "Gestão de Estoque com FEFO",
-        "Controle de Lotes e Validades",
-        "Cadastro de Pacientes",
-        "Histórico de Procedimentos",
-        "Solicitações de Produtos",
-        "Relatórios Básicos",
+        'Gestão de Estoque com FEFO',
+        'Controle de Lotes e Validades',
+        'Cadastro de Pacientes',
+        'Histórico de Procedimentos',
+        'Solicitações de Produtos',
+        'Relatórios Básicos',
       ];
     }
 
     const baseFeatures = [
-      "Gestão de Estoque com FEFO",
-      "Controle de Lotes e Validades",
-      "Cadastro de Pacientes",
-      "Histórico de Procedimentos",
-      "Solicitações de Produtos",
-      "Relatórios Básicos",
-      "Notificações de Vencimento",
-      "Alertas de Estoque Baixo",
+      'Gestão de Estoque com FEFO',
+      'Controle de Lotes e Validades',
+      'Cadastro de Pacientes',
+      'Histórico de Procedimentos',
+      'Solicitações de Produtos',
+      'Relatórios Básicos',
+      'Notificações de Vencimento',
+      'Alertas de Estoque Baixo',
     ];
 
-    if (tenant.document_type === "cnpj") {
+    if (tenant.document_type === 'cnpj') {
       return [
         ...baseFeatures,
-        "Gestão Multi-Usuário (até 5 usuários)",
-        "Controle de Permissões",
-        "Relatórios Avançados",
-        "Dashboard Executivo",
+        'Gestão Multi-Usuário (até 5 usuários)',
+        'Controle de Permissões',
+        'Relatórios Avançados',
+        'Dashboard Executivo',
       ];
     }
 
-    return [
-      ...baseFeatures,
-      "Gestão Individual",
-    ];
+    return [...baseFeatures, 'Gestão Individual'];
   }
 
   function getStatusIcon(status: string) {
     switch (status) {
-      case "ativa":
+      case 'ativa':
         return <CheckCircle className="w-8 h-8 text-green-600" />;
-      case "expirada":
+      case 'expirada':
         return <XCircle className="w-8 h-8 text-red-600" />;
-      case "suspensa":
+      case 'suspensa':
         return <AlertTriangle className="w-8 h-8 text-orange-600" />;
-      case "pendente":
+      case 'pendente':
         return <Clock className="w-8 h-8 text-yellow-600" />;
       default:
         return null;
@@ -137,10 +126,10 @@ export default function LicenseTab() {
 
   function formatDate(timestamp: Timestamp | Date): string {
     const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
-    return date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
     });
   }
 
@@ -157,12 +146,8 @@ export default function LicenseTab() {
       <div className="space-y-6">
         <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
           <XCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-red-900 mb-2">
-            Nenhuma Licença Ativa
-          </h2>
-          <p className="text-red-700 mb-4">
-            Sua clínica não possui uma licença ativa no momento.
-          </p>
+          <h2 className="text-2xl font-bold text-red-900 mb-2">Nenhuma Licença Ativa</h2>
+          <p className="text-red-700 mb-4">Sua clínica não possui uma licença ativa no momento.</p>
           <p className="text-sm text-red-600">
             Entre em contato com o administrador do sistema para ativar sua licença.
           </p>
@@ -179,22 +164,20 @@ export default function LicenseTab() {
       {/* Status Banner */}
       <div
         className={`p-6 rounded-lg border-2 ${
-          license.status === "ativa"
+          license.status === 'ativa'
             ? expiringSoon
-              ? "bg-orange-50 border-orange-200"
-              : "bg-green-50 border-green-200"
-            : license.status === "expirada"
-            ? "bg-red-50 border-red-200"
-            : "bg-orange-50 border-orange-200"
+              ? 'bg-orange-50 border-orange-200'
+              : 'bg-green-50 border-green-200'
+            : license.status === 'expirada'
+              ? 'bg-red-50 border-red-200'
+              : 'bg-orange-50 border-orange-200'
         }`}
       >
         <div className="flex items-center gap-4">
           {getStatusIcon(license.status)}
           <div className="flex-1">
-            <h2 className="text-2xl font-bold capitalize mb-1">
-              Licença {license.status}
-            </h2>
-            {license.status === "ativa" && (
+            <h2 className="text-2xl font-bold capitalize mb-1">Licença {license.status}</h2>
+            {license.status === 'ativa' && (
               <p className="text-lg">
                 {expiringSoon ? (
                   <span className="text-orange-700 font-medium">
@@ -205,9 +188,7 @@ export default function LicenseTab() {
                     Sua licença expirou há {Math.abs(daysRemaining)} dias
                   </span>
                 ) : (
-                  <span className="text-green-700">
-                    Válida por mais {daysRemaining} dias
-                  </span>
+                  <span className="text-green-700">Válida por mais {daysRemaining} dias</span>
                 )}
               </p>
             )}
@@ -216,17 +197,15 @@ export default function LicenseTab() {
       </div>
 
       {/* Warning for Expiring Soon */}
-      {expiringSoon && license.status === "ativa" && (
+      {expiringSoon && license.status === 'ativa' && (
         <div className="bg-orange-50 border-l-4 border-orange-500 p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5" />
             <div>
-              <h3 className="font-bold text-orange-900">
-                Atenção: Licença Expirando em Breve
-              </h3>
+              <h3 className="font-bold text-orange-900">Atenção: Licença Expirando em Breve</h3>
               <p className="text-sm text-orange-700 mt-1">
-                Sua licença expira em {daysRemaining} dias. Entre em contato com
-                o administrador para renovar e evitar interrupção do serviço.
+                Sua licença expira em {daysRemaining} dias. Entre em contato com o administrador
+                para renovar e evitar interrupção do serviço.
               </p>
             </div>
           </div>
@@ -240,11 +219,9 @@ export default function LicenseTab() {
             <Package className="w-6 h-6 text-blue-600" />
             <h3 className="font-bold text-gray-900">Plano</h3>
           </div>
-          <p className="text-2xl font-bold text-blue-600">
-            {getPlanName()}
-          </p>
+          <p className="text-2xl font-bold text-blue-600">{getPlanName()}</p>
           <p className="text-sm text-muted-foreground mt-1">
-            {tenant?.document_type === "cpf" ? "Profissional Autônomo" : "Clínica/Empresa"}
+            {tenant?.document_type === 'cpf' ? 'Profissional Autônomo' : 'Clínica/Empresa'}
           </p>
         </div>
 
@@ -253,11 +230,9 @@ export default function LicenseTab() {
             <Users className="w-6 h-6 text-purple-600" />
             <h3 className="font-bold text-gray-900">Usuários</h3>
           </div>
-          <p className="text-2xl font-bold text-purple-600">
-            Até {getMaxUsers()}
-          </p>
+          <p className="text-2xl font-bold text-purple-600">Até {getMaxUsers()}</p>
           <p className="text-sm text-muted-foreground mt-1">
-            {tenant?.document_type === "cpf" ? "1 usuário" : "5 usuários"}
+            {tenant?.document_type === 'cpf' ? '1 usuário' : '5 usuários'}
           </p>
         </div>
 
@@ -267,7 +242,7 @@ export default function LicenseTab() {
             <h3 className="font-bold text-gray-900">Renovação</h3>
           </div>
           <p className="text-lg font-bold text-green-600">
-            {license.auto_renew ? "Automática" : "Manual"}
+            {license.auto_renew ? 'Automática' : 'Manual'}
           </p>
         </div>
       </div>
@@ -280,16 +255,12 @@ export default function LicenseTab() {
 
           <div>
             <p className="text-sm text-gray-600">Data de Início</p>
-            <p className="font-medium text-gray-900 text-lg">
-              {formatDate(license.start_date)}
-            </p>
+            <p className="font-medium text-gray-900 text-lg">{formatDate(license.start_date)}</p>
           </div>
 
           <div>
             <p className="text-sm text-gray-600">Data de Término</p>
-            <p className="font-medium text-gray-900 text-lg">
-              {formatDate(license.end_date)}
-            </p>
+            <p className="font-medium text-gray-900 text-lg">{formatDate(license.end_date)}</p>
           </div>
 
           <div className="pt-4 border-t">
@@ -297,22 +268,20 @@ export default function LicenseTab() {
             <p
               className={`font-bold text-2xl ${
                 expiringSoon
-                  ? "text-orange-600"
+                  ? 'text-orange-600'
                   : daysRemaining < 0
-                  ? "text-red-600"
-                  : "text-green-600"
+                    ? 'text-red-600'
+                    : 'text-green-600'
               }`}
             >
-              {daysRemaining > 0 ? `${daysRemaining} dias` : "Expirada"}
+              {daysRemaining > 0 ? `${daysRemaining} dias` : 'Expirada'}
             </p>
           </div>
         </div>
 
         {/* Features Card */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Funcionalidades Incluídas
-          </h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Funcionalidades Incluídas</h2>
           <div className="space-y-2">
             {getFeatures().map((feature, index) => (
               <div key={index} className="flex items-start gap-2">
@@ -329,11 +298,9 @@ export default function LicenseTab() {
 
       {/* Support Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="font-bold text-blue-900 mb-2">
-          Precisa de ajuda com sua licença?
-        </h3>
+        <h3 className="font-bold text-blue-900 mb-2">Precisa de ajuda com sua licença?</h3>
         <p className="text-sm text-blue-700">
-          Entre em contato com o administrador do sistema em:{" "}
+          Entre em contato com o administrador do sistema em:{' '}
           <a
             href="mailto:scandelari.guilherme@curvamestra.com.br"
             className="font-medium underline"

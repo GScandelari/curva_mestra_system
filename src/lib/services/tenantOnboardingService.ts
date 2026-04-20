@@ -8,27 +8,25 @@ import {
   query,
   where,
   getDocs,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import {
   TenantOnboarding,
   OnboardingStatus,
   ClinicSetupData,
   PlanSelectionData,
   PaymentData,
-} from "@/types/onboarding";
-import { updateTenant } from "./tenantServiceDirect";
-import { createLicense, getActiveLicenseByTenant, updateLicense } from "./licenseService";
-import { PLANS } from "@/lib/constants/plans";
+} from '@/types/onboarding';
+import { updateTenant } from './tenantServiceDirect';
+import { createLicense, getActiveLicenseByTenant, updateLicense } from './licenseService';
+import { PLANS } from '@/lib/constants/plans';
 
 /**
  * Obtém o status de onboarding de um tenant
  */
-export async function getTenantOnboarding(
-  tenantId: string
-): Promise<TenantOnboarding | null> {
+export async function getTenantOnboarding(tenantId: string): Promise<TenantOnboarding | null> {
   try {
-    const onboardingRef = doc(db, "tenant_onboarding", tenantId);
+    const onboardingRef = doc(db, 'tenant_onboarding', tenantId);
     const onboardingSnap = await getDoc(onboardingRef);
 
     if (!onboardingSnap.exists()) {
@@ -40,7 +38,7 @@ export async function getTenantOnboarding(
       ...onboardingSnap.data(),
     } as TenantOnboarding;
   } catch (error) {
-    console.error("Erro ao buscar onboarding:", error);
+    console.error('Erro ao buscar onboarding:', error);
     return null;
   }
 }
@@ -48,15 +46,13 @@ export async function getTenantOnboarding(
 /**
  * Cria registro de onboarding inicial ao criar tenant
  */
-export async function initializeTenantOnboarding(
-  tenantId: string
-): Promise<void> {
+export async function initializeTenantOnboarding(tenantId: string): Promise<void> {
   try {
-    const onboardingRef = doc(db, "tenant_onboarding", tenantId);
+    const onboardingRef = doc(db, 'tenant_onboarding', tenantId);
 
     await setDoc(onboardingRef, {
       tenant_id: tenantId,
-      status: "pending_setup" as OnboardingStatus,
+      status: 'pending_setup' as OnboardingStatus,
       setup_completed: false,
       plan_selected: false,
       payment_confirmed: false,
@@ -64,7 +60,7 @@ export async function initializeTenantOnboarding(
       updated_at: Timestamp.now(),
     });
   } catch (error) {
-    console.error("Erro ao inicializar onboarding:", error);
+    console.error('Erro ao inicializar onboarding:', error);
     throw error;
   }
 }
@@ -79,31 +75,29 @@ export async function needsOnboarding(tenantId: string): Promise<boolean> {
     return true; // Sem registro = precisa onboarding
   }
 
-  return onboarding.status !== "completed";
+  return onboarding.status !== 'completed';
 }
 
 /**
  * Obtém a próxima etapa do onboarding
  */
-export async function getNextOnboardingStep(
-  tenantId: string
-): Promise<OnboardingStatus | null> {
+export async function getNextOnboardingStep(tenantId: string): Promise<OnboardingStatus | null> {
   const onboarding = await getTenantOnboarding(tenantId);
 
   if (!onboarding) {
-    return "pending_setup";
+    return 'pending_setup';
   }
 
   if (!onboarding.setup_completed) {
-    return "pending_setup";
+    return 'pending_setup';
   }
 
   if (!onboarding.plan_selected) {
-    return "pending_plan";
+    return 'pending_plan';
   }
 
   if (!onboarding.payment_confirmed) {
-    return "pending_payment";
+    return 'pending_payment';
   }
 
   return null; // Onboarding completo
@@ -121,27 +115,27 @@ export async function completeClinicSetup(
     await updateTenant(tenantId, {
       name: setupData.name,
       document_type: setupData.document_type,
-      document_number: setupData.document_number.replace(/\D/g, ""),
+      document_number: setupData.document_number.replace(/\D/g, ''),
       email: setupData.email,
-      phone: setupData.phone.replace(/\D/g, ""),
+      phone: setupData.phone.replace(/\D/g, ''),
       address: setupData.address, // Apenas rua/número
-      city: setupData.city,        // Cidade separada
-      state: setupData.state,      // Estado separado
-      cep: setupData.cep.replace(/\D/g, ""), // CEP separado
-      max_users: setupData.document_type === "cnpj" ? 5 : 1,
+      city: setupData.city, // Cidade separada
+      state: setupData.state, // Estado separado
+      cep: setupData.cep.replace(/\D/g, ''), // CEP separado
+      max_users: setupData.document_type === 'cnpj' ? 5 : 1,
     });
 
     // Atualiza status de onboarding
-    const onboardingRef = doc(db, "tenant_onboarding", tenantId);
+    const onboardingRef = doc(db, 'tenant_onboarding', tenantId);
     await updateDoc(onboardingRef, {
       setup_completed: true,
-      status: "pending_plan" as OnboardingStatus,
+      status: 'pending_plan' as OnboardingStatus,
       updated_at: Timestamp.now(),
     });
 
     return { success: true };
   } catch (error: any) {
-    console.error("Erro ao completar setup:", error);
+    console.error('Erro ao completar setup:', error);
     return { success: false, error: error.message };
   }
 }
@@ -160,14 +154,14 @@ export async function completePlanSelection(
     });
 
     // Atualiza onboarding
-    const onboardingRef = doc(db, "tenant_onboarding", tenantId);
+    const onboardingRef = doc(db, 'tenant_onboarding', tenantId);
     await updateDoc(onboardingRef, {
       plan_selected: true,
       selected_plan_id: planData.plan_id,
-      status: "pending_payment" as OnboardingStatus,
+      status: 'pending_payment' as OnboardingStatus,
       payment_data: {
-        provider: "mock", // Será "pagseguro" quando integrado
-        payment_status: "pending",
+        provider: 'mock', // Será "pagseguro" quando integrado
+        payment_status: 'pending',
         amount: PLANS[planData.plan_id].price,
       } as PaymentData,
       updated_at: Timestamp.now(),
@@ -175,7 +169,7 @@ export async function completePlanSelection(
 
     return { success: true };
   } catch (error: any) {
-    console.error("Erro ao selecionar plano:", error);
+    console.error('Erro ao selecionar plano:', error);
     return { success: false, error: error.message };
   }
 }
@@ -191,20 +185,20 @@ export async function confirmPayment(
     const onboarding = await getTenantOnboarding(tenantId);
 
     if (!onboarding || !onboarding.selected_plan_id) {
-      return { success: false, error: "Plano não selecionado" };
+      return { success: false, error: 'Plano não selecionado' };
     }
 
     const plan = PLANS[onboarding.selected_plan_id];
 
     // Atualiza dados de pagamento
-    const onboardingRef = doc(db, "tenant_onboarding", tenantId);
+    const onboardingRef = doc(db, 'tenant_onboarding', tenantId);
     await updateDoc(onboardingRef, {
       payment_confirmed: true,
-      status: "completed" as OnboardingStatus,
+      status: 'completed' as OnboardingStatus,
       payment_data: {
         ...onboarding.payment_data,
         ...paymentData,
-        payment_status: "approved",
+        payment_status: 'approved',
         payment_date: Timestamp.now(),
       } as PaymentData,
       completed_at: Timestamp.now(),
@@ -219,12 +213,10 @@ export async function confirmPayment(
     if (existingLicense) {
       // Atualiza licença existente com dados do onboarding
       console.log(`📝 Atualizando licença existente: ${existingLicense.id}`);
-      
+
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setMonth(
-        endDate.getMonth() + (onboarding.selected_plan_id === "anual" ? 12 : 6)
-      );
+      endDate.setMonth(endDate.getMonth() + (onboarding.selected_plan_id === 'anual' ? 12 : 6));
 
       await updateLicense(existingLicense.id, {
         plan_id: onboarding.selected_plan_id,
@@ -233,7 +225,7 @@ export async function confirmPayment(
         max_users: plan.maxUsers,
         features: plan.features,
         auto_renew: true, // Habilita renovação automática
-        status: "ativa",
+        status: 'ativa',
       });
 
       licenseId = existingLicense.id;
@@ -241,12 +233,10 @@ export async function confirmPayment(
     } else {
       // Cria nova licença se não existir
       console.log(`📝 Criando nova licença para tenant ${tenantId}`);
-      
+
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setMonth(
-        endDate.getMonth() + (onboarding.selected_plan_id === "anual" ? 12 : 6)
-      );
+      endDate.setMonth(endDate.getMonth() + (onboarding.selected_plan_id === 'anual' ? 12 : 6));
 
       licenseId = await createLicense({
         tenant_id: tenantId,
@@ -268,7 +258,7 @@ export async function confirmPayment(
 
     return { success: true, licenseId };
   } catch (error: any) {
-    console.error("Erro ao confirmar pagamento:", error);
+    console.error('Erro ao confirmar pagamento:', error);
     return { success: false, error: error.message };
   }
 }
@@ -284,7 +274,7 @@ export async function processPaymentWebhook(
     // const paymentInfo = await pagseguroAPI.getNotification(notificationCode);
 
     // Mock para MVP
-    console.log("Webhook recebido:", notificationCode);
+    console.log('Webhook recebido:', notificationCode);
 
     // Aqui você faria:
     // 1. Consultar API PagSeguro com notificationCode
@@ -293,7 +283,7 @@ export async function processPaymentWebhook(
 
     return { success: true };
   } catch (error: any) {
-    console.error("Erro ao processar webhook:", error);
+    console.error('Erro ao processar webhook:', error);
     return { success: false, error: error.message };
   }
 }
@@ -305,22 +295,22 @@ export async function hasActiveLicense(tenantId: string): Promise<boolean> {
   try {
     // Verifica se onboarding está completo
     const onboarding = await getTenantOnboarding(tenantId);
-    if (!onboarding || onboarding.status !== "completed") {
+    if (!onboarding || onboarding.status !== 'completed') {
       return false;
     }
 
     // Verifica se tem licença ativa
-    const licensesRef = collection(db, "licenses");
+    const licensesRef = collection(db, 'licenses');
     const q = query(
       licensesRef,
-      where("tenant_id", "==", tenantId),
-      where("status", "==", "ativa")
+      where('tenant_id', '==', tenantId),
+      where('status', '==', 'ativa')
     );
 
     const snapshot = await getDocs(q);
     return !snapshot.empty;
   } catch (error) {
-    console.error("Erro ao verificar licença:", error);
+    console.error('Erro ao verificar licença:', error);
     return false;
   }
 }
@@ -332,10 +322,10 @@ export async function resetOnboarding(
   tenantId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const onboardingRef = doc(db, "tenant_onboarding", tenantId);
+    const onboardingRef = doc(db, 'tenant_onboarding', tenantId);
 
     await updateDoc(onboardingRef, {
-      status: "pending_setup" as OnboardingStatus,
+      status: 'pending_setup' as OnboardingStatus,
       setup_completed: false,
       plan_selected: false,
       payment_confirmed: false,
@@ -347,7 +337,7 @@ export async function resetOnboarding(
 
     return { success: true };
   } catch (error: any) {
-    console.error("Erro ao resetar onboarding:", error);
+    console.error('Erro ao resetar onboarding:', error);
     return { success: false, error: error.message };
   }
 }

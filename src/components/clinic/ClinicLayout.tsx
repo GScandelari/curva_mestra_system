@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { ReactNode } from "react";
-import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
-import { LogOut, Menu, X } from "lucide-react";
-import { useState } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { ReactNode } from 'react';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { LogOut, Menu, X } from 'lucide-react';
+import { useState } from 'react';
+import { Toaster } from '@/components/ui/toaster';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface ClinicLayoutProps {
   children: ReactNode;
@@ -20,11 +20,11 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const isAdmin = claims?.role === "clinic_admin";
+  const isAdmin = claims?.role === 'clinic_admin';
 
   const handleLogout = async () => {
     await signOut();
-    router.push("/login");
+    router.push('/login');
   };
 
   const isActive = (path: string) => {
@@ -32,14 +32,14 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
   };
 
   const navLinks = [
-    { href: "/clinic/dashboard", label: "Dashboard" },
-    { href: "/clinic/inventory", label: "Gerenciar Estoque" },
-    { href: "/clinic/requests", label: "Procedimentos" },
-    { href: "/clinic/patients", label: "Pacientes" },
-    { href: "/clinic/reports", label: "Relatórios" },
-    { href: "/clinic/consultant", label: "Consultor" },
-    { href: "/clinic/my-clinic", label: "Minha Clínica" },
-    { href: "/clinic/profile", label: "Perfil" },
+    { href: '/clinic/dashboard', label: 'Dashboard' },
+    { href: '/clinic/inventory', label: 'Gerenciar Estoque' },
+    { href: '/clinic/requests', label: 'Procedimentos' },
+    { href: '/clinic/patients', label: 'Pacientes' },
+    { href: '/clinic/reports', label: 'Relatórios' },
+    { href: '/clinic/consultant', label: 'Consultor' },
+    { href: '/clinic/my-clinic', label: 'Minha Clínica' },
+    { href: '/clinic/profile', label: 'Perfil' },
   ];
 
   return (
@@ -60,9 +60,7 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
                   key={link.href}
                   href={link.href}
                   className={`text-sm font-medium transition-colors hover:text-primary ${
-                    isActive(link.href)
-                      ? "text-primary"
-                      : "text-muted-foreground"
+                    isActive(link.href) ? 'text-primary' : 'text-muted-foreground'
                   }`}
                 >
                   {link.label}
@@ -76,7 +74,7 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium">{user?.displayName}</p>
               <p className="text-xs text-muted-foreground">
-                {isAdmin ? "Administrador" : "Usuário"}
+                {isAdmin ? 'Administrador' : 'Usuário'}
               </p>
             </div>
 
@@ -94,11 +92,7 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
               className="md:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              {mobileMenuOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
         </div>
@@ -114,8 +108,8 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                     isActive(link.href)
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-accent"
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   {link.label}

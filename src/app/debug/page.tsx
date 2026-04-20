@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { auth, db, functions } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from 'react';
+import { auth, db, functions } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export default function DebugPage() {
   const [info, setInfo] = useState<any>({});
@@ -15,7 +15,7 @@ export default function DebugPage() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         // Não autenticado - redirecionar para login
-        router.push("/login?redirect=/debug");
+        router.push('/login?redirect=/debug');
         return;
       }
 
@@ -33,9 +33,9 @@ export default function DebugPage() {
         // Autorizado - carregar informações de debug
         setIsAuthorized(true);
         const debugInfo = {
-          authEmulator: (auth as any)._config?.emulatorConfig?.host || "Não conectado",
-          firestoreEmulator: (db as any)._settings?.host || "Produção",
-          functionsEmulator: (functions as any)._url || "Produção",
+          authEmulator: (auth as any)._config?.emulatorConfig?.host || 'Não conectado',
+          firestoreEmulator: (db as any)._settings?.host || 'Produção',
+          functionsEmulator: (functions as any)._url || 'Produção',
           useEmulators: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS,
           projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
           userEmail: user.email,
@@ -43,7 +43,7 @@ export default function DebugPage() {
         };
         setInfo(debugInfo);
       } catch (error) {
-        console.error("Erro ao verificar permissões:", error);
+        console.error('Erro ao verificar permissões:', error);
         setIsAuthorized(false);
       }
     });
@@ -74,7 +74,7 @@ export default function DebugPage() {
             Esta página é restrita a administradores do sistema.
           </p>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push('/')}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
             Voltar para Home
@@ -102,7 +102,7 @@ export default function DebugPage() {
               <div className="flex gap-2">
                 <span className="font-bold">Auth Emulator:</span>
                 <span>{info.authEmulator}</span>
-                {info.authEmulator?.includes("localhost") ? (
+                {info.authEmulator?.includes('localhost') ? (
                   <span className="text-green-600">✅ Ativo</span>
                 ) : (
                   <span className="text-red-600">❌ Não conectado</span>
@@ -112,7 +112,7 @@ export default function DebugPage() {
               <div className="flex gap-2">
                 <span className="font-bold">Firestore Emulator:</span>
                 <span>{info.firestoreEmulator}</span>
-                {info.firestoreEmulator?.includes("localhost") ? (
+                {info.firestoreEmulator?.includes('localhost') ? (
                   <span className="text-green-600">✅ Ativo</span>
                 ) : (
                   <span className="text-red-600">❌ Produção</span>
@@ -122,7 +122,7 @@ export default function DebugPage() {
               <div className="flex gap-2">
                 <span className="font-bold">Functions Emulator:</span>
                 <span>{info.functionsEmulator}</span>
-                {info.functionsEmulator?.includes("localhost") ? (
+                {info.functionsEmulator?.includes('localhost') ? (
                   <span className="text-green-600">✅ Ativo</span>
                 ) : (
                   <span className="text-red-600">❌ Produção</span>
@@ -137,12 +137,12 @@ export default function DebugPage() {
             <h2 className="text-xl font-semibold mb-2">Variáveis de Ambiente</h2>
             <div className="space-y-2 font-mono text-sm">
               <div>
-                <span className="font-bold">USE_FIREBASE_EMULATORS:</span>{" "}
-                <span>{info.useEmulators || "undefined"}</span>
+                <span className="font-bold">USE_FIREBASE_EMULATORS:</span>{' '}
+                <span>{info.useEmulators || 'undefined'}</span>
               </div>
               <div>
-                <span className="font-bold">PROJECT_ID:</span>{" "}
-                <span>{info.projectId || "undefined"}</span>
+                <span className="font-bold">PROJECT_ID:</span>{' '}
+                <span>{info.projectId || 'undefined'}</span>
               </div>
             </div>
           </div>

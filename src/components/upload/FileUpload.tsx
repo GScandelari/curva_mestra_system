@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import { Upload, File, X, CheckCircle, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { useState, useCallback } from 'react';
+import { Upload, File, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -15,20 +15,20 @@ interface FileUploadProps {
 
 export function FileUpload({
   onFileSelect,
-  accept = ".pdf",
+  accept = '.pdf',
   maxSizeMB = 10,
   disabled = false,
 }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   const validateFile = (file: File): boolean => {
-    setError("");
+    setError('');
 
     // Validar tipo
-    if (!file.type.includes("pdf")) {
-      setError("Apenas arquivos PDF são permitidos");
+    if (!file.type.includes('pdf')) {
+      setError('Apenas arquivos PDF são permitidos');
       return false;
     }
 
@@ -52,9 +52,9 @@ export function FileUpload({
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
   }, []);
@@ -85,15 +85,15 @@ export function FileUpload({
 
   const clearFile = () => {
     setSelectedFile(null);
-    setError("");
+    setError('');
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
+    if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   return (
@@ -101,11 +101,11 @@ export function FileUpload({
       <Card
         className={`border-2 border-dashed transition-all ${
           dragActive
-            ? "border-primary bg-primary/5"
+            ? 'border-primary bg-primary/5'
             : error
-            ? "border-destructive"
-            : "border-muted-foreground/25"
-        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              ? 'border-destructive'
+              : 'border-muted-foreground/25'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -115,20 +115,14 @@ export function FileUpload({
           <div className="flex flex-col items-center justify-center space-y-4">
             <div
               className={`rounded-full p-4 ${
-                error
-                  ? "bg-destructive/10"
-                  : dragActive
-                  ? "bg-primary/10"
-                  : "bg-muted"
+                error ? 'bg-destructive/10' : dragActive ? 'bg-primary/10' : 'bg-muted'
               }`}
             >
               {error ? (
                 <AlertCircle className="h-8 w-8 text-destructive" />
               ) : (
                 <Upload
-                  className={`h-8 w-8 ${
-                    dragActive ? "text-primary" : "text-muted-foreground"
-                  }`}
+                  className={`h-8 w-8 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`}
                 />
               )}
             </div>
@@ -136,17 +130,13 @@ export function FileUpload({
             <div className="text-center space-y-2">
               <p className="text-lg font-medium">
                 {dragActive
-                  ? "Solte o arquivo aqui"
+                  ? 'Solte o arquivo aqui'
                   : selectedFile
-                  ? "Arquivo selecionado"
-                  : "Arraste e solte o PDF da NF-e"}
+                    ? 'Arquivo selecionado'
+                    : 'Arraste e solte o PDF da NF-e'}
               </p>
-              <p className="text-sm text-muted-foreground">
-                ou clique para selecionar
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Máximo: {maxSizeMB}MB • Formato: PDF
-              </p>
+              <p className="text-sm text-muted-foreground">ou clique para selecionar</p>
+              <p className="text-xs text-muted-foreground">Máximo: {maxSizeMB}MB • Formato: PDF</p>
             </div>
 
             <input
@@ -161,7 +151,7 @@ export function FileUpload({
             <Button
               type="button"
               variant="outline"
-              onClick={() => document.getElementById("file-upload")?.click()}
+              onClick={() => document.getElementById('file-upload')?.click()}
               disabled={disabled}
             >
               Selecionar Arquivo
@@ -188,12 +178,8 @@ export function FileUpload({
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {selectedFile.name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatFileSize(selectedFile.size)}
-                </p>
+                <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                <p className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
               </div>
 
               <div className="flex items-center gap-2">

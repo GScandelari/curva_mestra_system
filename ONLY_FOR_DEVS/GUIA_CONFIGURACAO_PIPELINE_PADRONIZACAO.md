@@ -4,7 +4,7 @@
 **Stack:** TypeScript · Next.js 15 · Firebase · SaaS Multi-Tenant  
 **Repositório:** `GScandelari/curva_mestra_system`  
 **Atualizado em:** Abril/2026  
-**Idioma:** Português (pt-BR)  
+**Idioma:** Português (pt-BR)
 
 > **Este documento é a fonte única de verdade (_single source of truth_) para todos os desenvolvedores que colaboram no projeto.** Siga as práticas aqui descritas sem exceções. Dúvidas? Abra uma issue com a label `documentation`.
 
@@ -47,15 +47,15 @@ develop ────────────────────────
 feature/* ── bugfix/* ── hotfix/* ── chore/* ── Trabalho diário
 ```
 
-| Branch | Propósito | Merge para | Proteção |
-|--------|-----------|-----------|----------|
-| `master` | Código em produção | — | ✅ Protegida (2 revisores) |
-| `develop` | Integração de features | `master` via release | ✅ Protegida (1 revisor) |
-| `release/*` | Candidate de release | `master` e `develop` | ⚠️ Somente tech lead |
-| `feature/*` | Nova funcionalidade | `develop` | ❌ Sem proteção |
-| `bugfix/*` | Correção não-crítica | `develop` | ❌ Sem proteção |
-| `hotfix/*` | Correção crítica em produção | `master` e `develop` | ❌ Sem proteção |
-| `chore/*` | Manutenção/infra | `develop` | ❌ Sem proteção |
+| Branch      | Propósito                    | Merge para           | Proteção                   |
+| ----------- | ---------------------------- | -------------------- | -------------------------- |
+| `master`    | Código em produção           | —                    | ✅ Protegida (2 revisores) |
+| `develop`   | Integração de features       | `master` via release | ✅ Protegida (1 revisor)   |
+| `release/*` | Candidate de release         | `master` e `develop` | ⚠️ Somente tech lead       |
+| `feature/*` | Nova funcionalidade          | `develop`            | ❌ Sem proteção            |
+| `bugfix/*`  | Correção não-crítica         | `develop`            | ❌ Sem proteção            |
+| `hotfix/*`  | Correção crítica em produção | `master` e `develop` | ❌ Sem proteção            |
+| `chore/*`   | Manutenção/infra             | `develop`            | ❌ Sem proteção            |
 
 ### 1.2 Convenções de Nomenclatura de Branches
 
@@ -122,18 +122,18 @@ Adotamos a especificação [Conventional Commits](https://www.conventionalcommit
 
 ### 2.2 Tipos Permitidos
 
-| Tipo | Quando usar | Gera versão |
-|------|-------------|-------------|
-| `feat` | Nova funcionalidade para o usuário | MINOR |
-| `fix` | Correção de bug para o usuário | PATCH |
-| `docs` | Mudanças apenas na documentação | — |
-| `style` | Formatação, ponto-e-vírgula etc. (sem mudança de lógica) | — |
-| `refactor` | Refatoração sem mudança de comportamento | — |
-| `perf` | Melhoria de performance | PATCH |
-| `test` | Adicionar ou corrigir testes | — |
-| `chore` | Tarefas de build, dependências, CI | — |
-| `ci` | Mudanças em arquivos de CI/CD | — |
-| `revert` | Reverte um commit anterior | PATCH |
+| Tipo       | Quando usar                                              | Gera versão |
+| ---------- | -------------------------------------------------------- | ----------- |
+| `feat`     | Nova funcionalidade para o usuário                       | MINOR       |
+| `fix`      | Correção de bug para o usuário                           | PATCH       |
+| `docs`     | Mudanças apenas na documentação                          | —           |
+| `style`    | Formatação, ponto-e-vírgula etc. (sem mudança de lógica) | —           |
+| `refactor` | Refatoração sem mudança de comportamento                 | —           |
+| `perf`     | Melhoria de performance                                  | PATCH       |
+| `test`     | Adicionar ou corrigir testes                             | —           |
+| `chore`    | Tarefas de build, dependências, CI                       | —           |
+| `ci`       | Mudanças em arquivos de CI/CD                            | —           |
+| `revert`   | Reverte um commit anterior                               | PATCH       |
 
 ### 2.3 Escopos do Projeto
 
@@ -213,7 +213,7 @@ Configurações obrigatórias:
       - Dismiss stale pull request approvals when new commits are pushed: true
       - Require review from Code Owners: true
       - Restrict who can dismiss pull request reviews: true (somente admins)
-  
+
   ✅ Require status checks to pass before merging
       - Require branches to be up to date before merging: true
       Status checks obrigatórios:
@@ -222,7 +222,7 @@ Configurações obrigatórias:
         - test (Jest)
         - build (Next.js)
         - security (npm audit)
-  
+
   ✅ Require conversation resolution before merging: true
   ✅ Require signed commits: true (recomendado)
   ✅ Include administrators: false (admins podem fazer hotfix emergencial)
@@ -242,14 +242,14 @@ Configurações obrigatórias:
   ✅ Require a pull request before merging
       - Required approving reviews: 1
       - Dismiss stale pull request approvals when new commits are pushed: true
-  
+
   ✅ Require status checks to pass before merging
       - Require branches to be up to date before merging: true
       Status checks obrigatórios:
         - lint
         - type-check
         - build
-  
+
   ✅ Require conversation resolution before merging: true
   ✅ Allow force pushes: false
   ✅ Allow deletions: false
@@ -407,7 +407,7 @@ on:
   pull_request:
     branches: [master, develop]
   schedule:
-    - cron: '0 6 * * 1'  # toda segunda-feira às 06:00 UTC
+    - cron: '0 6 * * 1' # toda segunda-feira às 06:00 UTC
 
 jobs:
   npm-audit:
@@ -696,10 +696,7 @@ Certifique-se de que o `package.json` contém todos estes scripts:
 
 ```json
 {
-  "extends": [
-    "next/core-web-vitals",
-    "next/typescript"
-  ],
+  "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
     "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
@@ -710,12 +707,7 @@ Certifique-se de que o `package.json` contém todos estes scripts:
     "no-var": "error",
     "eqeqeq": ["error", "always"]
   },
-  "ignorePatterns": [
-    "node_modules/",
-    ".next/",
-    "coverage/",
-    "dist/"
-  ]
+  "ignorePatterns": ["node_modules/", ".next/", "coverage/", "dist/"]
 }
 ```
 
@@ -794,16 +786,9 @@ npx --no -- commitlint --edit "$1"
 
 ```json
 {
-  "*.{ts,tsx}": [
-    "eslint --fix --max-warnings=0",
-    "prettier --write"
-  ],
-  "*.{md,json,yml,yaml}": [
-    "prettier --write"
-  ],
-  "*.css": [
-    "prettier --write"
-  ]
+  "*.{ts,tsx}": ["eslint --fix --max-warnings=0", "prettier --write"],
+  "*.{md,json,yml,yaml}": ["prettier --write"],
+  "*.css": ["prettier --write"]
 }
 ```
 
@@ -830,9 +815,21 @@ module.exports = {
       1,
       'always',
       [
-        'auth', 'inventory', 'requests', 'reports', 'admin',
-        'dashboard', 'tenant', 'firebase', 'api', 'ui',
-        'types', 'hooks', 'config', 'deploy', 'deps',
+        'auth',
+        'inventory',
+        'requests',
+        'reports',
+        'admin',
+        'dashboard',
+        'tenant',
+        'firebase',
+        'api',
+        'ui',
+        'types',
+        'hooks',
+        'config',
+        'deploy',
+        'deps',
       ],
     ],
     'subject-max-length': [2, 'always', 72],
@@ -882,11 +879,13 @@ ls -la .husky/
 ## 🔗 Issues Relacionadas
 
 <!-- Use "Closes #N" para fechar automaticamente a issue ao mergear -->
+
 Closes #<!-- número da issue -->
 
 ## 🧪 Como Testar
 
 <!-- Descreva os passos para testar suas mudanças -->
+
 1. Clone a branch: `git checkout feature/nome-da-feature`
 2. Instale dependências: `npm install`
 3. Inicie o ambiente: `npm run dev`
@@ -896,27 +895,32 @@ Closes #<!-- número da issue -->
 ## ✅ Checklist do Autor
 
 ### Qualidade de Código
+
 - [ ] Executei `npm run lint` sem erros
 - [ ] Executei `npm run format:check` sem erros
 - [ ] Executei `npm run type-check` sem erros
 - [ ] Código segue os padrões e convenções do projeto
 
 ### Testes
+
 - [ ] Adicionei/atualizei testes para as mudanças realizadas
 - [ ] Todos os testes passam localmente (`npm run test`)
 - [ ] Cobertura de testes não reduziu
 
 ### Build e Deploy
+
 - [ ] Build passa sem erros (`npm run build`)
 - [ ] Não há erros ou warnings no console durante execução
 - [ ] Variáveis de ambiente necessárias estão documentadas em `.env.example`
 
 ### Segurança (Multi-Tenant)
+
 - [ ] Todas as queries Firestore incluem `tenant_id` no filtro
 - [ ] Nenhuma credencial ou secret foi commitada
 - [ ] Regras de segurança Firestore foram respeitadas
 
 ### Documentação
+
 - [ ] Commits seguem o padrão Conventional Commits
 - [ ] CHANGELOG ou doc atualizado (se necessário)
 - [ ] README atualizado (se necessário)
@@ -926,8 +930,8 @@ Closes #<!-- número da issue -->
 <!-- Para mudanças de UI, inclua screenshots antes/depois -->
 <!-- Para changes de API/lógica, inclua logs ou outputs relevantes -->
 
-| Antes | Depois |
-|-------|--------|
+| Antes        | Depois       |
+| ------------ | ------------ |
 | _screenshot_ | _screenshot_ |
 
 ## 🚀 Notas de Deploy
@@ -977,7 +981,7 @@ body:
     attributes:
       label: 📋 Descrição do Bug
       description: Descreva o bug de forma clara e concisa
-      placeholder: "O que está acontecendo de errado?"
+      placeholder: 'O que está acontecendo de errado?'
     validations:
       required: true
 
@@ -1027,7 +1031,7 @@ body:
     attributes:
       label: 🏷️ Versão
       description: Versão do sistema onde o bug ocorre
-      placeholder: "ex: v1.2.0 ou SHA do commit"
+      placeholder: 'ex: v1.2.0 ou SHA do commit'
     validations:
       required: false
 
@@ -1048,7 +1052,7 @@ body:
     id: os
     attributes:
       label: 💻 Sistema Operacional
-      placeholder: "ex: macOS 14, Windows 11, Ubuntu 22.04"
+      placeholder: 'ex: macOS 14, Windows 11, Ubuntu 22.04'
 
   - type: textarea
     id: logs
@@ -1085,7 +1089,7 @@ body:
     attributes:
       label: 🎯 Problema que esta feature resolve
       description: Descreva o problema ou necessidade que motivou este pedido
-      placeholder: "Atualmente não consigo fazer X, o que me obriga a Y..."
+      placeholder: 'Atualmente não consigo fazer X, o que me obriga a Y...'
     validations:
       required: true
 
@@ -1181,35 +1185,32 @@ Baseado nas práticas do Google ([Google Engineering Practices](https://google.g
 
 ### 9.2 Prefixos de Comentários em PRs
 
-| Prefixo | Significado | Bloqueia merge? |
-|---------|-------------|----------------|
-| `[BLOCKER]` | Deve ser corrigido antes do merge | ✅ Sim |
-| `[SUGGESTION]` | Melhoria recomendada, mas não obrigatória | ❌ Não |
-| `[QUESTION]` | Dúvida genuína sobre a abordagem | ❌ Não |
-| `[NIT]` | Detalhe minor (nitpick) | ❌ Não |
-| `[PRAISE]` | Reconhecimento de boa prática | ❌ Não |
+| Prefixo        | Significado                               | Bloqueia merge? |
+| -------------- | ----------------------------------------- | --------------- |
+| `[BLOCKER]`    | Deve ser corrigido antes do merge         | ✅ Sim          |
+| `[SUGGESTION]` | Melhoria recomendada, mas não obrigatória | ❌ Não          |
+| `[QUESTION]`   | Dúvida genuína sobre a abordagem          | ❌ Não          |
+| `[NIT]`        | Detalhe minor (nitpick)                   | ❌ Não          |
+| `[PRAISE]`     | Reconhecimento de boa prática             | ❌ Não          |
 
 **Exemplo de comentário de qualidade:**
 
-```
+````
 [BLOCKER] Esta query Firestore não filtra por tenant_id:
 
 ```ts
 const docs = await db.collection('inventory').get();
-```
+````
 
 Isso expõe dados de todos os tenants. Corrija para:
 
 ```ts
-const docs = await db
-  .collection('tenants')
-  .doc(tenantId)
-  .collection('inventory')
-  .get();
+const docs = await db.collection('tenants').doc(tenantId).collection('inventory').get();
 ```
 
 Veja a regra multi-tenant em ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md#multi-tenant.
-```
+
+````
 
 ### 9.3 Checklist para Revisores
 
@@ -1259,16 +1260,16 @@ Veja a regra multi-tenant em ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZAC
 
 ### Observações do Revisor
 <!-- Suas notas livres aqui -->
-```
+````
 
 ### 9.4 Tempo de Resposta Esperado
 
-| Situação | SLA |
-|----------|-----|
-| PR aberto (primeira revisão) | 24h úteis |
-| Resposta a comentários do reviewer | 48h úteis |
+| Situação                              | SLA                           |
+| ------------------------------------- | ----------------------------- |
+| PR aberto (primeira revisão)          | 24h úteis                     |
+| Resposta a comentários do reviewer    | 48h úteis                     |
 | PR bloqueado aguardando infra/decisão | Comunicar em #dev Slack/Teams |
-| Hotfix crítico | 4h |
+| Hotfix crítico                        | 4h                            |
 
 ---
 
@@ -1355,7 +1356,7 @@ O arquivo `CODEOWNERS` define revisores automáticos baseados em caminhos de arq
 
 **Arquivo:** `CONTRIBUTING.md` (na raiz do projeto)
 
-```markdown
+````markdown
 # 🤝 Guia de Contribuição — Curva Mestra System
 
 Obrigado por contribuir! Este guia explica como participar do desenvolvimento.
@@ -1381,10 +1382,12 @@ cp .env.example .env.local
 # Preencha .env.local com os valores do Firebase dev
 npm run dev
 ```
+````
 
 ## 🌿 Workflow de Contribuição
 
 ### 1. Crie ou escolha uma Issue
+
 - Verifique se já existe uma issue para sua mudança
 - Se não existe, crie uma com o template adequado
 - Assign a você mesmo antes de começar
@@ -1428,6 +1431,7 @@ npm run build         # Build sem erros
 ## 📝 Padrões de Código
 
 ### TypeScript
+
 - **Sem `any`**: Use tipos explícitos sempre
 - **Interfaces > Types** para objetos públicos
 - **Zod** para validação de dados externos
@@ -1446,12 +1450,14 @@ const createInventory = (data: any) => { ... }
 ```
 
 ### React / Next.js
+
 - **Server Components** por padrão, `'use client'` apenas quando necessário
 - **`next/image`** para todas as imagens
 - **`next/link`** para navegação interna
 - Evite `useEffect` desnecessários
 
 ### Firebase / Firestore
+
 - **SEMPRE** filtre por `tenant_id` em queries
 - Use **transações** para operações que envolvem múltiplos documentos
 - **Nunca** exponha Firebase config em logs
@@ -1475,15 +1481,15 @@ const getInventory = async () => {
 
 ### Naming Conventions
 
-| Elemento | Convenção | Exemplo |
-|----------|-----------|---------|
-| Arquivos de componentes | `PascalCase.tsx` | `InventoryTable.tsx` |
-| Arquivos de utilitários | `camelCase.ts` | `formatDate.ts` |
-| Hooks | `useCamelCase.ts` | `useInventory.ts` |
-| Tipos/Interfaces | `PascalCase` | `InventoryItem` |
-| Variáveis/Funções | `camelCase` | `getInventory()` |
-| Constantes | `UPPER_SNAKE_CASE` | `MAX_BATCH_SIZE` |
-| CSS classes (Tailwind) | Sem convenção especial | — |
+| Elemento                | Convenção              | Exemplo              |
+| ----------------------- | ---------------------- | -------------------- |
+| Arquivos de componentes | `PascalCase.tsx`       | `InventoryTable.tsx` |
+| Arquivos de utilitários | `camelCase.ts`         | `formatDate.ts`      |
+| Hooks                   | `useCamelCase.ts`      | `useInventory.ts`    |
+| Tipos/Interfaces        | `PascalCase`           | `InventoryItem`      |
+| Variáveis/Funções       | `camelCase`            | `getInventory()`     |
+| Constantes              | `UPPER_SNAKE_CASE`     | `MAX_BATCH_SIZE`     |
+| CSS classes (Tailwind)  | Sem convenção especial | —                    |
 
 ## 🔐 Segurança
 
@@ -1497,7 +1503,8 @@ const getInventory = async () => {
 - Consulte primeiro este guia e o `README.md`
 - Abra uma [Discussão](https://github.com/GScandelari/curva_mestra_system/discussions)
 - Contate o tech lead no canal `#dev` do Slack/Teams
-```
+
+````
 
 ---
 
@@ -1543,7 +1550,7 @@ npm run dev
 npm run lint       # sem erros
 npm run type-check # sem erros TypeScript
 npm run build      # build completo
-```
+````
 
 ### 12.3 Variáveis de Ambiente Necessárias
 
@@ -1643,14 +1650,17 @@ Adicione ao topo do `README.md` para visibilidade do status do projeto:
 
 ```markdown
 <!-- Badges de CI/CD -->
+
 [![CI Pipeline](https://github.com/GScandelari/curva_mestra_system/actions/workflows/ci.yml/badge.svg)](https://github.com/GScandelari/curva_mestra_system/actions/workflows/ci.yml)
 [![Security Check](https://github.com/GScandelari/curva_mestra_system/actions/workflows/security.yml/badge.svg)](https://github.com/GScandelari/curva_mestra_system/actions/workflows/security.yml)
 
 <!-- Qualidade de Código -->
+
 [![codecov](https://codecov.io/gh/GScandelari/curva_mestra_system/branch/master/graph/badge.svg)](https://codecov.io/gh/GScandelari/curva_mestra_system)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=GScandelari_curva_mestra_system&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=GScandelari_curva_mestra_system)
 
 <!-- Metadados -->
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-20.x-brightgreen)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org)
@@ -1682,24 +1692,26 @@ sonar.qualitygate.wait=true
 ### 13.3 Dashboard de Métricas (Insights GitHub)
 
 Acesse `Insights → Actions` para monitorar:
+
 - Taxa de sucesso de workflows
 - Tempo médio de execução por job
 - Falhas por tipo de job
 
 **Métricas recomendadas para acompanhar:**
 
-| Métrica | Meta | Frequência |
-|---------|------|-----------|
-| Taxa de CI verde | > 95% | Semanal |
-| Tempo médio de CI | < 8 min | Semanal |
-| Cobertura de testes | > 70% | Por PR |
-| Vulnerabilidades críticas | 0 | Contínuo |
-| PRs abertos sem review > 24h | 0 | Diário |
-| Dívida técnica SonarCloud | < 5 dias | Mensal |
+| Métrica                      | Meta     | Frequência |
+| ---------------------------- | -------- | ---------- |
+| Taxa de CI verde             | > 95%    | Semanal    |
+| Tempo médio de CI            | < 8 min  | Semanal    |
+| Cobertura de testes          | > 70%    | Por PR     |
+| Vulnerabilidades críticas    | 0        | Contínuo   |
+| PRs abertos sem review > 24h | 0        | Diário     |
+| Dívida técnica SonarCloud    | < 5 dias | Mensal     |
 
 ### 13.4 Alertas e Notificações
 
 Configure notificações em `Settings → Notifications` para receber alertas de:
+
 - Falhas no workflow de CI
 - Novas vulnerabilidades detectadas
 - PRs aguardando sua revisão há mais de 24h
@@ -1719,7 +1731,7 @@ Repository Settings:
     ✅ Wiki: desabilitado (usar ONLY_FOR_DEVS em vez disso)
     ✅ Discussions: habilitado (para Q&A da comunidade)
     ✅ Sponsorships: desabilitado
-  
+
   Pull Requests:
     ✅ Allow merge commits: false (use squash ou rebase)
     ✅ Allow squash merging: true
@@ -1728,7 +1740,7 @@ Repository Settings:
     ✅ Always suggest updating pull request branches: true
     ✅ Allow auto-merge: true (para Dependabot)
     ✅ Automatically delete head branches: true
-  
+
   Danger Zone:
     Visibility: Private (repositório de SaaS)
 ```
@@ -1739,43 +1751,45 @@ Crie as seguintes labels em `Issues → Labels`:
 
 ```yaml
 # Tipo
-- bug:              #d73a4a  # Algo está quebrado
-- enhancement:      #a2eeef  # Nova funcionalidade ou melhoria
-- documentation:    #0075ca  # Melhorias ou adições à documentação
-- question:         #d876e3  # Precisa de mais informações
+- bug: #d73a4a  # Algo está quebrado
+- enhancement: #a2eeef  # Nova funcionalidade ou melhoria
+- documentation: #0075ca  # Melhorias ou adições à documentação
+- question: #d876e3  # Precisa de mais informações
 
 # Prioridade
 - priority:critical: #b60205  # Bloqueia usuários em produção
-- priority:high:     #e4e669  # Alta importância
-- priority:medium:   #fbca04  # Prioridade média
-- priority:low:      #0e8a16  # Pode esperar
+- priority:high: #e4e669  # Alta importância
+- priority:medium: #fbca04  # Prioridade média
+- priority:low: #0e8a16  # Pode esperar
 
 # Status
-- needs-triage:     #ededed  # Aguardando classificação
-- in-progress:      #0075ca  # Em desenvolvimento
-- blocked:          #d93f0b  # Bloqueado por dependência
-- wont-fix:         #ffffff  # Decisão de não corrigir
+- needs-triage: #ededed  # Aguardando classificação
+- in-progress: #0075ca  # Em desenvolvimento
+- blocked: #d93f0b  # Bloqueado por dependência
+- wont-fix: #ffffff  # Decisão de não corrigir
 
 # Área
-- area:inventory:   #5319e7  # Módulo de inventário
-- area:auth:        #e4e669  # Autenticação
-- area:reports:     #1d76db  # Relatórios
-- area:admin:       #0075ca  # Painel admin
-- area:infra:       #ededed  # Infraestrutura/CI
+- area:inventory: #5319e7  # Módulo de inventário
+- area:auth: #e4e669  # Autenticação
+- area:reports: #1d76db  # Relatórios
+- area:admin: #0075ca  # Painel admin
+- area:infra: #ededed  # Infraestrutura/CI
 
 # Automação
-- automated:        #cfd3d7  # Criado por bot (Dependabot etc.)
-- dependencies:     #0075ca  # Atualização de dependências
+- automated: #cfd3d7  # Criado por bot (Dependabot etc.)
+- dependencies: #0075ca  # Atualização de dependências
 ```
 
 ### 14.3 Milestones e Projects
 
 **Milestones** para organizar releases:
+
 - `v1.0.0 - MVP` — Funcionalidades mínimas para lançamento
 - `v1.1.0 - Reports` — Módulo de relatórios completo
 - `v1.2.0 - Notifications` — Alertas de vencimento
 
 **Projects (GitHub Projects v2)** para gestão ágil:
+
 - Coluna `Backlog` — Issues abertas sem sprint
 - Coluna `Sprint N` — Issues do sprint atual
 - Coluna `Em Progresso` — PRs abertos
@@ -1794,7 +1808,7 @@ Environments:
       FIREBASE_TOKEN: <token do ambiente dev>
     Variables:
       FIREBASE_PROJECT_ID: curva-mestra-dev
-  
+
   staging:
     Protection rules:
       - Required reviewers: @GScandelari
@@ -1802,7 +1816,7 @@ Environments:
       FIREBASE_TOKEN: <token do ambiente staging>
     Variables:
       FIREBASE_PROJECT_ID: curva-mestra-staging
-  
+
   production:
     Protection rules:
       - Required reviewers: @GScandelari (2 revisores)
@@ -1817,11 +1831,11 @@ Environments:
 
 Configure em `Settings → Secrets and variables → Actions`:
 
-| Secret | Descrição | Obrigatório |
-|--------|-----------|-------------|
-| `FIREBASE_TOKEN` | Token do Firebase CLI para deploy | ✅ |
-| `SONAR_TOKEN` | Token do SonarCloud | ⚠️ Recomendado |
-| `CODECOV_TOKEN` | Token do Codecov | ⚠️ Recomendado |
+| Secret           | Descrição                         | Obrigatório    |
+| ---------------- | --------------------------------- | -------------- |
+| `FIREBASE_TOKEN` | Token do Firebase CLI para deploy | ✅             |
+| `SONAR_TOKEN`    | Token do SonarCloud               | ⚠️ Recomendado |
+| `CODECOV_TOKEN`  | Token do Codecov                  | ⚠️ Recomendado |
 
 ```bash
 # Gerar Firebase Token
@@ -2045,43 +2059,43 @@ npm run build      # Se o check "build" falhou
 
 ### Documentação Oficial
 
-| Recurso | URL |
-|---------|-----|
-| Conventional Commits | https://www.conventionalcommits.org/pt-br/ |
-| Git Flow (Atlassian) | https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow |
-| GitHub Actions | https://docs.github.com/en/actions |
-| GitHub Branch Protection | https://docs.github.com/en/repositories/configuring-branches-and-merges |
-| Dependabot | https://docs.github.com/en/code-security/dependabot |
-| CODEOWNERS | https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners |
-| Husky | https://typicode.github.io/husky/ |
-| lint-staged | https://github.com/lint-staged/lint-staged |
-| commitlint | https://commitlint.js.org/ |
-| SonarCloud | https://docs.sonarcloud.io/ |
-| Codecov | https://docs.codecov.com/ |
+| Recurso                  | URL                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Conventional Commits     | https://www.conventionalcommits.org/pt-br/                                                                                            |
+| Git Flow (Atlassian)     | https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow                                                          |
+| GitHub Actions           | https://docs.github.com/en/actions                                                                                                    |
+| GitHub Branch Protection | https://docs.github.com/en/repositories/configuring-branches-and-merges                                                               |
+| Dependabot               | https://docs.github.com/en/code-security/dependabot                                                                                   |
+| CODEOWNERS               | https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners |
+| Husky                    | https://typicode.github.io/husky/                                                                                                     |
+| lint-staged              | https://github.com/lint-staged/lint-staged                                                                                            |
+| commitlint               | https://commitlint.js.org/                                                                                                            |
+| SonarCloud               | https://docs.sonarcloud.io/                                                                                                           |
+| Codecov                  | https://docs.codecov.com/                                                                                                             |
 
 ### Guias de Boas Práticas
 
-| Recurso | URL |
-|---------|-----|
-| Google Engineering Practices (Code Review) | https://google.github.io/eng-practices/review/ |
-| Airbnb JavaScript Style Guide | https://github.com/airbnb/javascript |
-| Facebook/Meta Open Source | https://opensource.fb.com/ |
-| GitHub's Engineering Blog | https://github.blog/engineering/ |
-| Next.js Best Practices | https://nextjs.org/docs/app/building-your-application |
-| Firebase Security Rules | https://firebase.google.com/docs/rules |
+| Recurso                                    | URL                                                   |
+| ------------------------------------------ | ----------------------------------------------------- |
+| Google Engineering Practices (Code Review) | https://google.github.io/eng-practices/review/        |
+| Airbnb JavaScript Style Guide              | https://github.com/airbnb/javascript                  |
+| Facebook/Meta Open Source                  | https://opensource.fb.com/                            |
+| GitHub's Engineering Blog                  | https://github.blog/engineering/                      |
+| Next.js Best Practices                     | https://nextjs.org/docs/app/building-your-application |
+| Firebase Security Rules                    | https://firebase.google.com/docs/rules                |
 
 ### Ferramentas Complementares
 
-| Ferramenta | Propósito | URL |
-|-----------|-----------|-----|
-| Release Please | Versionamento semântico automático | https://github.com/googleapis/release-please |
-| Codecov | Relatórios de cobertura de testes | https://codecov.io |
-| SonarCloud | Análise estática de código | https://sonarcloud.io |
-| Snyk | Análise de segurança de dependências | https://snyk.io |
-| Renovate | Alternativa ao Dependabot | https://docs.renovatebot.com |
+| Ferramenta     | Propósito                            | URL                                          |
+| -------------- | ------------------------------------ | -------------------------------------------- |
+| Release Please | Versionamento semântico automático   | https://github.com/googleapis/release-please |
+| Codecov        | Relatórios de cobertura de testes    | https://codecov.io                           |
+| SonarCloud     | Análise estática de código           | https://sonarcloud.io                        |
+| Snyk           | Análise de segurança de dependências | https://snyk.io                              |
+| Renovate       | Alternativa ao Dependabot            | https://docs.renovatebot.com                 |
 
 ---
 
-*Documento mantido por @GScandelari — Abra uma issue com a label `documentation` para sugestões ou correções.*
+_Documento mantido por @GScandelari — Abra uma issue com a label `documentation` para sugestões ou correções._
 
-*Última atualização: Abril/2026 | Versão do documento: 1.0.0*
+_Última atualização: Abril/2026 | Versão do documento: 1.0.0_

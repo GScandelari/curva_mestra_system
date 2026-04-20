@@ -20,7 +20,7 @@ A página Activate é uma **tela de ativação de conta** que permite que usuár
 ```typescript
 return {
   success: false,
-  message: "Esta função foi depreciada. Use o novo fluxo de aprovação automática.",
+  message: 'Esta função foi depreciada. Use o novo fluxo de aprovação automática.',
 };
 ```
 
@@ -55,11 +55,13 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 ```
 
 ### 1.4 Localização
+
 - **Arquivo:** `src/app/(auth)/activate/page.tsx`
 - **Rota:** `/activate`
 - **Layout:** Auth Layout (sem navegação principal)
 
 ### 1.5 Dependências Principais
+
 - **Serviço:** `src/lib/services/accessRequestService.ts` (depreciado)
 - **API:** `POST /api/users/activate`
 - **Firebase Admin:** Criação de usuário e custom claims
@@ -72,11 +74,13 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 ### 2.1 Processo Completo
 
 **Etapa 1: Solicitação**
+
 - Usuário preenche formulário de registro
 - Solicitação criada em `access_requests`
 - Status: "pendente"
 
 **Etapa 2: Aprovação**
+
 - System Admin acessa painel
 - Admin aprova solicitação
 - Sistema gera código de 8 dígitos
@@ -84,6 +88,7 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 - Status: "ativa" (ou similar)
 
 **Etapa 3: Ativação (Esta Página)**
+
 - Usuário recebe email com código
 - Usuário acessa `/activate`
 - Usuário insere email + código
@@ -93,23 +98,27 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 - Status: "aprovado" ou conta criada
 
 **Etapa 4: Login**
+
 - Usuário faz login com credenciais
 - Acesso ao sistema liberado
 
 ### 2.2 Código de Ativação
 
 **Formato:**
+
 - 8 dígitos numéricos
 - Exemplo: "12345678"
 - Gerado automaticamente
 - Único por solicitação
 
 **Validade:**
+
 - Expira em 24 horas após aprovação
 - Uso único
 - Vinculado ao email
 
 **Armazenamento:**
+
 - Provavelmente em `access_requests`
 - Campo: `activation_code` ou similar
 - Hash ou texto plano (depende da implementação)
@@ -122,12 +131,14 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 
 **Ator:** Usuário Aprovado  
 **Pré-condições:**
+
 - Solicitação foi aprovada por admin
 - Código de 8 dígitos foi enviado por email
 - Código ainda não expirou (< 24 horas)
 - Código não foi usado
 
 **Fluxo Principal:**
+
 1. Usuário recebe email com código: "12345678"
 2. Usuário acessa `/activate`
 3. Sistema exibe formulário
@@ -140,12 +151,14 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 10. Sistema exibe erro
 
 **Pós-condições (Se Funcionasse):**
+
 - Conta criada no Firebase Auth
 - Custom claims configurados
 - Usuário pode fazer login
 - Código marcado como usado
 
 **Status Atual:**
+
 - ❌ Função depreciada
 - ❌ Fluxo não funciona
 - ⚠️ Página pode estar obsoleta
@@ -156,10 +169,12 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário possui código
 - Código está incorreto, expirado ou já foi usado
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/activate`
 2. Usuário digita email e código
 3. Usuário clica em "Ativar Conta"
@@ -168,12 +183,14 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 6. Sistema exibe erro
 
 **Mensagens Possíveis:**
+
 - "Código inválido ou expirado"
 - "Código já foi utilizado"
 - "Email não corresponde à solicitação"
 - "Solicitação não encontrada"
 
 **Pós-condições:**
+
 - Conta NÃO criada
 - Usuário permanece na página
 - Pode tentar novamente ou solicitar novo código
@@ -184,9 +201,11 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário digita email incorreto
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/activate`
 2. Usuário digita email sem "@": "emailinvalido"
 3. Usuário digita código válido
@@ -196,6 +215,7 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 7. Sistema exibe erro: "Email inválido"
 
 **Pós-condições:**
+
 - Validação frontend previne envio
 - Usuário corrige email
 
@@ -205,9 +225,11 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Usuário digita código incompleto
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/activate`
 2. Usuário digita email válido
 3. Usuário digita código: "1234" (4 dígitos)
@@ -217,6 +239,7 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 7. Sistema exibe erro: "Código deve ter 8 dígitos"
 
 **Pós-condições:**
+
 - Validação frontend previne envio
 - Usuário completa código
 
@@ -226,10 +249,12 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Email já possui conta no Firebase Auth
 - Usuário tenta ativar novamente
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/activate`
 2. Usuário digita email e código
 3. Usuário clica em "Ativar Conta"
@@ -239,6 +264,7 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 7. Sistema exibe mensagem: "Este email já está cadastrado"
 
 **Pós-condições:**
+
 - Conta NÃO criada (já existe)
 - Usuário deve fazer login
 - Ou contatar suporte
@@ -249,10 +275,12 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Clínica atingiu limite máximo de usuários
 - Usuário tenta ativar conta
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/activate`
 2. Usuário digita email e código
 3. Usuário clica em "Ativar Conta"
@@ -262,6 +290,7 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 7. Sistema exibe erro: "Clínica atingiu o limite de usuários ativos"
 
 **Pós-condições:**
+
 - Conta NÃO criada
 - Admin precisa aumentar limite ou desativar usuário
 
@@ -271,10 +300,12 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 
 **Ator:** Usuário  
 **Pré-condições:**
+
 - Solicitação aprovada mas sem tenant_id
 - Usuário precisa ser associado a clínica
 
 **Fluxo Principal:**
+
 1. Usuário acessa `/activate`
 2. Usuário digita email e código
 3. Usuário clica em "Ativar Conta"
@@ -286,6 +317,7 @@ Isso indica que esta página pode estar em processo de descontinuação ou subst
 9. Sistema exibe mensagem: "Conta criada! Aguarde aprovação do administrador do sistema."
 
 **Pós-condições:**
+
 - Conta criada mas inativa
 - Usuário aguarda associação a tenant
 - System Admin precisa configurar
@@ -420,37 +452,44 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 ## 5. Regras de Negócio
 
 ### RN-001: Código de 8 Dígitos Obrigatório
+
 **Descrição:** Código deve ter exatamente 8 dígitos numéricos  
 **Aplicação:** Validação frontend e backend  
 **Exceções:** Nenhuma  
 **Justificativa:** Formato padronizado, fácil de digitar
 
 ### RN-002: Email Obrigatório e Válido
+
 **Descrição:** Email deve ter formato válido e corresponder à solicitação  
 **Aplicação:** Validação frontend e backend  
 **Exceções:** Nenhuma  
 **Justificativa:** Vincula código ao solicitante correto
 
 ### RN-003: Código com Validade de 24 Horas
+
 **Descrição:** Código expira 24 horas após geração  
 **Aplicação:** Validação no backend  
 **Exceções:** Nenhuma  
 **Justificativa:** Segurança - limita janela de uso
 
 ### RN-004: Código de Uso Único
+
 **Descrição:** Cada código pode ser usado apenas uma vez  
 **Aplicação:** Marcação no backend após uso  
 **Exceções:** Nenhuma  
 **Justificativa:** Previne reutilização
 
 ### RN-005: Verificação de Limite de Usuários
+
 **Descrição:** Tenant não pode exceder limite de usuários ativos  
 **Aplicação:** API verifica antes de criar usuário  
 **Exceções:** Nenhuma  
 **Justificativa:** Controle de plano e licenciamento
 
 ### RN-006: Role Baseado em Tipo de Documento
+
 **Descrição:**
+
 - CPF → `clinic_admin` (conta individual)
 - CNPJ → `clinic_user` (pode ter múltiplos usuários)
 
@@ -459,12 +498,14 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 **Justificativa:** Diferenciação entre autônomo e clínica
 
 ### RN-007: Email Verificado Automaticamente
+
 **Descrição:** Usuário criado com `emailVerified: true`  
 **Aplicação:** Firebase Auth ao criar usuário  
 **Exceções:** Nenhuma  
 **Justificativa:** Código já validou posse do email
 
 ---
+
 ## 6. Estados da Interface
 
 ### 6.1 Estado: Formulário Inicial
@@ -473,10 +514,12 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 **Exibição:**
 
 **Card Header:**
+
 - Título: "Ativar Conta"
 - Descrição: "Digite o código de 8 dígitos enviado para seu email"
 
 **Card Content:**
+
 - **Campo Email:**
   - Type: email
   - Placeholder: "seu.email@exemplo.com"
@@ -496,6 +539,7 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 - **Botão:** "Ativar Conta"
 
 **Card Footer:**
+
 - Link: "Não recebeu o código? Solicitar novamente" → `/register`
 - Link: "Voltar para login" → `/login`
 - Texto: "O código expira em 24 horas após aprovação"
@@ -504,6 +548,7 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 
 **Quando:** Usuário submeteu formulário  
 **Exibição:**
+
 - Campos desabilitados
 - Botão desabilitado
 - Ícone de loading (Loader2) animado
@@ -515,6 +560,7 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 
 **Quando:** Conta ativada com sucesso  
 **Exibição:**
+
 - Alert verde com ícone de check
 - Mensagem: "Conta ativada com sucesso! Redirecionando para o login..."
 - Formulário desabilitado
@@ -524,12 +570,14 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 
 **Quando:** Falha na ativação  
 **Exibição:**
+
 - Alert vermelho com ícone de erro
 - Mensagem de erro específica
 - Formulário habilitado para nova tentativa
 - Campos mantêm valores
 
 **Mensagens de Erro:**
+
 - "Email inválido"
 - "Código deve ter 8 dígitos"
 - "Esta função foi depreciada. Use o novo fluxo de aprovação automática."
@@ -583,6 +631,7 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 ### 7.2 Elementos de UI
 
 **Input de Código:**
+
 - Estilo especial: Centralizado, grande, monoespaçado
 - Classes: `text-center text-2xl font-mono tracking-wider`
 - Máscara: Remove caracteres não numéricos
@@ -590,15 +639,18 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 - Visual: Destaque para facilitar digitação
 
 **Botão:**
+
 - Full width
 - Disabled durante processamento
 - Ícone de loading quando processando
 
 **Links:**
+
 - Cor: Primary com hover underline
 - Destinos: `/register` e `/login`
 
 **Aviso de Expiração:**
+
 - Tamanho: Extra small
 - Cor: Muted foreground
 - Posição: Rodapé
@@ -610,12 +662,14 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 ### 8.1 Validações de Frontend
 
 **Email:**
+
 - Obrigatório (HTML5 required)
 - Formato de email (HTML5 type="email")
 - Deve conter "@"
 - Mensagem: "Email inválido"
 
 **Código:**
+
 - Obrigatório
 - Exatamente 8 dígitos
 - Apenas números (máscara remove outros caracteres)
@@ -624,31 +678,37 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 ### 8.2 Validações do Backend (API)
 
 **Dados Completos:**
+
 - email, password, displayName obrigatórios
 - Mensagem: "Dados incompletos"
 
 **Email Único:**
+
 - Não pode existir no Firebase Auth
 - Erro: `auth/email-already-exists`
 - Mensagem: "Este email já está cadastrado"
 
 **Tenant Existe:**
+
 - Se tenant_id fornecido, deve existir
 - Mensagem: "Clínica não encontrada"
 
 **Limite de Usuários:**
+
 - Tenant não pode exceder max_users
 - Mensagem: "Clínica atingiu o limite de usuários ativos"
 
 ### 8.3 Validações do Serviço (Depreciado)
 
 **Código Válido:**
+
 - Deve existir em access_requests
 - Deve corresponder ao email
 - Não pode estar expirado
 - Não pode ter sido usado
 
 **Status Atual:**
+
 - ❌ Função retorna erro imediatamente
 - ❌ Validações não são executadas
 
@@ -659,11 +719,13 @@ FLUXO ESPERADO (SE FUNCIONASSE)
 ### 9.1 Serviço - activateAccountWithCode (Depreciado)
 
 **Função:**
+
 ```typescript
 activateAccountWithCode(email: string, activationCode: string)
 ```
 
 **Retorno Atual:**
+
 ```typescript
 {
   success: false,
@@ -678,6 +740,7 @@ activateAccountWithCode(email: string, activationCode: string)
 **Endpoint:** `POST /api/users/activate`  
 **Headers:** `Content-Type: application/json`  
 **Body:**
+
 ```json
 {
   "email": "string",
@@ -688,6 +751,7 @@ activateAccountWithCode(email: string, activationCode: string)
 ```
 
 **Ações da API:**
+
 1. Valida dados completos
 2. Busca access_request para obter document_type
 3. Define role baseado em document_type
@@ -698,6 +762,7 @@ activateAccountWithCode(email: string, activationCode: string)
 8. Cria documento no Firestore
 
 **Resposta Sucesso:**
+
 ```json
 {
   "success": true,
@@ -707,6 +772,7 @@ activateAccountWithCode(email: string, activationCode: string)
 ```
 
 **Resposta Erro:**
+
 ```json
 {
   "success": false,
@@ -719,6 +785,7 @@ activateAccountWithCode(email: string, activationCode: string)
 **Uso:** Criar usuário no Firebase Auth  
 **Método:** `adminAuth.createUser()`  
 **Parâmetros:**
+
 - email (lowercase)
 - password
 - displayName
@@ -728,6 +795,7 @@ activateAccountWithCode(email: string, activationCode: string)
 
 **Uso:** Configurar permissões do usuário  
 **Claims Definidos:**
+
 - `active`: true (se tem tenant) ou false (aguarda admin)
 - `role`: "clinic_admin" (CPF) ou "clinic_user" (CNPJ)
 - `is_system_admin`: false
@@ -736,11 +804,13 @@ activateAccountWithCode(email: string, activationCode: string)
 ### 9.5 Firestore - Armazenamento
 
 **Com Tenant:**
+
 - Coleção: `tenants/{tenant_id}/users`
 - Documento: `{uid}`
 - Campos: uid, email, displayName, tenant_id, role, active, timestamps
 
 **Sem Tenant:**
+
 - Coleção: `pending_users`
 - Documento: `{uid}`
 - Campos: uid, email, displayName, role, active: false, timestamps
@@ -750,6 +820,7 @@ activateAccountWithCode(email: string, activationCode: string)
 ## 10. Segurança
 
 ### 10.1 Proteções Implementadas
+
 - ✅ Código de 8 dígitos (difícil de adivinhar)
 - ✅ Expiração de 24 horas
 - ✅ Código de uso único
@@ -761,31 +832,37 @@ activateAccountWithCode(email: string, activationCode: string)
 ### 10.2 Considerações de Segurança
 
 **Código de 8 Dígitos:**
+
 - Entropia: 10^8 = 100 milhões de possibilidades
 - Difícil de adivinhar por brute force
 - Expiração limita janela de ataque
 
 **Email Verificado:**
+
 - Código enviado por email confirma posse
 - `emailVerified: true` no Firebase Auth
 - Não requer verificação adicional
 
 **Uso Único:**
+
 - Código marcado como usado após ativação
 - Previne reutilização
 
 ### 10.3 Vulnerabilidades Potenciais
 
 **Função Depreciada:**
+
 - ⚠️ Fluxo não funciona atualmente
 - ⚠️ Página pode estar obsoleta
 - ⚠️ Usuários não conseguem ativar conta
 
 **Sem Rate Limiting:**
+
 - ⚠️ Não há limite de tentativas
 - ⚠️ Vulnerável a brute force (se funcionasse)
 
 **Código em Texto Plano:**
+
 - ⚠️ Não há informação se código é hasheado
 - ⚠️ Pode estar armazenado em texto plano
 
@@ -796,6 +873,7 @@ activateAccountWithCode(email: string, activationCode: string)
 ### 11.1 Evidências de Depreciação
 
 **Código Fonte:**
+
 ```typescript
 export async function activateAccountWithCode(
   email: string,
@@ -809,6 +887,7 @@ export async function activateAccountWithCode(
 ```
 
 **Implicações:**
+
 - ❌ Página não funciona
 - ❌ Usuários não conseguem ativar conta
 - ⚠️ Fluxo foi substituído
@@ -826,12 +905,14 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ### 11.3 Recomendações
 
 **Para Desenvolvedores:**
+
 - [ ] Remover página `/activate` se não for mais usada
 - [ ] Atualizar links que apontam para `/activate`
 - [ ] Documentar novo fluxo de aprovação
 - [ ] Remover código depreciado
 
 **Para Usuários:**
+
 - Não usar esta página
 - Aguardar email com credenciais
 - Fazer login diretamente em `/login`
@@ -841,6 +922,7 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ## 12. Melhorias Futuras (Se Reativada)
 
 ### 12.1 Funcionalidades
+
 - [ ] Reativar função `activateAccountWithCode`
 - [ ] Implementar validação de código
 - [ ] Adicionar rate limiting
@@ -849,6 +931,7 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 - [ ] Histórico de tentativas de ativação
 
 ### 12.2 UX/UI
+
 - [ ] Separar dígitos do código (8 inputs)
 - [ ] Auto-focus entre campos
 - [ ] Copiar/colar código completo
@@ -857,6 +940,7 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 - [ ] Animações de feedback
 
 ### 12.3 Segurança
+
 - [ ] Hash de código no banco
 - [ ] Rate limiting (máximo X tentativas)
 - [ ] Bloqueio temporário após falhas
@@ -871,29 +955,34 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ### 13.1 Decisões de Arquitetura
 
 **Por que código de 8 dígitos?**
+
 - Fácil de digitar
 - Difícil de adivinhar (100 milhões de possibilidades)
 - Padrão comum em sistemas de verificação
 - Não requer caracteres especiais
 
 **Por que depreciado?**
+
 - Provável simplificação do fluxo
 - Aprovação automática mais rápida
 - Menos etapas para o usuário
 - Reduz complexidade
 
 **Por que manter a página?**
+
 - Pode estar em transição
 - Pode ter usuários com códigos pendentes
 - Pode ser reativada no futuro
 
 ### 13.2 Padrões Utilizados
+
 - **Código de Verificação:** Padrão comum em 2FA e verificações
 - **Validação em Camadas:** Frontend → Serviço → API
 - **Feedback Progressivo:** Loading states e mensagens claras
 - **Redirecionamento Automático:** Após sucesso
 
 ### 13.3 Limitações Conhecidas
+
 - ❌ **Função depreciada - página não funciona**
 - ⚠️ Sem rate limiting
 - ⚠️ Sem separação visual de dígitos
@@ -902,6 +991,7 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 - ⚠️ Sem auditoria de tentativas
 
 ### 13.4 Dependências Críticas
+
 - **accessRequestService:** Depreciado
 - **API /users/activate:** Funcional
 - **Firebase Admin:** Criação de usuário
@@ -912,33 +1002,40 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ## 14. Mensagens do Sistema
 
 ### 14.1 Título e Descrição
+
 - "Ativar Conta"
 - "Digite o código de 8 dígitos enviado para seu email"
 
 ### 14.2 Labels e Placeholders
-- Label: "Email *"
+
+- Label: "Email \*"
 - Placeholder: "seu.email@exemplo.com"
-- Label: "Código de Ativação *"
+- Label: "Código de Ativação \*"
 - Placeholder: "12345678"
 
 ### 14.3 Dicas
+
 - "Digite os 8 dígitos enviados por email"
 - "O código expira em 24 horas após aprovação"
 
 ### 14.4 Botões
+
 - "Ativar Conta" (normal)
 - "Ativando..." (processando)
 
 ### 14.5 Links
+
 - "Não recebeu o código? Solicitar novamente"
 - "Voltar para login"
 
 ### 14.6 Mensagens de Sucesso
+
 - "Conta ativada com sucesso! Redirecionando para o login..."
 - "Conta criada com sucesso! Você já pode fazer login."
 - "Conta criada! Aguarde aprovação do administrador do sistema."
 
 ### 14.7 Mensagens de Erro
+
 - "Email inválido"
 - "Código deve ter 8 dígitos"
 - "Esta função foi depreciada. Use o novo fluxo de aprovação automática."
@@ -952,14 +1049,14 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 
 ## 15. Comparação com Outras Páginas
 
-| Aspecto | Activate | Register | Waiting Approval |
-|---------|----------|----------|------------------|
-| **Propósito** | Ativar com código | Solicitar acesso | Aguardar aprovação |
-| **Entrada** | Email + Código | Dados completos | Nenhuma |
-| **Autenticação** | Não logado | Não logado | Logado |
-| **Cria conta** | Sim | Não | Não |
-| **Status** | ❌ Depreciada | ✅ Ativa | ✅ Ativa |
-| **Próxima etapa** | Login | Aguardar email | Aguardar admin |
+| Aspecto           | Activate          | Register         | Waiting Approval   |
+| ----------------- | ----------------- | ---------------- | ------------------ |
+| **Propósito**     | Ativar com código | Solicitar acesso | Aguardar aprovação |
+| **Entrada**       | Email + Código    | Dados completos  | Nenhuma            |
+| **Autenticação**  | Não logado        | Não logado       | Logado             |
+| **Cria conta**    | Sim               | Não              | Não                |
+| **Status**        | ❌ Depreciada     | ✅ Ativa         | ✅ Ativa           |
+| **Próxima etapa** | Login             | Aguardar email   | Aguardar admin     |
 
 ---
 
@@ -968,12 +1065,14 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ### 16.1 Testes Funcionais (Se Reativada)
 
 **Ativação Bem-Sucedida:**
+
 1. Digitar email válido → OK
 2. Digitar código válido → OK
 3. Clicar "Ativar Conta" → Conta criada
 4. Redireciona para login → OK
 
 **Validações:**
+
 1. Email vazio → Erro HTML5
 2. Email inválido → Erro "Email inválido"
 3. Código com menos de 8 dígitos → Erro
@@ -981,15 +1080,18 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 5. Código expirado → Erro
 
 **Status Atual:**
+
 1. Qualquer tentativa → Erro "Função depreciada"
 
 ### 16.2 Testes de Segurança
+
 1. Tentar múltiplos códigos → Sem rate limiting (vulnerável)
 2. Tentar código expirado → Deve rejeitar
 3. Tentar código já usado → Deve rejeitar
 4. Verificar HTTPS → Obrigatório
 
 ### 16.3 Testes de UI
+
 1. Responsividade mobile → OK
 2. Máscara de código (apenas números) → OK
 3. Estilo do input de código → OK
@@ -1002,10 +1104,12 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ### 17.1 Erro "Função Depreciada"
 
 **Causa:**
+
 - Função `activateAccountWithCode` foi desativada
 - Fluxo foi substituído
 
 **Solução:**
+
 - Não usar esta página
 - Aguardar novo fluxo de aprovação
 - Contatar administrador
@@ -1013,12 +1117,14 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ### 17.2 Código Não Funciona (Se Reativada)
 
 **Possíveis Causas:**
+
 - Código expirado (> 24 horas)
 - Código já foi usado
 - Email incorreto
 - Código digitado errado
 
 **Soluções:**
+
 - Verificar email correto
 - Verificar código no email
 - Solicitar novo código
@@ -1027,10 +1133,12 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ### 17.3 Email Já Cadastrado
 
 **Causa:**
+
 - Conta já foi criada anteriormente
 - Tentativa de ativar novamente
 
 **Solução:**
+
 - Fazer login em `/login`
 - Usar "Esqueci a senha" se necessário
 - Contatar suporte se problema persistir
@@ -1052,17 +1160,20 @@ Baseado na mensagem "novo fluxo de aprovação automática", provavelmente:
 ## 19. Referências
 
 ### 19.1 Documentação Relacionada
+
 - Register Page Documentation - `project_doc/register-page-documentation.md`
 - Waiting Approval Documentation - `project_doc/waiting-approval-documentation.md`
 - Login Page Documentation - `project_doc/login-page-documentation.md`
 - Template de Documentação - `project_doc/TEMPLATE-page-documentation.md`
 
 ### 19.2 Código Fonte
+
 - **Página:** `src/app/(auth)/activate/page.tsx`
 - **Serviço:** `src/lib/services/accessRequestService.ts`
 - **API:** `src/app/api/users/activate/route.ts`
 
 ### 19.3 Links Externos
+
 - [Firebase Authentication](https://firebase.google.com/docs/auth)
 - [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)
 

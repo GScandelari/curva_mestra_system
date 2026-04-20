@@ -14,11 +14,13 @@
 Página de gerenciamento de usuários da clínica. Exibe cards de estatísticas (total, ativos, admins), tabela de usuários e dialog para criar novos. Respeita limite `max_users` do tenant. Apenas `clinic_admin` pode acessar.
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(clinic)/clinic/users/page.tsx`
 - **Rota:** `/clinic/users`
 - **Layout:** Clinic Layout
 
 ### 1.2 Dependências
+
 - **Firestore:** `users` (filtro por tenant_id), `tenants/{tenantId}` (max_users)
 - **API Route:** `POST /api/users/create`
 - **Hooks:** `useAuth()`
@@ -28,33 +30,33 @@ Página de gerenciamento de usuários da clínica. Exibe cards de estatísticas 
 
 ## 2. Cards de Estatísticas
 
-| Card | Valor |
-|------|-------|
-| Total de Usuários | `users.length` / Limite: `maxUsers` |
-| Usuários Ativos | `users.filter(u => u.active).length` |
-| Administradores | `users.filter(u => u.role === "clinic_admin").length` |
+| Card              | Valor                                                 |
+| ----------------- | ----------------------------------------------------- |
+| Total de Usuários | `users.length` / Limite: `maxUsers`                   |
+| Usuários Ativos   | `users.filter(u => u.active).length`                  |
+| Administradores   | `users.filter(u => u.role === "clinic_admin").length` |
 
 ---
 
 ## 3. Tabela de Usuários
 
-| Coluna | Descrição |
-|--------|-----------|
-| Usuário | Nome + ícone (Shield para admin, User para regular) |
-| Email | email (muted) |
-| Role | Badge "Administrador" (default) ou "Usuário" (outline) |
-| Status | Badge "Ativo" (default) ou "Inativo" (destructive) |
-| Cadastro | `formatTimestamp(created_at)` |
+| Coluna   | Descrição                                              |
+| -------- | ------------------------------------------------------ |
+| Usuário  | Nome + ícone (Shield para admin, User para regular)    |
+| Email    | email (muted)                                          |
+| Role     | Badge "Administrador" (default) ou "Usuário" (outline) |
+| Status   | Badge "Ativo" (default) ou "Inativo" (destructive)     |
+| Cadastro | `formatTimestamp(created_at)`                          |
 
 ---
 
 ## 4. Dialog: Adicionar Novo Usuário
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| Nome Completo | text | Obrigatório |
-| Email | email | Obrigatório |
-| Senha | password | Min 6 caracteres |
+| Campo           | Tipo          | Descrição                   |
+| --------------- | ------------- | --------------------------- |
+| Nome Completo   | text          | Obrigatório                 |
+| Email           | email         | Obrigatório                 |
+| Senha           | password      | Min 6 caracteres            |
 | Tipo de Usuário | Shadcn Select | clinic_user ou clinic_admin |
 
 Chama `POST /api/users/create` com Authorization Bearer token.
@@ -71,6 +73,7 @@ Chama `POST /api/users/create` com Authorization Bearer token.
 ---
 
 ## 6. Observações
+
 - Usa Shadcn Select (não select nativo) para role
 - Firestore query: `users` WHERE `tenant_id == tenantId` ORDER BY `created_at desc`
 - Busca textual é client-side
@@ -79,9 +82,9 @@ Chama `POST /api/users/create` com Authorization Bearer token.
 
 ## 7. Histórico de Mudanças
 
-| Data | Versão | Autor | Descrição |
-|------|--------|-------|-----------|
-| 07/02/2026 | 1.0 | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição            |
+| ---------- | ------ | ------------------ | -------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
 
 ---
 

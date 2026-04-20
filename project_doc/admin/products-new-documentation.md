@@ -14,11 +14,13 @@
 Formulário simples para cadastro de novos produtos no catálogo master Rennova. Contém apenas dois campos: código (7 dígitos) e nome do produto (convertido automaticamente para maiúsculas).
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(admin)/admin/products/new/page.tsx`
 - **Rota:** `/admin/products/new`
 - **Layout:** Admin Layout
 
 ### 1.2 Dependências
+
 - **masterProductService:** `createMasterProduct()`
 - **Types:** `validateProductCode()`, `normalizeProductName()`
 - **Lucide Icons:** Save, Package
@@ -27,22 +29,24 @@ Formulário simples para cadastro de novos produtos no catálogo master Rennova.
 
 ## 2. Campos do Formulário
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|-------------|-----------|
-| Código do Produto | text (font-mono) | Sim | Exatamente 7 dígitos numéricos |
-| Nome do Produto | text | Sim | Convertido para MAIÚSCULAS via `normalizeProductName()` |
+| Campo             | Tipo             | Obrigatório | Descrição                                               |
+| ----------------- | ---------------- | ----------- | ------------------------------------------------------- |
+| Código do Produto | text (font-mono) | Sim         | Exatamente 7 dígitos numéricos                          |
+| Nome do Produto   | text             | Sim         | Convertido para MAIÚSCULAS via `normalizeProductName()` |
 
 ---
 
 ## 3. Regras de Negócio
 
 ### RN-001: Formato do Código
+
 - `formatCodeInput()` remove caracteres não-numéricos (`/\D/g`)
 - Limita a 7 caracteres (`slice(0, 7)`)
 - `maxLength={7}` no input
 - `validateProductCode()` valida exatamente 7 dígitos
 
 ### RN-002: Normalização do Nome
+
 - `normalizeProductName()` converte para MAIÚSCULAS antes de enviar
 - Exibido como hint: "O nome será convertido para MAIÚSCULAS automaticamente"
 
@@ -50,11 +54,11 @@ Formulário simples para cadastro de novos produtos no catálogo master Rennova.
 
 ## 4. Validações
 
-| Validação | Mensagem de Erro |
-|-----------|------------------|
-| Código vazio | "Código do produto é obrigatório" |
+| Validação       | Mensagem de Erro                                |
+| --------------- | ----------------------------------------------- |
+| Código vazio    | "Código do produto é obrigatório"               |
 | Código inválido | "Código inválido. O código deve ter 7 dígitos." |
-| Nome vazio | "Nome do produto é obrigatório" |
+| Nome vazio      | "Nome do produto é obrigatório"                 |
 
 ---
 
@@ -69,6 +73,7 @@ Formulário simples para cadastro de novos produtos no catálogo master Rennova.
 ---
 
 ## 6. Observações
+
 - Não exibe feedback de sucesso (redirect imediato)
 - Input de código usa `font-mono` para melhor legibilidade
 - Placeholder do nome: "NABOTA 200U 1FR/AMP"
@@ -78,9 +83,9 @@ Formulário simples para cadastro de novos produtos no catálogo master Rennova.
 
 ## 7. Histórico de Mudanças
 
-| Data | Versão | Autor | Descrição |
-|------|--------|-------|-----------|
-| 07/02/2026 | 1.0 | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição            |
+| ---------- | ------ | ------------------ | -------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
 
 ---
 

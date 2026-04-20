@@ -1,27 +1,14 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  LayoutDashboard,
-  Building2,
-  Search,
-  Clock,
-  ArrowRight,
-  Copy,
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import type { Consultant, ConsultantClaim } from "@/types";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { LayoutDashboard, Building2, Search, Clock, ArrowRight, Copy } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import type { Consultant, ConsultantClaim } from '@/types';
 
 interface ClinicSummary {
   id: string;
@@ -61,7 +48,7 @@ export default function ConsultantDashboardPage() {
       }
 
       // Load clinics
-      const clinicsRes = await fetch("/api/consultants/me/clinics", {
+      const clinicsRes = await fetch('/api/consultants/me/clinics', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const clinicsData = await clinicsRes.json();
@@ -72,7 +59,7 @@ export default function ConsultantDashboardPage() {
       }
 
       // Load pending claims
-      const claimsRes = await fetch("/api/consultants/claims?status=pending", {
+      const claimsRes = await fetch('/api/consultants/claims?status=pending', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const claimsData = await claimsRes.json();
@@ -80,7 +67,7 @@ export default function ConsultantDashboardPage() {
         setPendingClaims(claimsData.data || []);
       }
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
@@ -89,7 +76,7 @@ export default function ConsultantDashboardPage() {
   const copyCode = () => {
     if (consultant?.code) {
       navigator.clipboard.writeText(consultant.code);
-      toast({ title: "Código copiado" });
+      toast({ title: 'Código copiado' });
     }
   };
 
@@ -113,7 +100,7 @@ export default function ConsultantDashboardPage() {
             Dashboard
           </h1>
           <p className="text-muted-foreground">
-            Bem-vindo ao Portal do Consultor, {consultant?.name?.split(" ")[0]}
+            Bem-vindo ao Portal do Consultor, {consultant?.name?.split(' ')[0]}
           </p>
         </div>
 
@@ -123,9 +110,7 @@ export default function ConsultantDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sky-100 text-sm mb-1">Seu código de consultor</p>
-                <p className="text-4xl font-bold font-mono tracking-widest">
-                  {consultant?.code}
-                </p>
+                <p className="text-4xl font-bold font-mono tracking-widest">{consultant?.code}</p>
                 <p className="text-sky-100 text-sm mt-2">
                   Compartilhe este código com as clínicas para vincular-se
                 </p>
@@ -146,9 +131,7 @@ export default function ConsultantDashboardPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Clínicas Vinculadas
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Clínicas Vinculadas</CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -161,25 +144,21 @@ export default function ConsultantDashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Solicitações Pendentes
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Solicitações Pendentes</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{pendingClaims.length}</div>
-              <p className="text-xs text-muted-foreground">
-                aguardando aprovação
-              </p>
+              <p className="text-xs text-muted-foreground">aguardando aprovação</p>
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => router.push("/consultant/clinics/search")}>
+          <Card
+            className="cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => router.push('/consultant/clinics/search')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Buscar Clínicas
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Buscar Clínicas</CardTitle>
               <Search className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -198,9 +177,7 @@ export default function ConsultantDashboardPage() {
                 <Clock className="h-5 w-5 text-amber-500" />
                 Solicitações Pendentes
               </CardTitle>
-              <CardDescription>
-                Aguardando aprovação das clínicas
-              </CardDescription>
+              <CardDescription>Aguardando aprovação das clínicas</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -213,12 +190,13 @@ export default function ConsultantDashboardPage() {
                       <Building2 className="h-5 w-5 text-amber-600" />
                       <div>
                         <p className="font-medium">{claim.tenant_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {claim.tenant_document}
-                        </p>
+                        <p className="text-sm text-muted-foreground">{claim.tenant_document}</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                    <Badge
+                      variant="outline"
+                      className="bg-amber-100 text-amber-800 border-amber-300"
+                    >
                       Pendente
                     </Badge>
                   </div>
@@ -234,14 +212,12 @@ export default function ConsultantDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Minhas Clínicas</CardTitle>
-                <CardDescription>
-                  Clínicas vinculadas à sua conta
-                </CardDescription>
+                <CardDescription>Clínicas vinculadas à sua conta</CardDescription>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push("/consultant/clinics")}
+                onClick={() => router.push('/consultant/clinics')}
               >
                 Ver Todas
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -256,7 +232,7 @@ export default function ConsultantDashboardPage() {
                   Você ainda não possui clínicas vinculadas
                 </p>
                 <Button
-                  onClick={() => router.push("/consultant/clinics/search")}
+                  onClick={() => router.push('/consultant/clinics/search')}
                   className="bg-sky-600 hover:bg-sky-700"
                 >
                   <Search className="mr-2 h-4 w-4" />
@@ -276,10 +252,10 @@ export default function ConsultantDashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{clinic.name}</p>
                         <Badge
-                          variant={clinic.active ? "default" : "secondary"}
+                          variant={clinic.active ? 'default' : 'secondary'}
                           className="text-xs"
                         >
-                          {clinic.active ? "Ativa" : "Inativa"}
+                          {clinic.active ? 'Ativa' : 'Inativa'}
                         </Badge>
                       </div>
                     </div>

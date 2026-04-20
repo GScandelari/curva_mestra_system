@@ -3,16 +3,9 @@
  * Serviço centralizado para geração de relatórios
  */
 
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  Timestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { InventoryItem } from "@/types";
+import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { InventoryItem } from '@/types';
 
 // ============================================================================
 // TYPES
@@ -108,12 +101,10 @@ export interface PatientConsumptionReport {
 /**
  * Gera relatório de valor total do estoque
  */
-export async function generateStockValueReport(
-  tenantId: string
-): Promise<StockValueReport> {
+export async function generateStockValueReport(tenantId: string): Promise<StockValueReport> {
   try {
-    const inventoryRef = collection(db, "tenants", tenantId, "inventory");
-    const q = query(inventoryRef, where("active", "==", true));
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+    const q = query(inventoryRef, where('active', '==', true));
     const snapshot = await getDocs(q);
 
     let totalItens = 0;
@@ -160,8 +151,8 @@ export async function generateStockValueReport(
       gerado_em: new Date(),
     };
   } catch (error) {
-    console.error("Erro ao gerar relatório de valor do estoque:", error);
-    throw new Error("Falha ao gerar relatório");
+    console.error('Erro ao gerar relatório de valor do estoque:', error);
+    throw new Error('Falha ao gerar relatório');
   }
 }
 
@@ -177,15 +168,15 @@ export async function generateExpirationReport(
   diasAntecedencia: number = 30
 ): Promise<ExpirationReport> {
   try {
-    const inventoryRef = collection(db, "tenants", tenantId, "inventory");
-    const q = query(inventoryRef, where("active", "==", true));
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+    const q = query(inventoryRef, where('active', '==', true));
     const snapshot = await getDocs(q);
 
     const now = new Date();
     const limitDate = new Date();
     limitDate.setDate(now.getDate() + diasAntecedencia);
 
-    const produtosVencendo: ExpirationReport["produtos_vencendo"] = [];
+    const produtosVencendo: ExpirationReport['produtos_vencendo'] = [];
     let valorEmRisco = 0;
 
     snapshot.forEach((doc) => {
@@ -201,7 +192,7 @@ export async function generateExpirationReport(
         // Detectar formato da data e converter
         if (data.dt_validade.includes('/')) {
           // Formato DD/MM/YYYY
-          const [dia, mes, ano] = data.dt_validade.split("/");
+          const [dia, mes, ano] = data.dt_validade.split('/');
           dtValidade = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
         } else if (data.dt_validade.includes('-')) {
           // Formato YYYY-MM-DD (ISO)
@@ -212,7 +203,10 @@ export async function generateExpirationReport(
         }
       } else {
         // Pular este produto se não conseguir converter a data
-        console.warn(`[EXPIRATION REPORT] Data de validade inválida para produto ${doc.id}:`, data.dt_validade);
+        console.warn(
+          `[EXPIRATION REPORT] Data de validade inválida para produto ${doc.id}:`,
+          data.dt_validade
+        );
         return;
       }
 
@@ -229,9 +223,10 @@ export async function generateExpirationReport(
 
         if (quantidade > 0) {
           // Formatar data de volta para string DD/MM/YYYY
-          const dtValidadeStr = typeof data.dt_validade === 'string'
-            ? data.dt_validade
-            : dtValidade.toLocaleDateString('pt-BR');
+          const dtValidadeStr =
+            typeof data.dt_validade === 'string'
+              ? data.dt_validade
+              : dtValidade.toLocaleDateString('pt-BR');
 
           produtosVencendo.push({
             id: doc.id,
@@ -259,8 +254,8 @@ export async function generateExpirationReport(
       gerado_em: new Date(),
     };
   } catch (error) {
-    console.error("Erro ao gerar relatório de vencimento:", error);
-    throw new Error("Falha ao gerar relatório");
+    console.error('Erro ao gerar relatório de vencimento:', error);
+    throw new Error('Falha ao gerar relatório');
   }
 }
 
@@ -277,16 +272,16 @@ export async function generateConsumptionReport(
   dataFim: Date
 ): Promise<ConsumptionReport> {
   try {
-    const solicitacoesRef = collection(db, "tenants", tenantId, "solicitacoes");
+    const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
 
     // Buscar procedimentos CONCLUÍDOS (produtos foram consumidos)
     // Status "concluida" = produtos efetivamente consumidos do estoque
     const q = query(
       solicitacoesRef,
-      where("status", "==", "concluida"),
-      where("dt_procedimento", ">=", Timestamp.fromDate(dataInicio)),
-      where("dt_procedimento", "<=", Timestamp.fromDate(dataFim)),
-      orderBy("dt_procedimento", "desc")
+      where('status', '==', 'concluida'),
+      where('dt_procedimento', '>=', Timestamp.fromDate(dataInicio)),
+      where('dt_procedimento', '<=', Timestamp.fromDate(dataFim)),
+      orderBy('dt_procedimento', 'desc')
     );
 
     const snapshot = await getDocs(q);
@@ -345,8 +340,7 @@ export async function generateConsumptionReport(
 
       produtos.forEach((produto: any) => {
         paciente.produtos_consumidos += produto.quantidade || 0;
-        paciente.valor_total +=
-          (produto.quantidade || 0) * (produto.valor_unitario || 0);
+        paciente.valor_total += (produto.quantidade || 0) * (produto.valor_unitario || 0);
       });
     });
 
@@ -371,8 +365,8 @@ export async function generateConsumptionReport(
       gerado_em: new Date(),
     };
   } catch (error) {
-    console.error("Erro ao gerar relatório de consumo:", error);
-    throw new Error("Falha ao gerar relatório");
+    console.error('Erro ao gerar relatório de consumo:', error);
+    throw new Error('Falha ao gerar relatório');
   }
 }
 
@@ -390,24 +384,24 @@ export async function generatePatientConsumptionReport(
   dataFim?: Date
 ): Promise<PatientConsumptionReport> {
   try {
-    const solicitacoesRef = collection(db, "tenants", tenantId, "solicitacoes");
+    const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
 
     let q = query(
       solicitacoesRef,
-      where("paciente_codigo", "==", pacienteCodigo),
-      where("status", "==", "aprovada"),
-      orderBy("dt_procedimento", "desc")
+      where('paciente_codigo', '==', pacienteCodigo),
+      where('status', '==', 'aprovada'),
+      orderBy('dt_procedimento', 'desc')
     );
 
     // Adicionar filtro de período se fornecido
     if (dataInicio && dataFim) {
       q = query(
         solicitacoesRef,
-        where("paciente_codigo", "==", pacienteCodigo),
-        where("status", "==", "aprovada"),
-        where("dt_procedimento", ">=", Timestamp.fromDate(dataInicio)),
-        where("dt_procedimento", "<=", Timestamp.fromDate(dataFim)),
-        orderBy("dt_procedimento", "desc")
+        where('paciente_codigo', '==', pacienteCodigo),
+        where('status', '==', 'aprovada'),
+        where('dt_procedimento', '>=', Timestamp.fromDate(dataInicio)),
+        where('dt_procedimento', '<=', Timestamp.fromDate(dataFim)),
+        orderBy('dt_procedimento', 'desc')
       );
     }
 
@@ -417,8 +411,8 @@ export async function generatePatientConsumptionReport(
     let totalProdutos = 0;
     let valorTotal = 0;
 
-    const procedimentos: PatientConsumptionReport["procedimentos"] = [];
-    let pacienteNome = "";
+    const procedimentos: PatientConsumptionReport['procedimentos'] = [];
+    let pacienteNome = '';
 
     snapshot.forEach((doc) => {
       const solicitacao = doc.data();
@@ -461,10 +455,13 @@ export async function generatePatientConsumptionReport(
         codigo: pacienteCodigo,
         nome: pacienteNome,
       },
-      periodo: dataInicio && dataFim ? {
-        inicio: dataInicio,
-        fim: dataFim,
-      } : undefined,
+      periodo:
+        dataInicio && dataFim
+          ? {
+              inicio: dataInicio,
+              fim: dataFim,
+            }
+          : undefined,
       total_procedimentos: totalProcedimentos,
       total_produtos: totalProdutos,
       valor_total: valorTotal,
@@ -472,8 +469,8 @@ export async function generatePatientConsumptionReport(
       gerado_em: new Date(),
     };
   } catch (error) {
-    console.error("Erro ao gerar relatório do paciente:", error);
-    throw new Error("Falha ao gerar relatório");
+    console.error('Erro ao gerar relatório do paciente:', error);
+    throw new Error('Falha ao gerar relatório');
   }
 }
 
@@ -494,10 +491,10 @@ export function exportToExcel(data: any[], filename: string): void {
 
     // Criar workbook e adicionar worksheet
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório");
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Relatório');
 
     // Gerar arquivo e fazer download
-    const dateStr = new Date().toISOString().split("T")[0];
+    const dateStr = new Date().toISOString().split('T')[0];
     XLSX.writeFile(workbook, `${filename}_${dateStr}.xlsx`);
   });
 }
@@ -511,23 +508,25 @@ export function exportToCSV(data: any[], filename: string): void {
 
   const headers = Object.keys(data[0]);
   const csvContent = [
-    headers.join(","),
+    headers.join(','),
     ...data.map((row) =>
-      headers.map((header) => {
-        const value = row[header];
-        // Escapar vírgulas e aspas
-        if (typeof value === "string" && (value.includes(",") || value.includes('"'))) {
-          return `"${value.replace(/"/g, '""')}"`;
-        }
-        return value;
-      }).join(",")
+      headers
+        .map((header) => {
+          const value = row[header];
+          // Escapar vírgulas e aspas
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
+        })
+        .join(',')
     ),
-  ].join("\n");
+  ].join('\n');
 
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`;
+  link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
   link.click();
 }
 
@@ -535,9 +534,9 @@ export function exportToCSV(data: any[], filename: string): void {
  * Formata valor em reais
  */
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
   }).format(value);
 }
 
@@ -546,7 +545,7 @@ export function formatCurrency(value: number): string {
  * Útil para exports de planilhas
  */
 export function formatDecimalBR(value: number, decimals: number = 2): string {
-  return value.toLocaleString("pt-BR", {
+  return value.toLocaleString('pt-BR', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });

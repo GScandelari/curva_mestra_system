@@ -1,53 +1,43 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { KeyRound, AlertTriangle, CheckCircle2 } from "lucide-react";
-import {
-  updatePassword,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { KeyRound, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading, claims } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Verificar se está autenticado
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push("/login");
+      router.push('/login');
     }
   }, [isAuthenticated, authLoading, router]);
 
   const validatePassword = (password: string): string | null => {
     if (password.length < 6) {
-      return "A senha deve ter pelo menos 6 caracteres";
+      return 'A senha deve ter pelo menos 6 caracteres';
     }
     return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
 
     try {
@@ -61,20 +51,20 @@ export default function ChangePasswordPage() {
 
       // Verificar se as senhas coincidem
       if (newPassword !== confirmPassword) {
-        setError("As senhas não coincidem");
+        setError('As senhas não coincidem');
         setLoading(false);
         return;
       }
 
       // Verificar se a nova senha é diferente da atual
       if (currentPassword === newPassword) {
-        setError("A nova senha deve ser diferente da senha atual");
+        setError('A nova senha deve ser diferente da senha atual');
         setLoading(false);
         return;
       }
 
       if (!user || !user.email) {
-        setError("Usuário não encontrado");
+        setError('Usuário não encontrado');
         setLoading(false);
         return;
       }
@@ -88,39 +78,39 @@ export default function ChangePasswordPage() {
 
       // Chamar API para remover a flag de troca obrigatória (custom claim + Firestore)
       const token = await user.getIdToken();
-      const response = await fetch("/api/users/clear-password-change-flag", {
-        method: "POST",
+      const response = await fetch('/api/users/clear-password-change-flag', {
+        method: 'POST',
         headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
       if (!response.ok) {
-        console.error("Erro ao limpar flag de troca de senha");
+        console.error('Erro ao limpar flag de troca de senha');
       }
 
       // Redirecionar para o dashboard apropriado
       if (claims?.is_system_admin) {
-        router.push("/admin/dashboard");
-      } else if (claims?.role === "clinic_admin" || claims?.role === "clinic_user") {
-        router.push("/clinic/dashboard");
+        router.push('/admin/dashboard');
+      } else if (claims?.role === 'clinic_admin' || claims?.role === 'clinic_user') {
+        router.push('/clinic/dashboard');
       } else {
-        router.push("/dashboard");
+        router.push('/dashboard');
       }
     } catch (err: any) {
-      console.error("Erro ao trocar senha:", err);
+      console.error('Erro ao trocar senha:', err);
 
       // Traduzir erros do Firebase
-      if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-        setError("Senha atual incorreta");
-      } else if (err.code === "auth/weak-password") {
-        setError("A nova senha é muito fraca. Use pelo menos 6 caracteres");
-      } else if (err.code === "auth/requires-recent-login") {
-        setError("Por segurança, faça login novamente antes de trocar a senha");
-        router.push("/login");
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('Senha atual incorreta');
+      } else if (err.code === 'auth/weak-password') {
+        setError('A nova senha é muito fraca. Use pelo menos 6 caracteres');
+      } else if (err.code === 'auth/requires-recent-login') {
+        setError('Por segurança, faça login novamente antes de trocar a senha');
+        router.push('/login');
       } else {
-        setError("Erro ao trocar senha. Tente novamente.");
+        setError('Erro ao trocar senha. Tente novamente.');
       }
     } finally {
       setLoading(false);
@@ -183,9 +173,7 @@ export default function ChangePasswordPage() {
               disabled={loading}
               autoComplete="new-password"
             />
-            <p className="text-xs text-muted-foreground">
-              Mínimo de 6 caracteres
-            </p>
+            <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
           </div>
 
           <div className="space-y-2">
@@ -203,13 +191,11 @@ export default function ChangePasswordPage() {
           </div>
 
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
-            </div>
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Salvando..." : "Definir Nova Senha"}
+            {loading ? 'Salvando...' : 'Definir Nova Senha'}
           </Button>
         </form>
 

@@ -5,6 +5,7 @@ Este documento explica como usar os scripts de auditoria e correção do invent�
 ## 📋 Problema
 
 Quando há inconsistências nos valores de `quantidade_disponivel` e `quantidade_reservada` no inventário, seja por:
+
 - Edições de solicitações que causaram cálculo incorreto
 - Bugs em versões anteriores do sistema
 - Alterações manuais no banco de dados
@@ -18,6 +19,7 @@ node scripts/audit-inventory.js <tenant_id>
 ```
 
 ### Exemplo:
+
 ```bash
 node scripts/audit-inventory.js clinic_abc123
 ```
@@ -29,6 +31,7 @@ node scripts/audit-inventory.js clinic_abc123
 3. **Disponível Correto**: `quantidade_disponivel = quantidade_inicial - quantidade_reservada`
 
 ### Saída:
+
 ```
 ========================================
 AUDITORIA DE INVENTÁRIO
@@ -76,17 +79,20 @@ node scripts/fix-inventory-quantities.js <tenant_id> --dry-run
 ```
 
 ### Exemplo:
+
 ```bash
 node scripts/fix-inventory-quantities.js clinic_abc123 --dry-run
 ```
 
 ### O que faz:
+
 - Mostra exatamente o que **seria** alterado
 - **NÃO faz nenhuma alteração** no banco de dados
 - Exibe os valores atuais vs. valores corretos
 - Mostra as diferenças
 
 ### Saída:
+
 ```
 ========================================
 RECÁLCULO DE INVENTÁRIO
@@ -142,11 +148,13 @@ node scripts/fix-inventory-quantities.js <tenant_id>
 ```
 
 ### Exemplo:
+
 ```bash
 node scripts/fix-inventory-quantities.js clinic_abc123
 ```
 
 ### O que faz:
+
 1. Analisa o inventário
 2. Calcula valores corretos
 3. Mostra o que será alterado
@@ -154,6 +162,7 @@ node scripts/fix-inventory-quantities.js clinic_abc123
 5. Atualiza o banco de dados
 
 ### Confirmação:
+
 ```
 ⚠️  ATENÇÃO: Isso irá atualizar 3 itens no banco de dados.
 Deseja continuar? (digite 'SIM' para confirmar): SIM
@@ -194,6 +203,7 @@ Os scripts usam a seguinte lógica:
    - O que sobra depois de subtrair as reservas
 
 ### Fórmula Principal:
+
 ```
 quantidade_inicial = quantidade_disponivel + quantidade_reservada
 ```
@@ -216,6 +226,7 @@ quantidade_inicial = quantidade_disponivel + quantidade_reservada
 ## 📝 Quando Usar
 
 Execute esses scripts quando:
+
 - Notar valores incorretos no inventário
 - Após migração ou importação de dados
 - Depois de corrigir bugs relacionados a reservas
@@ -225,23 +236,29 @@ Execute esses scripts quando:
 ## 🆘 Problemas Comuns
 
 ### "Tenant ID é obrigatório"
+
 **Solução**: Passe o ID do tenant como argumento
+
 ```bash
 node scripts/audit-inventory.js SEU_TENANT_ID
 ```
 
 ### "Permission denied"
+
 **Solução**: Configure as credenciais do Firebase
+
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/serviceAccountKey.json"
 ```
 
 ### "Nenhum item encontrado"
+
 **Solução**: Verifique se o tenant_id está correto e se há itens ativos no inventário
 
 ## 📖 Exemplos de Uso
 
 ### Verificar múltiplos tenants:
+
 ```bash
 for tenant in clinic_abc clinic_xyz clinic_123; do
   echo "Auditando $tenant..."
@@ -251,6 +268,7 @@ done
 ```
 
 ### Corrigir com log:
+
 ```bash
 node scripts/fix-inventory-quantities.js clinic_abc123 | tee correction-log.txt
 ```

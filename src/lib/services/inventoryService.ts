@@ -13,8 +13,8 @@ import {
   Timestamp,
   doc,
   getDoc,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export interface InventoryItem {
   id: string;
@@ -56,7 +56,7 @@ export interface ExpiringProduct {
 
 export interface RecentActivity {
   id: string;
-  tipo: "entrada" | "saida" | "ajuste";
+  tipo: 'entrada' | 'saida' | 'ajuste';
   descricao: string;
   nome_produto: string;
   quantidade: number;
@@ -67,19 +67,12 @@ export interface RecentActivity {
 /**
  * Busca estatísticas gerais do inventário
  */
-export async function getInventoryStats(
-  tenantId: string
-): Promise<InventoryStats> {
+export async function getInventoryStats(tenantId: string): Promise<InventoryStats> {
   try {
-    const inventoryRef = collection(
-      db,
-      "tenants",
-      tenantId,
-      "inventory"
-    );
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
 
     // Buscar todos os produtos ativos
-    const q = query(inventoryRef, where("active", "==", true));
+    const q = query(inventoryRef, where('active', '==', true));
     const snapshot = await getDocs(q);
 
     let totalProdutos = 0;
@@ -128,7 +121,7 @@ export async function getInventoryStats(
       ultimaAtualizacao: new Date(),
     };
   } catch (error) {
-    console.error("Erro ao buscar estatísticas do inventário:", error);
+    console.error('Erro ao buscar estatísticas do inventário:', error);
     throw error;
   }
 }
@@ -142,12 +135,7 @@ export async function getExpiringProducts(
   limitResults: number = 10
 ): Promise<ExpiringProduct[]> {
   try {
-    const inventoryRef = collection(
-      db,
-      "tenants",
-      tenantId,
-      "inventory"
-    );
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
 
     const now = new Date();
     const thresholdDate = new Date();
@@ -155,9 +143,9 @@ export async function getExpiringProducts(
 
     const q = query(
       inventoryRef,
-      where("active", "==", true),
-      where("quantidade_disponivel", ">", 0),
-      orderBy("dt_validade", "asc"),
+      where('active', '==', true),
+      where('quantidade_disponivel', '>', 0),
+      orderBy('dt_validade', 'asc'),
       limit(limitResults)
     );
 
@@ -190,7 +178,7 @@ export async function getExpiringProducts(
 
     return products;
   } catch (error) {
-    console.error("Erro ao buscar produtos vencendo:", error);
+    console.error('Erro ao buscar produtos vencendo:', error);
     throw error;
   }
 }
@@ -203,18 +191,9 @@ export async function getRecentActivity(
   limitResults: number = 10
 ): Promise<RecentActivity[]> {
   try {
-    const activityRef = collection(
-      db,
-      "tenants",
-      tenantId,
-      "inventory_activity"
-    );
+    const activityRef = collection(db, 'tenants', tenantId, 'inventory_activity');
 
-    const q = query(
-      activityRef,
-      orderBy("timestamp", "desc"),
-      limit(limitResults)
-    );
+    const q = query(activityRef, orderBy('timestamp', 'desc'), limit(limitResults));
 
     const snapshot = await getDocs(q);
     const activities: RecentActivity[] = [];
@@ -228,16 +207,14 @@ export async function getRecentActivity(
         nome_produto: data.nome_produto,
         quantidade: data.quantidade,
         timestamp:
-          data.timestamp instanceof Timestamp
-            ? data.timestamp.toDate()
-            : new Date(data.timestamp),
+          data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp),
         usuario: data.usuario,
       });
     });
 
     return activities;
   } catch (error) {
-    console.error("Erro ao buscar atividades recentes:", error);
+    console.error('Erro ao buscar atividades recentes:', error);
     // Retornar array vazio se a coleção não existir ainda
     return [];
   }
@@ -251,21 +228,12 @@ export async function listInventory(
   activeOnly: boolean = true
 ): Promise<InventoryItem[]> {
   try {
-    const inventoryRef = collection(
-      db,
-      "tenants",
-      tenantId,
-      "inventory"
-    );
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
 
-    let q = query(inventoryRef, orderBy("nome_produto", "asc"));
+    let q = query(inventoryRef, orderBy('nome_produto', 'asc'));
 
     if (activeOnly) {
-      q = query(
-        inventoryRef,
-        where("active", "==", true),
-        orderBy("nome_produto", "asc")
-      );
+      q = query(inventoryRef, where('active', '==', true), orderBy('nome_produto', 'asc'));
     }
 
     const snapshot = await getDocs(q);
@@ -308,7 +276,7 @@ export async function listInventory(
 
     return items;
   } catch (error) {
-    console.error("Erro ao listar inventário:", error);
+    console.error('Erro ao listar inventário:', error);
     throw error;
   }
 }
@@ -321,7 +289,7 @@ export async function getInventoryItem(
   itemId: string
 ): Promise<InventoryItem | null> {
   try {
-    const itemRef = doc(db, "tenants", tenantId, "inventory", itemId);
+    const itemRef = doc(db, 'tenants', tenantId, 'inventory', itemId);
     const snapshot = await getDoc(itemRef);
 
     if (!snapshot.exists()) {
@@ -344,24 +312,18 @@ export async function getInventoryItem(
           ? data.dt_validade.toDate()
           : new Date(data.dt_validade),
       dt_entrada:
-        data.dt_entrada instanceof Timestamp
-          ? data.dt_entrada.toDate()
-          : new Date(data.dt_entrada),
+        data.dt_entrada instanceof Timestamp ? data.dt_entrada.toDate() : new Date(data.dt_entrada),
       valor_unitario: data.valor_unitario,
       nf_numero: data.nf_numero,
       nf_id: data.nf_id,
       active: data.active,
       created_at:
-        data.created_at instanceof Timestamp
-          ? data.created_at.toDate()
-          : new Date(data.created_at),
+        data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at),
       updated_at:
-        data.updated_at instanceof Timestamp
-          ? data.updated_at.toDate()
-          : new Date(data.updated_at),
+        data.updated_at instanceof Timestamp ? data.updated_at.toDate() : new Date(data.updated_at),
     };
   } catch (error) {
-    console.error("Erro ao buscar item do inventário:", error);
+    console.error('Erro ao buscar item do inventário:', error);
     throw error;
   }
 }

@@ -15,17 +15,17 @@ import {
   orderBy,
   Timestamp,
   serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { AccessRequest, AccessRequestStatus, TenantLimits, DocumentType } from "@/types";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { AccessRequest, AccessRequestStatus, TenantLimits, DocumentType } from '@/types';
 import {
   validateDocument,
   cleanDocument,
   getDocumentType,
   getMaxUsersForDocumentType,
-} from "@/lib/utils/documentValidation";
+} from '@/lib/utils/documentValidation';
 
-const ACCESS_REQUESTS_COLLECTION = "access_requests";
+const ACCESS_REQUESTS_COLLECTION = 'access_requests';
 
 /**
  * Cria uma nova solicitação de acesso
@@ -45,29 +45,29 @@ export async function createAccessRequest(data: {
     if (!validateDocument(documentClean)) {
       return {
         success: false,
-        message: data.document_type === "cpf" ? "CPF inválido" : "CNPJ inválido"
+        message: data.document_type === 'cpf' ? 'CPF inválido' : 'CNPJ inválido',
       };
     }
 
     // Verificar se já existe solicitação pendente para este email
     const existingRequestQuery = query(
       collection(db, ACCESS_REQUESTS_COLLECTION),
-      where("email", "==", data.email.toLowerCase()),
-      where("status", "in", ["pendente", "aprovada"])
+      where('email', '==', data.email.toLowerCase()),
+      where('status', 'in', ['pendente', 'aprovada'])
     );
     const existingRequests = await getDocs(existingRequestQuery);
 
     if (!existingRequests.empty) {
       return {
         success: false,
-        message: "Já existe uma solicitação pendente para este email",
+        message: 'Já existe uma solicitação pendente para este email',
       };
     }
 
     // Buscar tenant pelo documento
     const tenantsQuery = query(
-      collection(db, "tenants"),
-      where("document_number", "==", documentClean)
+      collection(db, 'tenants'),
+      where('document_number', '==', documentClean)
     );
     const tenantsSnapshot = await getDocs(tenantsQuery);
 
@@ -86,44 +86,45 @@ export async function createAccessRequest(data: {
     }
 
     // Criar solicitação
-    const accessRequest: Omit<AccessRequest, "id"> = {
-      type: data.document_type === "cnpj" ? "clinica" : "autonomo",
+    const accessRequest: Omit<AccessRequest, 'id'> = {
+      type: data.document_type === 'cnpj' ? 'clinica' : 'autonomo',
       document_type: data.document_type,
       document_number: documentClean,
       full_name: data.full_name,
       email: data.email.toLowerCase(),
-      phone: "",
-      password: "", // Senha será definida pelo usuário após aprovação
+      phone: '',
+      password: '', // Senha será definida pelo usuário após aprovação
       business_name: data.full_name,
-      status: "pendente",
+      status: 'pendente',
       created_at: serverTimestamp() as Timestamp,
       updated_at: serverTimestamp() as Timestamp,
     };
 
-    const docRef = await addDoc(
-      collection(db, ACCESS_REQUESTS_COLLECTION),
-      accessRequest
-    );
+    const docRef = await addDoc(collection(db, ACCESS_REQUESTS_COLLECTION), accessRequest);
 
     // Mensagens diferentes para CPF e CNPJ
     let statusMessage: string;
 
-    if (data.document_type === "cpf") {
+    if (data.document_type === 'cpf') {
       if (tenant_id) {
-        statusMessage = "Solicitação enviada! Este CPF já possui cadastro. Aguarde avaliação do administrador.";
+        statusMessage =
+          'Solicitação enviada! Este CPF já possui cadastro. Aguarde avaliação do administrador.';
       } else {
-        statusMessage = "Solicitação enviada! Será criada uma conta individual (1 usuário). Aguarde aprovação do administrador do sistema.";
+        statusMessage =
+          'Solicitação enviada! Será criada uma conta individual (1 usuário). Aguarde aprovação do administrador do sistema.';
       }
     } else {
       // CNPJ
       if (tenant_id) {
         if (has_available_slots) {
-          statusMessage = "Solicitação enviada! Aguarde aprovação do administrador da clínica.";
+          statusMessage = 'Solicitação enviada! Aguarde aprovação do administrador da clínica.';
         } else {
-          statusMessage = "Solicitação enviada! A clínica atingiu o limite de 5 usuários. Aguarde avaliação do administrador.";
+          statusMessage =
+            'Solicitação enviada! A clínica atingiu o limite de 5 usuários. Aguarde avaliação do administrador.';
         }
       } else {
-        statusMessage = "Solicitação enviada! Este CNPJ não está cadastrado. Aguarde avaliação do administrador do sistema.";
+        statusMessage =
+          'Solicitação enviada! Este CNPJ não está cadastrado. Aguarde avaliação do administrador do sistema.';
       }
     }
 
@@ -133,10 +134,10 @@ export async function createAccessRequest(data: {
       requestId: docRef.id,
     };
   } catch (error) {
-    console.error("Erro ao criar solicitação de acesso:", error);
+    console.error('Erro ao criar solicitação de acesso:', error);
     return {
       success: false,
-      message: "Erro ao criar solicitação. Tente novamente.",
+      message: 'Erro ao criar solicitação. Tente novamente.',
     };
   }
 }
@@ -149,17 +150,14 @@ export async function listAccessRequests(filters?: {
   tenant_id?: string;
 }): Promise<AccessRequest[]> {
   try {
-    let q = query(
-      collection(db, ACCESS_REQUESTS_COLLECTION),
-      orderBy("created_at", "desc")
-    );
+    let q = query(collection(db, ACCESS_REQUESTS_COLLECTION), orderBy('created_at', 'desc'));
 
     if (filters?.status) {
-      q = query(q, where("status", "==", filters.status));
+      q = query(q, where('status', '==', filters.status));
     }
 
     if (filters?.tenant_id) {
-      q = query(q, where("tenant_id", "==", filters.tenant_id));
+      q = query(q, where('tenant_id', '==', filters.tenant_id));
     }
 
     const snapshot = await getDocs(q);
@@ -168,7 +166,7 @@ export async function listAccessRequests(filters?: {
       ...doc.data(),
     })) as AccessRequest[];
   } catch (error) {
-    console.error("Erro ao listar solicitações:", error);
+    console.error('Erro ao listar solicitações:', error);
     return [];
   }
 }
@@ -176,9 +174,7 @@ export async function listAccessRequests(filters?: {
 /**
  * Obtém uma solicitação específica
  */
-export async function getAccessRequest(
-  requestId: string
-): Promise<AccessRequest | null> {
+export async function getAccessRequest(requestId: string): Promise<AccessRequest | null> {
   try {
     const docRef = doc(db, ACCESS_REQUESTS_COLLECTION, requestId);
     const docSnap = await getDoc(docRef);
@@ -192,7 +188,7 @@ export async function getAccessRequest(
       ...docSnap.data(),
     } as AccessRequest;
   } catch (error) {
-    console.error("Erro ao obter solicitação:", error);
+    console.error('Erro ao obter solicitação:', error);
     return null;
   }
 }
@@ -207,7 +203,7 @@ export async function approveAccessRequest(
 ): Promise<{ success: boolean; message: string; activationCode?: string }> {
   return {
     success: false,
-    message: "Esta função foi depreciada. Use a API route /api/access-requests/[id]/approve",
+    message: 'Esta função foi depreciada. Use a API route /api/access-requests/[id]/approve',
   };
 }
 
@@ -223,19 +219,19 @@ export async function rejectAccessRequest(
     const request = await getAccessRequest(requestId);
 
     if (!request) {
-      return { success: false, message: "Solicitação não encontrada" };
+      return { success: false, message: 'Solicitação não encontrada' };
     }
 
-    if (request.status !== "pendente") {
-      return { success: false, message: "Solicitação já foi processada" };
+    if (request.status !== 'pendente') {
+      return { success: false, message: 'Solicitação já foi processada' };
     }
 
     const docRef = doc(db, ACCESS_REQUESTS_COLLECTION, requestId);
     await updateDoc(docRef, {
-      status: "rejeitada",
+      status: 'rejeitada',
       rejected_by: rejectedBy.uid,
       rejected_by_name: rejectedBy.name,
-      rejection_reason: reason || "Não especificado",
+      rejection_reason: reason || 'Não especificado',
       rejected_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     });
@@ -244,13 +240,13 @@ export async function rejectAccessRequest(
 
     return {
       success: true,
-      message: "Solicitação rejeitada com sucesso.",
+      message: 'Solicitação rejeitada com sucesso.',
     };
   } catch (error) {
-    console.error("Erro ao rejeitar solicitação:", error);
+    console.error('Erro ao rejeitar solicitação:', error);
     return {
       success: false,
-      message: "Erro ao rejeitar solicitação. Tente novamente.",
+      message: 'Erro ao rejeitar solicitação. Tente novamente.',
     };
   }
 }
@@ -274,19 +270,17 @@ export async function activateAccountWithCode(
 }> {
   return {
     success: false,
-    message: "Esta função foi depreciada. Use o novo fluxo de aprovação automática.",
+    message: 'Esta função foi depreciada. Use o novo fluxo de aprovação automática.',
   };
 }
 
 /**
  * Obtém limites de usuários de um tenant
  */
-export async function getTenantLimits(
-  tenantId: string
-): Promise<TenantLimits> {
+export async function getTenantLimits(tenantId: string): Promise<TenantLimits> {
   try {
     // Buscar tenant
-    const tenantDoc = await getDoc(doc(db, "tenants", tenantId));
+    const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
     if (!tenantDoc.exists()) {
       return { tenant_id: tenantId, max_users: 0, current_users: 0, available_slots: 0 };
     }
@@ -297,7 +291,7 @@ export async function getTenantLimits(
     // Contar usuários ativos
     const usersQuery = query(
       collection(db, `tenants/${tenantId}/users`),
-      where("active", "==", true)
+      where('active', '==', true)
     );
     const usersSnapshot = await getDocs(usersQuery);
     const current_users = usersSnapshot.size;
@@ -309,7 +303,7 @@ export async function getTenantLimits(
       available_slots: Math.max(0, max_users - current_users),
     };
   } catch (error) {
-    console.error("Erro ao obter limites do tenant:", error);
+    console.error('Erro ao obter limites do tenant:', error);
     return { tenant_id: tenantId, max_users: 0, current_users: 0, available_slots: 0 };
   }
 }
@@ -321,13 +315,13 @@ export async function countPendingRequests(tenantId: string): Promise<number> {
   try {
     const requestsQuery = query(
       collection(db, ACCESS_REQUESTS_COLLECTION),
-      where("tenant_id", "==", tenantId),
-      where("status", "==", "pendente")
+      where('tenant_id', '==', tenantId),
+      where('status', '==', 'pendente')
     );
     const snapshot = await getDocs(requestsQuery);
     return snapshot.size;
   } catch (error) {
-    console.error("Erro ao contar solicitações pendentes:", error);
+    console.error('Erro ao contar solicitações pendentes:', error);
     return 0;
   }
 }

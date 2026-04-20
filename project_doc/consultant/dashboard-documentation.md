@@ -14,11 +14,13 @@
 Dashboard principal do portal do consultor. Exibe código do consultor, cards de estatísticas (clínicas vinculadas, solicitações pendentes, busca), lista de claims pendentes e grid de clínicas vinculadas. Usa API Routes com Bearer token.
 
 ### 1.1 Localização
+
 - **Arquivo:** `src/app/(consultant)/consultant/dashboard/page.tsx`
 - **Rota:** `/consultant/dashboard`
 - **Layout:** Consultant Layout
 
 ### 1.2 Dependências
+
 - **API Routes:**
   - `GET /api/consultants/{consultantId}` (perfil)
   - `GET /api/consultants/me/clinics` (clínicas vinculadas)
@@ -31,6 +33,7 @@ Dashboard principal do portal do consultor. Exibe código do consultor, cards de
 ## 2. Seções da Página
 
 ### 2.1 Código do Consultor
+
 - Card gradiente sky-500 → sky-600 (texto branco)
 - Código em font-mono 4xl tracking-widest
 - Botão copiar (clipboard)
@@ -38,18 +41,20 @@ Dashboard principal do portal do consultor. Exibe código do consultor, cards de
 
 ### 2.2 Cards de Estatísticas (grid 3 colunas)
 
-| Card | Valor | Ícone | Clicável |
-|------|-------|-------|----------|
-| Clínicas Vinculadas | `clinics.length` + ativas | Building2 | Não |
-| Solicitações Pendentes | `pendingClaims.length` | Clock | Não |
-| Buscar Clínicas | Link direto | Search | Sim → `/consultant/clinics/search` |
+| Card                   | Valor                     | Ícone     | Clicável                           |
+| ---------------------- | ------------------------- | --------- | ---------------------------------- |
+| Clínicas Vinculadas    | `clinics.length` + ativas | Building2 | Não                                |
+| Solicitações Pendentes | `pendingClaims.length`    | Clock     | Não                                |
+| Buscar Clínicas        | Link direto               | Search    | Sim → `/consultant/clinics/search` |
 
 ### 2.3 Solicitações Pendentes
+
 - Condicional: só exibe se `pendingClaims.length > 0`
 - Cards amber com nome da clínica, documento e badge "Pendente"
 - Não tem ações (pendente de aprovação pela clínica)
 
 ### 2.4 Minhas Clínicas
+
 - Header com botão "Ver Todas" → `/consultant/clinics`
 - Grid 2-3 colunas com cards clicáveis → `/consultant/clinics/{id}`
 - Cada card: nome (truncate), badge Ativa/Inativa
@@ -59,6 +64,7 @@ Dashboard principal do portal do consultor. Exibe código do consultor, cards de
 ---
 
 ## 3. Observações
+
 - Saudação: "Bem-vindo ao Portal do Consultor, {firstName}"
 - `refreshClaims()` chamado após carregar clínicas para sincronizar `authorized_tenants`
 - Loading: spinner animado sky-600
@@ -69,9 +75,9 @@ Dashboard principal do portal do consultor. Exibe código do consultor, cards de
 
 ## 4. Histórico de Mudanças
 
-| Data | Versão | Autor | Descrição |
-|------|--------|-------|-----------
-| 07/02/2026 | 1.0 | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição            |
+| ---------- | ------ | ------------------ | -------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
 
 ---
 

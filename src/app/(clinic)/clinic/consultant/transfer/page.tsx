@@ -1,27 +1,14 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  ArrowLeft,
-  Search,
-  RefreshCw,
-  Loader2,
-  CheckCircle2,
-  UserCheck,
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, Search, RefreshCw, Loader2, CheckCircle2, UserCheck } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 interface ConsultantResult {
   id: string;
@@ -35,7 +22,7 @@ export default function TransferConsultantPage() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
 
-  const [searchCode, setSearchCode] = useState("");
+  const [searchCode, setSearchCode] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<ConsultantResult | null>(null);
   const [transferring, setTransferring] = useState(false);
@@ -44,10 +31,10 @@ export default function TransferConsultantPage() {
   const handleSearch = async () => {
     if (!user) return;
 
-    const code = searchCode.replace(/\D/g, "");
+    const code = searchCode.replace(/\D/g, '');
 
     if (code.length !== 6) {
-      toast({ title: "Informe um código de 6 dígitos", variant: "destructive" });
+      toast({ title: 'Informe um código de 6 dígitos', variant: 'destructive' });
       return;
     }
 
@@ -65,16 +52,16 @@ export default function TransferConsultantPage() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          toast({ title: "Consultor não encontrado", variant: "destructive" });
+          toast({ title: 'Consultor não encontrado', variant: 'destructive' });
         } else {
-          throw new Error(data.error || "Erro ao buscar consultor");
+          throw new Error(data.error || 'Erro ao buscar consultor');
         }
         return;
       }
 
       setSearchResult(data.data);
     } catch (error: any) {
-      toast({ title: error.message || "Erro ao buscar consultor", variant: "destructive" });
+      toast({ title: error.message || 'Erro ao buscar consultor', variant: 'destructive' });
     } finally {
       setSearching(false);
     }
@@ -93,9 +80,9 @@ export default function TransferConsultantPage() {
       const token = await user.getIdToken();
 
       const response = await fetch(`/api/tenants/${tenantId}/consultant`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -106,18 +93,18 @@ export default function TransferConsultantPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao transferir consultoria");
+        throw new Error(data.error || 'Erro ao transferir consultoria');
       }
 
       setSuccess(true);
-      toast({ title: "Consultor vinculado com sucesso!" });
+      toast({ title: 'Consultor vinculado com sucesso!' });
 
       // Redirect after a delay
       setTimeout(() => {
-        router.push("/clinic/consultant");
+        router.push('/clinic/consultant');
       }, 2000);
     } catch (error: any) {
-      toast({ title: error.message || "Erro ao vincular consultor", variant: "destructive" });
+      toast({ title: error.message || 'Erro ao vincular consultor', variant: 'destructive' });
     } finally {
       setTransferring(false);
     }
@@ -132,15 +119,11 @@ export default function TransferConsultantPage() {
               <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
                 <CheckCircle2 className="h-10 w-10 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">
-                Consultor Vinculado!
-              </h3>
+              <h3 className="text-xl font-semibold mb-2">Consultor Vinculado!</h3>
               <p className="text-muted-foreground mb-4">
                 {searchResult?.name} agora tem acesso aos dados da sua clínica.
               </p>
-              <p className="text-sm text-muted-foreground">
-                Redirecionando...
-              </p>
+              <p className="text-sm text-muted-foreground">Redirecionando...</p>
             </div>
           </CardContent>
         </Card>
@@ -156,7 +139,7 @@ export default function TransferConsultantPage() {
           <Button
             variant="ghost"
             className="mb-4"
-            onClick={() => router.push("/clinic/consultant")}
+            onClick={() => router.push('/clinic/consultant')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
@@ -174,9 +157,7 @@ export default function TransferConsultantPage() {
         <Card>
           <CardHeader>
             <CardTitle>Buscar por Código</CardTitle>
-            <CardDescription>
-              O consultor deve informar seu código de 6 dígitos
-            </CardDescription>
+            <CardDescription>O consultor deve informar seu código de 6 dígitos</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -185,15 +166,12 @@ export default function TransferConsultantPage() {
                 <Input
                   id="code"
                   value={searchCode}
-                  onChange={(e) => setSearchCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setSearchCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="000000"
                   className="font-mono text-center text-xl tracking-widest"
                   maxLength={6}
                 />
-                <Button
-                  onClick={handleSearch}
-                  disabled={searching || searchCode.length !== 6}
-                >
+                <Button onClick={handleSearch} disabled={searching || searchCode.length !== 6}>
                   {searching ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -230,11 +208,7 @@ export default function TransferConsultantPage() {
                 </div>
               </div>
 
-              <Button
-                className="w-full"
-                onClick={handleTransfer}
-                disabled={transferring}
-              >
+              <Button className="w-full" onClick={handleTransfer} disabled={transferring}>
                 {transferring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <UserCheck className="mr-2 h-4 w-4" />
                 Confirmar Vínculo

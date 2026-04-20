@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -14,26 +14,26 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, AlertTriangle } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+} from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Clock, AlertTriangle } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn, signOut, isAuthenticated, loading: authLoading, claims } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
   const [clinicInactiveMessage, setClinicInactiveMessage] = useState(false);
 
   // Verificar se foi redirecionado por timeout
   useEffect(() => {
-    if (searchParams.get("timeout") === "true") {
+    if (searchParams.get('timeout') === 'true') {
       setShowTimeoutMessage(true);
     }
   }, [searchParams]);
@@ -43,24 +43,24 @@ function LoginForm() {
     if (!authLoading && isAuthenticated && claims) {
       // Verificar se precisa trocar a senha primeiro
       if (claims.requirePasswordChange) {
-        router.push("/change-password");
+        router.push('/change-password');
         return;
       }
 
       // Redirecionar baseado no role
       if (claims.is_system_admin) {
-        router.push("/admin/dashboard");
-      } else if (claims.role === "clinic_admin" || claims.role === "clinic_user") {
-        router.push("/clinic/dashboard");
+        router.push('/admin/dashboard');
+      } else if (claims.role === 'clinic_admin' || claims.role === 'clinic_user') {
+        router.push('/clinic/dashboard');
       } else {
-        router.push("/dashboard");
+        router.push('/dashboard');
       }
     }
   }, [isAuthenticated, authLoading, claims, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
 
     try {
@@ -74,19 +74,19 @@ function LoginForm() {
 
         // Verificar se usuário tem custom claims configurados
         if (!claims.role || !claims.active) {
-          router.push("/waiting-approval");
+          router.push('/waiting-approval');
           return;
         }
 
         // Verificar se o usuário precisa trocar a senha (via custom claim)
         if (claims.requirePasswordChange === true) {
-          router.push("/change-password");
+          router.push('/change-password');
           return;
         }
 
         // Verificar status da clínica para usuários não-admin
         if (!claims.is_system_admin && claims.tenant_id) {
-          const tenantDoc = await getDoc(doc(db, "tenants", claims.tenant_id as string));
+          const tenantDoc = await getDoc(doc(db, 'tenants', claims.tenant_id as string));
           if (tenantDoc.exists()) {
             const tenantData = tenantDoc.data();
             const isClinicActive = tenantData.active !== false;
@@ -94,7 +94,7 @@ function LoginForm() {
             // Se a clínica está inativa
             if (!isClinicActive) {
               // clinic_user: mostrar mensagem e não permitir acesso
-              if (claims.role === "clinic_user") {
+              if (claims.role === 'clinic_user') {
                 // Fazer logout para não manter sessão ativa
                 await signOut();
                 setClinicInactiveMessage(true);
@@ -103,8 +103,8 @@ function LoginForm() {
               }
 
               // clinic_admin: redirecionar para my-clinic (acesso restrito)
-              if (claims.role === "clinic_admin") {
-                router.push("/clinic/my-clinic");
+              if (claims.role === 'clinic_admin') {
+                router.push('/clinic/my-clinic');
                 return;
               }
             }
@@ -113,15 +113,15 @@ function LoginForm() {
 
         // Redirecionar baseado no role
         if (claims.is_system_admin) {
-          router.push("/admin/dashboard");
-        } else if (claims.role === "clinic_admin" || claims.role === "clinic_user") {
-          router.push("/clinic/dashboard");
+          router.push('/admin/dashboard');
+        } else if (claims.role === 'clinic_admin' || claims.role === 'clinic_user') {
+          router.push('/clinic/dashboard');
         } else {
-          router.push("/dashboard");
+          router.push('/dashboard');
         }
       } else {
         // Traduzir erros comuns do Firebase
-        const errorMessage = translateFirebaseError(result.error || "");
+        const errorMessage = translateFirebaseError(result.error || '');
         setError(errorMessage);
       }
     } catch (err: any) {
@@ -134,22 +134,22 @@ function LoginForm() {
 
   // Traduzir erros do Firebase para português
   const translateFirebaseError = (error: string): string => {
-    if (error.includes("wrong-password") || error.includes("invalid-credential")) {
-      return "Email ou senha incorretos";
+    if (error.includes('wrong-password') || error.includes('invalid-credential')) {
+      return 'Email ou senha incorretos';
     }
-    if (error.includes("user-not-found")) {
-      return "Usuário não encontrado";
+    if (error.includes('user-not-found')) {
+      return 'Usuário não encontrado';
     }
-    if (error.includes("too-many-requests")) {
-      return "Muitas tentativas. Tente novamente mais tarde";
+    if (error.includes('too-many-requests')) {
+      return 'Muitas tentativas. Tente novamente mais tarde';
     }
-    if (error.includes("network-request-failed")) {
-      return "Erro de conexão. Verifique sua internet";
+    if (error.includes('network-request-failed')) {
+      return 'Erro de conexão. Verifique sua internet';
     }
-    if (error.includes("invalid-email")) {
-      return "Email inválido";
+    if (error.includes('invalid-email')) {
+      return 'Email inválido';
     }
-    return error || "Erro ao fazer login. Tente novamente";
+    return error || 'Erro ao fazer login. Tente novamente';
   };
 
   if (authLoading) {
@@ -176,8 +176,8 @@ function LoginForm() {
           <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-700 dark:text-amber-400">
-              O sistema encontra-se indisponível no momento. Procure o administrador
-              da clínica ou entre em contato com o suporte técnico Curva Mestra.
+              O sistema encontra-se indisponível no momento. Procure o administrador da clínica ou
+              entre em contato com o suporte técnico Curva Mestra.
             </AlertDescription>
           </Alert>
           <div className="mt-6 text-center text-sm text-muted-foreground">
@@ -196,8 +196,8 @@ function LoginForm() {
             className="w-full"
             onClick={() => {
               setClinicInactiveMessage(false);
-              setEmail("");
-              setPassword("");
+              setEmail('');
+              setPassword('');
             }}
           >
             Voltar ao login
@@ -252,30 +252,22 @@ function LoginForm() {
             />
           </div>
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
-            </div>
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Entrando..." : "Entrar"}
+            {loading ? 'Entrando...' : 'Entrar'}
           </Button>
         </form>
       </CardContent>
       <CardFooter className="flex flex-col space-y-2">
         <div className="text-sm text-center text-muted-foreground">
-          <Link
-            href="/forgot-password"
-            className="text-primary hover:underline font-medium"
-          >
+          <Link href="/forgot-password" className="text-primary hover:underline font-medium">
             Esqueceu a senha?
           </Link>
         </div>
         <div className="text-sm text-center text-muted-foreground">
-          Não tem uma conta?{" "}
-          <Link
-            href="/register"
-            className="text-primary hover:underline font-medium"
-          >
+          Não tem uma conta?{' '}
+          <Link href="/register" className="text-primary hover:underline font-medium">
             Registrar-se
           </Link>
         </div>
@@ -286,13 +278,15 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <p className="text-muted-foreground">Carregando...</p>
-        </CardContent>
-      </Card>
-    }>
+    <Suspense
+      fallback={
+        <Card>
+          <CardContent className="flex items-center justify-center py-8">
+            <p className="text-muted-foreground">Carregando...</p>
+          </CardContent>
+        </Card>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

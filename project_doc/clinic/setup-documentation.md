@@ -28,10 +28,10 @@ Formulário de configuração inicial da clínica, composto por 2 etapas (steps)
 
 ## 2. Tipos de Usuários
 
-| Tipo | Acesso | Permissões |
-|------|--------|------------|
-| `clinic_admin` | Total | Preenche/revisa dados e submete o formulário |
-| `clinic_user` | N/A | Não acessa setup (fluxo de onboarding exclusivo do admin) |
+| Tipo           | Acesso   | Permissões                                                   |
+| -------------- | -------- | ------------------------------------------------------------ |
+| `clinic_admin` | Total    | Preenche/revisa dados e submete o formulário                 |
+| `clinic_user`  | N/A      | Não acessa setup (fluxo de onboarding exclusivo do admin)    |
 | `system_admin` | Indireto | Pré-cadastra dados do tenant que são carregados nesta página |
 
 ---
@@ -43,7 +43,7 @@ Formulário de configuração inicial da clínica, composto por 2 etapas (steps)
 ```typescript
 interface ClinicSetupData {
   name: string;
-  document_type: "cnpj" | "cpf";
+  document_type: 'cnpj' | 'cpf';
   document_number: string;
   email: string;
   phone: string;
@@ -67,23 +67,23 @@ const [formData, setFormData] = useState<ClinicSetupData>({...});
 
 ### 3.3 Documento — `tenants/{tenantId}` (dados pré-cadastrados)
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `name` | `string` | Nome da clínica |
-| `document_type` | `string` | `"cnpj"` ou `"cpf"` |
-| `document_number` | `string` | CNPJ ou CPF |
-| `cnpj` | `string` | CNPJ (campo legado) |
-| `email` | `string` | Email da clínica |
-| `phone` | `string` | Telefone |
-| `address` | `string` | Endereço completo (formato legado) |
-| `city` | `string` | Cidade |
-| `state` | `string` | UF |
-| `cep` | `string` | CEP |
+| Campo             | Tipo     | Descrição                          |
+| ----------------- | -------- | ---------------------------------- |
+| `name`            | `string` | Nome da clínica                    |
+| `document_type`   | `string` | `"cnpj"` ou `"cpf"`                |
+| `document_number` | `string` | CNPJ ou CPF                        |
+| `cnpj`            | `string` | CNPJ (campo legado)                |
+| `email`           | `string` | Email da clínica                   |
+| `phone`           | `string` | Telefone                           |
+| `address`         | `string` | Endereço completo (formato legado) |
+| `city`            | `string` | Cidade                             |
+| `state`           | `string` | UF                                 |
+| `cep`             | `string` | CEP                                |
 
 ### 3.4 Documento — Onboarding
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
+| Campo             | Tipo      | Descrição                                      |
+| ----------------- | --------- | ---------------------------------------------- |
 | `setup_completed` | `boolean` | Se true, redireciona para `/clinic/setup/plan` |
 
 ---
@@ -236,21 +236,21 @@ const [formData, setFormData] = useState<ClinicSetupData>({...});
 
 ## 7. Estados da Interface
 
-| Estado | Comportamento | Visual |
-|--------|---------------|--------|
-| Carregando dados (`loadingData`) | Spinner centralizado com "Carregando dados..." | Card com spinner |
-| Step 1 (Dados Básicos) | 5 campos + botão "Próximo" | Indicador: step 1 ativo (azul) |
-| Step 2 (Endereço) | 4 campos + botões "Voltar" e "Continuar" | Indicador: step 1 check + step 2 ativo |
-| Dados pré-preenchidos | Alert informativo no topo + botão "Confirmar e Continuar" | Alert com InfoIcon |
-| Erro de validação | Alert destructive com mensagem | Alert vermelho |
-| Salvando (`loading`) | Botão "Salvando...", campos desabilitados | Botão com texto alterado |
-| Erro de servidor | Alert destructive com mensagem | Alert vermelho |
+| Estado                           | Comportamento                                             | Visual                                 |
+| -------------------------------- | --------------------------------------------------------- | -------------------------------------- |
+| Carregando dados (`loadingData`) | Spinner centralizado com "Carregando dados..."            | Card com spinner                       |
+| Step 1 (Dados Básicos)           | 5 campos + botão "Próximo"                                | Indicador: step 1 ativo (azul)         |
+| Step 2 (Endereço)                | 4 campos + botões "Voltar" e "Continuar"                  | Indicador: step 1 check + step 2 ativo |
+| Dados pré-preenchidos            | Alert informativo no topo + botão "Confirmar e Continuar" | Alert com InfoIcon                     |
+| Erro de validação                | Alert destructive com mensagem                            | Alert vermelho                         |
+| Salvando (`loading`)             | Botão "Salvando...", campos desabilitados                 | Botão com texto alterado               |
+| Erro de servidor                 | Alert destructive com mensagem                            | Alert vermelho                         |
 
 ### Indicador de Progresso
 
-| Step | Visual |
-|------|--------|
-| Step 1 ativo | Círculo "1" azul + Círculo "2" cinza |
+| Step         | Visual                                      |
+| ------------ | ------------------------------------------- |
+| Step 1 ativo | Círculo "1" azul + Círculo "2" cinza        |
 | Step 2 ativo | Círculo com CheckCircle2 + Círculo "2" azul |
 
 ---
@@ -259,22 +259,22 @@ const [formData, setFormData] = useState<ClinicSetupData>({...});
 
 ### 8.1 Step 1 — Dados Básicos
 
-| Campo | Validação | Mensagem de erro |
-|-------|-----------|------------------|
-| `name` | Não pode ser vazio (`trim()`) | "Nome da clínica é obrigatório" |
-| `document_number` (CNPJ) | 14 dígitos + `validateCNPJ` | "CNPJ deve ter 14 dígitos" / "CNPJ inválido" |
-| `document_number` (CPF) | 11 dígitos | "CPF deve ter 11 dígitos" |
-| `email` | Não vazio + contém "@" | "Email válido é obrigatório" |
-| `phone` | Mínimo 10 dígitos numéricos | "Telefone deve ter pelo menos 10 dígitos" |
+| Campo                    | Validação                     | Mensagem de erro                             |
+| ------------------------ | ----------------------------- | -------------------------------------------- |
+| `name`                   | Não pode ser vazio (`trim()`) | "Nome da clínica é obrigatório"              |
+| `document_number` (CNPJ) | 14 dígitos + `validateCNPJ`   | "CNPJ deve ter 14 dígitos" / "CNPJ inválido" |
+| `document_number` (CPF)  | 11 dígitos                    | "CPF deve ter 11 dígitos"                    |
+| `email`                  | Não vazio + contém "@"        | "Email válido é obrigatório"                 |
+| `phone`                  | Mínimo 10 dígitos numéricos   | "Telefone deve ter pelo menos 10 dígitos"    |
 
 ### 8.2 Step 2 — Endereço
 
-| Campo | Validação | Mensagem de erro |
-|-------|-----------|------------------|
-| `address` | Não pode ser vazio | "Endereço é obrigatório" |
-| `city` | Não pode ser vazio | "Cidade é obrigatória" |
-| `state` | Não pode ser vazio | "Estado é obrigatório" |
-| `cep` | Exatamente 8 dígitos | "CEP deve ter 8 dígitos" |
+| Campo     | Validação            | Mensagem de erro         |
+| --------- | -------------------- | ------------------------ |
+| `address` | Não pode ser vazio   | "Endereço é obrigatório" |
+| `city`    | Não pode ser vazio   | "Cidade é obrigatória"   |
+| `state`   | Não pode ser vazio   | "Estado é obrigatório"   |
+| `cep`     | Exatamente 8 dígitos | "CEP deve ter 8 dígitos" |
 
 ### 8.3 Funções de Formatação
 
@@ -287,49 +287,49 @@ const [formData, setFormData] = useState<ClinicSetupData>({...});
 
 ## 9. Integrações
 
-| Integração | Tipo | Descrição |
-|------------|------|-----------|
-| Firebase Auth | Autenticação | `useAuth()` — claims, signOut |
-| `tenantOnboardingService` | Serviço | `getTenantOnboarding` (verificar setup) + `completeClinicSetup` (salvar) |
-| `tenantServiceDirect` | Serviço | `getTenant` (dados pré-cadastrados) |
-| `@/types/tenant` | Validação | `validateCNPJ` para validação de dígitos verificadores |
-| Next.js Router | Navegação | Redirect para `/clinic/setup/plan` ou `/login` |
+| Integração                | Tipo         | Descrição                                                                |
+| ------------------------- | ------------ | ------------------------------------------------------------------------ |
+| Firebase Auth             | Autenticação | `useAuth()` — claims, signOut                                            |
+| `tenantOnboardingService` | Serviço      | `getTenantOnboarding` (verificar setup) + `completeClinicSetup` (salvar) |
+| `tenantServiceDirect`     | Serviço      | `getTenant` (dados pré-cadastrados)                                      |
+| `@/types/tenant`          | Validação    | `validateCNPJ` para validação de dígitos verificadores                   |
+| Next.js Router            | Navegação    | Redirect para `/clinic/setup/plan` ou `/login`                           |
 
 ---
 
 ## 10. Segurança
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Autenticação | `useAuth()` verifica se há usuário logado |
-| Multi-tenant | `claims.tenant_id` isola dados |
+| Aspecto           | Implementação                                      |
+| ----------------- | -------------------------------------------------- |
+| Autenticação      | `useAuth()` verifica se há usuário logado          |
+| Multi-tenant      | `claims.tenant_id` isola dados                     |
 | Validação de CNPJ | Dígitos verificadores validados via `validateCNPJ` |
-| SignOut | Botão "Sair" permite logout durante onboarding |
-| Firestore RLS | Regras garantem isolamento multi-tenant |
+| SignOut           | Botão "Sair" permite logout durante onboarding     |
+| Firestore RLS     | Regras garantem isolamento multi-tenant            |
 
 ---
 
 ## 11. Performance
 
-| Aspecto | Implementação |
-|---------|---------------|
-| Carregamento sequencial | Primeiro verifica onboarding, depois carrega tenant |
-| Dois estados de loading | `loadingData` (inicial) e `loading` (submissão) |
-| Formulário local | Todos os dados no state até submit |
-| Formatação em tempo real | Máscaras aplicadas no onChange |
+| Aspecto                  | Implementação                                       |
+| ------------------------ | --------------------------------------------------- |
+| Carregamento sequencial  | Primeiro verifica onboarding, depois carrega tenant |
+| Dois estados de loading  | `loadingData` (inicial) e `loading` (submissão)     |
+| Formulário local         | Todos os dados no state até submit                  |
+| Formatação em tempo real | Máscaras aplicadas no onChange                      |
 
 ---
 
 ## 12. Acessibilidade
 
-| Aspecto | Status | Detalhes |
-|---------|--------|----------|
-| Labels vinculados | Sim | `<Label htmlFor>` + `id` nos inputs |
-| Campos obrigatórios | Sim | Asterisco `*` visual nos labels |
-| Feedback de erro | Sim | Alert destructive com mensagem clara |
-| Indicador de progresso | Parcial | Visual de steps sem aria-label |
-| Select acessível | Sim | Componente Shadcn Select com ARIA |
-| Navegação por teclado | Sim | Form nativo com onSubmit |
+| Aspecto                | Status  | Detalhes                             |
+| ---------------------- | ------- | ------------------------------------ |
+| Labels vinculados      | Sim     | `<Label htmlFor>` + `id` nos inputs  |
+| Campos obrigatórios    | Sim     | Asterisco `*` visual nos labels      |
+| Feedback de erro       | Sim     | Alert destructive com mensagem clara |
+| Indicador de progresso | Parcial | Visual de steps sem aria-label       |
+| Select acessível       | Sim     | Componente Shadcn Select com ARIA    |
+| Navegação por teclado  | Sim     | Form nativo com onSubmit             |
 
 ---
 
@@ -337,32 +337,32 @@ const [formData, setFormData] = useState<ClinicSetupData>({...});
 
 ### 13.1 Cenários de Teste Recomendados
 
-| Cenário | Tipo | Descrição |
-|---------|------|-----------|
-| Setup já completado | E2E | Verificar redirect para `/clinic/setup/plan` |
-| Dados pré-preenchidos | E2E | Verificar pré-preenchimento e Alert informativo |
-| Step 1 validação completa | Unitário | Testar cada campo obrigatório |
-| CNPJ inválido | Unitário | Verificar erro de dígitos verificadores |
-| CPF com 10 dígitos | Unitário | Verificar erro "CPF deve ter 11 dígitos" |
-| Avançar para Step 2 | E2E | Verificar transição e indicador de progresso |
-| Voltar para Step 1 | E2E | Verificar que dados são preservados |
-| Submit com sucesso | E2E | Verificar redirect para `/clinic/setup/plan` |
-| Erro de servidor | E2E | Verificar Alert destructive |
-| Máscara de CNPJ | Unitário | Verificar formato `XX.XXX.XXX/XXXX-XX` |
-| Máscara de CEP | Unitário | Verificar formato `XXXXX-XXX` |
-| Extração de endereço legado | Unitário | Verificar parse de "Rua X, Cidade - UF, CEP" |
-| Botão Sair | E2E | Verificar signOut e redirect para /login |
+| Cenário                     | Tipo     | Descrição                                       |
+| --------------------------- | -------- | ----------------------------------------------- |
+| Setup já completado         | E2E      | Verificar redirect para `/clinic/setup/plan`    |
+| Dados pré-preenchidos       | E2E      | Verificar pré-preenchimento e Alert informativo |
+| Step 1 validação completa   | Unitário | Testar cada campo obrigatório                   |
+| CNPJ inválido               | Unitário | Verificar erro de dígitos verificadores         |
+| CPF com 10 dígitos          | Unitário | Verificar erro "CPF deve ter 11 dígitos"        |
+| Avançar para Step 2         | E2E      | Verificar transição e indicador de progresso    |
+| Voltar para Step 1          | E2E      | Verificar que dados são preservados             |
+| Submit com sucesso          | E2E      | Verificar redirect para `/clinic/setup/plan`    |
+| Erro de servidor            | E2E      | Verificar Alert destructive                     |
+| Máscara de CNPJ             | Unitário | Verificar formato `XX.XXX.XXX/XXXX-XX`          |
+| Máscara de CEP              | Unitário | Verificar formato `XXXXX-XXX`                   |
+| Extração de endereço legado | Unitário | Verificar parse de "Rua X, Cidade - UF, CEP"    |
+| Botão Sair                  | E2E      | Verificar signOut e redirect para /login        |
 
 ---
 
 ## 14. Melhorias Futuras
 
-| Melhoria | Prioridade | Descrição |
-|----------|------------|-----------|
-| Busca de CEP via API | Alta | Auto-preencher endereço ao digitar CEP |
-| Validação de CPF | Média | Implementar dígitos verificadores para CPF |
-| Upload de logo | Baixa | Permitir upload do logo da clínica |
-| Confirmação visual de revisão | Baixa | Destacar campos alterados pelo admin |
+| Melhoria                      | Prioridade | Descrição                                  |
+| ----------------------------- | ---------- | ------------------------------------------ |
+| Busca de CEP via API          | Alta       | Auto-preencher endereço ao digitar CEP     |
+| Validação de CPF              | Média      | Implementar dígitos verificadores para CPF |
+| Upload de logo                | Baixa      | Permitir upload do logo da clínica         |
+| Confirmação visual de revisão | Baixa      | Destacar campos alterados pelo admin       |
 
 ---
 
@@ -406,25 +406,25 @@ setup (este doc)
 
 ## 17. Histórico de Mudanças
 
-| Data | Versão | Descrição |
-|------|--------|-----------|
-| 07/02/2026 | 1.0 | Documentação inicial (formato antigo) |
-| 09/02/2026 | 2.0 | Padronização para template de 20 seções |
+| Data       | Versão | Descrição                               |
+| ---------- | ------ | --------------------------------------- |
+| 07/02/2026 | 1.0    | Documentação inicial (formato antigo)   |
+| 09/02/2026 | 2.0    | Padronização para template de 20 seções |
 
 ---
 
 ## 18. Glossário
 
-| Termo | Descrição |
-|-------|-----------|
-| `tenant_id` | Identificador único da clínica no sistema multi-tenant |
-| `claims` | Custom Claims do Firebase Auth |
-| `setup_completed` | Flag do onboarding que indica se o setup já foi feito |
-| `document_type` | Tipo de documento: `"cnpj"` (clínica) ou `"cpf"` (autônomo) |
-| `validateCNPJ` | Função que valida dígitos verificadores do CNPJ |
-| `dataPreFilled` | Boolean que indica se dados foram pré-cadastrados pelo system_admin |
-| `ClinicSetupData` | Tipo que representa os dados do formulário de setup |
-| `BRAZILIAN_STATES` | Array com as 27 UFs do Brasil |
+| Termo              | Descrição                                                           |
+| ------------------ | ------------------------------------------------------------------- |
+| `tenant_id`        | Identificador único da clínica no sistema multi-tenant              |
+| `claims`           | Custom Claims do Firebase Auth                                      |
+| `setup_completed`  | Flag do onboarding que indica se o setup já foi feito               |
+| `document_type`    | Tipo de documento: `"cnpj"` (clínica) ou `"cpf"` (autônomo)         |
+| `validateCNPJ`     | Função que valida dígitos verificadores do CNPJ                     |
+| `dataPreFilled`    | Boolean que indica se dados foram pré-cadastrados pelo system_admin |
+| `ClinicSetupData`  | Tipo que representa os dados do formulário de setup                 |
+| `BRAZILIAN_STATES` | Array com as 27 UFs do Brasil                                       |
 
 ---
 
@@ -445,22 +445,22 @@ setup (este doc)
 
 **Step 1 — Dados Básicos:**
 
-| Campo | Tipo | Obrigatório | Máscara | Placeholder |
-|-------|------|-------------|---------|-------------|
-| `name` | text | Sim | - | "Ex: Clínica Beleza e Estética" |
-| `document_type` | select | Sim | - | CNPJ/CPF |
-| `document_number` | text | Sim | CNPJ/CPF | "00.000.000/0000-00" / "000.000.000-00" |
-| `email` | email | Sim | - | "contato@clinica.com.br" |
-| `phone` | text | Sim | `(XX) XXXXX-XXXX` | "(00) 00000-0000" |
+| Campo             | Tipo   | Obrigatório | Máscara           | Placeholder                             |
+| ----------------- | ------ | ----------- | ----------------- | --------------------------------------- |
+| `name`            | text   | Sim         | -                 | "Ex: Clínica Beleza e Estética"         |
+| `document_type`   | select | Sim         | -                 | CNPJ/CPF                                |
+| `document_number` | text   | Sim         | CNPJ/CPF          | "00.000.000/0000-00" / "000.000.000-00" |
+| `email`           | email  | Sim         | -                 | "contato@clinica.com.br"                |
+| `phone`           | text   | Sim         | `(XX) XXXXX-XXXX` | "(00) 00000-0000"                       |
 
 **Step 2 — Endereço:**
 
-| Campo | Tipo | Obrigatório | Máscara | Placeholder |
-|-------|------|-------------|---------|-------------|
-| `cep` | text | Sim | `XXXXX-XXX` | "00000-000" |
-| `address` | text | Sim | - | "Rua, número, complemento" |
-| `city` | text | Sim | - | "São Paulo" |
-| `state` | select | Sim | UF | 27 estados |
+| Campo     | Tipo   | Obrigatório | Máscara     | Placeholder                |
+| --------- | ------ | ----------- | ----------- | -------------------------- |
+| `cep`     | text   | Sim         | `XXXXX-XXX` | "00000-000"                |
+| `address` | text   | Sim         | -           | "Rua, número, complemento" |
+| `city`    | text   | Sim         | -           | "São Paulo"                |
+| `state`   | select | Sim         | UF          | 27 estados                 |
 
 ### Anexo B — Estrutura do Layout
 

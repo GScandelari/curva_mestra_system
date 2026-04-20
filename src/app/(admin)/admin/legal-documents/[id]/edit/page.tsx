@@ -1,25 +1,25 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/hooks/use-toast";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-import { FileText, Save, Loader2, ArrowLeft } from "lucide-react";
-import { LegalDocument, DocumentStatus } from "@/types";
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import { FileText, Save, Loader2, ArrowLeft } from 'lucide-react';
+import { LegalDocument, DocumentStatus } from '@/types';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
 export default function EditLegalDocumentPage() {
   const router = useRouter();
@@ -31,11 +31,11 @@ export default function EditLegalDocumentPage() {
   const documentId = params.id as string;
 
   const [formData, setFormData] = useState<Partial<LegalDocument>>({
-    title: "",
-    slug: "",
-    content: "",
-    version: "1.0",
-    status: "rascunho",
+    title: '',
+    slug: '',
+    content: '',
+    version: '1.0',
+    status: 'rascunho',
     required_for_registration: false,
     required_for_existing_users: false,
     order: 1,
@@ -49,23 +49,23 @@ export default function EditLegalDocumentPage() {
 
   async function loadDocument() {
     try {
-      const docRef = doc(db, "legal_documents", documentId);
+      const docRef = doc(db, 'legal_documents', documentId);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         setFormData({ id: docSnap.id, ...docSnap.data() } as LegalDocument);
       } else {
         toast({
-          title: "Documento não encontrado",
-          variant: "destructive",
+          title: 'Documento não encontrado',
+          variant: 'destructive',
         });
-        router.push("/admin/legal-documents");
+        router.push('/admin/legal-documents');
       }
     } catch (error: any) {
       toast({
-        title: "Erro ao carregar documento",
+        title: 'Erro ao carregar documento',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -75,10 +75,10 @@ export default function EditLegalDocumentPage() {
   function generateSlug(title: string): string {
     return title
       .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
   }
 
   function handleTitleChange(title: string) {
@@ -92,9 +92,9 @@ export default function EditLegalDocumentPage() {
   async function handleSave() {
     if (!auth.currentUser) {
       toast({
-        title: "Erro",
-        description: "Você precisa estar autenticado",
-        variant: "destructive",
+        title: 'Erro',
+        description: 'Você precisa estar autenticado',
+        variant: 'destructive',
       });
       return;
     }
@@ -102,34 +102,34 @@ export default function EditLegalDocumentPage() {
     // Validações
     if (!formData.title?.trim()) {
       toast({
-        title: "Erro de validação",
-        description: "O título é obrigatório",
-        variant: "destructive",
+        title: 'Erro de validação',
+        description: 'O título é obrigatório',
+        variant: 'destructive',
       });
       return;
     }
 
     if (!formData.content?.trim()) {
       toast({
-        title: "Erro de validação",
-        description: "O conteúdo é obrigatório",
-        variant: "destructive",
+        title: 'Erro de validação',
+        description: 'O conteúdo é obrigatório',
+        variant: 'destructive',
       });
       return;
     }
 
     if (!formData.version?.trim()) {
       toast({
-        title: "Erro de validação",
-        description: "A versão é obrigatória",
-        variant: "destructive",
+        title: 'Erro de validação',
+        description: 'A versão é obrigatória',
+        variant: 'destructive',
       });
       return;
     }
 
     setSaving(true);
     try {
-      const docRef = doc(db, "legal_documents", documentId);
+      const docRef = doc(db, 'legal_documents', documentId);
 
       const updateData: any = {
         title: formData.title,
@@ -144,23 +144,23 @@ export default function EditLegalDocumentPage() {
       };
 
       // Se mudou para ativo, atualizar published_at
-      if (formData.status === "ativo") {
+      if (formData.status === 'ativo') {
         updateData.published_at = serverTimestamp();
       }
 
       await updateDoc(docRef, updateData);
 
       toast({
-        title: "Sucesso",
-        description: "Documento atualizado com sucesso",
+        title: 'Sucesso',
+        description: 'Documento atualizado com sucesso',
       });
 
-      router.push("/admin/legal-documents");
+      router.push('/admin/legal-documents');
     } catch (error: any) {
       toast({
-        title: "Erro ao salvar",
+        title: 'Erro ao salvar',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setSaving(false);
@@ -181,7 +181,7 @@ export default function EditLegalDocumentPage() {
       <div>
         <Button
           variant="ghost"
-          onClick={() => router.push("/admin/legal-documents")}
+          onClick={() => router.push('/admin/legal-documents')}
           className="mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -191,18 +191,14 @@ export default function EditLegalDocumentPage() {
           <FileText className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold">Editar Documento Legal</h1>
         </div>
-        <p className="text-muted-foreground">
-          Atualize as informações do documento
-        </p>
+        <p className="text-muted-foreground">Atualize as informações do documento</p>
       </div>
 
       {/* Formulário */}
       <Card>
         <CardHeader>
           <CardTitle>Informações do Documento</CardTitle>
-          <CardDescription>
-            Edite os dados do documento legal
-          </CardDescription>
+          <CardDescription>Edite os dados do documento legal</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Título */}
@@ -274,9 +270,7 @@ export default function EditLegalDocumentPage() {
               type="number"
               min="1"
               value={formData.order}
-              onChange={(e) =>
-                setFormData({ ...formData, order: parseInt(e.target.value) || 1 })
-              }
+              onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 1 })}
             />
             <p className="text-sm text-muted-foreground">
               Ordem em que o documento aparecerá na lista
@@ -296,9 +290,7 @@ export default function EditLegalDocumentPage() {
               rows={15}
               className="font-mono text-sm"
             />
-            <p className="text-sm text-muted-foreground">
-              Suporta Markdown para formatação
-            </p>
+            <p className="text-sm text-muted-foreground">Suporta Markdown para formatação</p>
           </div>
 
           {/* Opções */}
@@ -340,7 +332,7 @@ export default function EditLegalDocumentPage() {
 
       {/* Ações */}
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push("/admin/legal-documents")}>
+        <Button variant="outline" onClick={() => router.push('/admin/legal-documents')}>
           Cancelar
         </Button>
         <Button onClick={handleSave} disabled={saving}>

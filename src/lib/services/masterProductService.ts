@@ -17,13 +17,13 @@ import {
   limit as firestoreLimit,
   Timestamp,
   serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import {
   MasterProduct,
   CreateMasterProductData,
   UpdateMasterProductData,
-} from "@/types/masterProduct";
+} from '@/types/masterProduct';
 
 interface ListMasterProductsParams {
   limit?: number;
@@ -45,18 +45,19 @@ function convertTimestamps(data: any): any {
 // Listar todos os produtos master
 export async function listMasterProducts(params: ListMasterProductsParams = {}) {
   try {
-    const { limit = 100, activeOnly = false, searchTerm = "" } = params;
+    const { limit = 100, activeOnly = false, searchTerm = '' } = params;
 
-    console.log("[masterProductService] Iniciando busca de produtos...", { limit, activeOnly, searchTerm });
+    console.log('[masterProductService] Iniciando busca de produtos...', {
+      limit,
+      activeOnly,
+      searchTerm,
+    });
 
     // Query simples sem orderBy inicial para evitar erro de índice
-    let q = query(
-      collection(db, "master_products"),
-      firestoreLimit(limit)
-    );
+    let q = query(collection(db, 'master_products'), firestoreLimit(limit));
 
     const snapshot = await getDocs(q);
-    console.log("[masterProductService] Produtos encontrados:", snapshot.size);
+    console.log('[masterProductService] Produtos encontrados:', snapshot.size);
 
     let products: MasterProduct[] = snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -75,23 +76,21 @@ export async function listMasterProducts(params: ListMasterProductsParams = {}) 
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       products = products.filter(
-        (p) =>
-          p.code.includes(searchLower) ||
-          p.name.toLowerCase().includes(searchLower)
+        (p) => p.code.includes(searchLower) || p.name.toLowerCase().includes(searchLower)
       );
     }
 
     // Ordenar por código (client-side)
     products.sort((a, b) => a.code.localeCompare(b.code));
 
-    console.log("[masterProductService] Produtos após filtros:", products.length);
+    console.log('[masterProductService] Produtos após filtros:', products.length);
     return { products, count: products.length };
   } catch (error: any) {
-    console.error("[masterProductService] ERRO DETALHADO:", {
+    console.error('[masterProductService] ERRO DETALHADO:', {
       message: error?.message,
       code: error?.code,
       stack: error?.stack,
-      error
+      error,
     });
     throw new Error(`Erro ao carregar produtos do catálogo: ${error?.message || 'Desconhecido'}`);
   }
@@ -100,11 +99,11 @@ export async function listMasterProducts(params: ListMasterProductsParams = {}) 
 // Obter detalhes de um produto master
 export async function getMasterProduct(productId: string) {
   try {
-    const docRef = doc(db, "master_products", productId);
+    const docRef = doc(db, 'master_products', productId);
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
-      throw new Error("Produto não encontrado");
+      throw new Error('Produto não encontrado');
     }
 
     const product: MasterProduct = {
@@ -114,7 +113,7 @@ export async function getMasterProduct(productId: string) {
 
     return { product };
   } catch (error) {
-    console.error("Erro ao obter produto master:", error);
+    console.error('Erro ao obter produto master:', error);
     throw error;
   }
 }
@@ -123,8 +122,8 @@ export async function getMasterProduct(productId: string) {
 export async function getMasterProductByCode(code: string) {
   try {
     const q = query(
-      collection(db, "master_products"),
-      where("code", "==", code),
+      collection(db, 'master_products'),
+      where('code', '==', code),
       firestoreLimit(1)
     );
 
@@ -142,7 +141,7 @@ export async function getMasterProductByCode(code: string) {
 
     return { product };
   } catch (error) {
-    console.error("Erro ao buscar produto por código:", error);
+    console.error('Erro ao buscar produto por código:', error);
     throw error;
   }
 }
@@ -166,32 +165,29 @@ export async function createMasterProduct(data: CreateMasterProductData) {
       updated_at: serverTimestamp(),
     };
 
-    const docRef = await addDoc(collection(db, "master_products"), productData);
+    const docRef = await addDoc(collection(db, 'master_products'), productData);
 
     return {
       productId: docRef.id,
-      message: "Produto criado com sucesso",
+      message: 'Produto criado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao criar produto master:", error);
+    console.error('Erro ao criar produto master:', error);
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error("Erro ao criar produto no catálogo");
+    throw new Error('Erro ao criar produto no catálogo');
   }
 }
 
 // Atualizar produto master existente
-export async function updateMasterProduct(
-  productId: string,
-  data: UpdateMasterProductData
-) {
+export async function updateMasterProduct(productId: string, data: UpdateMasterProductData) {
   try {
     if (!productId) {
-      throw new Error("productId é obrigatório");
+      throw new Error('productId é obrigatório');
     }
 
-    const docRef = doc(db, "master_products", productId);
+    const docRef = doc(db, 'master_products', productId);
 
     const firestoreData: any = {
       updated_at: serverTimestamp(),
@@ -218,14 +214,14 @@ export async function updateMasterProduct(
 
     return {
       productId,
-      message: "Produto atualizado com sucesso",
+      message: 'Produto atualizado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao atualizar produto master:", error);
+    console.error('Erro ao atualizar produto master:', error);
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error("Erro ao atualizar produto no catálogo");
+    throw new Error('Erro ao atualizar produto no catálogo');
   }
 }
 
@@ -233,10 +229,10 @@ export async function updateMasterProduct(
 export async function deactivateMasterProduct(productId: string) {
   try {
     if (!productId) {
-      throw new Error("productId é obrigatório");
+      throw new Error('productId é obrigatório');
     }
 
-    const docRef = doc(db, "master_products", productId);
+    const docRef = doc(db, 'master_products', productId);
 
     await updateDoc(docRef, {
       active: false,
@@ -245,11 +241,11 @@ export async function deactivateMasterProduct(productId: string) {
 
     return {
       productId,
-      message: "Produto desativado com sucesso",
+      message: 'Produto desativado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao desativar produto master:", error);
-    throw new Error("Erro ao desativar produto no catálogo");
+    console.error('Erro ao desativar produto master:', error);
+    throw new Error('Erro ao desativar produto no catálogo');
   }
 }
 
@@ -257,10 +253,10 @@ export async function deactivateMasterProduct(productId: string) {
 export async function reactivateMasterProduct(productId: string) {
   try {
     if (!productId) {
-      throw new Error("productId é obrigatório");
+      throw new Error('productId é obrigatório');
     }
 
-    const docRef = doc(db, "master_products", productId);
+    const docRef = doc(db, 'master_products', productId);
 
     await updateDoc(docRef, {
       active: true,
@@ -269,11 +265,11 @@ export async function reactivateMasterProduct(productId: string) {
 
     return {
       productId,
-      message: "Produto reativado com sucesso",
+      message: 'Produto reativado com sucesso',
     };
   } catch (error) {
-    console.error("Erro ao reativar produto master:", error);
-    throw new Error("Erro ao reativar produto no catálogo");
+    console.error('Erro ao reativar produto master:', error);
+    throw new Error('Erro ao reativar produto no catálogo');
   }
 }
 
@@ -281,18 +277,18 @@ export async function reactivateMasterProduct(productId: string) {
 export async function deleteMasterProduct(productId: string) {
   try {
     if (!productId) {
-      throw new Error("productId é obrigatório");
+      throw new Error('productId é obrigatório');
     }
 
-    const docRef = doc(db, "master_products", productId);
+    const docRef = doc(db, 'master_products', productId);
     await deleteDoc(docRef);
 
     return {
       productId,
-      message: "Produto deletado permanentemente",
+      message: 'Produto deletado permanentemente',
     };
   } catch (error) {
-    console.error("Erro ao deletar produto master:", error);
-    throw new Error("Erro ao deletar produto do catálogo");
+    console.error('Erro ao deletar produto master:', error);
+    throw new Error('Erro ao deletar produto do catálogo');
   }
 }
