@@ -48,6 +48,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { formatCNPJInput, formatPhoneInput } from '@/lib/formatters';
+
+async function getAdminToken(): Promise<string> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Erro de autenticação. Faça login novamente.');
+  return token;
+}
 
 export default function EditTenantPage() {
   const router = useRouter();
@@ -225,11 +232,7 @@ export default function EditTenantPage() {
       setCreatingUser(true);
       setError('');
 
-      // Obter token do usuário atual (system_admin)
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) {
-        throw new Error('Erro de autenticação. Faça login novamente.');
-      }
+      const idToken = await getAdminToken();
 
       // Chamar API para criar usuário (NÃO autentica automaticamente)
       const response = await fetch('/api/users/create', {
@@ -278,8 +281,7 @@ export default function EditTenantPage() {
 
     try {
       setSearchingConsultant(true);
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Erro de autenticação');
+      const idToken = await getAdminToken();
 
       const response = await fetch(
         `/api/consultants/search?q=${encodeURIComponent(consultantSearch)}`,
@@ -309,8 +311,7 @@ export default function EditTenantPage() {
 
     try {
       setAssigningConsultant(true);
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Erro de autenticação');
+      const idToken = await getAdminToken();
 
       const response = await fetch(`/api/tenants/${tenantId}/consultant`, {
         method: 'POST',
@@ -348,8 +349,7 @@ export default function EditTenantPage() {
 
     try {
       setRemovingConsultant(true);
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Erro de autenticação');
+      const idToken = await getAdminToken();
 
       const response = await fetch(`/api/tenants/${tenantId}/consultant`, {
         method: 'DELETE',
@@ -376,26 +376,6 @@ export default function EditTenantPage() {
   const copyConsultantCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setSuccess('Código copiado para a área de transferência');
-  };
-
-  const formatCNPJInput = (value: string) => {
-    const numbers = value.replace(/\D/g, '').slice(0, 14);
-    if (numbers.length <= 14) {
-      return numbers
-        .replace(/^(\d{2})(\d)/, '$1.$2')
-        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-        .replace(/\.(\d{3})(\d)/, '.$1/$2')
-        .replace(/(\d{4})(\d)/, '$1-$2');
-    }
-    return numbers;
-  };
-
-  const formatPhoneInput = (value: string) => {
-    const numbers = value.replace(/\D/g, '').slice(0, 11);
-    if (numbers.length <= 10) {
-      return numbers.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
-    }
-    return numbers.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
   };
 
   if (loadingTenant) {

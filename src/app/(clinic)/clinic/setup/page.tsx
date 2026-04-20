@@ -21,6 +21,7 @@ import { getTenant } from '@/lib/services/tenantServiceDirect';
 import { ClinicSetupData } from '@/types/onboarding';
 import { validateCNPJ } from '@/types/tenant';
 import { InfoIcon } from 'lucide-react';
+import { parseAddressFromString } from '@/lib/formatters';
 
 export default function ClinicSetupPage() {
   const { user, claims, signOut } = useAuth();
@@ -76,28 +77,10 @@ export default function ClinicSetupPage() {
 
         // Se não há campos separados, tenta extrair do address
         if (!city && !state && !cep && tenant.address) {
-          const addressParts = tenant.address.split(',');
-          if (addressParts.length >= 2) {
-            // Formato: "Rua X, Cidade - UF, CEP"
-            const lastPart = addressParts[addressParts.length - 1].trim();
-            const secondLastPart = addressParts[addressParts.length - 2].trim();
-
-            // Extrai CEP
-            const cepMatch = lastPart.match(/\d{5}-?\d{3}/);
-            if (cepMatch) {
-              cep = cepMatch[0];
-            }
-
-            // Extrai cidade e estado — formato "Cidade - UF"
-            const dashIdx = secondLastPart.lastIndexOf(' - ');
-            if (dashIdx !== -1) {
-              const candidate = secondLastPart.slice(dashIdx + 3).trim();
-              if (candidate.length === 2 && candidate === candidate.toUpperCase()) {
-                city = secondLastPart.slice(0, dashIdx).trim();
-                state = candidate;
-              }
-            }
-          }
+          const parsed = parseAddressFromString(tenant.address);
+          city = parsed.city;
+          state = parsed.state;
+          cep = parsed.cep;
         }
 
         // Pre-preenche formulário

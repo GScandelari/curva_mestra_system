@@ -48,6 +48,30 @@ const BASE_FEATURES = [
   'Alertas de Estoque Baixo',
 ];
 
+function getStatusIcon(status: string) {
+  switch (status) {
+    case 'ativa':
+      return <CheckCircle className="w-8 h-8 text-green-600" />;
+    case 'expirada':
+      return <XCircle className="w-8 h-8 text-red-600" />;
+    case 'suspensa':
+      return <AlertTriangle className="w-8 h-8 text-orange-600" />;
+    case 'pendente':
+      return <Clock className="w-8 h-8 text-yellow-600" />;
+    default:
+      return null;
+  }
+}
+
+function formatDate(timestamp: Timestamp | Date): string {
+  const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 function getFeatures(tenant: Tenant | null): string[] {
   if (!tenant) return BASE_FEATURES_NO_TENANT;
   if (tenant.document_type === 'cnpj') {
@@ -92,30 +116,6 @@ export default function LicensePage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function getStatusIcon(status: string) {
-    switch (status) {
-      case 'ativa':
-        return <CheckCircle className="w-8 h-8 text-green-600" />;
-      case 'expirada':
-        return <XCircle className="w-8 h-8 text-red-600" />;
-      case 'suspensa':
-        return <AlertTriangle className="w-8 h-8 text-orange-600" />;
-      case 'pendente':
-        return <Clock className="w-8 h-8 text-yellow-600" />;
-      default:
-        return null;
-    }
-  }
-
-  function formatDate(timestamp: Timestamp | Date): string {
-    const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
   }
 
   if (loading) {

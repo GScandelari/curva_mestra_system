@@ -27,6 +27,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, User, Package, AlertTriangle, Check, X, Trash2, Plus } from 'lucide-react';
 import { listInventory, type InventoryItem } from '@/lib/services/inventoryService';
+import { agruparProdutosPorCodigo, type ProdutoAgrupado } from '@/lib/inventoryUtils';
 import {
   createSolicitacaoWithConsumption,
   updateSolicitacaoAgendada,
@@ -45,14 +46,6 @@ interface ProdutoSelecionado {
   quantidade_solicitada: number;
   quantidade_disponivel: number;
   valor_unitario: number;
-}
-
-// Interface para produto agrupado (soma de todos os lotes)
-interface ProdutoAgrupado {
-  codigo_produto: string;
-  nome_produto: string;
-  quantidade_total: number;
-  lotes: InventoryItem[]; // Ordenados por validade (FEFO)
 }
 
 export default function NovaSolicitacaoPage() {
@@ -97,7 +90,7 @@ export default function NovaSolicitacaoPage() {
 
   // Estados de produtos
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado[]>([]);
+  const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado<InventoryItem>[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([]);
   const [selectedProductCode, setSelectedProductCode] = useState(''); // Mudou de ID para CODE
   const [quantidadeSolicitada, setQuantidadeSolicitada] = useState('1');
@@ -155,48 +148,6 @@ export default function NovaSolicitacaoPage() {
     setPatientSearchTerm('');
     setShowSuggestions(false);
     setPatientSuggestions([]);
-  };
-
-  // Função para agrupar produtos por código e ordenar lotes por FEFO
-  const agruparProdutosPorCodigo = (items: any[]): ProdutoAgrupado[] => {
-    const gruposPorCodigo = new Map<string, InventoryItem[]>();
-
-    // Agrupar por código
-    items.forEach((item) => {
-      const codigo = item.codigo_produto;
-      if (!gruposPorCodigo.has(codigo)) {
-        gruposPorCodigo.set(codigo, []);
-      }
-      gruposPorCodigo.get(codigo)!.push(item);
-    });
-
-    // Transformar em array e ordenar lotes por validade (FEFO)
-    const produtosAgrupados: ProdutoAgrupado[] = [];
-
-    gruposPorCodigo.forEach((lotes, codigo) => {
-      // Ordenar lotes por data de validade (mais próximo primeiro)
-      const lotesOrdenados = lotes.sort((a, b) => {
-        const dataA = new Date(a.dt_validade).getTime();
-        const dataB = new Date(b.dt_validade).getTime();
-        return dataA - dataB; // Crescente = mais próximo primeiro
-      });
-
-      // Calcular quantidade total
-      const quantidadeTotal = lotesOrdenados.reduce(
-        (sum, lote) => sum + lote.quantidade_disponivel,
-        0
-      );
-
-      produtosAgrupados.push({
-        codigo_produto: codigo,
-        nome_produto: lotesOrdenados[0].nome_produto,
-        quantidade_total: quantidadeTotal,
-        lotes: lotesOrdenados,
-      });
-    });
-
-    // Ordenar produtos por nome
-    return produtosAgrupados.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto));
   };
 
   // Carregar inventário ao iniciar
@@ -391,7 +342,7 @@ export default function NovaSolicitacaoPage() {
   function validateProductSelection(
     code: string,
     quantidade: number,
-    produtoAgrupado: ProdutoAgrupado | undefined
+    produtoAgrupado: ProdutoAgrupado<InventoryItem> | undefined
   ): { title: string; description: string } | null {
     if (!code)
       return { title: 'Selecione um produto', description: 'Escolha um produto do inventário' };
