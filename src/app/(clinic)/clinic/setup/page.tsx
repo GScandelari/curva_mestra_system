@@ -88,11 +88,14 @@ export default function ClinicSetupPage() {
               cep = cepMatch[0];
             }
 
-            // Extrai cidade e estado
-            const cityStateMatch = secondLastPart.match(/([^-]+)\s*-\s*([A-Z]{2})/);
-            if (cityStateMatch) {
-              city = cityStateMatch[1].trim();
-              state = cityStateMatch[2].trim();
+            // Extrai cidade e estado — formato "Cidade - UF"
+            const dashIdx = secondLastPart.lastIndexOf(' - ');
+            if (dashIdx !== -1) {
+              const candidate = secondLastPart.slice(dashIdx + 3).trim();
+              if (candidate.length === 2 && candidate === candidate.toUpperCase()) {
+                city = secondLastPart.slice(0, dashIdx).trim();
+                state = candidate;
+              }
             }
           }
         }

@@ -86,10 +86,11 @@ function parseListaProdutos(filePath) {
       console.log(`📦 Grupo: ${grupoAtual}`);
     } else {
       // Produto: formato "CODIGO NOME DO PRODUTO"
-      const match = line.match(/^(\d+)\s+([^\r\n]+)$/);
-      if (match) {
-        const codigo = match[1];
-        const nome = match[2].trim();
+      const parts = line.trim().split(/\s+/);
+      const isProduct = parts.length >= 2 && /^\d+$/.test(parts[0]);
+      if (isProduct) {
+        const codigo = parts[0];
+        const nome = parts.slice(1).join(' ');
 
         if (!grupoAtual) {
           console.warn(`⚠️  Produto sem grupo: ${codigo} ${nome}`);
