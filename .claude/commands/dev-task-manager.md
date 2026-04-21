@@ -21,21 +21,48 @@ Siga **todas** as etapas abaixo em ordem. Não pule nenhuma.
 
 Leia o arquivo `ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md` para ter o contexto completo das regras do projeto antes de qualquer ação.
 
-### 2. Verificar estado do repositório
+### 2. Identificar o desenvolvedor e a branch pessoal
 
-Execute os seguintes comandos e analise o resultado:
+Execute o comando abaixo para identificar o dev atual:
+
+```bash
+git config user.email
+git config user.name
+```
+
+Mapeie para a branch pessoal correspondente:
+
+| Git user.email / user.name       | Branch pessoal      | Domínio Firebase              |
+| -------------------------------- | ------------------- | ----------------------------- |
+| `stanke399@gmail.com` / Guilherme | `gscandelari_setup` | `gscandelari-dev.web.app`     |
+| Lhuan (qualquer email)            | `lhuan_setup`       | `lhuancassio-dev.web.app`     |
+
+Se o dev não for reconhecido, pergunte antes de continuar.
+
+### 3. Verificar e sincronizar o estado do repositório
+
+Execute os comandos abaixo e analise o resultado:
 
 ```bash
 git status
-git branch -a
-git log --oneline -5
+git branch -a | grep -E "develop|master|gscandelari_setup|lhuan_setup"
+git log --oneline origin/master -3
 ```
 
-- Confirme que a branch `develop` existe localmente e no remoto.
-- Se não existir, crie-a a partir da `master` e faça push.
-- Garanta que o `develop` local está atualizado: `git checkout develop && git pull origin develop`.
+**Checklist obrigatório:**
 
-### 3. Classificar a task e nomear a branch
+- [ ] A branch `develop` existe localmente e no remoto. Se não existir: `git checkout master && git checkout -b develop && git push -u origin develop`
+- [ ] O `develop` local está sincronizado com o remoto: `git checkout develop && git pull origin develop`
+- [ ] A branch pessoal do dev está sincronizada com `master`:
+  ```bash
+  git checkout <branch-pessoal>
+  git fetch origin master
+  git merge origin/master
+  git push origin <branch-pessoal>
+  git checkout develop
+  ```
+
+### 4. Classificar a task e nomear a branch
 
 Com base na descrição da task, determine o **tipo de branch** conforme o SST:
 
@@ -52,16 +79,15 @@ Nomeie a branch em `kebab-case` descritivo. Exemplos:
 - `bugfix/fix-date-validation-nf-import`
 - `chore/configure-eslint-rules`
 
-Crie e publique a branch:
+Crie a branch a partir do `develop` e publique:
 
 ```bash
 git checkout develop
-git pull origin develop
 git checkout -b <tipo>/<nome-descritivo>
 git push -u origin <tipo>/<nome-descritivo>
 ```
 
-### 4. Planejar os steps de desenvolvimento
+### 5. Planejar os steps de desenvolvimento
 
 Elabore um plano de implementação detalhado com:
 
@@ -72,6 +98,7 @@ Elabore um plano de implementação detalhado com:
 - Se há impacto em regras Firestore, índices ou estrutura multi-tenant
 
 **b) Steps de implementação**
+
 Liste cada step com:
 
 - Objetivo claro
@@ -79,6 +106,7 @@ Liste cada step com:
 - Validação: como saber que o step foi concluído corretamente
 
 **c) Mapeamento de commits**
+
 Para cada step (ou grupo lógico de steps), defina o commit correspondente seguindo Conventional Commits:
 
 | Step   | Tipo   | Escopo      | Mensagem sugerida                             |
@@ -110,19 +138,31 @@ Se a avaliação indicar necessidade de teste, inclua um step explícito no plan
 - [ ] `npm run test:coverage` sem falhas (se testes foram adicionados/editados)
 - [ ] Todas as queries Firestore filtram por `tenant_id`
 - [ ] Nenhum secret ou credencial no código
+- [ ] Task branch mergeada na branch pessoal para validação no Firebase
 - [ ] PR aberto para `develop` com template preenchido
 
-### 5. Apresentar o plano ao usuário
+### 6. Apresentar o plano ao usuário
 
 Exiba o resultado estruturado:
 
 ```
-✅ Branch criada: <tipo>/<nome>
+✅ Dev identificado: <nome> → branch pessoal: <branch> → domínio: <url>
+✅ Branch pessoal sincronizada com master
+✅ Task branch criada: <tipo>/<nome>
+
 📋 Plano de implementação:
    [steps detalhados]
+
 💬 Commits planejados:
    [tabela de commits]
+
+🧪 Avaliação de testes:
+   [o que criar/editar/ignorar]
+
 ✅ Checklist de validação
+
+⚠️  Lembre-se: antes de abrir o PR, merge a task branch na sua branch pessoal
+    para validar no Firebase (gscandelari-dev.web.app ou lhuancassio-dev.web.app).
 ```
 
 Aguarde confirmação do usuário antes de iniciar qualquer implementação.
