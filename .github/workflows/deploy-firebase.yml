@@ -50,7 +50,7 @@ jobs:
           npx tsc
 
       - name: Deploy to Firebase Hosting
-        run: firebase deploy --only hosting --token "$FIREBASE_TOKEN" --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
+        run: firebase deploy --only hosting:curva-mestra --token "$FIREBASE_TOKEN" --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           FIREBASE_ADMIN_CREDENTIALS: ${{ secrets.FIREBASE_ADMIN_CREDENTIALS }}
