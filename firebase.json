@@ -1,9 +1,24 @@
 {
-  "hosting": {
-    "source": ".",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "frameworksBackend": {}
-  },
+  "hosting": [
+    {
+      "target": "curva-mestra",
+      "source": ".",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "frameworksBackend": {}
+    },
+    {
+      "target": "gscandelari-dev",
+      "source": ".",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "frameworksBackend": {}
+    },
+    {
+      "target": "lhuancassio-dev",
+      "source": ".",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "frameworksBackend": {}
+    }
+  ],
   "functions": [
     {
       "source": "functions",

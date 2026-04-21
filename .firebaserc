@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "curva-mestra"
+  },
+  "targets": {
+    "curva-mestra": {
+      "hosting": {
+        "curva-mestra": ["curva-mestra"],
+        "gscandelari-dev": ["gscandelari-dev"],
+        "lhuancassio-dev": ["lhuancassio-dev"]
+      }
+    }
   }
 }
