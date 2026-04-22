@@ -25,7 +25,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, User, Package, AlertTriangle, Check, X, Trash2, Plus } from 'lucide-react';
+import { Package, AlertTriangle, Check, X, Trash2, Plus } from 'lucide-react';
 import { listInventory, type InventoryItem } from '@/lib/services/inventoryService';
 import { agruparProdutosPorCodigo, type ProdutoAgrupado } from '@/lib/inventoryUtils';
 import {
@@ -33,10 +33,8 @@ import {
   updateSolicitacaoAgendada,
   type CreateSolicitacaoInput,
 } from '@/lib/services/solicitacaoService';
-import { searchPatients } from '@/lib/services/patientService';
-import type { Patient } from '@/types/patient';
 
-type Step = 'dados_paciente' | 'adicionar_produtos' | 'revisao';
+type Step = 'adicionar_produtos' | 'revisao';
 
 interface ProdutoSelecionado {
   inventory_item_id: string;
@@ -56,43 +54,27 @@ export default function NovaSolicitacaoPage() {
 
   const tenantId = claims?.tenant_id;
 
-  // Verificar permissão - apenas clinic_admin pode criar procedimentos
   useEffect(() => {
     if (claims && claims.role !== 'clinic_admin') {
       router.push('/clinic/requests');
     }
   }, [claims, router]);
 
-  // Modo de edição
   const editId = searchParams.get('edit');
   const isEditMode = !!editId;
-  const createdAtParam = searchParams.get('createdAt'); // Data de criação do procedimento original
-
-  // Pegar parâmetros da URL para pré-preenchimento
-  const patientCodeParam = searchParams.get('patientCode') || searchParams.get('pacienteCodigo');
-  const patientNameParam = searchParams.get('patientName') || searchParams.get('pacienteNome');
+  const createdAtParam = searchParams.get('createdAt');
 
   // Estados do formulário
-  const [step, setStep] = useState<Step>('dados_paciente');
-  const [codigoPaciente, setCodigoPaciente] = useState(patientCodeParam || '');
-  const [nomePaciente, setNomePaciente] = useState(patientNameParam || '');
+  const [step, setStep] = useState<Step>('adicionar_produtos');
+  const [descricao, setDescricao] = useState('');
   const [dtProcedimento, setDtProcedimento] = useState('');
   const [observacoes, setObservacoes] = useState('');
-
-  // Estados do autocomplete
-  const [patientSearchTerm, setPatientSearchTerm] = useState('');
-  const [patientSearchFilter, setPatientSearchFilter] = useState<
-    'all' | 'codigo' | 'nome' | 'telefone'
-  >('all');
-  const [patientSuggestions, setPatientSuggestions] = useState<Patient[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searchingPatients, setSearchingPatients] = useState(false);
 
   // Estados de produtos
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado<InventoryItem>[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([]);
-  const [selectedProductCode, setSelectedProductCode] = useState(''); // Mudou de ID para CODE
+  const [selectedProductCode, setSelectedProductCode] = useState('');
   const [quantidadeSolicitada, setQuantidadeSolicitada] = useState('1');
 
   // Estados de loading e erro
@@ -100,55 +82,6 @@ export default function NovaSolicitacaoPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-
-  // Debounce para busca de pacientes
-  useEffect(() => {
-    if (!patientSearchTerm || patientSearchTerm.length < 2) {
-      setPatientSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    const delaySearch = setTimeout(async () => {
-      if (!tenantId) return;
-
-      try {
-        setSearchingPatients(true);
-        const results = await searchPatients(tenantId, patientSearchTerm, 8, patientSearchFilter);
-        setPatientSuggestions(results);
-        setShowSuggestions(results.length > 0);
-      } catch (error) {
-        console.error('Erro ao buscar pacientes:', error);
-        setPatientSuggestions([]);
-      } finally {
-        setSearchingPatients(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(delaySearch);
-  }, [patientSearchTerm, patientSearchFilter, tenantId]);
-
-  // Fechar dropdown ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('#patient-search-container')) {
-        setShowSuggestions(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Função para selecionar paciente do autocomplete
-  const handleSelectPatient = (patient: Patient) => {
-    setCodigoPaciente(patient.codigo);
-    setNomePaciente(patient.nome);
-    setPatientSearchTerm('');
-    setShowSuggestions(false);
-    setPatientSuggestions([]);
-  };
 
   // Carregar inventário ao iniciar
   useEffect(() => {
@@ -158,17 +91,11 @@ export default function NovaSolicitacaoPage() {
       try {
         setLoading(true);
         const items = await listInventory(tenantId);
-
-        // Filtrar apenas produtos com estoque disponível
         const availableItems = items.filter(
           (item) => item.active && item.quantidade_disponivel > 0
         );
-
         setInventoryItems(availableItems);
-
-        // Agrupar produtos por código
-        const agrupados = agruparProdutosPorCodigo(availableItems);
-        setProdutosAgrupados(agrupados);
+        setProdutosAgrupados(agruparProdutosPorCodigo(availableItems));
       } catch (err: any) {
         console.error('Erro ao carregar inventário:', err);
         toast({
@@ -189,39 +116,35 @@ export default function NovaSolicitacaoPage() {
     if (!isEditMode || !searchParams) return;
 
     try {
-      // Data do procedimento
+      const descricaoParam = searchParams.get('descricao');
+      if (descricaoParam) setDescricao(descricaoParam);
+
       const dtParam = searchParams.get('dtProcedimento');
-      if (dtParam) {
-        setDtProcedimento(dtParam);
-      }
+      if (dtParam) setDtProcedimento(dtParam);
 
-      // Observações
       const obsParam = searchParams.get('observacoes');
-      if (obsParam) {
-        setObservacoes(obsParam);
-      }
+      if (obsParam) setObservacoes(obsParam);
 
-      // Produtos
       const produtosParam = searchParams.get('produtos');
       if (produtosParam) {
         try {
           const produtos = JSON.parse(produtosParam);
-          const produtosSelecionados: ProdutoSelecionado[] = produtos.map((p: any) => ({
+          const selecionados: ProdutoSelecionado[] = produtos.map((p: any) => ({
             inventory_item_id: p.inventory_item_id,
             produto_codigo: p.codigo_produto,
             produto_nome: p.nome_produto,
             lote: p.lote,
             quantidade_solicitada: p.quantidade,
-            quantidade_disponivel: 0, // Será atualizado pelo próximo useEffect
+            quantidade_disponivel: 0,
             valor_unitario: p.valor_unitario,
           }));
-          setProdutosSelecionados(produtosSelecionados);
+          setProdutosSelecionados(selecionados);
         } catch (e) {
           console.error('Erro ao parsear produtos:', e);
         }
       }
-    } catch (error) {
-      console.error('Erro ao carregar dados de edição:', error);
+    } catch (err) {
+      console.error('Erro ao carregar dados de edição:', err);
     }
   }, [isEditMode, searchParams]);
 
@@ -229,7 +152,6 @@ export default function NovaSolicitacaoPage() {
   useEffect(() => {
     if (!isEditMode || produtosSelecionados.length === 0 || inventoryItems.length === 0) return;
 
-    // Verificar se já tem quantidade_disponivel > 0 (já foi atualizado)
     const jaAtualizado = produtosSelecionados.some((p) => p.quantidade_disponivel > 0);
     if (jaAtualizado) return;
 
@@ -237,60 +159,38 @@ export default function NovaSolicitacaoPage() {
       const itemInventario = inventoryItems.find(
         (item) => item.id === produtoSelecionado.inventory_item_id
       );
-
       if (itemInventario) {
         return {
           ...produtoSelecionado,
           quantidade_disponivel: itemInventario.quantidade_disponivel,
-          // Preservar nome do produto se veio da URL
           produto_nome: produtoSelecionado.produto_nome || itemInventario.nome_produto,
           produto_codigo: produtoSelecionado.produto_codigo || itemInventario.codigo_produto,
         };
       }
-
       return produtoSelecionado;
     });
 
     setProdutosSelecionados(produtosAtualizados);
-  }, [inventoryItems, isEditMode, produtosSelecionados]); // Dependências corretas
+  }, [inventoryItems, isEditMode, produtosSelecionados]);
 
-  // Validações
-  const validatePaciente = () => {
-    if (!codigoPaciente.trim()) {
-      setError('Código do paciente é obrigatório');
-      return false;
-    }
-    if (!nomePaciente.trim()) {
-      setError('Nome do paciente é obrigatório');
-      return false;
-    }
+  const validateStep1 = () => {
     if (!dtProcedimento) {
       setError('Data do procedimento é obrigatória');
       return false;
     }
 
-    // Validar data não pode ser no passado (mas permite hoje)
-    // Usar comparação de strings YYYY-MM-DD para evitar problemas de timezone
     const dataHoje = new Date();
-    const anoHoje = dataHoje.getFullYear();
-    const mesHoje = String(dataHoje.getMonth() + 1).padStart(2, '0');
-    const diaHoje = String(dataHoje.getDate()).padStart(2, '0');
-    const dataHojeString = `${anoHoje}-${mesHoje}-${diaHoje}`;
+    const dataHojeString = [
+      dataHoje.getFullYear(),
+      String(dataHoje.getMonth() + 1).padStart(2, '0'),
+      String(dataHoje.getDate()).padStart(2, '0'),
+    ].join('-');
 
     if (dtProcedimento < dataHojeString) {
-      // Em modo de edição, permitir data no passado APENAS se a data de criação
-      // do procedimento for anterior à data do procedimento.
-      // Isso permite fazer correções na lista de produtos de procedimentos
-      // que já passaram, desde que foram agendados antes da data do procedimento.
-      if (isEditMode && createdAtParam) {
-        // Se a data de criação for anterior à data do procedimento, permitir edição
-        if (createdAtParam < dtProcedimento) {
-          // Permitido: foi agendado antes da data do procedimento
-          setError('');
-          return true;
-        }
+      if (isEditMode && createdAtParam && createdAtParam < dtProcedimento) {
+        setError('');
+        return true;
       }
-
       setError('Data do procedimento não pode ser no passado');
       return false;
     }
@@ -299,30 +199,20 @@ export default function NovaSolicitacaoPage() {
     return true;
   };
 
-  const handleContinuarParaProdutos = () => {
-    if (validatePaciente()) {
-      setStep('adicionar_produtos');
-    }
-  };
-
   // Função para alocar quantidade usando FEFO (First Expired, First Out)
   const alocarProdutoFEFO = (
     codigoProduto: string,
     quantidadeDesejada: number
   ): ProdutoSelecionado[] => {
     const produtoAgrupado = produtosAgrupados.find((p) => p.codigo_produto === codigoProduto);
-
     if (!produtoAgrupado) return [];
 
     const alocacoes: ProdutoSelecionado[] = [];
     let quantidadeRestante = quantidadeDesejada;
 
-    // Percorrer lotes ordenados por validade (mais próximo primeiro)
     for (const lote of produtoAgrupado.lotes) {
       if (quantidadeRestante <= 0) break;
-
       const quantidadeDoLote = Math.min(quantidadeRestante, lote.quantidade_disponivel);
-
       alocacoes.push({
         inventory_item_id: lote.id,
         produto_codigo: lote.codigo_produto,
@@ -332,7 +222,6 @@ export default function NovaSolicitacaoPage() {
         quantidade_disponivel: lote.quantidade_disponivel,
         valor_unitario: lote.valor_unitario,
       });
-
       quantidadeRestante -= quantidadeDoLote;
     }
 
@@ -389,12 +278,10 @@ export default function NovaSolicitacaoPage() {
       return;
     }
 
-    // Adicionar todas as alocações
     setProdutosSelecionados([...produtosSelecionados, ...alocacoes]);
     setSelectedProductCode('');
     setQuantidadeSolicitada('1');
 
-    // Mensagem detalhada sobre os lotes alocados
     const lotesUsados = alocacoes
       .map((a) => `${a.lote} (${a.quantidade_solicitada} un)`)
       .join(', ');
@@ -415,6 +302,8 @@ export default function NovaSolicitacaoPage() {
   };
 
   const handleIrParaRevisao = () => {
+    if (!validateStep1()) return;
+
     if (produtosSelecionados.length === 0) {
       toast({
         title: 'Adicione produtos',
@@ -436,9 +325,8 @@ export default function NovaSolicitacaoPage() {
   }
 
   async function submitEditMode(tenantId: string, editId: string, userName: string) {
-    const updatePayload: any = {
-      paciente_codigo: codigoPaciente,
-      paciente_nome: nomePaciente,
+    const updatePayload: Parameters<typeof updateSolicitacaoAgendada>[4] = {
+      descricao: descricao || undefined,
       dt_procedimento: new Date(dtProcedimento),
       produtos: buildProdutosPayload(),
     };
@@ -469,8 +357,7 @@ export default function NovaSolicitacaoPage() {
 
   async function submitCreateMode(tenantId: string, userName: string) {
     const input: CreateSolicitacaoInput = {
-      paciente_codigo: codigoPaciente,
-      paciente_nome: nomePaciente,
+      descricao: descricao || undefined,
       dt_procedimento: new Date(dtProcedimento),
       produtos: buildProdutosPayload(),
       observacoes: observacoes || undefined,
@@ -529,7 +416,6 @@ export default function NovaSolicitacaoPage() {
     0
   );
 
-  // Helper para formatar data sem problemas de timezone
   const formatarDataLocal = (dataString: string) => {
     if (!dataString) return '';
     const [ano, mes, dia] = dataString.split('-');
@@ -551,23 +437,8 @@ export default function NovaSolicitacaoPage() {
           </p>
         </div>
 
-        {/* Progress Indicator */}
+        {/* Progress Indicator — 2 etapas */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                step === 'dados_paciente'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              1
-            </div>
-            <span className="text-sm">Dados do Paciente</span>
-          </div>
-
-          <div className="h-[2px] w-12 bg-border" />
-
           <div className="flex items-center gap-2">
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-full ${
@@ -576,7 +447,7 @@ export default function NovaSolicitacaoPage() {
                   : 'bg-muted text-muted-foreground'
               }`}
             >
-              2
+              1
             </div>
             <span className="text-sm">Adicionar Produtos</span>
           </div>
@@ -591,228 +462,61 @@ export default function NovaSolicitacaoPage() {
                   : 'bg-muted text-muted-foreground'
               }`}
             >
-              3
+              2
             </div>
             <span className="text-sm">Revisão e Confirmação</span>
           </div>
         </div>
 
-        {/* PASSO 1: Dados do Paciente */}
-        {step === 'dados_paciente' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Informações do Paciente e Procedimento
-              </CardTitle>
-              <CardDescription>
-                Informe os dados do paciente e a data do procedimento
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Erro</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {/* Campo de Busca de Paciente com Autocomplete */}
-              <div className="space-y-2">
-                <Label htmlFor="patient-search">Buscar Paciente *</Label>
-
-                {/* Filtro de busca */}
-                <div className="flex gap-2 mb-2">
-                  <button
-                    type="button"
-                    onClick={() => setPatientSearchFilter('all')}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      patientSearchFilter === 'all'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                    }`}
-                  >
-                    Todos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPatientSearchFilter('codigo')}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      patientSearchFilter === 'codigo'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                    }`}
-                  >
-                    Código
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPatientSearchFilter('nome')}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      patientSearchFilter === 'nome'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                    }`}
-                  >
-                    Nome
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPatientSearchFilter('telefone')}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      patientSearchFilter === 'telefone'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                    }`}
-                  >
-                    Telefone
-                  </button>
-                </div>
-
-                <div id="patient-search-container" className="relative">
-                  <Input
-                    id="patient-search"
-                    placeholder={
-                      patientSearchFilter === 'all'
-                        ? 'Digite código, nome ou telefone...'
-                        : patientSearchFilter === 'codigo'
-                          ? 'Digite o código do paciente...'
-                          : patientSearchFilter === 'nome'
-                            ? 'Digite o nome do paciente...'
-                            : 'Digite o telefone do paciente...'
-                    }
-                    value={patientSearchTerm}
-                    onChange={(e) => setPatientSearchTerm(e.target.value)}
-                    onFocus={() => {
-                      if (patientSuggestions.length > 0) {
-                        setShowSuggestions(true);
-                      }
-                    }}
-                  />
-
-                  {/* Lista de Sugestões */}
-                  {showSuggestions && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                      {searchingPatients ? (
-                        <div className="p-3 text-center text-sm text-gray-500">Buscando...</div>
-                      ) : patientSuggestions.length === 0 ? (
-                        <div className="p-3 text-center text-sm text-gray-500">
-                          Nenhum paciente encontrado
-                        </div>
-                      ) : (
-                        patientSuggestions.map((patient) => (
-                          <button
-                            key={patient.id}
-                            type="button"
-                            onClick={() => handleSelectPatient(patient)}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900">{patient.nome}</p>
-                                <p className="text-sm text-gray-600">Código: {patient.codigo}</p>
-                                {patient.telefone && (
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    Tel: {patient.telefone}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-                {patientSearchTerm.length > 0 && patientSearchTerm.length < 2 && (
-                  <p className="text-xs text-gray-500">
-                    Digite pelo menos 2 caracteres para buscar
-                  </p>
-                )}
-              </div>
-
-              {/* Paciente Selecionado */}
-              {(codigoPaciente || nomePaciente) && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-900">Paciente Selecionado</p>
-                      <p className="text-lg font-bold text-blue-900 mt-1">{nomePaciente}</p>
-                      <p className="text-sm text-blue-700">Código: {codigoPaciente}</p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setCodigoPaciente('');
-                        setNomePaciente('');
-                        setPatientSearchTerm('');
-                      }}
-                      className="text-blue-700 hover:text-blue-900 hover:bg-blue-100"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="dt-procedimento">Data do Procedimento *</Label>
-                <Input
-                  id="dt-procedimento"
-                  type="date"
-                  value={dtProcedimento}
-                  onChange={(e) => setDtProcedimento(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="observacoes">Observações (opcional)</Label>
-                <Input
-                  id="observacoes"
-                  placeholder="Informações adicionais sobre o procedimento"
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <Button onClick={handleContinuarParaProdutos}>
-                  Continuar <Package className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* PASSO 2: Adicionar Produtos */}
+        {/* PASSO 1: Dados e Produtos */}
         {step === 'adicionar_produtos' && (
           <div className="space-y-4">
-            {/* Resumo do Paciente */}
+            {/* Dados do Procedimento */}
             <Card>
               <CardHeader>
-                <CardTitle>Resumo</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Dados do Procedimento
+                </CardTitle>
+                <CardDescription>Informe os dados e os produtos do procedimento</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <Label className="text-muted-foreground">Paciente</Label>
-                    <p className="font-medium">
-                      {nomePaciente} ({codigoPaciente})
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Data do Procedimento</Label>
-                    <p className="font-medium">{formatarDataLocal(dtProcedimento)}</p>
-                  </div>
-                  {observacoes && (
-                    <div>
-                      <Label className="text-muted-foreground">Observações</Label>
-                      <p className="font-medium">{observacoes}</p>
-                    </div>
-                  )}
+              <CardContent className="space-y-4">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Erro</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="descricao">Descrição (opcional)</Label>
+                  <Input
+                    id="descricao"
+                    placeholder="Ex: Procedimento facial - Sala 2"
+                    value={descricao}
+                    onChange={(e) => setDescricao(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dt-procedimento">Data do Procedimento *</Label>
+                  <Input
+                    id="dt-procedimento"
+                    type="date"
+                    value={dtProcedimento}
+                    onChange={(e) => setDtProcedimento(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="observacoes">Observações (opcional)</Label>
+                  <Input
+                    id="observacoes"
+                    placeholder="Informações adicionais sobre o procedimento"
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -865,7 +569,6 @@ export default function NovaSolicitacaoPage() {
                   </div>
                 </div>
 
-                {/* Lista de Produtos Adicionados */}
                 {produtosSelecionados.length > 0 && (
                   <div className="space-y-2">
                     <Label>Produtos Adicionados ({produtosSelecionados.length})</Label>
@@ -903,9 +606,7 @@ export default function NovaSolicitacaoPage() {
                               </TableCell>
                               <TableCell className="text-right font-medium">
                                 R${' '}
-                                {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(
-                                  2
-                                )}
+                                {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(2)}
                               </TableCell>
                               <TableCell>
                                 <Button
@@ -933,10 +634,7 @@ export default function NovaSolicitacaoPage() {
                   </div>
                 )}
 
-                <div className="flex justify-between">
-                  <Button variant="outline" onClick={() => setStep('dados_paciente')}>
-                    Voltar
-                  </Button>
+                <div className="flex justify-end">
                   <Button onClick={handleIrParaRevisao}>
                     Revisar Procedimento <Check className="ml-2 h-4 w-4" />
                   </Button>
@@ -946,7 +644,7 @@ export default function NovaSolicitacaoPage() {
           </div>
         )}
 
-        {/* PASSO 3: Revisão e Confirmação */}
+        {/* PASSO 2: Revisão e Confirmação */}
         {step === 'revisao' && (
           <div className="space-y-4">
             {validationErrors.length > 0 && (
@@ -973,27 +671,22 @@ export default function NovaSolicitacaoPage() {
               </AlertDescription>
             </Alert>
 
-            {/* Revisão dos Dados */}
             <Card>
               <CardHeader>
-                <CardTitle>Dados do Paciente</CardTitle>
+                <CardTitle>Dados do Procedimento</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-muted-foreground">Código</Label>
-                    <p className="font-medium">{codigoPaciente}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Nome</Label>
-                    <p className="font-medium">{nomePaciente}</p>
+                    <Label className="text-muted-foreground">Descrição</Label>
+                    <p className="font-medium">{descricao || '—'}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Data do Procedimento</Label>
                     <p className="font-medium">{formatarDataLocal(dtProcedimento)}</p>
                   </div>
                   {observacoes && (
-                    <div className="md:col-span-3">
+                    <div>
                       <Label className="text-muted-foreground">Observações</Label>
                       <p className="font-medium">{observacoes}</p>
                     </div>
