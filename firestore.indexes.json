@@ -143,20 +143,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "paciente_codigo",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "dt_procedimento",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "solicitacoes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "status",
           "order": "ASCENDING"
         },
