@@ -11,7 +11,7 @@
 
 ## 1. Visão Geral
 
-Visualização read-only dos procedimentos (solicitações de consumo) de uma clínica vinculada. Exibe cards de estatísticas por status, filtros (busca + status), e tabela completa com dados de paciente, data, produtos, valor e status. Dados carregados diretamente do Firestore.
+Visualização read-only dos procedimentos (solicitações de consumo) de uma clínica vinculada. Exibe cards de estatísticas por status, filtros (busca + status), e tabela completa com descrição, data, produtos, valor e status. Dados carregados diretamente do Firestore.
 
 ### 1.1 Localização
 
@@ -43,7 +43,7 @@ Visualização read-only dos procedimentos (solicitações de consumo) de uma cl
 
 ### 3.1 Busca Textual
 
-- Busca por `paciente_nome` ou `paciente_codigo` (case-insensitive)
+- Busca por `descricao` do procedimento (case-insensitive)
 
 ### 3.2 Filtro de Status (Shadcn Select)
 
@@ -56,7 +56,7 @@ Visualização read-only dos procedimentos (solicitações de consumo) de uma cl
 
 | Coluna            | Campo                                                  | Formato            |
 | ----------------- | ------------------------------------------------------ | ------------------ |
-| Paciente          | nome + código                                          | Bold + texto muted |
+| Descrição         | texto livre do procedimento ou `—`                     | Bold               |
 | Data Procedimento | `dt_procedimento.toDate().toLocaleDateString("pt-BR")` | —                  |
 | Produtos          | `total_produtos`                                       | Badge outline      |
 | Valor Total       | `valor_total`                                          | BRL                |
