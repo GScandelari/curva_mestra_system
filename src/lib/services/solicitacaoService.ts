@@ -59,7 +59,7 @@ export interface SolicitacaoWithDetails extends Solicitacao {
  * SEMPRE retorna "agendada" independente da data
  * Produtos são RESERVADOS e só consumidos ao mudar para "concluida"
  */
-function determineInitialStatus(dtProcedimento: Date): SolicitacaoStatus {
+export function determineInitialStatus(_dtProcedimento: Date): SolicitacaoStatus {
   return 'agendada';
 }
 
