@@ -19,7 +19,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   ArrowLeft,
-  User,
   Calendar,
   Package,
   AlertTriangle,
@@ -287,35 +286,20 @@ export default function SolicitacaoDetalhesPage() {
             )}
         </div>
 
-        {/* Informações do Paciente e Procedimento */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Informações do Paciente
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        {/* Detalhes do Procedimento */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Detalhes do Procedimento
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label className="text-muted-foreground">Código</Label>
-                <p className="font-medium text-lg">{solicitacao.paciente_codigo}</p>
+                <Label className="text-muted-foreground">Descrição</Label>
+                <p className="font-medium text-lg">{solicitacao.descricao || '—'}</p>
               </div>
-              <div>
-                <Label className="text-muted-foreground">Nome</Label>
-                <p className="font-medium text-lg">{solicitacao.paciente_nome}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Detalhes do Procedimento
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <div>
                 <Label className="text-muted-foreground">Data do Procedimento</Label>
                 <p className="font-medium text-lg">
@@ -330,9 +314,9 @@ export default function SolicitacaoDetalhesPage() {
                   <p className="font-medium">{solicitacao.observacoes}</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Resumo Financeiro */}
         <Card>
