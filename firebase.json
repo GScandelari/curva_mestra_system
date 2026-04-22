@@ -7,13 +7,13 @@
       "frameworksBackend": {}
     },
     {
-      "target": "gscandelari-dev",
+      "target": "dev-gscandelari",
       "source": ".",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "frameworksBackend": {}
     },
     {
-      "target": "lhuancassio-dev",
+      "target": "dev-lhuancassio",
       "source": ".",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "frameworksBackend": {}
