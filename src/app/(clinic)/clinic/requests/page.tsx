@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, FileText, Search, Calendar, User, Package, Settings } from 'lucide-react';
+import { Plus, FileText, Search, Calendar, Package, Settings } from 'lucide-react';
 import { listSolicitacoes, type SolicitacaoWithDetails } from '@/lib/services/solicitacaoService';
 import { formatTimestamp } from '@/lib/utils';
 
@@ -61,8 +61,7 @@ export default function SolicitacoesPage() {
 
   const filteredSolicitacoes = solicitacoes.filter((sol) => {
     const matchesSearch =
-      sol.paciente_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sol.paciente_codigo.toLowerCase().includes(searchTerm.toLowerCase());
+      !searchTerm || (sol.descricao ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -172,7 +171,7 @@ export default function SolicitacoesPage() {
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por paciente ou código..."
+                  placeholder="Buscar por descrição..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8"
@@ -227,7 +226,7 @@ export default function SolicitacoesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Paciente</TableHead>
+                    <TableHead>Descrição</TableHead>
                     <TableHead>Data Procedimento</TableHead>
                     <TableHead className="text-right">Produtos</TableHead>
                     <TableHead className="text-right">Valor Total</TableHead>
@@ -240,12 +239,7 @@ export default function SolicitacoesPage() {
                   {filteredSolicitacoes.map((solicitacao) => (
                     <TableRow key={solicitacao.id}>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{solicitacao.paciente_nome}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {solicitacao.paciente_codigo}
-                          </div>
-                        </div>
+                        <div className="font-medium">{solicitacao.descricao || '—'}</div>
                       </TableCell>
                       <TableCell>
                         {solicitacao.dt_procedimento?.toDate

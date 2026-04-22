@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { getSolicitacao, updateSolicitacaoAgendada } from '@/lib/services/solicitacaoService';
+import { getSolicitacao } from '@/lib/services/solicitacaoService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -42,8 +42,7 @@ export default function EditRequestPage() {
         // Redirecionar para página de criação com parâmetros de edição
         const params = new URLSearchParams({
           edit: solicitacaoId,
-          pacienteCodigo: data.paciente_codigo,
-          pacienteNome: data.paciente_nome,
+          descricao: data.descricao || '',
           dtProcedimento: data.dt_procedimento.toDate().toISOString().split('T')[0],
           createdAt: data.created_at.toDate().toISOString().split('T')[0],
           observacoes: data.observacoes || '',

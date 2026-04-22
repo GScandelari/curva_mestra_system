@@ -182,8 +182,7 @@ export interface StatusHistoryEntry {
 export interface Solicitacao {
   id: string;
   tenant_id: string;
-  paciente_codigo: string; // Código único do paciente (obrigatório)
-  paciente_nome: string;
+  descricao?: string; // Identificação opcional do procedimento (texto livre)
   dt_procedimento: Timestamp; // Data do procedimento (obrigatório)
   produtos_solicitados: ProdutoSolicitado[];
   status: SolicitacaoStatus;

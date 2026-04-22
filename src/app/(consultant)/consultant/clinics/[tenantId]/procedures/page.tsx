@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Search, Calendar, Package, ArrowLeft, Users } from 'lucide-react';
+import { FileText, Search, Calendar, Package, ArrowLeft } from 'lucide-react';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { formatTimestamp } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -31,8 +31,7 @@ import { collection, query, orderBy, getDocs, Timestamp } from 'firebase/firesto
 
 interface Solicitacao {
   id: string;
-  paciente_nome: string;
-  paciente_codigo: string;
+  descricao: string;
   dt_procedimento: Timestamp | null;
   status: string;
   total_produtos: number;
@@ -77,8 +76,7 @@ export default function ConsultantProceduresPage() {
         const data = doc.data();
         items.push({
           id: doc.id,
-          paciente_nome: data.paciente_nome || '',
-          paciente_codigo: data.paciente_codigo || '',
+          descricao: data.descricao || '',
           dt_procedimento: data.dt_procedimento || null,
           status: data.status || 'criada',
           total_produtos: data.total_produtos || 0,
@@ -96,9 +94,7 @@ export default function ConsultantProceduresPage() {
   };
 
   const filteredSolicitacoes = solicitacoes.filter((sol) => {
-    const matchesSearch =
-      sol.paciente_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sol.paciente_codigo.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || sol.descricao.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || sol.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -153,7 +149,7 @@ export default function ConsultantProceduresPage() {
         {/* Header */}
         <div>
           <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-8 w-8 text-sky-600" />
+            <FileText className="h-8 w-8 text-sky-600" />
             Procedimentos
           </h2>
           <p className="text-muted-foreground">Histórico de consumo de produtos por procedimento</p>
@@ -222,7 +218,7 @@ export default function ConsultantProceduresPage() {
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por paciente ou código..."
+                  placeholder="Buscar por descrição..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8"
@@ -269,7 +265,7 @@ export default function ConsultantProceduresPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Paciente</TableHead>
+                      <TableHead>Descrição</TableHead>
                       <TableHead>Data Procedimento</TableHead>
                       <TableHead className="text-right">Produtos</TableHead>
                       <TableHead className="text-right">Valor Total</TableHead>
@@ -281,12 +277,7 @@ export default function ConsultantProceduresPage() {
                     {filteredSolicitacoes.map((solicitacao) => (
                       <TableRow key={solicitacao.id}>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{solicitacao.paciente_nome}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {solicitacao.paciente_codigo}
-                            </div>
-                          </div>
+                          <div className="font-medium">{solicitacao.descricao || '—'}</div>
                         </TableCell>
                         <TableCell>
                           {solicitacao.dt_procedimento
