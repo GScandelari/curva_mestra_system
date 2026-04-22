@@ -36,8 +36,7 @@ import {
 // ============================================================================
 
 export interface CreateSolicitacaoInput {
-  paciente_codigo: string;
-  paciente_nome: string;
+  descricao?: string;
   dt_procedimento: Date;
   produtos: {
     inventory_item_id: string;
@@ -252,8 +251,7 @@ export async function createSolicitacaoWithConsumption(
 
       const solicitacaoData = removeUndefined({
         tenant_id: tenantId,
-        paciente_codigo: input.paciente_codigo,
-        paciente_nome: input.paciente_nome,
+        descricao: input.descricao,
         dt_procedimento: Timestamp.fromDate(input.dt_procedimento),
         produtos_solicitados: produtosDetalhados,
         status: statusInicial,
@@ -297,7 +295,7 @@ export async function createSolicitacaoWithConsumption(
           quantidade: produto.quantidade,
           quantidade_anterior: produto.quantidade_disponivel_antes,
           quantidade_posterior: produto.quantidade_disponivel_antes, // Disponível não muda
-          descricao: `Reserva para procedimento agendado - Paciente: ${input.paciente_nome} (${input.paciente_codigo})`,
+          descricao: `Reserva para procedimento agendado`,
           solicitacao_id: newSolicitacaoRef.id,
           created_by: userId,
           created_by_name: userName,
@@ -552,7 +550,7 @@ export async function updateSolicitacaoStatus(
 
 /**
  * Atualiza uma solicitação no status "agendada"
- * Permite editar produtos, paciente e data
+ * Permite editar produtos, descrição e data
  * Ajusta as reservas de estoque automaticamente
  */
 export async function updateSolicitacaoAgendada(
@@ -561,8 +559,7 @@ export async function updateSolicitacaoAgendada(
   userId: string,
   userName: string,
   updates: {
-    paciente_codigo?: string;
-    paciente_nome?: string;
+    descricao?: string;
     dt_procedimento?: Date;
     produtos?: {
       inventory_item_id: string;
@@ -769,11 +766,8 @@ export async function updateSolicitacaoAgendada(
           updated_at: now,
         };
 
-        if (updates.paciente_codigo) {
-          updateData.paciente_codigo = updates.paciente_codigo;
-        }
-        if (updates.paciente_nome) {
-          updateData.paciente_nome = updates.paciente_nome;
+        if (updates.descricao !== undefined) {
+          updateData.descricao = updates.descricao;
         }
         if (updates.dt_procedimento) {
           updateData.dt_procedimento = Timestamp.fromDate(updates.dt_procedimento);
@@ -784,17 +778,14 @@ export async function updateSolicitacaoAgendada(
 
         transaction.update(solicitacaoRef, updateData);
       } else {
-        // Atualizar apenas dados do paciente/data (sem mexer em produtos)
+        // Atualizar apenas dados de descrição/data (sem mexer em produtos)
         const updateData: any = {
           updated_by: userId,
           updated_at: now,
         };
 
-        if (updates.paciente_codigo) {
-          updateData.paciente_codigo = updates.paciente_codigo;
-        }
-        if (updates.paciente_nome) {
-          updateData.paciente_nome = updates.paciente_nome;
+        if (updates.descricao !== undefined) {
+          updateData.descricao = updates.descricao;
         }
         if (updates.dt_procedimento) {
           updateData.dt_procedimento = Timestamp.fromDate(updates.dt_procedimento);
@@ -829,7 +820,6 @@ export async function listSolicitacoes(
   options?: {
     status?: string;
     limit?: number;
-    codigoPaciente?: string;
   }
 ): Promise<SolicitacaoWithDetails[]> {
   try {
@@ -840,10 +830,6 @@ export async function listSolicitacoes(
 
     if (options?.status) {
       q = query(q, where('status', '==', options.status));
-    }
-
-    if (options?.codigoPaciente) {
-      q = query(q, where('paciente_codigo', '==', options.codigoPaciente));
     }
 
     if (options?.limit) {
