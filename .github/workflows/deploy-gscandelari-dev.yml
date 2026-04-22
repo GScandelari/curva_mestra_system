@@ -1,4 +1,4 @@
-name: Deploy — Guilherme Dev (gscandelari-dev.web.app)
+name: Deploy — Guilherme Dev (dev-gscandelari.web.app)
 
 on:
   push:
@@ -27,13 +27,13 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
-          FIREBASE_ADMIN_CREDENTIALS: ${{ secrets.FIREBASE_ADMIN_CREDENTIALS }}
-          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyBtNXznf7cvdzGCcBym84ux-SjJrrKaSJU
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: curva-mestra.firebaseapp.com
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: curva-mestra
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: curva-mestra.firebasestorage.app
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 521885400577
-          NEXT_PUBLIC_FIREBASE_APP_ID: 1:521885400577:web:e4eed211455f2976618a00
+          FIREBASE_ADMIN_CREDENTIALS: ${{ secrets.FIREBASE_ADMIN_CREDENTIALS_DEV }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyBo23a5eTBBkfFyZ4M04gVa0HB6EAHVDUw
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: curva-mestra-dev.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: curva-mestra-dev
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: curva-mestra-dev.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 224524575116
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:224524575116:web:b2a51e1e58469a087036a9
           NEXT_PUBLIC_USE_FIREBASE_EMULATORS: false
 
       - name: Install Firebase CLI
@@ -42,18 +42,18 @@ jobs:
       - name: Enable Firebase Web Frameworks
         run: firebase experiments:enable webframeworks
 
-      - name: Deploy to Firebase Hosting (gscandelari-dev)
-        run: firebase deploy --only hosting:gscandelari-dev --token "$FIREBASE_TOKEN" --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
+      - name: Deploy to Firebase Hosting (dev-gscandelari)
+        run: firebase deploy --project curva-mestra-dev --only hosting:dev-gscandelari --token "$FIREBASE_TOKEN_DEV" --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-          FIREBASE_ADMIN_CREDENTIALS: ${{ secrets.FIREBASE_ADMIN_CREDENTIALS }}
+          FIREBASE_TOKEN_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
+          FIREBASE_ADMIN_CREDENTIALS: ${{ secrets.FIREBASE_ADMIN_CREDENTIALS_DEV }}
           NODE_ENV: production
-          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyBtNXznf7cvdzGCcBym84ux-SjJrrKaSJU
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: curva-mestra.firebaseapp.com
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: curva-mestra
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: curva-mestra.firebasestorage.app
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 521885400577
-          NEXT_PUBLIC_FIREBASE_APP_ID: 1:521885400577:web:e4eed211455f2976618a00
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyBo23a5eTBBkfFyZ4M04gVa0HB6EAHVDUw
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: curva-mestra-dev.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: curva-mestra-dev
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: curva-mestra-dev.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 224524575116
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:224524575116:web:b2a51e1e58469a087036a9
           NEXT_PUBLIC_USE_FIREBASE_EMULATORS: false
 
       - name: Upload Hosting Debug Log
@@ -66,6 +66,7 @@ jobs:
 
       - name: Deployment Summary
         run: |
-          echo "Deploy concluido: https://gscandelari-dev.web.app"
+          echo "Deploy concluido: https://dev-gscandelari.web.app"
+          echo "Projeto Firebase: curva-mestra-dev (isolado de producao)"
           echo "Branch: ${{ github.ref_name }}"
           echo "Commit: ${{ github.sha }}"
