@@ -16,7 +16,6 @@ import {
   Calendar,
   Clock,
   DollarSign,
-  Users,
 } from 'lucide-react';
 import {
   getInventoryStats,
@@ -26,7 +25,6 @@ import {
   type ExpiringProduct,
   type RecentActivity as ActivityType,
 } from '@/lib/services/inventoryService';
-import { getPatientsStats } from '@/lib/services/patientService';
 import { getUpcomingProcedures } from '@/lib/services/solicitacaoService';
 import type { Solicitacao } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
@@ -38,11 +36,6 @@ export default function ClinicDashboard() {
   const router = useRouter();
 
   const [stats, setStats] = useState<InventoryStats | null>(null);
-  const [patientStats, setPatientStats] = useState<{
-    total: number;
-    novos_mes: number;
-    novos_3_meses: number;
-  } | null>(null);
   const [expiringProducts, setExpiringProducts] = useState<ExpiringProduct[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityType[]>([]);
   const [upcomingProcedures, setUpcomingProcedures] = useState<Solicitacao[]>([]);
@@ -137,13 +130,11 @@ export default function ClinicDashboard() {
           setExpiringProducts(expiringItems);
 
           // Carregar dados não-realtime em paralelo
-          const [patientStatsData, activityData, upcomingData] = await Promise.all([
-            getPatientsStats(tenantId),
+          const [activityData, upcomingData] = await Promise.all([
             getRecentActivity(tenantId, 5),
             getUpcomingProcedures(tenantId, 5),
           ]);
 
-          setPatientStats(patientStatsData);
           setRecentActivity(activityData);
           setUpcomingProcedures(upcomingData);
 
@@ -272,7 +263,7 @@ export default function ClinicDashboard() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Total em Estoque */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -363,51 +354,6 @@ export default function ClinicDashboard() {
             </CardContent>
           </Card>
 
-          {/* Total de Pacientes */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Pacientes</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <>
-                  <Skeleton className="h-8 w-16 mb-1" />
-                  <Skeleton className="h-4 w-24" />
-                </>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{patientStats?.total || 0}</div>
-                  <p className="text-xs text-muted-foreground">Cadastrados</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Novos Pacientes (3 meses) */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Novos (3 meses)</CardTitle>
-              <Calendar className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <>
-                  <Skeleton className="h-8 w-16 mb-1" />
-                  <Skeleton className="h-4 w-24" />
-                </>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {patientStats?.novos_3_meses || 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {patientStats?.novos_mes || 0} neste mês
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         {/* Quick Actions */}
@@ -432,14 +378,6 @@ export default function ClinicDashboard() {
             >
               <FileText className="h-6 w-6" />
               <span>Procedimentos</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto flex-col py-6 gap-2"
-              onClick={() => router.push('/clinic/patients')}
-            >
-              <Users className="h-6 w-6" />
-              <span>Pacientes</span>
             </Button>
             <Button
               variant="outline"
@@ -488,10 +426,10 @@ export default function ClinicDashboard() {
                       onClick={() => router.push(`/clinic/requests?id=${proc.id}`)}
                     >
                       <div className="flex-1 space-y-1">
-                        <p className="font-medium text-sm leading-tight">{proc.paciente_nome}</p>
+                        <p className="font-medium text-sm leading-tight">
+                          {proc.descricao || 'Procedimento sem descrição'}
+                        </p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Cód: {proc.paciente_codigo}</span>
-                          <span>•</span>
                           <span>{proc.produtos_solicitados?.length || 0} produtos</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs">
