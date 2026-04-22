@@ -4,11 +4,78 @@ Este guia explica como configurar custom claims e gerenciar usuários durante o 
 
 ## 📋 Índice
 
+0. [Setup do Ambiente Firebase Real (curva-mestra-dev)](#0-setup-do-ambiente-firebase-real-curva-mestra-dev)
 1. [Métodos Disponíveis](#métodos-disponíveis)
 2. [Método 1: Interface HTML](#método-1-interface-html)
 3. [Método 2: Firebase Emulator UI](#método-2-firebase-emulator-ui)
 4. [Método 3: Console do Navegador](#método-3-console-do-navegador)
 5. [Funções Disponíveis](#funções-disponíveis)
+
+---
+
+## 0. Setup do Ambiente Firebase Real (curva-mestra-dev)
+
+Este fluxo é para o ambiente Firebase de desenvolvimento real, acessível em `dev-gscandelari.web.app` ou `dev-lhuancassio.web.app`. É diferente dos emuladores locais.
+
+### Pré-requisitos
+
+- Acesso ao Firebase Console do projeto `curva-mestra-dev`
+- Arquivo de credenciais do Service Account (`curva-mestra-dev-firebase-adminsdk-*.json`) — solicite ao tech lead
+
+### Passo 1 — Criar a conta no Firebase Auth
+
+1. Acesse o [Firebase Console](https://console.firebase.google.com) e selecione o projeto **curva-mestra-dev**
+2. Vá em **Authentication → Users → Add user**
+3. Informe o email e a senha da conta que será o `system_admin`
+4. Clique em **Add user**
+
+> A conta criada ainda não tem Custom Claims — o sistema exibirá "Aguardando aprovação do administrador" ao tentar logar. Isso é esperado.
+
+### Passo 2 — Setar Custom Claims de system_admin
+
+Com o arquivo do Service Account disponível, rode o script:
+
+```bash
+FIREBASE_ADMIN_CREDENTIALS="$(cat /caminho/para/curva-mestra-dev-firebase-adminsdk-*.json)" \
+  node scripts/set-system-admin.js <email-da-conta>
+```
+
+**Exemplo real:**
+
+```bash
+FIREBASE_ADMIN_CREDENTIALS="$(cat ~/Downloads/curva-mestra-dev-firebase-adminsdk-fbsvc-4eff2f0021.json)" \
+  node scripts/set-system-admin.js scandelari.guilherme@curvamestra.com.br
+```
+
+**Saída esperada:**
+
+```
+✅ Usuário encontrado: ppE4dEMCmjTLz4aLJho9IZkEqAG3 (scandelari.guilherme@curvamestra.com.br)
+✅ Custom Claims setados:
+   role: system_admin
+   is_system_admin: true
+   active: true
+```
+
+### Passo 3 — Fazer logout e login novamente
+
+O token JWT é cacheado. Para que os novos Custom Claims sejam reconhecidos pelo sistema, **faça logout e login novamente** no domínio dev correspondente.
+
+### Claims aplicados
+
+```json
+{
+  "role": "system_admin",
+  "is_system_admin": true,
+  "active": true
+}
+```
+
+### Observações de segurança
+
+- O arquivo `.json` do Service Account **nunca deve ser commitado** — já está no `.gitignore`
+- Use esse fluxo apenas no projeto `curva-mestra-dev`, nunca em `curva-mestra` (produção)
+- Em produção, o `system_admin` é configurado pelo tech lead via procedimento separado
 
 ---
 
