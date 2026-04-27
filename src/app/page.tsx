@@ -15,8 +15,8 @@ export default function Home() {
   });
 
   useEffect(() => {
-    // Data de lançamento: 15/04/2026
-    const launchDate = new Date('2026-04-15T00:00:00').getTime();
+    // Data de lançamento: 01/06/2026
+    const launchDate = new Date('2026-06-01T00:00:00').getTime();
 
     const updateCountdown = () => {
       const now = new Date().getTime();
@@ -75,9 +75,6 @@ export default function Home() {
           <h2 className="text-xl md:text-2xl font-light text-[#FFD700] tracking-wide mb-2">
             Sistema de Gestão de Injetáveis de Harmonização
           </h2>
-          <p className="text-lg md:text-xl font-light text-[#D4AF37] tracking-widest uppercase">
-            Sistema em Construção
-          </p>
         </header>
 
         {/* Countdown */}
