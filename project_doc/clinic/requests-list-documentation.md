@@ -11,7 +11,7 @@
 
 ## 1. Visão Geral
 
-Página que lista todos os procedimentos (solicitações de consumo) da clínica. Exibe cards de estatísticas, filtros por busca e status, e tabela com dados do paciente, produtos, valor e status. Usa `solicitacaoService`.
+Página que lista todos os procedimentos (solicitações de consumo) da clínica. Exibe cards de estatísticas, filtros por busca e status, e tabela com descrição, produtos, valor e status. Usa `solicitacaoService`.
 
 ### 1.1 Localização
 
@@ -40,7 +40,7 @@ Página que lista todos os procedimentos (solicitações de consumo) da clínica
 
 ## 3. Filtros
 
-- **Busca:** por nome do paciente ou código (client-side)
+- **Busca:** por descrição do procedimento (client-side)
 - **Status:** Select com opções: Todos, Agendada, Aprovada, Concluída, Reprovada, Cancelada (server-side via service)
 
 ---
@@ -49,7 +49,7 @@ Página que lista todos os procedimentos (solicitações de consumo) da clínica
 
 | Coluna            | Descrição                                              |
 | ----------------- | ------------------------------------------------------ |
-| Paciente          | nome + código                                          |
+| Descrição         | texto livre do procedimento ou `—`                     |
 | Data Procedimento | `dt_procedimento.toDate().toLocaleDateString("pt-BR")` |
 | Produtos          | Badge com `total_produtos`                             |
 | Valor Total       | formatCurrency (BRL)                                   |
@@ -82,9 +82,10 @@ Página que lista todos os procedimentos (solicitações de consumo) da clínica
 
 ## 7. Histórico de Mudanças
 
-| Data       | Versão | Autor              | Descrição            |
-| ---------- | ------ | ------------------ | -------------------- |
-| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição                                    |
+| ---------- | ------ | ------------------ | -------------------------------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial                         |
+| 22/04/2026 | 2.0    | Engenharia Reversa | Remoção do conceito de paciente da listagem  |
 
 ---
 

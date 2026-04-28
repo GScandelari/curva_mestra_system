@@ -125,11 +125,14 @@ export async function completeClinicSetup(
       max_users: setupData.document_type === 'cnpj' ? 5 : 1,
     });
 
-    // Atualiza status de onboarding
+    // Marca onboarding como completo — seleção de plano e pagamento bypassados
     const onboardingRef = doc(db, 'tenant_onboarding', tenantId);
     await updateDoc(onboardingRef, {
       setup_completed: true,
-      status: 'pending_plan' as OnboardingStatus,
+      plan_selected: true,
+      payment_confirmed: true,
+      status: 'completed' as OnboardingStatus,
+      completed_at: Timestamp.now(),
       updated_at: Timestamp.now(),
     });
 

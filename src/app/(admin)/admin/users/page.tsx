@@ -25,7 +25,10 @@ import {
   CheckCircle2,
   Mail,
   UserCheck,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { formatTimestamp } from '@/lib/utils';
@@ -79,6 +82,14 @@ export default function UsersManagementPage() {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetEmailAddress, setResetEmailAddress] = useState<string | null>(null);
+
+  // Set password states
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [setPasswordSuccess, setSetPasswordSuccess] = useState(false);
 
   useEffect(() => {
     loadAllUsers();
@@ -199,7 +210,62 @@ export default function UsersManagementPage() {
     setEditActive(user.active);
     setResetEmailSent(false);
     setResetEmailAddress(null);
+    setNewPassword('');
+    setConfirmPassword('');
+    setForcePasswordChange(false);
+    setShowNewPassword(false);
+    setSetPasswordSuccess(false);
     setEditDialogOpen(true);
+  };
+
+  const handleSetPassword = async () => {
+    if (!editingUser) return;
+
+    if (newPassword.length < 6) {
+      alert('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      alert('As senhas não coincidem.');
+      return;
+    }
+
+    try {
+      setSettingPassword(true);
+      setSetPasswordSuccess(false);
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert('Você precisa estar autenticado para realizar esta ação');
+        return;
+      }
+
+      const token = await currentUser.getIdToken();
+
+      const response = await fetch(`/api/users/${editingUser.uid}/set-password`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: newPassword, requirePasswordChange: forcePasswordChange }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao definir senha');
+      }
+
+      setSetPasswordSuccess(true);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      alert(`Erro ao definir senha: ${error.message}`);
+    } finally {
+      setSettingPassword(false);
+    }
   };
 
   const handleSaveUser = async () => {
@@ -630,6 +696,86 @@ export default function UsersManagementPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Seção Definir Senha Manualmente */}
+            <div className="pt-4 border-t space-y-3">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-orange-500" />
+                <Label className="font-medium">Definir Senha Manualmente</Label>
+              </div>
+
+              {setPasswordSuccess ? (
+                <div className="p-3 rounded-md bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                      Senha definida com sucesso!
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Use para suporte quando o sistema de email falhar. A senha é definida imediatamente.
+                  </p>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">Nova Senha</Label>
+                    <div className="relative">
+                      <input
+                        id="newPassword"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Mínimo 6 caracteres"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm pr-10 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                    <input
+                      id="confirmPassword"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repita a senha"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="forcePasswordChange"
+                      checked={forcePasswordChange}
+                      onCheckedChange={(checked) => setForcePasswordChange(checked === true)}
+                    />
+                    <Label htmlFor="forcePasswordChange" className="text-sm font-normal cursor-pointer">
+                      Solicitar troca de senha no próximo login
+                    </Label>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSetPassword}
+                    disabled={settingPassword || updating || !newPassword || !confirmPassword}
+                    className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+                  >
+                    <KeyRound className="h-4 w-4 mr-2" />
+                    {settingPassword ? 'Definindo...' : 'Definir Senha'}
+                  </Button>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

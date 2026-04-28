@@ -43,7 +43,7 @@ jobs:
         run: firebase experiments:enable webframeworks
 
       - name: Deploy to Firebase Hosting (dev-gscandelari)
-        run: firebase deploy --project curva-mestra-dev --only hosting:dev-gscandelari --token "$FIREBASE_TOKEN_DEV" --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
+        run: firebase deploy --project curva-mestra-dev --only hosting:dev-gscandelari,firestore:rules,firestore:indexes --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
         env:
           FIREBASE_TOKEN_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
           FIREBASE_ADMIN_CREDENTIALS: ${{ secrets.FIREBASE_ADMIN_CREDENTIALS_DEV }}
