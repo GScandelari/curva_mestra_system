@@ -512,43 +512,6 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
               </table>
             </div>
 
-            <h3 className="font-bold text-lg mb-3">Por Paciente</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Paciente
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Procedimentos
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Produtos
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Valor Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {consumptionReport.por_paciente.map((paciente, idx) => (
-                    <tr key={idx}>
-                      <td className="px-4 py-3 text-sm text-gray-900">{paciente.nome}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {paciente.procedimentos}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-600">
-                        {paciente.produtos_consumidos}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                        {formatCurrency(paciente.valor_total)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
         )}
       </div>

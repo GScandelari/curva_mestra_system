@@ -125,34 +125,6 @@
       ]
     },
     {
-      "collectionGroup": "patient_edit_logs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "patient_id",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "edited_at",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "solicitacoes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "paciente_codigo",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "dt_procedimento",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "solicitacoes",
       "queryScope": "COLLECTION",
       "fields": [

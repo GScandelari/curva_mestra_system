@@ -90,12 +90,6 @@ interface ConsumptionReport {
     procedimentos: number;
     valor_total: number;
   }[];
-  por_paciente: {
-    nome: string;
-    procedimentos: number;
-    produtos_consumidos: number;
-    valor_total: number;
-  }[];
 }
 ```
 
@@ -146,7 +140,7 @@ const [consumptionEndDate, setConsumptionEndDate] = useState('');
   3. Clica em "Gerar Relatório" no card "Consumo"
   4. Se datas não preenchidas: `alert("Selecione o período")`
   5. `generateConsumptionReport(tenantId, startDate, endDate)` é chamado
-  6. Preview exibido com: 3 cards + tabela por produto + tabela por paciente
+  6. Preview exibido com: 3 cards + tabela por produto
 - **Pós-condição**: Relatório exibido em preview com borda verde
 
 ### UC-004: Exportar relatório para Excel
@@ -309,7 +303,6 @@ Cada preview possui:
 | `reportService`          | Serviço      | 3 funções de geração + `exportToExcel` + formatadores       |
 | Firestore — inventory    | Leitura      | Dados do inventário para relatórios de estoque e vencimento |
 | Firestore — solicitacoes | Leitura      | Dados de consumo para relatório de consumo                  |
-| Firestore — patients     | Leitura      | Dados de pacientes para relatório de consumo                |
 | Excel (XLSX)             | Exportação   | `exportToExcel` gera arquivo .xlsx para download            |
 
 ---
@@ -361,7 +354,7 @@ Cada preview possui:
 | ------------------------------- | -------- | -------------------------------------------------------- |
 | Gerar relatório de estoque      | E2E      | Verificar cards resumo e tabela por produto              |
 | Gerar relatório de vencimento   | E2E      | Verificar cores por dias para vencer                     |
-| Gerar relatório de consumo      | E2E      | Verificar tabelas por produto e por paciente             |
+| Gerar relatório de consumo      | E2E      | Verificar tabela por produto                             |
 | Exportar cada relatório         | E2E      | Verificar download de Excel                              |
 | Período padrão                  | Unitário | Verificar que datas são inicializadas com último mês     |
 | Antecedência custom             | E2E      | Alterar para 90 dias e verificar resultado               |
@@ -402,7 +395,6 @@ reports (este doc)
 │   └── formatDecimalBR — formatação decimal BR para Excel
 ├── Firestore — inventory (leitura)
 ├── Firestore — solicitacoes (leitura)
-└── Firestore — patients (leitura)
 ```
 
 ### Páginas relacionadas
@@ -412,7 +404,6 @@ reports (este doc)
 | Dashboard    | Visão resumida que complementa os relatórios      |
 | Inventário   | Fonte dos dados de estoque e vencimento           |
 | Solicitações | Fonte dos dados de consumo                        |
-| Pacientes    | Associação para relatório de consumo por paciente |
 
 ---
 
@@ -421,7 +412,7 @@ reports (este doc)
 - A página não possui restrição explícita de role — tanto `clinic_admin` quanto `clinic_user` podem acessar.
 - O estado `loading` é compartilhado entre todos os relatórios, impedindo geração simultânea.
 - Erros são exibidos via `alert()` nativo do browser (não usa toast ou Alert component).
-- O relatório de consumo inclui duas perspectivas: por produto e por paciente, ambas na mesma visualização.
+- O relatório de consumo exibe a perspectiva por produto.
 - As tabelas usam HTML nativo (`<table>`) com classes Tailwind, diferente de outras páginas que usam componentes Shadcn Table.
 - O período padrão de consumo é calculado via `useEffect` na montagem do componente usando `toISOString().split("T")[0]`.
 - `formatDecimalBR` é usado apenas na exportação Excel para manter precisão numérica; `formatCurrency` é usado no JSX para exibição visual.

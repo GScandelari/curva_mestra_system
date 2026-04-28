@@ -11,7 +11,7 @@
 
 ## 1. Visão Geral
 
-Página principal do painel da clínica. Apresenta uma visão consolidada do estoque, pacientes, procedimentos agendados, alertas de vencimento e atividade recente. Utiliza dados em tempo real via Firestore `onSnapshot` para estatísticas de inventário, com dados complementares carregados em paralelo via promises.
+Página principal do painel da clínica. Apresenta uma visão consolidada do estoque, procedimentos agendados, alertas de vencimento e atividade recente. Utiliza dados em tempo real via Firestore `onSnapshot` para estatísticas de inventário, com dados complementares carregados em paralelo via promises.
 
 ### 1.1 Localização
 
@@ -23,12 +23,11 @@ Página principal do painel da clínica. Apresenta uma visão consolidada do est
 
 - **useAuth:** `src/hooks/useAuth.ts` — autenticação e claims do usuário
 - **inventoryService:** `src/lib/services/inventoryService.ts` — `getInventoryStats`, `getExpiringProducts`, `getRecentActivity`, tipos `InventoryStats`, `ExpiringProduct`, `RecentActivity`
-- **patientService:** `src/lib/services/patientService.ts` — `getPatientsStats`
 - **solicitacaoService:** `src/lib/services/solicitacaoService.ts` — `getUpcomingProcedures`
 - **Firebase Firestore:** `collection`, `query`, `where`, `onSnapshot`, `Timestamp` (listener em tempo real)
 - **Utilitários:** `formatTimestamp` de `src/lib/utils`
 - **Shadcn/ui:** Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Skeleton, Alert, AlertDescription, AlertTitle, Button
-- **Lucide Icons:** Package, AlertTriangle, FileText, TrendingUp, Calendar, Clock, DollarSign, Users
+- **Lucide Icons:** Package, AlertTriangle, FileText, TrendingUp, Calendar, Clock, DollarSign
 
 ---
 
@@ -65,17 +64,7 @@ interface InventoryStats {
 }
 ```
 
-### 3.2 Interface PatientStats
-
-```typescript
-interface PatientStats {
-  total: number; // Total de pacientes cadastrados
-  novos_mes: number; // Novos pacientes no mês atual
-  novos_3_meses: number; // Novos pacientes nos últimos 3 meses
-}
-```
-
-### 3.3 Interface ExpiringProduct
+### 3.2 Interface ExpiringProduct
 
 ```typescript
 interface ExpiringProduct {
@@ -101,14 +90,13 @@ interface RecentActivity {
 }
 ```
 
-### 3.5 Solicitação (Procedimentos Próximos)
+### 3.4 Solicitação (Procedimentos Próximos)
 
 ```typescript
 // Campos usados do tipo Solicitacao
 {
   id: string;                           // ID da solicitação
-  paciente_nome: string;                // Nome do paciente
-  paciente_codigo: string;              // Código do paciente
+  descricao?: string;                   // Descrição livre do procedimento
   produtos_solicitados: any[];          // Lista de produtos solicitados
   dt_procedimento: Timestamp | Date;    // Data agendada do procedimento
   status: string;                       // Status da solicitação
@@ -164,7 +152,7 @@ interface RecentActivity {
 **Fluxo Principal:**
 
 1. Função `getUpcomingProcedures(tenantId, 5)` busca até 5 procedimentos
-2. Lista exibe: nome do paciente, código, quantidade de produtos, data e status
+2. Lista exibe: descrição do procedimento, quantidade de produtos, data e status
 3. Clique em um procedimento navega para `/clinic/requests?id={proc.id}`
 
 **Pós-condições:**
@@ -210,7 +198,6 @@ interface RecentActivity {
 
 - Gerenciar Estoque → `/clinic/inventory`
 - Procedimentos → `/clinic/requests`
-- Pacientes → `/clinic/patients`
 - Relatórios → `/clinic/reports`
 
 **Pós-condições:**
@@ -252,7 +239,6 @@ interface RecentActivity {
                       ▼
            ┌──────────────────────┐
            │ Promise.all([        │
-           │   getPatientsStats,  │
            │   getRecentActivity, │
            │   getUpcomingProc.   │
            │ ])                   │
@@ -347,7 +333,6 @@ interface RecentActivity {
 
 - "Gerenciar Estoque" → `/clinic/inventory`
 - "Procedimentos" → `/clinic/requests`
-- "Pacientes" → `/clinic/patients`
 - "Relatórios" → `/clinic/reports`
 - "Ver todos os alertas" → `/clinic/inventory?filter=expiring`
 - "Ver todos os procedimentos" → `/clinic/requests`
@@ -435,15 +420,7 @@ interface RecentActivity {
 - **Retorno:** `RecentActivity[]` (até 5 itens)
 - **Quando:** Dentro do callback do onSnapshot
 
-### 9.3 patientService — getPatientsStats
-
-- **Tipo:** Serviço
-- **Método:** `getPatientsStats(tenantId)`
-- **Entrada:** tenant_id
-- **Retorno:** `{ total, novos_mes, novos_3_meses }`
-- **Quando:** Dentro do callback do onSnapshot (via Promise.all)
-
-### 9.4 solicitacaoService — getUpcomingProcedures
+### 9.3 solicitacaoService — getUpcomingProcedures
 
 - **Tipo:** Serviço
 - **Método:** `getUpcomingProcedures(tenantId, 5)`
@@ -470,7 +447,7 @@ interface RecentActivity {
 ### 10.3 Dados Sensíveis
 
 - **tenant_id:** Extraído das claims (JWT), não exposto na URL
-- **Dados de pacientes:** Apenas nome e código exibidos nos procedimentos
+- **Dados de procedimentos:** Descrição livre exibida na lista de próximos procedimentos
 - **Valores monetários:** Exibidos apenas para usuários autorizados do tenant
 
 ---
@@ -594,7 +571,6 @@ interface RecentActivity {
 
 - **Inventário (`/clinic/inventory`):** Destino de ação rápida e link "Ver todos os alertas"
 - **Procedimentos (`/clinic/requests`):** Destino de ação rápida, lista de próximos e "Ver todos"
-- **Pacientes (`/clinic/patients`):** Destino de ação rápida, dados de stats
 - **Relatórios (`/clinic/reports`):** Destino de ação rápida
 
 ### 15.2 Fluxos que Passam por Esta Página
@@ -606,7 +582,7 @@ interface RecentActivity {
 ### 15.3 Impacto de Mudanças
 
 - **Alto impacto:** `inventoryService` (stats do inventário), coleção `inventory` do Firestore
-- **Médio impacto:** `patientService`, `solicitacaoService` (dados complementares)
+- **Médio impacto:** `solicitacaoService` (dados complementares)
 - **Baixo impacto:** Componentes Shadcn/ui, ícones Lucide
 
 ---
@@ -646,6 +622,7 @@ interface RecentActivity {
 | ---------- | ------ | --------------------------- | ------------------------------------------ |
 | 07/02/2026 | 1.0    | Engenharia Reversa (Claude) | Documentação inicial                       |
 | 09/02/2026 | 1.1    | Engenharia Reversa (Claude) | Padronização conforme template (20 seções) |
+| 22/04/2026 | 2.0    | Engenharia Reversa (Claude) | Remoção do conceito de paciente            |
 
 ---
 
@@ -665,7 +642,6 @@ interface RecentActivity {
 
 - Inventário da Clínica - `project_doc/clinic/inventory-list-documentation.md`
 - Procedimentos da Clínica - `project_doc/clinic/requests-list-documentation.md`
-- Pacientes da Clínica - `project_doc/clinic/patients-list-documentation.md`
 - Relatórios da Clínica - `project_doc/clinic/reports-documentation.md`
 
 ### 19.2 Links Externos
@@ -677,7 +653,7 @@ interface RecentActivity {
 
 - **Componente Principal:** `src/app/(clinic)/clinic/dashboard/page.tsx`
 - **Hooks:** `src/hooks/useAuth.ts`
-- **Services:** `src/lib/services/inventoryService.ts`, `src/lib/services/patientService.ts`, `src/lib/services/solicitacaoService.ts`
+- **Services:** `src/lib/services/inventoryService.ts`, `src/lib/services/solicitacaoService.ts`
 - **Types:** `src/types/index.ts`
 
 ---

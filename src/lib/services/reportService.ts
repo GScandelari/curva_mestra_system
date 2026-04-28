@@ -57,40 +57,6 @@ export interface ConsumptionReport {
     valor_total: number;
     procedimentos: number; // Quantos procedimentos usaram este produto
   }[];
-  por_paciente: {
-    codigo: string;
-    nome: string;
-    procedimentos: number;
-    produtos_consumidos: number;
-    valor_total: number;
-  }[];
-  gerado_em: Date;
-}
-
-export interface PatientConsumptionReport {
-  paciente: {
-    codigo: string;
-    nome: string;
-  };
-  periodo?: {
-    inicio: Date;
-    fim: Date;
-  };
-  total_procedimentos: number;
-  total_produtos: number;
-  valor_total: number;
-  procedimentos: {
-    id: string;
-    data: Date;
-    produtos: {
-      codigo: string;
-      nome: string;
-      quantidade: number;
-      valor_unitario: number;
-      valor_total: number;
-    }[];
-    valor_total: number;
-  }[];
   gerado_em: Date;
 }
 
@@ -291,7 +257,6 @@ export async function generateConsumptionReport(
     let valorTotalConsumido = 0;
 
     const produtosMap = new Map<string, any>();
-    const pacientesMap = new Map<string, any>();
 
     snapshot.forEach((doc) => {
       const solicitacao = doc.data();
@@ -305,7 +270,6 @@ export async function generateConsumptionReport(
         totalProdutosConsumidos += quantidade;
         valorTotalConsumido += valorTotal;
 
-        // Agrupar por produto
         const keyProduto = produto.codigo_produto;
         if (!produtosMap.has(keyProduto)) {
           produtosMap.set(keyProduto, {
@@ -322,33 +286,9 @@ export async function generateConsumptionReport(
         prod.valor_total += valorTotal;
         prod.procedimentos += 1;
       });
-
-      // Agrupar por paciente
-      const keyPaciente = solicitacao.paciente_codigo;
-      if (!pacientesMap.has(keyPaciente)) {
-        pacientesMap.set(keyPaciente, {
-          codigo: solicitacao.paciente_codigo,
-          nome: solicitacao.paciente_nome,
-          procedimentos: 0,
-          produtos_consumidos: 0,
-          valor_total: 0,
-        });
-      }
-
-      const paciente = pacientesMap.get(keyPaciente);
-      paciente.procedimentos += 1;
-
-      produtos.forEach((produto: any) => {
-        paciente.produtos_consumidos += produto.quantidade || 0;
-        paciente.valor_total += (produto.quantidade || 0) * (produto.valor_unitario || 0);
-      });
     });
 
     const porProduto = Array.from(produtosMap.values()).sort(
-      (a, b) => b.valor_total - a.valor_total
-    );
-
-    const porPaciente = Array.from(pacientesMap.values()).sort(
       (a, b) => b.valor_total - a.valor_total
     );
 
@@ -361,115 +301,10 @@ export async function generateConsumptionReport(
       total_produtos_consumidos: totalProdutosConsumidos,
       valor_total_consumido: valorTotalConsumido,
       por_produto: porProduto,
-      por_paciente: porPaciente,
       gerado_em: new Date(),
     };
   } catch (error) {
     console.error('Erro ao gerar relatório de consumo:', error);
-    throw new Error('Falha ao gerar relatório');
-  }
-}
-
-// ============================================================================
-// RELATÓRIO DE CONSUMO POR PACIENTE
-// ============================================================================
-
-/**
- * Gera relatório detalhado de consumo de um paciente
- */
-export async function generatePatientConsumptionReport(
-  tenantId: string,
-  pacienteCodigo: string,
-  dataInicio?: Date,
-  dataFim?: Date
-): Promise<PatientConsumptionReport> {
-  try {
-    const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
-
-    let q = query(
-      solicitacoesRef,
-      where('paciente_codigo', '==', pacienteCodigo),
-      where('status', '==', 'aprovada'),
-      orderBy('dt_procedimento', 'desc')
-    );
-
-    // Adicionar filtro de período se fornecido
-    if (dataInicio && dataFim) {
-      q = query(
-        solicitacoesRef,
-        where('paciente_codigo', '==', pacienteCodigo),
-        where('status', '==', 'aprovada'),
-        where('dt_procedimento', '>=', Timestamp.fromDate(dataInicio)),
-        where('dt_procedimento', '<=', Timestamp.fromDate(dataFim)),
-        orderBy('dt_procedimento', 'desc')
-      );
-    }
-
-    const snapshot = await getDocs(q);
-
-    let totalProcedimentos = snapshot.size;
-    let totalProdutos = 0;
-    let valorTotal = 0;
-
-    const procedimentos: PatientConsumptionReport['procedimentos'] = [];
-    let pacienteNome = '';
-
-    snapshot.forEach((doc) => {
-      const solicitacao = doc.data();
-      const produtos = solicitacao.produtos_solicitados || [];
-
-      if (!pacienteNome) {
-        pacienteNome = solicitacao.paciente_nome;
-      }
-
-      let valorProcedimento = 0;
-      const produtosFormatados = produtos.map((produto: any) => {
-        const quantidade = produto.quantidade || 0;
-        const valorUnitario = produto.valor_unitario || 0;
-        const valorTotalProduto = quantidade * valorUnitario;
-
-        totalProdutos += quantidade;
-        valorProcedimento += valorTotalProduto;
-
-        return {
-          codigo: produto.codigo_produto,
-          nome: produto.nome_produto,
-          quantidade,
-          valor_unitario: valorUnitario,
-          valor_total: valorTotalProduto,
-        };
-      });
-
-      valorTotal += valorProcedimento;
-
-      procedimentos.push({
-        id: doc.id,
-        data: (solicitacao.dt_procedimento as Timestamp).toDate(),
-        produtos: produtosFormatados,
-        valor_total: valorProcedimento,
-      });
-    });
-
-    return {
-      paciente: {
-        codigo: pacienteCodigo,
-        nome: pacienteNome,
-      },
-      periodo:
-        dataInicio && dataFim
-          ? {
-              inicio: dataInicio,
-              fim: dataFim,
-            }
-          : undefined,
-      total_procedimentos: totalProcedimentos,
-      total_produtos: totalProdutos,
-      valor_total: valorTotal,
-      procedimentos,
-      gerado_em: new Date(),
-    };
-  } catch (error) {
-    console.error('Erro ao gerar relatório do paciente:', error);
     throw new Error('Falha ao gerar relatório');
   }
 }

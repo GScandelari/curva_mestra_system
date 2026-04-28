@@ -3,15 +3,15 @@
 **Sistema:** Curva Mestra - Multi-Tenant SaaS para Clínicas de Harmonização
 **Módulo:** Clínica
 **Componente:** Novo Procedimento (`/clinic/requests/new`)
-**Versão:** 1.0
-**Data:** 07/02/2026
+**Versão:** 2.0
+**Data:** 22/04/2026
 **Tipo:** Engenharia Reversa
 
 ---
 
 ## 1. Visão Geral
 
-Wizard de 3 etapas para criar/editar procedimentos de consumo de produtos. Inclui autocomplete de pacientes, seleção de produtos com alocação FEFO (First Expired, First Out) e revisão final. Suporta modo edição via query params.
+Wizard de 2 etapas para criar/editar procedimentos de consumo de produtos. Inclui seleção de produtos com alocação FEFO (First Expired, First Out) e revisão final. Suporta modo edição via query params.
 
 ### 1.1 Localização
 
@@ -23,32 +23,27 @@ Wizard de 3 etapas para criar/editar procedimentos de consumo de produtos. Inclu
 
 - **inventoryService:** `listInventory()`
 - **solicitacaoService:** `createSolicitacaoWithConsumption()`, `updateSolicitacaoAgendada()`
-- **patientService:** `searchPatients()`
-- **Types:** `Patient`, `InventoryItem`
+- **Types:** `InventoryItem`
 - **Hooks:** `useAuth()`, `useToast()`
 - **Restrição:** Apenas `clinic_admin`
 
 ---
 
-## 2. Wizard de 3 Etapas
+## 2. Wizard de 2 Etapas
 
-### Step 1: Dados do Paciente
+### Step 1: Dados do Procedimento e Produtos
 
-- **Busca de paciente:** Autocomplete com debounce (300ms), filtros: todos/código/nome/telefone
-- **Paciente selecionado:** Card azul com nome, código e botão limpar
+- **Descrição:** texto livre opcional para identificar o procedimento
 - **Data do procedimento:** date input (não pode ser no passado, exceto em modo edição)
 - **Observações:** texto opcional
-
-### Step 2: Adicionar Produtos
-
 - **Select de produto:** Produtos agrupados por código, mostra quantidade total disponível
 - **Quantidade:** Input numérico + botão adicionar
 - **Tabela de produtos adicionados:** Produto, Lote, Quantidade, Disponível, Valor Unit., Total, Remover
 - **Valor total** calculado automaticamente
 
-### Step 3: Revisão e Confirmação
+### Step 2: Revisão e Confirmação
 
-- Resumo do paciente e data
+- Resumo da descrição e data
 - Tabela de produtos a consumir
 - Alert sobre reserva de estoque
 - Botões: Voltar, Cancelar, Confirmar
@@ -72,22 +67,20 @@ Produtos no inventário são agrupados por `codigo_produto`, somando quantidades
 
 ### RN-004: Modo Edição
 
-Parâmetros via URL: `edit`, `patientCode`, `patientName`, `dtProcedimento`, `observacoes`, `produtos` (JSON), `createdAt`
+Parâmetros via URL: `edit`, `descricao`, `dtProcedimento`, `observacoes`, `produtos` (JSON), `createdAt`
 
 ---
 
 ## 4. Pré-preenchimento via URL
 
-- `patientCode` / `pacienteCodigo`
-- `patientName` / `pacienteNome`
 - `edit` → ID do procedimento
+- `descricao` → descrição livre do procedimento
 - `dtProcedimento`, `observacoes`, `produtos` (JSON)
 
 ---
 
 ## 5. Observações
 
-- Página mais complexa do módulo clínica (~1197 linhas)
 - Produtos duplicados não permitidos (mesmo código)
 - Mensagem de toast detalhada com lotes alocados
 - Criação: status "Agendado" com produtos RESERVADOS
@@ -97,12 +90,13 @@ Parâmetros via URL: `edit`, `patientCode`, `patientName`, `dtProcedimento`, `ob
 
 ## 6. Histórico de Mudanças
 
-| Data       | Versão | Autor              | Descrição            |
-| ---------- | ------ | ------------------ | -------------------- |
-| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial |
+| Data       | Versão | Autor              | Descrição                                         |
+| ---------- | ------ | ------------------ | ------------------------------------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial                              |
+| 22/04/2026 | 2.0    | Engenharia Reversa | Remoção do conceito de paciente; wizard 3→2 steps |
 
 ---
 
 **Documento gerado por:** Engenharia Reversa (Claude)
-**Última atualização:** 07/02/2026
+**Última atualização:** 22/04/2026
 **Status:** Aprovado
