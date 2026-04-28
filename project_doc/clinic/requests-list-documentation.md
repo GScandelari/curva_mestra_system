@@ -82,10 +82,10 @@ Página que lista todos os procedimentos (solicitações de consumo) da clínica
 
 ## 7. Histórico de Mudanças
 
-| Data       | Versão | Autor              | Descrição                                    |
-| ---------- | ------ | ------------------ | -------------------------------------------- |
-| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial                         |
-| 22/04/2026 | 2.0    | Engenharia Reversa | Remoção do conceito de paciente da listagem  |
+| Data       | Versão | Autor              | Descrição                                   |
+| ---------- | ------ | ------------------ | ------------------------------------------- |
+| 07/02/2026 | 1.0    | Engenharia Reversa | Documentação inicial                        |
+| 22/04/2026 | 2.0    | Engenharia Reversa | Remoção do conceito de paciente da listagem |
 
 ---
 

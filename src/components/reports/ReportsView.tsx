@@ -511,7 +511,6 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
                 </tbody>
               </table>
             </div>
-
           </div>
         )}
       </div>

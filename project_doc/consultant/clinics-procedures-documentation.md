@@ -54,14 +54,14 @@ Visualização read-only dos procedimentos (solicitações de consumo) de uma cl
 
 ## 4. Tabela de Procedimentos
 
-| Coluna            | Campo                                                  | Formato            |
-| ----------------- | ------------------------------------------------------ | ------------------ |
-| Descrição         | texto livre do procedimento ou `—`                     | Bold               |
-| Data Procedimento | `dt_procedimento.toDate().toLocaleDateString("pt-BR")` | —                  |
-| Produtos          | `total_produtos`                                       | Badge outline      |
-| Valor Total       | `valor_total`                                          | BRL                |
-| Status            | badge colorido                                         | —                  |
-| Criado em         | `formatTimestamp(created_at)`                          | Muted              |
+| Coluna            | Campo                                                  | Formato       |
+| ----------------- | ------------------------------------------------------ | ------------- |
+| Descrição         | texto livre do procedimento ou `—`                     | Bold          |
+| Data Procedimento | `dt_procedimento.toDate().toLocaleDateString("pt-BR")` | —             |
+| Produtos          | `total_produtos`                                       | Badge outline |
+| Valor Total       | `valor_total`                                          | BRL           |
+| Status            | badge colorido                                         | —             |
+| Criado em         | `formatTimestamp(created_at)`                          | Muted         |
 
 ---
 

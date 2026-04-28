@@ -606,7 +606,9 @@ export default function NovaSolicitacaoPage() {
                               </TableCell>
                               <TableCell className="text-right font-medium">
                                 R${' '}
-                                {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(2)}
+                                {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(
+                                  2
+                                )}
                               </TableCell>
                               <TableCell>
                                 <Button

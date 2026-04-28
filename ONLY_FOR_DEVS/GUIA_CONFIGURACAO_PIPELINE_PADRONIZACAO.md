@@ -49,17 +49,17 @@ feature/* ── bugfix/* ── hotfix/* ── chore/* ── Tasks diárias (
 gscandelari_setup ── lhuan_setup ────────────── Ambientes pessoais de dev (deploy automático)
 ```
 
-| Branch               | Propósito                          | Merge para           | Proteção                   |
-| -------------------- | ---------------------------------- | -------------------- | -------------------------- |
-| `master`             | Código em produção                 | —                    | ✅ Protegida (2 revisores) |
-| `develop`            | Integração de features             | `master` via release | ✅ Protegida (1 revisor)   |
-| `release/*`          | Candidate de release               | `master` e `develop` | ⚠️ Somente tech lead       |
-| `feature/*`          | Nova funcionalidade                | `develop`            | ❌ Sem proteção            |
-| `bugfix/*`           | Correção não-crítica               | `develop`            | ❌ Sem proteção            |
-| `hotfix/*`           | Correção crítica em produção       | `master` e `develop` | ❌ Sem proteção            |
-| `chore/*`            | Manutenção/infra                   | `develop`            | ❌ Sem proteção            |
-| `gscandelari_setup`  | Ambiente dev — Guilherme Scandelari | — (sincroniza com master) | ❌ Sem proteção     |
-| `lhuan_setup`        | Ambiente dev — Lhuan Cassio        | — (sincroniza com master) | ❌ Sem proteção     |
+| Branch              | Propósito                           | Merge para                | Proteção                   |
+| ------------------- | ----------------------------------- | ------------------------- | -------------------------- |
+| `master`            | Código em produção                  | —                         | ✅ Protegida (2 revisores) |
+| `develop`           | Integração de features              | `master` via release      | ✅ Protegida (1 revisor)   |
+| `release/*`         | Candidate de release                | `master` e `develop`      | ⚠️ Somente tech lead       |
+| `feature/*`         | Nova funcionalidade                 | `develop`                 | ❌ Sem proteção            |
+| `bugfix/*`          | Correção não-crítica                | `develop`                 | ❌ Sem proteção            |
+| `hotfix/*`          | Correção crítica em produção        | `master` e `develop`      | ❌ Sem proteção            |
+| `chore/*`           | Manutenção/infra                    | `develop`                 | ❌ Sem proteção            |
+| `gscandelari_setup` | Ambiente dev — Guilherme Scandelari | — (sincroniza com master) | ❌ Sem proteção            |
+| `lhuan_setup`       | Ambiente dev — Lhuan Cassio         | — (sincroniza com master) | ❌ Sem proteção            |
 
 ### 1.2 Convenções de Nomenclatura de Branches
 
@@ -116,14 +116,15 @@ git rebase origin/develop   # prefira rebase a merge para histórico limpo
 
 Cada dev possui uma branch pessoal permanente vinculada a um domínio Firebase exclusivo:
 
-| Dev               | Branch            | Domínio Firebase              | Workflow                         |
-| ----------------- | ----------------- | ----------------------------- | -------------------------------- |
-| Guilherme Scandelari | `gscandelari_setup` | `gscandelari-dev.web.app`  | `deploy-gscandelari-dev.yml`     |
-| Lhuan Cassio      | `lhuan_setup`     | `lhuancassio-dev.web.app`     | `deploy-lhuan-dev.yml`           |
+| Dev                  | Branch              | Domínio Firebase          | Workflow                     |
+| -------------------- | ------------------- | ------------------------- | ---------------------------- |
+| Guilherme Scandelari | `gscandelari_setup` | `gscandelari-dev.web.app` | `deploy-gscandelari-dev.yml` |
+| Lhuan Cassio         | `lhuan_setup`       | `lhuancassio-dev.web.app` | `deploy-lhuan-dev.yml`       |
 
 **Regras das branches pessoais:**
 
 1. **Sempre sincronizadas com `master`** — antes de iniciar qualquer task, traga as atualizações de produção:
+
    ```bash
    git checkout gscandelari_setup   # ou lhuan_setup
    git fetch origin master
