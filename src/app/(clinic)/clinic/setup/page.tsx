@@ -59,10 +59,10 @@ export default function ClinicSetupPage() {
     try {
       setLoadingData(true);
 
-      // Verifica se já completou setup
+      // Verifica se já completou onboarding
       const onboarding = await getTenantOnboarding(tenantId);
-      if (onboarding?.setup_completed) {
-        router.push('/clinic/setup/plan');
+      if (onboarding?.status === 'completed') {
+        router.push('/clinic/dashboard');
         return;
       }
 
@@ -234,8 +234,7 @@ export default function ClinicSetupPage() {
       const result = await completeClinicSetup(tenantId, formData);
 
       if (result.success) {
-        // Redireciona para seleção de plano
-        router.push('/clinic/setup/plan');
+        router.push('/clinic/dashboard');
       } else {
         setError(result.error || 'Erro ao salvar configurações');
       }
