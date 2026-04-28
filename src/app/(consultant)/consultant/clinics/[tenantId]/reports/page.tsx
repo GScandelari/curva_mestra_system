@@ -28,11 +28,5 @@ export default function ConsultantReportsPage() {
     );
   }
 
-  return (
-    <ReportsView
-      tenantId={tenantId}
-      readOnly
-      backUrl={`/consultant/clinics/${tenantId}`}
-    />
-  );
+  return <ReportsView tenantId={tenantId} readOnly backUrl={`/consultant/clinics/${tenantId}`} />;
 }

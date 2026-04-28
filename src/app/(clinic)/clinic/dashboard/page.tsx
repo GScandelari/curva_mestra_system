@@ -353,7 +353,6 @@ export default function ClinicDashboard() {
               )}
             </CardContent>
           </Card>
-
         </div>
 
         {/* Quick Actions */}

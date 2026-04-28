@@ -94,7 +94,8 @@ export default function ConsultantProceduresPage() {
   };
 
   const filteredSolicitacoes = solicitacoes.filter((sol) => {
-    const matchesSearch = !searchTerm || sol.descricao.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      !searchTerm || sol.descricao.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || sol.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

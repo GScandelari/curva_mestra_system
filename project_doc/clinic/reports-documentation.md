@@ -399,11 +399,11 @@ reports (este doc)
 
 ### Páginas relacionadas
 
-| Página       | Relação                                           |
-| ------------ | ------------------------------------------------- |
-| Dashboard    | Visão resumida que complementa os relatórios      |
-| Inventário   | Fonte dos dados de estoque e vencimento           |
-| Solicitações | Fonte dos dados de consumo                        |
+| Página       | Relação                                      |
+| ------------ | -------------------------------------------- |
+| Dashboard    | Visão resumida que complementa os relatórios |
+| Inventário   | Fonte dos dados de estoque e vencimento      |
+| Solicitações | Fonte dos dados de consumo                   |
 
 ---
 
