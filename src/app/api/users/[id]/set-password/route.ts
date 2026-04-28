@@ -47,7 +47,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const currentClaims = userRecord.customClaims || {};
 
     if (requirePasswordChange) {
-      await adminAuth.setCustomUserClaims(userId, { ...currentClaims, requirePasswordChange: true });
+      await adminAuth.setCustomUserClaims(userId, {
+        ...currentClaims,
+        requirePasswordChange: true,
+      });
     } else {
       const { requirePasswordChange: _removed, ...restClaims } = currentClaims;
       await adminAuth.setCustomUserClaims(userId, restClaims);

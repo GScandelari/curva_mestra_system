@@ -717,7 +717,8 @@ export default function UsersManagementPage() {
               ) : (
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground">
-                    Use para suporte quando o sistema de email falhar. A senha é definida imediatamente.
+                    Use para suporte quando o sistema de email falhar. A senha é definida
+                    imediatamente.
                   </p>
 
                   <div className="space-y-2">
@@ -736,7 +737,11 @@ export default function UsersManagementPage() {
                         onClick={() => setShowNewPassword(!showNewPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
-                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showNewPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -759,7 +764,10 @@ export default function UsersManagementPage() {
                       checked={forcePasswordChange}
                       onCheckedChange={(checked) => setForcePasswordChange(checked === true)}
                     />
-                    <Label htmlFor="forcePasswordChange" className="text-sm font-normal cursor-pointer">
+                    <Label
+                      htmlFor="forcePasswordChange"
+                      className="text-sm font-normal cursor-pointer"
+                    >
                       Solicitar troca de senha no próximo login
                     </Label>
                   </div>
