@@ -76,7 +76,7 @@ export interface MasterProduct {
   // NOVO ↓
   fragmentavel: boolean;               // false = padrão (não fragmentável)
   unidades_por_embalagem?: number;     // Ex: 60 — obrigatório se fragmentavel=true
-  unidade_medida?: string;             // Ex: "UND.", "mL", "mg" — opcional
+  // unidade_medida é sempre "UND" — fixo no sistema, sem campo configurável
   // ────────────────────────────────────
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -98,8 +98,8 @@ export interface MasterProduct {
   "code": "9193924",
   "name": "SCREW 27GX50X70 5-0",
   "fragmentavel": true,
-  "unidades_por_embalagem": 60,
-  "unidade_medida": "UND."
+  "unidades_por_embalagem": 60
+  // unidade_medida = "UND" — fixo, não armazenado
 }
 ```
 
@@ -115,9 +115,9 @@ export interface InventoryItem {
   // NOVO ↓ (apenas para produtos fragmentáveis — null nos demais)
   fragmentavel?: boolean;              // Cópia do master_product para exibição rápida
   unidades_por_embalagem?: number;     // Cópia do master_product
-  unidade_medida?: string;             // Cópia do master_product
   quantidade_embalagens?: number;      // Quantas embalagens foram compradas (auditoria)
   valor_por_embalagem?: number;        // Valor original por embalagem (auditoria)
+  // unidade_medida = "UND" — fixo, não armazenado
   // ────────────────────────────────────
 }
 ```
@@ -140,23 +140,23 @@ export interface InventoryItem {
 - **[NOVO]** Toggle: "Produto fragmentável?" (padrão: NÃO)
 - **[NOVO, condicional]** Se fragmentável:
   - Quantidade por embalagem *(número inteiro positivo, ex: 60)*
-  - Unidade de medida *(texto livre, ex: "UND.", "mL" — opcional)*
+  - ~~Unidade de medida~~ — fixo como `"UND"`, sem campo no formulário
 
 **Preview dinâmico** (quando fragmentável preenchido):
 ```
-Nome completo: SCREW 27GX50X70 5-0 60 UND.
+Nome completo: SCREW 27GX50X70 5-0 60 UND
 ```
 
 ### 5.2 Admin — Detalhe/Edição do Produto (`/admin/products/[id]`)
 
-- Exibir os novos campos (`fragmentavel`, `unidades_por_embalagem`, `unidade_medida`)
+- Exibir os novos campos (`fragmentavel`, `unidades_por_embalagem`)
 - Permitir edição dos mesmos
 - **Restrição:** Se o produto já está em uso no inventário de alguma clínica, não permitir alterar `fragmentavel` ou `unidades_por_embalagem` (quebra os dados históricos)
 
 ### 5.3 Admin — Listagem de Produtos (`/admin/products`)
 
 - Adicionar coluna ou badge "Fragmentável" na tabela
-- Exibir nome completo: `{name} {unidades_por_embalagem} {unidade_medida}` para fragmentáveis
+- Exibir nome completo: `{name} {unidades_por_embalagem} UND` para fragmentáveis
 
 ### 5.4 Clínica — Adicionar Produtos ao Inventário (`/clinic/add-products`)
 
@@ -168,10 +168,10 @@ Sistema armazena: quantidade_inicial = 15, valor_unitario = informado
 
 **Fluxo novo (fragmentável):**
 ```
-Usuário vê: "SCREW 27GX50X70 5-0 | 60 UND./embalagem"
+Usuário vê: "SCREW 27GX50X70 5-0 | 60 UND/embalagem"
 Usuário informa: lote, quantidade de embalagens (ex: 2), validade, valor por embalagem
 Sistema calcula e exibe em tempo real:
-  - Total de unidades: 2 × 60 = 120 UND.
+  - Total de unidades: 2 × 60 = 120 UND
   - Valor por unidade: R$ 50,00 ÷ 60 = R$ 0,8333
 Sistema armazena no InventoryItem:
   - quantidade_inicial    = 120
@@ -190,12 +190,12 @@ Sistema armazena no InventoryItem:
 **Sem alteração na lógica de consumo.** O usuário já informa a quantidade em unidades e o sistema deduz do `quantidade_disponivel` — que agora, para fragmentáveis, já está em unidades.
 
 Única mudança de UI: ao exibir o produto no seletor, mostrar o nome completo:
-- Fragmentável: `"SCREW 27GX50X70 5-0 60 UND. | Disponível: 120 UND."`
-- Não fragmentável: `"NABOTA 100U 150MG | Disponível: 15 UND."`
+- Fragmentável: `"SCREW 27GX50X70 5-0 60 UND | Disponível: 120 UND"`
+- Não fragmentável: `"NABOTA 100U 150MG | Disponível: 15"`
 
 ### 5.6 Clínica — Inventário (`/clinic/inventory`)
 
-- Produtos fragmentáveis: exibir `"120 UND. (2 embalagens × 60)"` na coluna de quantidade
+- Produtos fragmentáveis: exibir `"120 UND (2 embalagens × 60)"` na coluna de quantidade
 - Adicionar badge ou indicador visual "Fragmentável"
 
 ### 5.7 Módulo Consultor (`/consultant/clinics/[tenantId]/inventory`)
@@ -210,7 +210,7 @@ Sistema armazena no InventoryItem:
 
 | Função | Ação |
 |--------|------|
-| `createMasterProduct()` | Receber e salvar `fragmentavel`, `unidades_por_embalagem`, `unidade_medida` |
+| `createMasterProduct()` | Receber e salvar `fragmentavel`, `unidades_por_embalagem` |
 | `updateMasterProduct()` | Idem; validar restrição de edição se produto em uso |
 | `getNomeCompleto(product)` | **NOVA** — helper que retorna o nome de exibição completo |
 
@@ -220,8 +220,7 @@ export function getNomeCompletoMasterProduct(product: MasterProduct): string {
   if (!product.fragmentavel || !product.unidades_por_embalagem) {
     return product.name;
   }
-  const unidade = product.unidade_medida ?? "UND.";
-  return `${product.name} ${product.unidades_por_embalagem} ${unidade}`;
+  return `${product.name} ${product.unidades_por_embalagem} UND`;
 }
 ```
 
@@ -262,7 +261,7 @@ export function calcularQuantidadeInventario(params: {
 
 | Função | Arquivo de Teste | Cenários |
 |--------|-----------------|----------|
-| `getNomeCompletoMasterProduct()` | `src/__tests__/masterProductService.test.ts` | Não fragmentável retorna nome simples; fragmentável com unidade_medida; fragmentável sem unidade_medida (fallback "UND.") |
+| `getNomeCompletoMasterProduct()` | `src/__tests__/masterProductService.test.ts` | Não fragmentável retorna nome simples; fragmentável retorna `"{name} {qtd} UND"` |
 | `calcularQuantidadeInventario()` | `src/__tests__/inventoryUtils.test.ts` | Não fragmentável retorna valores intactos; fragmentável multiplica qtd e divide valor; borda: fragmentável sem unidades_por_embalagem (fallback seguro) |
 
 ---
@@ -276,7 +275,7 @@ export function calcularQuantidadeInventario(params: {
 **Arquivos:** `src/types/masterProduct.ts`, `src/lib/services/masterProductService.ts`
 
 **Ações:**
-1. Adicionar campos `fragmentavel`, `unidades_por_embalagem`, `unidade_medida` à interface `MasterProduct` e `CreateMasterProductData`
+1. Adicionar campos `fragmentavel`, `unidades_por_embalagem` à interface `MasterProduct` e `CreateMasterProductData`
 2. Criar helper `getNomeCompletoMasterProduct(product)`
 3. Atualizar `createMasterProduct()` e `updateMasterProduct()` para persistir os novos campos
 
@@ -320,8 +319,8 @@ export function calcularQuantidadeInventario(params: {
 
 **Ações:**
 1. Adicionar toggle "Produto fragmentável?"
-2. Exibir condicionalmente os campos `unidades_por_embalagem` e `unidade_medida`
-3. Adicionar preview dinâmico do nome completo
+2. Exibir condicionalmente o campo `unidades_por_embalagem`
+3. Adicionar preview dinâmico do nome completo (sufixo `"UND"` fixo)
 4. Passar os novos campos para `createMasterProduct()`
 
 **Validação:** Criar produto não fragmentável → campos novos ausentes no Firestore. Criar produto fragmentável → campos salvos corretamente.
@@ -336,7 +335,7 @@ export function calcularQuantidadeInventario(params: {
 
 **Ações:**
 1. Exibir os novos campos na visualização
-2. Permitir edição de `fragmentavel`, `unidades_por_embalagem`, `unidade_medida`
+2. Permitir edição de `fragmentavel` e `unidades_por_embalagem`
 3. Implementar restrição: se produto está em uso no inventário, desabilitar edição dos campos de fragmentação com aviso explicativo
 
 **Validação:** Produto existente exibe campos corretamente. Tentativa de editar produto em uso exibe aviso.
@@ -366,7 +365,7 @@ export function calcularQuantidadeInventario(params: {
 **Ações:**
 1. Ao selecionar produto fragmentável, detectar via `masterProduct.fragmentavel`
 2. Alterar label do campo de quantidade para "Quantidade de embalagens"
-3. Exibir cálculo em tempo real: `{qtd} × {unidades_por_embalagem} = {total} {unidade_medida}`
+3. Exibir cálculo em tempo real: `{qtd} × {unidades_por_embalagem} = {total} UND`
 4. Exibir valor por unidade calculado em tempo real
 5. Usar `calcularQuantidadeInventario()` antes de montar o payload
 6. Salvar campos de auditoria (`quantidade_embalagens`, `valor_por_embalagem`) no `InventoryItem`
@@ -386,7 +385,7 @@ export function calcularQuantidadeInventario(params: {
 - `src/app/(consultant)/consultant/clinics/[tenantId]/inventory/page.tsx`
 
 **Ações:**
-1. Inventário: exibir `"120 UND. (2 embalagens × 60)"` para fragmentáveis; quantidade simples para não fragmentáveis
+1. Inventário: exibir `"120 UND (2 embalagens × 60)"` para fragmentáveis; quantidade simples para não fragmentáveis
 2. Seletor de procedimento: exibir nome completo e quantidade disponível em unidades
 3. Badge ou indicador visual "Fragmentável" onde aplicável
 
