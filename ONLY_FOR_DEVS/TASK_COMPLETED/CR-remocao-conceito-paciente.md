@@ -3,11 +3,14 @@
 **Projeto:** Curva Mestra
 **Data:** 07/04/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Aguardando execução
+**Status:** Concluído
+**Concluído por:** Guilherme S Scandelari
+**Data de Conclusão:** 30/04/2026
 **Tipo:** Change Request
 **Branch sugerida:** `feature/remove-patient-concept`
+**Branch de execução:** `bugfix/remocao-conceito-paciente`
 **Prioridade:** Alta
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Decisão estratégica de produto: o sistema deixa de associar procedimentos a pacientes cadastrados. Os procedimentos (solicitações) passam a existir de forma independente, registrando apenas quais produtos foram consumidos, em qual data e com um campo de texto livre opcional chamado "Descrição". O conceito de paciente é removido integralmente do código, da UI e do Firestore.
 
@@ -696,6 +699,7 @@ Regras aplicadas:
 
 ## 13. Histórico de Versões
 
-| Versão | Data | Autor | O que mudou |
-|--------|------|-------|-------------|
-| 1.0 | 07/04/2026 | Doc Writer (Claude) | Versão inicial — reorganização e padronização do documento original seguindo estrutura de 13 seções do doc-writer; complementado com análise do código atual (estado parcialmente implementado confirmado) |
+| Versão | Data       | Autor                      | O que mudou                                                                                                                                                                                                |
+| ------ | ---------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0    | 07/04/2026 | Doc Writer (Claude)        | Versão inicial — reorganização e padronização do documento original seguindo estrutura de 13 seções do doc-writer; complementado com análise do código atual (estado parcialmente implementado confirmado) |
+| 1.1    | 30/04/2026 | Guilherme S Scandelari     | Task concluída — removido `'Cadastro de Pacientes'` das feature lists de licença; removido bloco "Cadastre Pacientes" do onboarding pós-setup; substituído `paciente_nome` por `descricao?` na interface local e renderização do consultant; atualizado comentário em `StatusHistoryEntry.observacao`; confirmado que serviços, types e Firestore já não tinham referências a paciente; único resíduo intencional em `solicitacaoService.test.ts` como guardião da invariante. Branch: `bugfix/remocao-conceito-paciente`. |
