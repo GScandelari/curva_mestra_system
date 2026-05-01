@@ -174,8 +174,9 @@ Para cada função ou módulo afetado, avalie:
 - [ ] `npm run test:coverage` sem falhas (se testes foram adicionados/editados)
 - [ ] Todas as queries Firestore filtram por `tenant_id`
 - [ ] Nenhum secret ou credencial no código
+- [ ] Documento da task atualizado e movido para `TASK_COMPLETED/` (commit na task branch — **Modo B**)
 - [ ] Task branch mergeada na branch pessoal para validação no Firebase
-- [ ] PR aberto para `develop` com template preenchido
+- [ ] PR aberto para branch pessoal com template preenchido
 
 ### A.7. Registrar o plano com TodoWrite
 
@@ -201,8 +202,10 @@ Exiba o resultado estruturado:
 
 ✅ Checklist de validação
 
-⚠️  Lembre-se: antes de abrir o PR, merge a task branch na sua branch pessoal
-    para validar no Firebase (gscandelari-dev.web.app ou lhuancassio-dev.web.app).
+⚠️  Antes de abrir a PR:
+    1. Execute o Modo B para mover o doc da task de TO_DO → TASK_COMPLETED (commit na task branch)
+    2. Merge a task branch na branch pessoal para validar no Firebase
+       (gscandelari-dev.web.app ou lhuancassio-dev.web.app)
 ```
 
 Aguarde confirmação do usuário antes de iniciar qualquer implementação.
@@ -211,25 +214,30 @@ Aguarde confirmação do usuário antes de iniciar qualquer implementação.
 
 ## MODO B: Concluir Task
 
+> **Regra fundamental:** a atualização do documento e a movimentação para `TASK_COMPLETED/` devem ser feitas como commit **na própria task branch**, antes de abrir a PR. O registro de conclusão viaja junto com o trabalho entregue — nunca em PR separada depois do merge.
+
 Siga **todas** as etapas abaixo em ordem. Não pule nenhuma.
 
-### B.1. Identificar o desenvolvedor
+### B.1. Identificar o desenvolvedor e a branch atual
 
 Execute:
 
 ```bash
 git config user.name
 git config user.email
+git branch --show-current
 ```
 
 Mapeie para o nome completo do dev:
 
-| Git user.email / user.name        | Nome completo           |
-| --------------------------------- | ----------------------- |
-| `stanke399@gmail.com` / Guilherme | Guilherme Scandelari    |
-| Lhuan (qualquer email)            | Lhuan Cassio            |
+| Git user.email / user.name        | Nome completo        |
+| --------------------------------- | -------------------- |
+| `stanke399@gmail.com` / Guilherme | Guilherme Scandelari |
+| Lhuan (qualquer email)            | Lhuan Cassio         |
 
 Se o dev não for reconhecido, pergunte o nome antes de continuar.
+
+Confirme que você está na **task branch** (ex: `feature/`, `bugfix/`, `chore/`). Se estiver em outra branch, avise o usuário e peça confirmação antes de prosseguir.
 
 ### B.2. Localizar o documento da task em TO_DO
 
@@ -266,13 +274,17 @@ Execute o movimento via git para preservar o histórico:
 git mv ONLY_FOR_DEVS/TO_DO/<nome-do-arquivo>.md ONLY_FOR_DEVS/TASK_COMPLETED/<nome-do-arquivo>.md
 ```
 
-### B.5. Commitar e fazer push
+### B.5. Commitar na task branch e fazer push
+
+Commite diretamente na task branch (o mesmo branch do trabalho entregue):
 
 ```bash
 git add ONLY_FOR_DEVS/TASK_COMPLETED/<nome-do-arquivo>.md
-git commit -m "docs(tasks): move <nome-do-arquivo> to TASK_COMPLETED — concluído por <Nome do Dev>"
+git commit -m "docs(tasks): move <nome-do-arquivo> to TASK_COMPLETED"
 git push
 ```
+
+Este commit será incluído automaticamente na PR da task. Não é necessário abrir PR separada para a documentação.
 
 ### B.6. Confirmar ao usuário
 
@@ -285,6 +297,7 @@ Exiba o resultado:
 👤 Concluído por: <Nome completo do dev>
 📅 Data de conclusão: <data>
 🔖 Versão do documento: <X.Y>
+🌿 Branch: <task-branch-atual>
 
-O histórico git preserva o rastro completo da movimentação.
+O commit de conclusão está na task branch e será entregue junto com o trabalho na PR.
 ```
