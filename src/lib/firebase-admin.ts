@@ -38,7 +38,9 @@ export function getAdminApp(): App {
     // Opção 2: Usar arquivo local (desenvolvimento)
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const serviceAccount = require(/* webpackIgnore: true */ '../../curva-mestra-firebase-adminsdk.json');
+      const serviceAccount = require(
+        /* webpackIgnore: true */ '../../curva-mestra-firebase-adminsdk.json'
+      );
       adminApp = initializeApp({
         credential: cert(serviceAccount),
       });
