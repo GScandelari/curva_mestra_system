@@ -109,12 +109,13 @@ Produza o documento seguindo rigorosamente a estrutura abaixo. Adapte as seçõe
 # [Tipo]: [Título claro e descritivo]
 
 **Projeto:** Curva Mestra
-**Data:** [data atual]
+**Data:** [data de criação — nunca alterar]
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Planejamento | Em execução | Concluído | Cancelado
 **Tipo:** Feature | Change Request | Refactoring | ADR | Bugfix
 **Branch sugerida:** [feature|bugfix|chore|refactor]/[nome-kebab-case]
 **Prioridade:** Alta | Média | Baixa
+**Versão:** 1.0
 
 > Resumo executivo em 2-3 linhas: o que muda, por que muda e qual o impacto esperado.
 
@@ -310,6 +311,14 @@ Defina termos de domínio ou técnicos que aparecem no documento e que podem nã
 ## 12. Referências
 
 Liste arquivos do projeto, documentações externas ou decisões anteriores que embasam este documento.
+
+---
+
+## 13. Histórico de Versões
+
+| Versão | Data | Autor | O que mudou |
+|--------|------|-------|-------------|
+| 1.0 | [data de criação] | Doc Writer (Claude) | Versão inicial |
 ```
 
 ---
@@ -332,21 +341,42 @@ Liste arquivos do projeto, documentações externas ou decisões anteriores que 
 
 ## Entrega
 
-Após escrever o documento:
+### Passo 1 — Validar o nome do arquivo
 
-1. Construa o nome do arquivo seguindo **obrigatoriamente** o padrão:
-   ```
-   ONLY_FOR_DEVS/[PREFIXO]-[nome-em-kebab-case].md
-   ```
-   Valide mentalmente antes de salvar:
-   - [ ] Prefixo em MAIÚSCULAS (`FEAT`, `CR`, `REFACTOR`, `ADR`, `BUGFIX`)
-   - [ ] Nome em kebab-case (minúsculas, hifens, sem acentos)
-   - [ ] Sem underscores, espaços ou caracteres especiais
-   - [ ] Total de até 60 caracteres (sem `.md`)
+Construa o nome seguindo **obrigatoriamente** o padrão:
+```
+ONLY_FOR_DEVS/[PREFIXO]-[nome-em-kebab-case].md
+```
+Checklist antes de salvar:
+- [ ] Prefixo em MAIÚSCULAS (`FEAT`, `CR`, `REFACTOR`, `ADR`, `BUGFIX`)
+- [ ] Nome em kebab-case (minúsculas, hifens, sem acentos)
+- [ ] Sem underscores, espaços ou caracteres especiais
+- [ ] Total de até 60 caracteres (sem `.md`)
 
-2. Salve o arquivo no caminho validado.
+### Passo 2 — Verificar se o arquivo já existe
 
-3. Informe ao usuário:
-   - O nome e caminho exato do arquivo criado
-   - Um resumo de 5 a 10 linhas do que foi documentado
-   - Se houver `⚠️ Decisões necessárias`, liste-as explicitamente para que o usuário confirme antes de passar a task ao `dev-task-manager`
+Antes de salvar, verifique se o arquivo já existe em `ONLY_FOR_DEVS/`:
+
+**Caso A — Arquivo NÃO existe (criação):**
+- Crie o documento com `**Versão:** 1.0` no cabeçalho
+- Adicione a seção 13 com a entrada inicial na tabela de histórico
+
+**Caso B — Arquivo JÁ existe (atualização):**
+- Leia o arquivo existente
+- Identifique a versão atual no cabeçalho (`**Versão:** X.Y`)
+- Incremente a versão seguindo **Semantic Versioning simplificado**:
+  - Mudança de conteúdo relevante (novo step, nova seção, decisão alterada) → incrementa **minor**: `1.0 → 1.1`
+  - Reestruturação completa ou mudança de escopo → incrementa **major**: `1.1 → 2.0`
+  - Correção de erro tipográfico ou ajuste menor → incrementa **patch**: `1.0 → 1.0.1`
+- Atualize `**Versão:**` no cabeçalho
+- Adicione uma nova linha na tabela da seção 13 descrevendo o que mudou
+- **Nunca altere** o campo `**Data:**` original — ele registra a criação do documento
+- Salve o arquivo atualizado
+
+### Passo 3 — Informar ao usuário
+
+Após salvar, informe:
+- O nome e caminho exato do arquivo
+- Se foi **criado** (v1.0) ou **atualizado** (vX.Y → vX.Z)
+- Um resumo de 5 a 10 linhas do conteúdo
+- Se houver `⚠️ Decisões necessárias`, liste-as explicitamente para confirmação antes de passar a task ao `dev-task-manager`
