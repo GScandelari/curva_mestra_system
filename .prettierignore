@@ -1,3 +1,4 @@
 .claude/
 .next/
 node_modules/
+ONLY_FOR_DEVS/
