@@ -69,7 +69,24 @@ export function getAdminFirestore() {
   return getFirestore(getAdminApp());
 }
 
-// Exports compatíveis com código existente
-export const adminAuth = getAdminAuth();
-export const adminDb = getAdminFirestore();
+// Lazy proxies — evitam inicialização no nível de módulo durante next build
+let _cachedAuth: ReturnType<typeof getAdminAuth> | undefined;
+let _cachedDb: ReturnType<typeof getAdminFirestore> | undefined;
+
+export const adminAuth = new Proxy({} as ReturnType<typeof getAdminAuth>, {
+  get(_, prop) {
+    if (!_cachedAuth) _cachedAuth = getAdminAuth();
+    const value = (_cachedAuth as any)[prop];
+    return typeof value === 'function' ? value.bind(_cachedAuth) : value;
+  },
+});
+
+export const adminDb = new Proxy({} as ReturnType<typeof getAdminFirestore>, {
+  get(_, prop) {
+    if (!_cachedDb) _cachedDb = getAdminFirestore();
+    const value = (_cachedDb as any)[prop];
+    return typeof value === 'function' ? value.bind(_cachedDb) : value;
+  },
+});
+
 export const getFirebaseAdmin = getAdminApp;

@@ -78,7 +78,6 @@ export default function LicenseTab() {
       return [
         'Gestão de Estoque com FEFO',
         'Controle de Lotes e Validades',
-        'Cadastro de Pacientes',
         'Histórico de Procedimentos',
         'Solicitações de Produtos',
         'Relatórios Básicos',
@@ -88,7 +87,6 @@ export default function LicenseTab() {
     const baseFeatures = [
       'Gestão de Estoque com FEFO',
       'Controle de Lotes e Validades',
-      'Cadastro de Pacientes',
       'Histórico de Procedimentos',
       'Solicitações de Produtos',
       'Relatórios Básicos',

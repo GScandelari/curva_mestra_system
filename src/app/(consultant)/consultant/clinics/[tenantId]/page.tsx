@@ -38,7 +38,7 @@ interface TenantDetails {
 
 interface RecentProcedure {
   id: string;
-  paciente_nome: string;
+  descricao?: string;
   status: string;
   dt_procedimento: any;
 }
@@ -298,7 +298,7 @@ export default function ClinicDetailPage() {
                     className="flex items-center justify-between p-3 border rounded-lg"
                   >
                     <div>
-                      <p className="font-medium">{procedure.paciente_nome}</p>
+                      <p className="font-medium">{procedure.descricao || 'Sem descrição'}</p>
                       <p className="text-sm text-muted-foreground">
                         {procedure.dt_procedimento
                           ? formatTimestamp(procedure.dt_procedimento)

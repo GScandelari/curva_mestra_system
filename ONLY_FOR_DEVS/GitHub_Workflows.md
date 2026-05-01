@@ -105,7 +105,8 @@ Este documento descreve todos os GitHub Actions workflows configurados em `.gith
 ### Pontos importantes
 
 - **Só faz deploy de Hosting** — nenhuma Function é tocada
-- Dispara em qualquer push para `gscandelari_setup`, incluindo merges de task branches para validação
+- Dispara em qualquer push/merge para `gscandelari_setup`
+- **Fluxo correto:** abrir PR da task branch (`feature/*`, `bugfix/*`, `chore/*`) para `gscandelari_setup`. Após o merge e validação em `gscandelari-dev.web.app`, abrir PR de `gscandelari_setup` para `develop`
 
 ---
 
@@ -133,6 +134,7 @@ Idêntico ao workflow do Guilherme, com duas diferenças:
 ### Pontos importantes
 
 - **Só faz deploy de Hosting** — nenhuma Function é tocada
+- **Fluxo correto:** abrir PR da task branch (`feature/*`, `bugfix/*`, `chore/*`) para `lhuan_setup`. Após o merge e validação em `lhuancassio-dev.web.app`, abrir PR de `lhuan_setup` para `develop`
 
 ---
 
@@ -191,12 +193,25 @@ Idêntico ao workflow do Guilherme, com duas diferenças:
 ## Fluxo de Deploy por Ambiente
 
 ```
-Commit em gscandelari_setup ──→ deploy-gscandelari-dev.yml ──→ gscandelari-dev.web.app
-Commit em lhuan_setup        ──→ deploy-lhuan-dev.yml       ──→ lhuancassio-dev.web.app
-PR mergeado em develop        ──→ ci.yml + security.yml      ──→ (validação)
-PR mergeado em master         ──→ deploy-firebase.yml        ──→ curva-mestra.web.app (prod)
-                              ──→ release.yml                ──→ GitHub Release
+feature/* / bugfix/* / chore/*
+    │
+    │  PR (task branch → branch pessoal)
+    ▼
+gscandelari_setup ──→ deploy-gscandelari-dev.yml ──→ gscandelari-dev.web.app  (validação)
+lhuan_setup       ──→ deploy-lhuan-dev.yml       ──→ lhuancassio-dev.web.app (validação)
+    │
+    │  PR (branch pessoal → develop) — após validação no Firebase
+    ▼
+develop           ──→ ci.yml + security.yml      ──→ (lint + type-check + test + build)
+    │
+    │  PR (develop → master) — releases
+    ▼
+master            ──→ deploy-firebase.yml        ──→ curva-mestra.web.app (produção)
+                  ──→ release.yml                ──→ GitHub Release (versionamento semântico)
 ```
+
+> **Regra obrigatória:** Nunca abrir PR diretamente de uma task branch para `develop`.
+> O caminho é sempre: `task branch` → `branch pessoal` (valida Firebase) → `develop` → `master`.
 
 ---
 
