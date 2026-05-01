@@ -59,17 +59,43 @@ Mapeie com precisão:
 - O que vai mudar (estado futuro)
 - O que não pode ser tocado (restrições)
 
-### 3. Classificação do documento
+### 3. Classificação e nomenclatura do documento
 
-Determine o tipo de documento a produzir:
+Determine o tipo de documento e construa o nome do arquivo seguindo o padrão obrigatório:
 
-| Situação | Tipo de documento | Prefixo do arquivo |
-|----------|------------------|--------------------|
-| Nova funcionalidade para o usuário | Feature Specification | `Feature_Spec_-_` |
-| Remoção ou simplificação de conceito | Change Request | `Change_Request_-_` |
-| Refatoração interna sem mudança de comportamento | Refactoring Spec | `Refactoring_Spec_-_` |
-| Decisão de arquitetura ou tecnologia | Architecture Decision Record | `ADR_-_` |
-| Correção de bug complexo | Bug Fix Specification | `Bugfix_Spec_-_` |
+**Padrão:** `ONLY_FOR_DEVS/[PREFIXO]-[nome-em-kebab-case].md`
+
+| Situação | Tipo | Prefixo obrigatório |
+|----------|------|---------------------|
+| Nova funcionalidade para o usuário | Feature Specification | `FEAT` |
+| Remoção ou simplificação de conceito | Change Request | `CR` |
+| Refatoração interna sem mudança de comportamento | Refactoring Spec | `REFACTOR` |
+| Decisão de arquitetura ou tecnologia | Architecture Decision Record | `ADR` |
+| Correção de bug complexo | Bug Fix Specification | `BUGFIX` |
+
+**Regras do nome do arquivo:**
+
+- Formato: `[PREFIXO]-[nome-em-kebab-case].md`
+- Prefixo: sempre em MAIÚSCULAS
+- Nome: sempre em `kebab-case` (minúsculas, palavras separadas por hífen)
+- Sem espaços, acentos, underscores ou caracteres especiais
+- Máximo de 60 caracteres no total (sem a extensão `.md`)
+
+**Exemplos válidos:**
+```
+ONLY_FOR_DEVS/FEAT-fragmentacao-produto-rennova.md
+ONLY_FOR_DEVS/CR-remocao-conceito-paciente.md
+ONLY_FOR_DEVS/ADR-estrategia-multitenancy-firestore.md
+ONLY_FOR_DEVS/REFACTOR-renomear-grupo-para-category.md
+ONLY_FOR_DEVS/BUGFIX-calculo-quantidade-fefo.md
+```
+
+**Exemplos inválidos:**
+```
+ONLY_FOR_DEVS/Reestruturacao_Produto_Rennova_Fragmentacao.md  ❌ sem prefixo, usa underscores
+ONLY_FOR_DEVS/Feature_Spec_-_Fragmentação.md                 ❌ acento, formato antigo
+ONLY_FOR_DEVS/feat-fragmentacao.md                           ❌ prefixo em minúsculas
+```
 
 ### 4. Geração do documento
 
@@ -308,8 +334,19 @@ Liste arquivos do projeto, documentações externas ou decisões anteriores que 
 
 Após escrever o documento:
 
-1. Salve em `ONLY_FOR_DEVS/[Prefixo]_[Nome-em-Title-Case-com-hifens].md`
-2. Informe ao usuário:
-   - O nome e caminho do arquivo criado
+1. Construa o nome do arquivo seguindo **obrigatoriamente** o padrão:
+   ```
+   ONLY_FOR_DEVS/[PREFIXO]-[nome-em-kebab-case].md
+   ```
+   Valide mentalmente antes de salvar:
+   - [ ] Prefixo em MAIÚSCULAS (`FEAT`, `CR`, `REFACTOR`, `ADR`, `BUGFIX`)
+   - [ ] Nome em kebab-case (minúsculas, hifens, sem acentos)
+   - [ ] Sem underscores, espaços ou caracteres especiais
+   - [ ] Total de até 60 caracteres (sem `.md`)
+
+2. Salve o arquivo no caminho validado.
+
+3. Informe ao usuário:
+   - O nome e caminho exato do arquivo criado
    - Um resumo de 5 a 10 linhas do que foi documentado
    - Se houver `⚠️ Decisões necessárias`, liste-as explicitamente para que o usuário confirme antes de passar a task ao `dev-task-manager`
