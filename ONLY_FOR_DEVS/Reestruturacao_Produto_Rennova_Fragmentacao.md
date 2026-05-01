@@ -24,10 +24,12 @@ Porém, existem produtos vendidos em embalagem composta — como **SCREW 27GX50X
 
 ## 2. Objetivo
 
-1. Permitir que o **system_admin** marque um produto como **fragmentável** no cadastro, informando quantas unidades cada embalagem contém.
-2. Ao **adicionar ao inventário**, a clínica informa a quantidade de embalagens adquiridas — o sistema calcula e armazena automaticamente a quantidade total de unidades.
-3. Nos **procedimentos**, o consumo é sempre em unidades, independente do tipo de produto.
-4. Todo o restante do sistema (relatórios, alertas, FEFO, reservas) continua funcionando sem alterações, pois a unidade de medida interna permanece a mesma.
+1. **Corrigir o campo de categoria:** renomear `grupo` → `category` no tipo TypeScript, alinhando com o campo já salvo no Firestore pelo script de importação.
+2. **Exibir e editar a categoria** nos formulários de cadastro e listagem de produtos (campo existente no Firestore mas nunca exposto na UI).
+3. Permitir que o **system_admin** marque um produto como **fragmentável** no cadastro, informando quantas unidades cada embalagem contém.
+4. Ao **adicionar ao inventário**, a clínica informa a quantidade de embalagens adquiridas — o sistema calcula e armazena automaticamente a quantidade total de unidades.
+5. Nos **procedimentos**, o consumo é sempre em unidades, independente do tipo de produto.
+6. Todo o restante do sistema (relatórios, alertas, FEFO, reservas) continua funcionando sem alterações, pois a unidade de medida interna permanece a mesma.
 
 ---
 
@@ -63,7 +65,7 @@ Consumo no procedimento (fragmentável):
 
 ## 4. Mudanças no Modelo de Dados
 
-### 4.1 MasterProduct — campos novos
+### 4.1 MasterProduct — campos alterados e novos
 
 ```typescript
 // src/types/masterProduct.ts
@@ -71,7 +73,7 @@ export interface MasterProduct {
   id: string;
   code: string;                        // 7 dígitos
   name: string;                        // Nome base (SEM quantidade/unidade)
-  grupo?: string;
+  category?: string;                   // RENOMEADO: era "grupo" — alinhado com Firestore
   active: boolean;
   // NOVO ↓
   fragmentavel: boolean;               // false = padrão (não fragmentável)
@@ -82,6 +84,20 @@ export interface MasterProduct {
   updated_at: Timestamp;
 }
 ```
+
+> **Atenção — inconsistência atual:** o script `scripts/import-master-products-dev.js` já salva o campo como `category` no Firestore. A interface TypeScript usava `grupo` — nome incorreto que nunca foi exposto na UI. Esta task corrige o alinhamento renomeando para `category`.
+
+**Categorias válidas** (conforme script de importação):
+
+| Categoria |
+|-----------|
+| Preenchedores |
+| Bioestimuladores |
+| Fios de PDO |
+| Toxina |
+| Cannulas |
+| Care Home |
+| Care Professional |
 
 **Exemplos de dados:**
 
@@ -137,6 +153,7 @@ export interface InventoryItem {
 **Formulário novo:**
 - Código (7 dígitos)
 - Nome *(apenas o nome base, sem quantidade)*
+- **[CORRIGIDO]** Categoria *(select com as opções fixas: Preenchedores, Bioestimuladores, Fios de PDO, Toxina, Cannulas, Care Home, Care Professional)*
 - **[NOVO]** Toggle: "Produto fragmentável?" (padrão: NÃO)
 - **[NOVO, condicional]** Se fragmentável:
   - Quantidade por embalagem *(número inteiro positivo, ex: 60)*
@@ -149,14 +166,16 @@ Nome completo: SCREW 27GX50X70 5-0 60 UND
 
 ### 5.2 Admin — Detalhe/Edição do Produto (`/admin/products/[id]`)
 
-- Exibir os novos campos (`fragmentavel`, `unidades_por_embalagem`)
-- Permitir edição dos mesmos
+- Exibir os campos `category`, `fragmentavel` e `unidades_por_embalagem`
+- Permitir edição de `category` livremente
 - **Restrição:** Se o produto já está em uso no inventário de alguma clínica, não permitir alterar `fragmentavel` ou `unidades_por_embalagem` (quebra os dados históricos)
 
 ### 5.3 Admin — Listagem de Produtos (`/admin/products`)
 
-- Adicionar coluna ou badge "Fragmentável" na tabela
+- Exibir coluna `category` na tabela
+- Adicionar coluna ou badge "Fragmentável"
 - Exibir nome completo: `{name} {unidades_por_embalagem} UND` para fragmentáveis
+- Permitir filtro por categoria na listagem
 
 ### 5.4 Clínica — Adicionar Produtos ao Inventário (`/clinic/add-products`)
 
@@ -210,7 +229,7 @@ Sistema armazena no InventoryItem:
 
 | Função | Ação |
 |--------|------|
-| `createMasterProduct()` | Receber e salvar `fragmentavel`, `unidades_por_embalagem` |
+| `createMasterProduct()` | Receber e salvar `category`, `fragmentavel`, `unidades_por_embalagem` |
 | `updateMasterProduct()` | Idem; validar restrição de edição se produto em uso |
 | `getNomeCompleto(product)` | **NOVA** — helper que retorna o nome de exibição completo |
 
@@ -270,18 +289,32 @@ export function calcularQuantidadeInventario(params: {
 
 ---
 
-### STEP 1 — Atualizar tipos e helpers do MasterProduct
+### STEP 1 — Corrigir e atualizar tipos do MasterProduct
 
 **Arquivos:** `src/types/masterProduct.ts`, `src/lib/services/masterProductService.ts`
 
 **Ações:**
-1. Adicionar campos `fragmentavel`, `unidades_por_embalagem` à interface `MasterProduct` e `CreateMasterProductData`
-2. Criar helper `getNomeCompletoMasterProduct(product)`
-3. Atualizar `createMasterProduct()` e `updateMasterProduct()` para persistir os novos campos
+1. Renomear `grupo` → `category` na interface `MasterProduct`, `CreateMasterProductData` e `UpdateMasterProductData`
+2. Adicionar constante com as categorias válidas (evitar strings soltas no código):
+   ```typescript
+   export const MASTER_PRODUCT_CATEGORIES = [
+     'Preenchedores',
+     'Bioestimuladores',
+     'Fios de PDO',
+     'Toxina',
+     'Cannulas',
+     'Care Home',
+     'Care Professional',
+   ] as const;
+   export type MasterProductCategory = typeof MASTER_PRODUCT_CATEGORIES[number];
+   ```
+3. Adicionar campos `fragmentavel` e `unidades_por_embalagem` à interface `MasterProduct` e `CreateMasterProductData`
+4. Criar helper `getNomeCompletoMasterProduct(product)`
+5. Atualizar `createMasterProduct()` e `updateMasterProduct()` para persistir os novos campos
 
-**Validação:** TypeScript compila sem erros; helper retorna nome correto para ambos os casos.
+**Validação:** TypeScript compila sem erros; nenhuma referência a `grupo` permanece no código.
 
-**Commit:** `feat(types): add fragmentavel fields to MasterProduct interface`
+**Commit:** `refactor(types): rename grupo to category and add fragmentavel fields to MasterProduct`
 
 ---
 
@@ -318,14 +351,15 @@ export function calcularQuantidadeInventario(params: {
 **Arquivo:** `src/app/(admin)/admin/products/new/page.tsx`
 
 **Ações:**
-1. Adicionar toggle "Produto fragmentável?"
-2. Exibir condicionalmente o campo `unidades_por_embalagem`
-3. Adicionar preview dinâmico do nome completo (sufixo `"UND"` fixo)
-4. Passar os novos campos para `createMasterProduct()`
+1. Adicionar campo `category` como Select com as opções de `MASTER_PRODUCT_CATEGORIES`
+2. Adicionar toggle "Produto fragmentável?"
+3. Exibir condicionalmente o campo `unidades_por_embalagem`
+4. Adicionar preview dinâmico do nome completo (sufixo `"UND"` fixo)
+5. Passar os novos campos (`category`, `fragmentavel`, `unidades_por_embalagem`) para `createMasterProduct()`
 
-**Validação:** Criar produto não fragmentável → campos novos ausentes no Firestore. Criar produto fragmentável → campos salvos corretamente.
+**Validação:** Criar produto não fragmentável → `category` salva, campos de fragmentação ausentes. Criar produto fragmentável → todos os campos salvos corretamente.
 
-**Commit:** `feat(admin): add fragmentavel toggle to product creation form`
+**Commit:** `feat(admin): add category select and fragmentavel toggle to product creation form`
 
 ---
 
@@ -334,13 +368,14 @@ export function calcularQuantidadeInventario(params: {
 **Arquivo:** `src/app/(admin)/admin/products/[id]/page.tsx`
 
 **Ações:**
-1. Exibir os novos campos na visualização
-2. Permitir edição de `fragmentavel` e `unidades_por_embalagem`
-3. Implementar restrição: se produto está em uso no inventário, desabilitar edição dos campos de fragmentação com aviso explicativo
+1. Exibir e permitir edição de `category` (Select com `MASTER_PRODUCT_CATEGORIES`)
+2. Exibir e permitir edição de `fragmentavel` e `unidades_por_embalagem`
+3. **Restrição:** Se o produto já está em uso no inventário, desabilitar edição dos campos de fragmentação com aviso explicativo
+4. `category` pode ser editada livremente, sem restrição
 
-**Validação:** Produto existente exibe campos corretamente. Tentativa de editar produto em uso exibe aviso.
+**Validação:** Produto existente exibe todos os campos. Categoria pode ser alterada. Campos de fragmentação bloqueados se produto em uso.
 
-**Commit:** `feat(admin): show and edit fragmentavel fields in product detail`
+**Commit:** `feat(admin): show and edit category and fragmentavel fields in product detail`
 
 ---
 
