@@ -3,11 +3,14 @@
 **Projeto:** Curva Mestra
 **Data:** 07/04/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Aguardando execução
+**Status:** Concluído
+**Concluído por:** Guilherme S Scandelari
+**Data de Conclusão:** 30/04/2026
 **Tipo:** Change Request
 **Branch sugerida:** `feature/remove-patient-concept`
+**Branch de execução:** `bugfix/remocao-conceito-paciente`
 **Prioridade:** Alta
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Decisão estratégica de produto: o sistema deixa de associar procedimentos a pacientes cadastrados. Os procedimentos (solicitações) passam a existir de forma independente, registrando apenas quais produtos foram consumidos, em qual data e com um campo de texto livre opcional chamado "Descrição". O conceito de paciente é removido integralmente do código, da UI e do Firestore.
 
@@ -25,19 +28,19 @@ git pull origin develop
 git checkout -b feature/remove-patient-concept
 ```
 
-| Step    | Tipo       | Escopo      | Mensagem sugerida                                                          |
-| ------- | ---------- | ----------- | -------------------------------------------------------------------------- |
-| STEP 1  | `refactor` | `types`     | `refactor(types): remove patient types and patientService`                 |
-| STEP 2  | `refactor` | `requests`  | `refactor(requests): remove patient fields from solicitacao model`         |
-| STEP 3  | `refactor` | `requests`  | `refactor(requests): reduce wizard to 2 steps, remove patient selection`   |
-| STEP 4  | `refactor` | `requests`  | `refactor(requests): replace patient columns with description field`       |
-| STEP 5  | `refactor` | `requests`  | `refactor(requests): remove patient section from detail and edit pages`    |
-| STEP 6  | `refactor` | `dashboard` | `refactor(dashboard): remove patient stats cards and references`           |
-| STEP 7  | `refactor` | `reports`   | `refactor(reports): remove por_paciente dimension from consumption report` |
-| STEP 8  | `refactor` | `reports`   | `refactor(reports): remove patient columns from consultant views`          |
-| STEP 9  | `refactor` | `ui`        | `refactor(ui): remove patients menu item and route`                        |
-| STEP 10 | `chore`    | `firebase`  | `chore(firebase): remove patient collections and obsolete indexes`         |
-| STEP 11 | `docs`     | —           | `docs: remove obsolete patient documentation`                              |
+| Step | Tipo | Escopo | Mensagem sugerida |
+|------|------|--------|-------------------|
+| STEP 1 | `refactor` | `types` | `refactor(types): remove patient types and patientService` |
+| STEP 2 | `refactor` | `requests` | `refactor(requests): remove patient fields from solicitacao model` |
+| STEP 3 | `refactor` | `requests` | `refactor(requests): reduce wizard to 2 steps, remove patient selection` |
+| STEP 4 | `refactor` | `requests` | `refactor(requests): replace patient columns with description field` |
+| STEP 5 | `refactor` | `requests` | `refactor(requests): remove patient section from detail and edit pages` |
+| STEP 6 | `refactor` | `dashboard` | `refactor(dashboard): remove patient stats cards and references` |
+| STEP 7 | `refactor` | `reports` | `refactor(reports): remove por_paciente dimension from consumption report` |
+| STEP 8 | `refactor` | `reports` | `refactor(reports): remove patient columns from consultant views` |
+| STEP 9 | `refactor` | `ui` | `refactor(ui): remove patients menu item and route` |
+| STEP 10 | `chore` | `firebase` | `chore(firebase): remove patient collections and obsolete indexes` |
+| STEP 11 | `docs` | — | `docs: remove obsolete patient documentation` |
 
 ---
 
@@ -94,33 +97,33 @@ Decisão estratégica de produto tomada em 07/04/2026: simplificar o fluxo da cl
 
 ### 3.1 Requisitos Funcionais (RF)
 
-| ID    | Descrição                                                                                                          | Ator                             | Prioridade |
-| ----- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------- | ---------- |
-| RF-01 | O wizard de criação de procedimento deve ter no máximo 2 etapas, sem etapa de seleção de paciente                  | clinic_admin / clinic_user       | Must       |
-| RF-02 | O campo "Descrição" (texto livre opcional) deve estar disponível no formulário de criação e edição de procedimento | clinic_admin / clinic_user       | Must       |
-| RF-03 | A listagem de procedimentos deve exibir coluna "Descrição" no lugar das colunas de paciente                        | clinic_admin / clinic_user       | Must       |
-| RF-04 | O dashboard da clínica não deve exibir cards ou estatísticas relacionadas a pacientes                              | clinic_admin / clinic_user       | Must       |
-| RF-05 | O menu lateral da clínica não deve exibir o item "Pacientes"                                                       | clinic_admin / clinic_user       | Must       |
-| RF-06 | A URL `/clinic/patients` deve retornar 404                                                                         | clinic_admin / clinic_user       | Must       |
-| RF-07 | O consultor não deve ver filtros ou colunas de paciente nas telas de procedimentos e relatórios                    | clinic_consultant                | Must       |
-| RF-08 | Os relatórios de consumo não devem incluir agrupamento ou seção "por paciente"                                     | clinic_admin / clinic_consultant | Must       |
+| ID | Descrição | Ator | Prioridade |
+|----|-----------|------|------------|
+| RF-01 | O wizard de criação de procedimento deve ter no máximo 2 etapas, sem etapa de seleção de paciente | clinic_admin / clinic_user | Must |
+| RF-02 | O campo "Descrição" (texto livre opcional) deve estar disponível no formulário de criação e edição de procedimento | clinic_admin / clinic_user | Must |
+| RF-03 | A listagem de procedimentos deve exibir coluna "Descrição" no lugar das colunas de paciente | clinic_admin / clinic_user | Must |
+| RF-04 | O dashboard da clínica não deve exibir cards ou estatísticas relacionadas a pacientes | clinic_admin / clinic_user | Must |
+| RF-05 | O menu lateral da clínica não deve exibir o item "Pacientes" | clinic_admin / clinic_user | Must |
+| RF-06 | A URL `/clinic/patients` deve retornar 404 | clinic_admin / clinic_user | Must |
+| RF-07 | O consultor não deve ver filtros ou colunas de paciente nas telas de procedimentos e relatórios | clinic_consultant | Must |
+| RF-08 | Os relatórios de consumo não devem incluir agrupamento ou seção "por paciente" | clinic_admin / clinic_consultant | Must |
 
 ### 3.2 Requisitos Não Funcionais (RNF)
 
-| ID     | Descrição                                                                                                    | Categoria          |
-| ------ | ------------------------------------------------------------------------------------------------------------ | ------------------ |
-| RNF-01 | Nenhum import de `patientService` ou `patient.ts` deve permanecer no projeto após a execução                 | Manutenibilidade   |
+| ID | Descrição | Categoria |
+|----|-----------|-----------|
+| RNF-01 | Nenhum import de `patientService` ou `patient.ts` deve permanecer no projeto após a execução | Manutenibilidade |
 | RNF-02 | Os scripts de limpeza do Firestore devem ser testados em um tenant de dev antes de serem executados em todos | Segurança de dados |
-| RNF-03 | O campo `observacoes` dos procedimentos deve ser preservado e permanecer funcional                           | Compatibilidade    |
+| RNF-03 | O campo `observacoes` dos procedimentos deve ser preservado e permanecer funcional | Compatibilidade |
 
 ### 3.3 Regras de Negócio (RN)
 
-| ID    | Regra                                                                                                | Justificativa                                         |
-| ----- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| RN-01 | O campo `descricao` é opcional no procedimento — procedimentos sem descrição são válidos             | Não aumentar fricção na criação                       |
-| RN-02 | Não adicionar redirecionamento de `/clinic/patients` para outra rota — 404 é o comportamento correto | Evitar rotas mortas no sistema                        |
-| RN-03 | O campo `observacoes` dos procedimentos não deve ser removido                                        | Campo independente do conceito de paciente            |
-| RN-04 | Os scripts de limpeza do Firestore não devem ser executados sem revisão prévia do conteúdo           | Projeto em fase de desenvolvimento com dados de teste |
+| ID | Regra | Justificativa |
+|----|-------|---------------|
+| RN-01 | O campo `descricao` é opcional no procedimento — procedimentos sem descrição são válidos | Não aumentar fricção na criação |
+| RN-02 | Não adicionar redirecionamento de `/clinic/patients` para outra rota — 404 é o comportamento correto | Evitar rotas mortas no sistema |
+| RN-03 | O campo `observacoes` dos procedimentos não deve ser removido | Campo independente do conceito de paciente |
+| RN-04 | Os scripts de limpeza do Firestore não devem ser executados sem revisão prévia do conteúdo | Projeto em fase de desenvolvimento com dados de teste |
 
 ---
 
@@ -131,7 +134,6 @@ Decisão estratégica de produto tomada em 07/04/2026: simplificar o fluxo da cl
 Substituir o campo obrigatório de paciente por um campo de texto livre opcional chamado **"Descrição"** no procedimento. Essa decisão já está refletida na interface `Solicitacao` em `src/types/index.ts` (`descricao?: string`) e no `CreateSolicitacaoInput` em `solicitacaoService.ts`.
 
 **Modelo de procedimento — antes:**
-
 ```
 - Paciente (obrigatório, autocomplete vinculado a cadastro)
 - Data do procedimento (obrigatório)
@@ -140,7 +142,6 @@ Substituir o campo obrigatório de paciente por um campo de texto livre opcional
 ```
 
 **Modelo de procedimento — depois:**
-
 ```
 - Descrição / Identificação (opcional, texto livre — ex: "Procedimento facial Dra. Ana")
 - Data do procedimento (obrigatório)
@@ -150,11 +151,11 @@ Substituir o campo obrigatório de paciente por um campo de texto livre opcional
 
 ### 4.2 Alternativas descartadas
 
-| Alternativa                                           | Motivo da rejeição                                                                             |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Alternativa | Motivo da rejeição |
+|-------------|-------------------|
 | Manter paciente como campo opcional (não obrigatório) | Manteria complexidade de código, cadastro prévio e coleções no Firestore sem valor real no MVP |
-| Agrupar relatórios por `descricao` em vez de paciente | Aceito como consequência — a descrição é texto livre, sem valor analítico garantido            |
-| Redirecionar `/clinic/patients` para o dashboard      | Cria rotas mortas e confusão; 404 é mais honesto                                               |
+| Agrupar relatórios por `descricao` em vez de paciente | Aceito como consequência — a descrição é texto livre, sem valor analítico garantido |
+| Redirecionar `/clinic/patients` para o dashboard | Cria rotas mortas e confusão; 404 é mais honesto |
 
 ### 4.3 Trade-offs aceitos
 
@@ -168,51 +169,51 @@ Substituir o campo obrigatório de paciente por um campo de texto livre opcional
 
 ### 5.1 Arquivos a CRIAR
 
-| Arquivo                           | Tipo           | Propósito                                                                                     |
-| --------------------------------- | -------------- | --------------------------------------------------------------------------------------------- |
-| `scripts/cleanup-patients.js`     | Script Node.js | Deletar coleções `patients` e `patient_edit_logs` de todos os tenants                         |
+| Arquivo | Tipo | Propósito |
+|---------|------|-----------|
+| `scripts/cleanup-patients.js` | Script Node.js | Deletar coleções `patients` e `patient_edit_logs` de todos os tenants |
 | `scripts/cleanup-solicitacoes.js` | Script Node.js | Remover campos `paciente_codigo` e `paciente_nome` de documentos existentes em `solicitacoes` |
 
 ### 5.2 Arquivos a MODIFICAR
 
-| Arquivo                                                                  | Natureza da mudança                                                                                                                                       |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/types/index.ts`                                                     | Remover exportação de `Patient` e tipos relacionados (se ainda existirem)                                                                                 |
-| `src/components/clinic/ClinicLayout.tsx`                                 | Remover item de menu "Pacientes" → `/clinic/patients`                                                                                                     |
-| `src/app/(clinic)/clinic/dashboard/page.tsx`                             | Remover cards de estatísticas de pacientes e chamadas a `getPatientsStats`; substituir `paciente_nome` por `descricao` na seção de procedimentos próximos |
-| `src/app/(clinic)/clinic/requests/new/page.tsx`                          | Remover Step 1 de seleção de paciente; wizard passa de 3 para 2 etapas; adicionar campo "Descrição"                                                       |
-| `src/app/(clinic)/clinic/requests/page.tsx`                              | Remover colunas `paciente_nome` e `paciente_codigo`; adicionar coluna "Descrição"; ajustar busca textual                                                  |
-| `src/app/(clinic)/clinic/requests/[id]/page.tsx`                         | Remover seção "Informações do Paciente"; exibir campo "Descrição"                                                                                         |
-| `src/app/(clinic)/clinic/requests/[id]/edit/page.tsx`                    | Remover campo/seleção de paciente; adicionar campo "Descrição" editável                                                                                   |
-| `src/lib/services/solicitacaoService.ts`                                 | Verificar e remover quaisquer referências residuais a `paciente_codigo`/`paciente_nome`                                                                   |
-| `src/lib/services/reportService.ts`                                      | Verificar e remover campo `por_paciente` da interface `ConsumptionReport` e função `generateConsumptionReport()` se existirem                             |
-| `src/app/(clinic)/clinic/reports/page.tsx`                               | Remover tabela/seção "Consumo por Paciente" se existir                                                                                                    |
-| `src/app/(consultant)/consultant/clinics/[tenantId]/procedures/page.tsx` | Remover filtros e colunas de `paciente_nome`/`paciente_codigo`; adicionar coluna "Descrição"                                                              |
-| `src/app/(consultant)/consultant/clinics/[tenantId]/reports/page.tsx`    | Remover seção "por paciente" do relatório de consumo                                                                                                      |
-| `firestore.indexes.json`                                                 | Verificar e remover índices obsoletos de `patient_edit_logs` e `solicitacoes` por `paciente_codigo` (análise atual indica que já foram removidos)         |
+| Arquivo | Natureza da mudança |
+|---------|---------------------|
+| `src/types/index.ts` | Remover exportação de `Patient` e tipos relacionados (se ainda existirem) |
+| `src/components/clinic/ClinicLayout.tsx` | Remover item de menu "Pacientes" → `/clinic/patients` |
+| `src/app/(clinic)/clinic/dashboard/page.tsx` | Remover cards de estatísticas de pacientes e chamadas a `getPatientsStats`; substituir `paciente_nome` por `descricao` na seção de procedimentos próximos |
+| `src/app/(clinic)/clinic/requests/new/page.tsx` | Remover Step 1 de seleção de paciente; wizard passa de 3 para 2 etapas; adicionar campo "Descrição" |
+| `src/app/(clinic)/clinic/requests/page.tsx` | Remover colunas `paciente_nome` e `paciente_codigo`; adicionar coluna "Descrição"; ajustar busca textual |
+| `src/app/(clinic)/clinic/requests/[id]/page.tsx` | Remover seção "Informações do Paciente"; exibir campo "Descrição" |
+| `src/app/(clinic)/clinic/requests/[id]/edit/page.tsx` | Remover campo/seleção de paciente; adicionar campo "Descrição" editável |
+| `src/lib/services/solicitacaoService.ts` | Verificar e remover quaisquer referências residuais a `paciente_codigo`/`paciente_nome` |
+| `src/lib/services/reportService.ts` | Verificar e remover campo `por_paciente` da interface `ConsumptionReport` e função `generateConsumptionReport()` se existirem |
+| `src/app/(clinic)/clinic/reports/page.tsx` | Remover tabela/seção "Consumo por Paciente" se existir |
+| `src/app/(consultant)/consultant/clinics/[tenantId]/procedures/page.tsx` | Remover filtros e colunas de `paciente_nome`/`paciente_codigo`; adicionar coluna "Descrição" |
+| `src/app/(consultant)/consultant/clinics/[tenantId]/reports/page.tsx` | Remover seção "por paciente" do relatório de consumo |
+| `firestore.indexes.json` | Verificar e remover índices obsoletos de `patient_edit_logs` e `solicitacoes` por `paciente_codigo` (análise atual indica que já foram removidos) |
 
 ### 5.3 Arquivos a REMOVER
 
-| Arquivo                                               | Motivo                                                      |
-| ----------------------------------------------------- | ----------------------------------------------------------- |
-| `src/app/(clinic)/clinic/patients/page.tsx`           | Página de listagem de pacientes — a ser removida se existir |
-| `src/app/(clinic)/clinic/patients/new/page.tsx`       | Formulário de criação — a ser removido se existir           |
-| `src/app/(clinic)/clinic/patients/[id]/page.tsx`      | Página de detalhes — a ser removida se existir              |
-| `src/app/(clinic)/clinic/patients/[id]/edit/page.tsx` | Formulário de edição — a ser removido se existir            |
-| `project_doc/clinic/patients-list-documentation.md`   | Documentação obsoleta                                       |
-| `project_doc/clinic/patients-new-documentation.md`    | Documentação obsoleta                                       |
-| `project_doc/clinic/patients-detail-documentation.md` | Documentação obsoleta                                       |
-| `project_doc/clinic/patients-edit-documentation.md`   | Documentação obsoleta                                       |
+| Arquivo | Motivo |
+|---------|--------|
+| `src/app/(clinic)/clinic/patients/page.tsx` | Página de listagem de pacientes — a ser removida se existir |
+| `src/app/(clinic)/clinic/patients/new/page.tsx` | Formulário de criação — a ser removido se existir |
+| `src/app/(clinic)/clinic/patients/[id]/page.tsx` | Página de detalhes — a ser removida se existir |
+| `src/app/(clinic)/clinic/patients/[id]/edit/page.tsx` | Formulário de edição — a ser removido se existir |
+| `project_doc/clinic/patients-list-documentation.md` | Documentação obsoleta |
+| `project_doc/clinic/patients-new-documentation.md` | Documentação obsoleta |
+| `project_doc/clinic/patients-detail-documentation.md` | Documentação obsoleta |
+| `project_doc/clinic/patients-edit-documentation.md` | Documentação obsoleta |
 
 > **Nota:** A análise do código atual indica que `src/types/patient.ts`, `src/lib/services/patientService.ts` e `src/app/(clinic)/clinic/patients/` já foram removidos. Os steps de remoção devem verificar a existência antes de agir.
 
 ### 5.4 Impacto no Firestore
 
-| Coleção                                | Ação                        | Detalhes                                                                                                   |
-| -------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `tenants/{tenantId}/patients`          | Deletar todos os documentos | Executado via `scripts/cleanup-patients.js`                                                                |
-| `tenants/{tenantId}/patient_edit_logs` | Deletar todos os documentos | Executado via `scripts/cleanup-patients.js`                                                                |
-| `tenants/{tenantId}/solicitacoes`      | Limpar campos obsoletos     | Remover `paciente_codigo` e `paciente_nome` de documentos existentes via `scripts/cleanup-solicitacoes.js` |
+| Coleção | Ação | Detalhes |
+|---------|------|----------|
+| `tenants/{tenantId}/patients` | Deletar todos os documentos | Executado via `scripts/cleanup-patients.js` |
+| `tenants/{tenantId}/patient_edit_logs` | Deletar todos os documentos | Executado via `scripts/cleanup-patients.js` |
+| `tenants/{tenantId}/solicitacoes` | Limpar campos obsoletos | Remover `paciente_codigo` e `paciente_nome` de documentos existentes via `scripts/cleanup-solicitacoes.js` |
 
 > O projeto está em fase de desenvolvimento e os dados existentes não possuem valor real. A limpeza completa é segura.
 
@@ -239,7 +240,7 @@ Substituir o campo obrigatório de paciente por um campo de texto livre opcional
 export interface Solicitacao {
   id: string;
   tenant_id: string;
-  descricao?: string; // Campo já presente — identifica o procedimento (texto livre)
+  descricao?: string;  // Campo já presente — identifica o procedimento (texto livre)
   dt_procedimento: Timestamp;
   produtos_solicitados: ProdutoSolicitado[];
   status: SolicitacaoStatus;
@@ -293,20 +294,20 @@ O campo `por_paciente` **não está presente** na interface atual. Nenhuma alter
 
 **Wizard de criação de procedimento (`/clinic/requests/new`):**
 
-| Etapa             | Antes                              | Depois                                          |
-| ----------------- | ---------------------------------- | ----------------------------------------------- |
-| Step 1            | Seleção de paciente (autocomplete) | Eliminada                                       |
-| Step 2 (→ Step 1) | Adicionar produtos                 | Adicionar produtos + campo "Descrição" opcional |
-| Step 3 (→ Step 2) | Revisão (com resumo do paciente)   | Revisão (com campo Descrição se preenchido)     |
+| Etapa | Antes | Depois |
+|-------|-------|--------|
+| Step 1 | Seleção de paciente (autocomplete) | Eliminada |
+| Step 2 (→ Step 1) | Adicionar produtos | Adicionar produtos + campo "Descrição" opcional |
+| Step 3 (→ Step 2) | Revisão (com resumo do paciente) | Revisão (com campo Descrição se preenchido) |
 
 **Listagem de procedimentos (`/clinic/requests`):**
 
-| Coluna             | Antes                                 | Depois                          |
-| ------------------ | ------------------------------------- | ------------------------------- |
-| Paciente           | Presente                              | Removida                        |
-| Código do paciente | Presente                              | Removida                        |
-| Descrição          | Ausente                               | Adicionada (exibe "—" se vazio) |
-| Busca textual      | Por `paciente_nome`/`paciente_codigo` | Por `descricao`                 |
+| Coluna | Antes | Depois |
+|--------|-------|--------|
+| Paciente | Presente | Removida |
+| Código do paciente | Presente | Removida |
+| Descrição | Ausente | Adicionada (exibe "—" se vazio) |
+| Busca textual | Por `paciente_nome`/`paciente_codigo` | Por `descricao` |
 
 **Dashboard da clínica (`/clinic/dashboard`):**
 
@@ -326,13 +327,11 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Confirmar que a camada de tipos e serviço já foi removida; eliminar eventuais resíduos.
 
 **Arquivos afetados:**
-
 - `src/types/patient.ts` — deletar se existir
 - `src/types/index.ts` — remover exportações de tipos de paciente se existirem
 - `src/lib/services/patientService.ts` — deletar se existir
 
 **Ações:**
-
 1. Verificar existência de `src/types/patient.ts` — deletar se presente
 2. Verificar existência de `src/lib/services/patientService.ts` — deletar se presente
 3. Verificar `src/types/index.ts` — remover exportações de `Patient`, `PatientWithStats`, `CreatePatientInput`, `UpdatePatientInput`, `PatientEditLog` se existirem
@@ -349,11 +348,9 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Garantir que o serviço de solicitações não possui referências residuais a paciente.
 
 **Arquivos afetados:**
-
 - `src/lib/services/solicitacaoService.ts`
 
 **Ações:**
-
 1. Buscar por `paciente_codigo`, `paciente_nome`, `patientService`, `Patient` no arquivo
 2. Remover quaisquer referências encontradas
 3. Verificar função `listSolicitacoes()`: garantir que não há filtro por `paciente_codigo`
@@ -370,11 +367,9 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Remover o Step de seleção de paciente e reduzir o wizard para 2 etapas.
 
 **Arquivos afetados:**
-
 - `src/app/(clinic)/clinic/requests/new/page.tsx`
 
 **Ações:**
-
 1. Remover imports de `patientService` e tipo `Patient` se existirem
 2. Remover estados relacionados a paciente: `selectedPatient`, `patientSearch`, `patientResults`, `patientLoading`, etc.
 3. Remover o Step de seleção de paciente (autocomplete, card de paciente selecionado)
@@ -394,11 +389,9 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Remover referências a paciente da listagem e adicionar coluna "Descrição".
 
 **Arquivos afetados:**
-
 - `src/app/(clinic)/clinic/requests/page.tsx`
 
 **Ações:**
-
 1. Remover colunas "Paciente" (nome e código) da tabela
 2. Adicionar coluna "Descrição" — exibe `descricao` se preenchido, caso contrário exibe "—"
 3. Ajustar a busca textual para usar `descricao` em vez de `paciente_nome`/`paciente_codigo`
@@ -415,17 +408,14 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Remover a seção de paciente das páginas de detalhe e edição.
 
 **Arquivos afetados:**
-
 - `src/app/(clinic)/clinic/requests/[id]/page.tsx`
 - `src/app/(clinic)/clinic/requests/[id]/edit/page.tsx`
 
 **Ações em `[id]/page.tsx`:**
-
 1. Remover o card/seção "Informações do Paciente" (código e nome)
 2. Adicionar exibição do campo "Descrição" (se preenchido)
 
 **Ações em `[id]/edit/page.tsx`:**
-
 1. Remover seleção/exibição de paciente
 2. Adicionar campo de texto "Descrição" editável
 
@@ -440,11 +430,9 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Remover estatísticas e referências a pacientes do dashboard.
 
 **Arquivos afetados:**
-
 - `src/app/(clinic)/clinic/dashboard/page.tsx`
 
 **Ações:**
-
 1. Remover import de `getPatientsStats` ou qualquer referência ao `patientService`
 2. Remover estado `patientsStats` e a chamada à função
 3. Remover cards "Total de Pacientes" e "Novos este Mês" (se existirem)
@@ -462,18 +450,15 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Remover a dimensão "por paciente" dos relatórios de consumo (se existir).
 
 **Arquivos afetados:**
-
 - `src/lib/services/reportService.ts`
 - `src/app/(clinic)/clinic/reports/page.tsx`
 
 **Ações em `reportService.ts`:**
-
 1. Verificar se existe campo `por_paciente` na interface `ConsumptionReport` — remover se presente (análise atual indica que não existe)
 2. Verificar se existe função `generatePatientConsumptionReport()` — remover se presente
 3. Verificar referências a `paciente_codigo`/`paciente_nome` em `generateConsumptionReport()` — remover se presentes
 
 **Ações em `reports/page.tsx`:**
-
 1. Verificar se existe tabela/seção "Consumo por Paciente" — remover se presente
 2. Remover estados e importações relacionadas se existirem
 
@@ -488,18 +473,15 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Remover referências a pacientes nas telas do consultor.
 
 **Arquivos afetados:**
-
 - `src/app/(consultant)/consultant/clinics/[tenantId]/procedures/page.tsx`
 - `src/app/(consultant)/consultant/clinics/[tenantId]/reports/page.tsx`
 
 **Ações em `procedures/page.tsx`:**
-
 1. Remover filtro/busca por `paciente_nome`/`paciente_codigo`
 2. Remover colunas de paciente da tabela
 3. Adicionar coluna "Descrição" no lugar
 
 **Ações em `reports/page.tsx`:**
-
 1. Remover seção "por paciente" do relatório de consumo (consistente com STEP 7)
 
 **Validação:** Consultor consegue visualizar procedimentos e relatórios sem erros e sem referências a pacientes.
@@ -513,16 +495,13 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 **Objetivo:** Eliminar o acesso à área de pacientes da interface.
 
 **Arquivos afetados:**
-
 - `src/components/clinic/ClinicLayout.tsx`
 - `src/app/(clinic)/clinic/patients/` — diretório completo (se existir)
 
 **Ações em `ClinicLayout.tsx`:**
-
 1. Remover o item de menu `{ href: "/clinic/patients", label: "Pacientes" }` e ícone associado (se existir)
 
 **Ações no diretório de pacientes:**
-
 1. Verificar existência de `src/app/(clinic)/clinic/patients/` — se existir, deletar o diretório completo
 
 **Validação:** Menu lateral da clínica não exibe "Pacientes". Acessar `/clinic/patients` retorna 404.
@@ -538,7 +517,6 @@ Não há API Routes relacionadas a pacientes — as operações ocorriam diretam
 > O projeto está em fase de desenvolvimento. Os dados existentes não possuem valor real. A limpeza completa é segura.
 
 **Arquivos a criar:**
-
 - `scripts/cleanup-patients.js`
 - `scripts/cleanup-solicitacoes.js`
 
@@ -622,7 +600,6 @@ firebase deploy --only firestore:indexes
 **Objetivo:** Remover documentação técnica obsoleta e atualizar as documentações afetadas.
 
 **Arquivos afetados:**
-
 - `project_doc/clinic/patients-list-documentation.md` — deletar se existir
 - `project_doc/clinic/patients-new-documentation.md` — deletar se existir
 - `project_doc/clinic/patients-detail-documentation.md` — deletar se existir
@@ -634,7 +611,6 @@ firebase deploy --only firestore:indexes
 - `project_doc/consultant/clinics-procedures-documentation.md` — atualizar: remover filtros e colunas de paciente
 
 **Ações:**
-
 1. Deletar os arquivos de documentação de pacientes (se existirem)
 2. Atualizar cada documentação mencionada para refletir o novo estado do sistema
 
@@ -644,12 +620,11 @@ firebase deploy --only firestore:indexes
 
 ## 8. Estratégia de Testes
 
-| Função                               | Arquivo de teste                           | Cenários obrigatórios                                                                          |
-| ------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Função | Arquivo de teste | Cenários obrigatórios |
+|--------|-----------------|----------------------|
 | `createSolicitacaoWithConsumption()` | `src/__tests__/solicitacaoService.test.ts` | Verificar que o teste existente não usa campos de paciente; se usar, remover o campo dos mocks |
 
 Regras aplicadas:
-
 - Esta task é de refatoração (remoção de código) — o foco é garantir que os testes existentes continuam passando sem referências a paciente
 - Funções puras novas: não há novas funções puras nesta task
 - Componentes React, pages, API routes: **não testar no MVP**
@@ -686,26 +661,26 @@ Regras aplicadas:
 
 ## 10. Riscos e Mitigações
 
-| Risco                                                                                            | Probabilidade      | Impacto | Mitigação                                                                                                      |
-| ------------------------------------------------------------------------------------------------ | ------------------ | ------- | -------------------------------------------------------------------------------------------------------------- |
-| Script de limpeza Firestore apagar coleção errada                                                | Baixa              | Alto    | Revisar o script antes de executar; testar em tenant dev; usar `console.log` antes de cada operação destrutiva |
-| Referências residuais a paciente causando erros de compilação silenciosos                        | Média              | Médio   | Busca global por `paciente\|patient\|Patient` no diretório `src/` antes de fechar o PR                         |
-| Relatório de consumo perde dimensão de rastreabilidade por paciente                              | Alta (já acontece) | Médio   | Aceito como decisão estratégica deliberada                                                                     |
-| Consultor perde rastreabilidade por paciente                                                     | Alta (já acontece) | Médio   | Aceito como decisão estratégica deliberada                                                                     |
-| Testes existentes em `solicitacaoService.test.ts` quebrarem por referências a paciente nos mocks | Baixa              | Baixo   | Verificar o arquivo de teste no STEP 2 e atualizar mocks se necessário                                         |
+| Risco | Probabilidade | Impacto | Mitigação |
+|-------|--------------|---------|-----------|
+| Script de limpeza Firestore apagar coleção errada | Baixa | Alto | Revisar o script antes de executar; testar em tenant dev; usar `console.log` antes de cada operação destrutiva |
+| Referências residuais a paciente causando erros de compilação silenciosos | Média | Médio | Busca global por `paciente\|patient\|Patient` no diretório `src/` antes de fechar o PR |
+| Relatório de consumo perde dimensão de rastreabilidade por paciente | Alta (já acontece) | Médio | Aceito como decisão estratégica deliberada |
+| Consultor perde rastreabilidade por paciente | Alta (já acontece) | Médio | Aceito como decisão estratégica deliberada |
+| Testes existentes em `solicitacaoService.test.ts` quebrarem por referências a paciente nos mocks | Baixa | Baixo | Verificar o arquivo de teste no STEP 2 e atualizar mocks se necessário |
 
 ---
 
 ## 11. Glossário
 
-| Termo                      | Definição                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Paciente                   | Conceito removido — pessoa física associada a procedimentos; não existe mais no sistema                 |
+| Termo | Definição |
+|-------|-----------|
+| Paciente | Conceito removido — pessoa física associada a procedimentos; não existe mais no sistema |
 | Procedimento / Solicitação | Registro de consumo de produtos do inventário em uma data; identificado pelo campo `descricao` opcional |
-| `descricao`                | Campo de texto livre opcional no procedimento que substitui o vínculo ao paciente                       |
-| `solicitacao`              | Documento no Firestore representando um procedimento de consumo de inventário                           |
-| CR                         | Change Request — mudança de comportamento existente do sistema, tipicamente por decisão de produto      |
-| Wizard                     | Formulário multi-etapas; neste contexto, o fluxo de criação de procedimento reduzido de 3 para 2 etapas |
+| `descricao` | Campo de texto livre opcional no procedimento que substitui o vínculo ao paciente |
+| `solicitacao` | Documento no Firestore representando um procedimento de consumo de inventário |
+| CR | Change Request — mudança de comportamento existente do sistema, tipicamente por decisão de produto |
+| Wizard | Formulário multi-etapas; neste contexto, o fluxo de criação de procedimento reduzido de 3 para 2 etapas |
 
 ---
 
@@ -724,6 +699,7 @@ Regras aplicadas:
 
 ## 13. Histórico de Versões
 
-| Versão | Data       | Autor               | O que mudou                                                                                                                                                                                                |
-| ------ | ---------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0    | 07/04/2026 | Doc Writer (Claude) | Versão inicial — reorganização e padronização do documento original seguindo estrutura de 13 seções do doc-writer; complementado com análise do código atual (estado parcialmente implementado confirmado) |
+| Versão | Data       | Autor                      | O que mudou                                                                                                                                                                                                |
+| ------ | ---------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0    | 07/04/2026 | Doc Writer (Claude)        | Versão inicial — reorganização e padronização do documento original seguindo estrutura de 13 seções do doc-writer; complementado com análise do código atual (estado parcialmente implementado confirmado) |
+| 1.1    | 30/04/2026 | Guilherme S Scandelari     | Task concluída — removido `'Cadastro de Pacientes'` das feature lists de licença; removido bloco "Cadastre Pacientes" do onboarding pós-setup; substituído `paciente_nome` por `descricao?` na interface local e renderização do consultant; atualizado comentário em `StatusHistoryEntry.observacao`; confirmado que serviços, types e Firestore já não tinham referências a paciente; único resíduo intencional em `solicitacaoService.test.ts` como guardião da invariante. Branch: `bugfix/remocao-conceito-paciente`. |
