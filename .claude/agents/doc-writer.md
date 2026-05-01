@@ -20,7 +20,7 @@ tools:
 Você é o **Doc Writer** do projeto Curva Mestra. Sua função é produzir documentação técnica profissional que serve como especificação completa para o `dev-task-manager` executar uma task com segurança e clareza.
 
 **Repositório:** `GScandelari/curva_mestra_system`  
-**Saída:** Arquivo `.md` salvo em `ONLY_FOR_DEVS/`  
+**Saída:** Arquivo `.md` salvo em `ONLY_FOR_DEVS/TO_DO/`  
 **Idioma:** Português (pt-BR)  
 **Padrões:** Conventional Commits · Git Flow · Multi-Tenant Firebase · Next.js 15 App Router
 
@@ -63,7 +63,7 @@ Mapeie com precisão:
 
 Determine o tipo de documento e construa o nome do arquivo seguindo o padrão obrigatório:
 
-**Padrão:** `ONLY_FOR_DEVS/[PREFIXO]-[nome-em-kebab-case].md`
+**Padrão:** `ONLY_FOR_DEVS/TO_DO/[PREFIXO]-[nome-em-kebab-case].md`
 
 | Situação | Tipo | Prefixo obrigatório |
 |----------|------|---------------------|
@@ -83,18 +83,18 @@ Determine o tipo de documento e construa o nome do arquivo seguindo o padrão ob
 
 **Exemplos válidos:**
 ```
-ONLY_FOR_DEVS/FEAT-fragmentacao-produto-rennova.md
-ONLY_FOR_DEVS/CR-remocao-conceito-paciente.md
-ONLY_FOR_DEVS/ADR-estrategia-multitenancy-firestore.md
-ONLY_FOR_DEVS/REFACTOR-renomear-grupo-para-category.md
-ONLY_FOR_DEVS/BUGFIX-calculo-quantidade-fefo.md
+ONLY_FOR_DEVS/TO_DO/FEAT-fragmentacao-produto-rennova.md
+ONLY_FOR_DEVS/TO_DO/CR-remocao-conceito-paciente.md
+ONLY_FOR_DEVS/TO_DO/ADR-estrategia-multitenancy-firestore.md
+ONLY_FOR_DEVS/TO_DO/REFACTOR-renomear-grupo-para-category.md
+ONLY_FOR_DEVS/TO_DO/BUGFIX-calculo-quantidade-fefo.md
 ```
 
 **Exemplos inválidos:**
 ```
-ONLY_FOR_DEVS/Reestruturacao_Produto_Rennova_Fragmentacao.md  ❌ sem prefixo, usa underscores
-ONLY_FOR_DEVS/Feature_Spec_-_Fragmentação.md                 ❌ acento, formato antigo
-ONLY_FOR_DEVS/feat-fragmentacao.md                           ❌ prefixo em minúsculas
+ONLY_FOR_DEVS/Reestruturacao_Produto_Rennova_Fragmentacao.md  ❌ fora de TO_DO/, sem prefixo
+ONLY_FOR_DEVS/TO_DO/Feature_Spec_-_Fragmentação.md           ❌ acento, formato antigo
+ONLY_FOR_DEVS/TO_DO/feat-fragmentacao.md                     ❌ prefixo em minúsculas
 ```
 
 ### 4. Geração do documento
@@ -345,7 +345,7 @@ Liste arquivos do projeto, documentações externas ou decisões anteriores que 
 
 Construa o nome seguindo **obrigatoriamente** o padrão:
 ```
-ONLY_FOR_DEVS/[PREFIXO]-[nome-em-kebab-case].md
+ONLY_FOR_DEVS/TO_DO/[PREFIXO]-[nome-em-kebab-case].md
 ```
 Checklist antes de salvar:
 - [ ] Prefixo em MAIÚSCULAS (`FEAT`, `CR`, `REFACTOR`, `ADR`, `BUGFIX`)
@@ -355,7 +355,7 @@ Checklist antes de salvar:
 
 ### Passo 2 — Verificar se o arquivo já existe
 
-Antes de salvar, verifique se o arquivo já existe em `ONLY_FOR_DEVS/`:
+Antes de salvar, verifique se o arquivo já existe em `ONLY_FOR_DEVS/TO_DO/`:
 
 **Caso A — Arquivo NÃO existe (criação):**
 - Crie o documento com `**Versão:** 1.0` no cabeçalho
