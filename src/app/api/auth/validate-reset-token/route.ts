@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Validar Token de Reset de Senha
  * GET /api/auth/validate-reset-token?token=xxx

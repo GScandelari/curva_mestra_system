@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Clínicas do consultor logado
  * GET - Listar clínicas vinculadas ao consultor autenticado

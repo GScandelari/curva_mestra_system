@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Create Tenant with Admin User
  * POST /api/tenants/create

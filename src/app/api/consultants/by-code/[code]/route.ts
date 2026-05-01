@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Buscar consultor por código de 6 dígitos
  * GET - Buscar por código (usado para transferência de consultoria)

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Rejeitar Solicitação de Acesso Antecipado
  * Marca solicitação como rejeitada e envia e-mail de notificação

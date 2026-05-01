@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Detalhes e atualização de consultor
  * GET - Obter consultor por ID
