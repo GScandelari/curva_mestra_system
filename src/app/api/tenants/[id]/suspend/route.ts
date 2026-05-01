@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Suspender/Reativar Clínica
  * Sistema de bloqueio de acesso com motivos
