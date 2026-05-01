@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Gestão de Consultores
  * GET - Listar consultores (system_admin)

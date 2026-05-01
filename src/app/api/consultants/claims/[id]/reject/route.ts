@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Rejeitar reivindicação de vínculo
  * POST - Clinic admin rejeita vínculo com consultor

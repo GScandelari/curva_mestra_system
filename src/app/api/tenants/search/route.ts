@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Buscar clínicas por documento (CNPJ/CPF)
  * GET - Buscar clínica para o consultor reivindicar

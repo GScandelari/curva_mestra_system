@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Criar Assinatura PagBank
  * Proxy para Firebase Cloud Function createPagBankSubscription

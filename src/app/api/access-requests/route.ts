@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Gerenciar Solicitações de Acesso Antecipado
  */

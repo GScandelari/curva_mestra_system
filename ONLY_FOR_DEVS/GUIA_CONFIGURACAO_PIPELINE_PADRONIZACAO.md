@@ -49,17 +49,17 @@ feature/* ── bugfix/* ── hotfix/* ── chore/* ── Tasks diárias (
 gscandelari_setup ── lhuan_setup ────────────── Ambientes pessoais de dev (deploy automático)
 ```
 
-| Branch              | Propósito                           | Merge para                | Proteção                   |
-| ------------------- | ----------------------------------- | ------------------------- | -------------------------- |
-| `master`            | Código em produção                  | —                         | ✅ Protegida (2 revisores) |
-| `develop`           | Integração de features              | `master` via release      | ✅ Protegida (1 revisor)   |
-| `release/*`         | Candidate de release                | `master` e `develop`      | ⚠️ Somente tech lead       |
-| `feature/*`         | Nova funcionalidade                 | `develop`                 | ❌ Sem proteção            |
-| `bugfix/*`          | Correção não-crítica                | `develop`                 | ❌ Sem proteção            |
-| `hotfix/*`          | Correção crítica em produção        | `master` e `develop`      | ❌ Sem proteção            |
-| `chore/*`           | Manutenção/infra                    | `develop`                 | ❌ Sem proteção            |
-| `gscandelari_setup` | Ambiente dev — Guilherme Scandelari | — (sincroniza com master) | ❌ Sem proteção            |
-| `lhuan_setup`       | Ambiente dev — Lhuan Cassio         | — (sincroniza com master) | ❌ Sem proteção            |
+| Branch              | Propósito                           | Merge para                          | Proteção                   |
+| ------------------- | ----------------------------------- | ----------------------------------- | -------------------------- |
+| `master`            | Código em produção                  | —                                   | ✅ Protegida (2 revisores) |
+| `develop`           | Integração de features              | `master` via release                | ✅ Protegida (1 revisor)   |
+| `release/*`         | Candidate de release                | `master` e `develop`                | ⚠️ Somente tech lead       |
+| `feature/*`         | Nova funcionalidade                 | branch pessoal → depois `develop`   | ❌ Sem proteção            |
+| `bugfix/*`          | Correção não-crítica                | branch pessoal → depois `develop`   | ❌ Sem proteção            |
+| `hotfix/*`          | Correção crítica em produção        | `master` e `develop`                | ❌ Sem proteção            |
+| `chore/*`           | Manutenção/infra                    | branch pessoal → depois `develop`   | ❌ Sem proteção            |
+| `gscandelari_setup` | Ambiente dev — Guilherme Scandelari | `develop` (após validação Firebase) | ❌ Sem proteção            |
+| `lhuan_setup`       | Ambiente dev — Lhuan Cassio         | `develop` (após validação Firebase) | ❌ Sem proteção            |
 
 ### 1.2 Convenções de Nomenclatura de Branches
 
@@ -96,21 +96,28 @@ git checkout -b feature/nome-da-feature
 git add src/components/Inventory.tsx
 git commit -m "feat(inventory): add expiration date validation"
 
-# 4. Para testar no seu ambiente Firebase pessoal:
-#    merge da task branch na sua branch pessoal → dispara deploy automático
-git checkout gscandelari_setup   # ou lhuan_setup
-git merge feature/nome-da-feature
-git push origin gscandelari_setup
+# 4. Publique a task branch no remoto
+git push -u origin feature/nome-da-feature
 
-# 5. Após validar no ambiente pessoal, abra PR da task branch para develop
-git checkout feature/nome-da-feature
-git push origin feature/nome-da-feature
-# → abrir PR no GitHub: feature/nome-da-feature → develop
+# 5. Para testar no seu ambiente Firebase pessoal:
+#    → abra PR da task branch para a SUA branch pessoal (gscandelari_setup ou lhuan_setup)
+#    → após o merge, o deploy é disparado automaticamente para o seu domínio Firebase
+#    Exemplo via GitHub CLI:
+#    gh pr create --base gscandelari_setup --head feature/nome-da-feature
 
-# 6. Mantenha sua branch atualizada com o develop durante o desenvolvimento
+# 6. Valide a feature no seu ambiente pessoal (gscandelari-dev.web.app ou lhuancassio-dev.web.app)
+
+# 7. Após validação no Firebase pessoal, abra PR da branch pessoal para develop
+#    gh pr create --base develop --head gscandelari_setup
+#    → Este é o PR que entra em code review e passa pelo CI obrigatório
+
+# 8. Mantenha sua branch atualizada com o develop durante o desenvolvimento
 git fetch origin develop
 git rebase origin/develop   # prefira rebase a merge para histórico limpo
 ```
+
+> **Resumo do fluxo de PRs:**
+> `feature/* (ou bugfix/*, chore/*)` → PR → `gscandelari_setup` (ou `lhuan_setup`) → validação Firebase → PR → `develop` → PR → `master`
 
 ### 1.4 Branches Pessoais de Desenvolvimento
 
@@ -132,11 +139,21 @@ Cada dev possui uma branch pessoal permanente vinculada a um domínio Firebase e
    git push origin gscandelari_setup
    ```
 
-2. **Servem apenas para validação** — toda task é desenvolvida em uma `feature/*` ou `bugfix/*` criada a partir do `develop`. A branch pessoal recebe o merge apenas para acionar o deploy e validar o comportamento no Firebase.
+2. **Servem como ambiente de validação Firebase** — toda task é desenvolvida em uma `feature/*`, `bugfix/*` ou `chore/*` criada a partir do `develop`. A branch pessoal recebe o merge via PR para acionar o deploy automático e validar o comportamento no Firebase antes de integrar ao `develop`.
 
-3. **Nunca abrir PR da branch pessoal para `develop` ou `master`** — o PR sempre parte da task branch (`feature/*`, `bugfix/*`, etc.).
+3. **O PR para `develop` parte sempre da branch pessoal** — nunca diretamente da task branch. O fluxo obrigatório é:
+   - Task branch → **PR → branch pessoal** (valida no Firebase)
+   - Branch pessoal → **PR → `develop`** (code review + CI obrigatório)
 
-4. **Todo commit (ou merge) na branch pessoal dispara deploy automático** para o respectivo domínio Firebase.
+   ```bash
+   # Passo 1: PR da task branch para a branch pessoal
+   gh pr create --base gscandelari_setup --head feature/nome-da-feature
+
+   # Passo 2: após validar no Firebase, PR da branch pessoal para develop
+   gh pr create --base develop --head gscandelari_setup
+   ```
+
+4. **Todo commit (ou merge) na branch pessoal dispara deploy automático** para o respectivo domínio Firebase (`gscandelari-dev.web.app` ou `lhuancassio-dev.web.app`).
 
 ### 1.5 Regra de Ouro: Branch por Feature
 
@@ -1444,7 +1461,20 @@ git checkout -b feature/nome-descritivo-kebab-case
 - Use Conventional Commits (ver seção 2)
 - Mantenha sua branch atualizada: `git rebase origin/develop`
 
-### 4. Antes de abrir o PR
+### 4. Valide no seu ambiente Firebase pessoal
+
+Antes de abrir o PR para `develop`, valide a feature no Firebase:
+
+```bash
+# Abra PR da task branch para a sua branch pessoal
+gh pr create --base gscandelari_setup --head feature/nome-da-feature
+# (ou lhuan_setup se for o Lhuan)
+
+# Após o merge, o deploy é automático — acesse seu domínio:
+# gscandelari-dev.web.app  ou  lhuancassio-dev.web.app
+```
+
+### 5. Antes de abrir o PR para develop
 
 ```bash
 npm run lint          # Sem erros de lint
@@ -1453,12 +1483,17 @@ npm run test          # Todos os testes passam
 npm run build         # Build sem erros
 ```
 
-### 5. Abra o Pull Request
+### 6. Abra o Pull Request para develop
 
+- O PR parte **da branch pessoal** (`gscandelari_setup` ou `lhuan_setup`) para `develop`
 - Preencha o template de PR completamente
 - Linke à issue com "Closes #N"
 - Adicione screenshots para mudanças de UI
 - Solicite review de pelo menos 1 colaborador
+
+```bash
+gh pr create --base develop --head gscandelari_setup
+```
 
 ### 6. Responda ao Feedback
 

@@ -130,18 +130,6 @@ export default function SetupSuccessPage() {
                     2
                   </div>
                   <div>
-                    <p className="font-medium">Cadastre Pacientes</p>
-                    <p className="text-sm text-muted-foreground">
-                      Registre seus pacientes para rastrear procedimentos e consumo
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-white border rounded-lg">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-sm font-bold flex-shrink-0">
-                    3
-                  </div>
-                  <div>
                     <p className="font-medium">Convide Usuários</p>
                     <p className="text-sm text-muted-foreground">
                       Adicione membros da sua equipe para colaborar na plataforma
@@ -151,7 +139,7 @@ export default function SetupSuccessPage() {
 
                 <div className="flex items-start gap-3 p-3 bg-white border rounded-lg">
                   <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-sm font-bold flex-shrink-0">
-                    4
+                    3
                   </div>
                   <div>
                     <p className="font-medium">Configure Alertas</p>

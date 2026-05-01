@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: PagSeguro Session
  * Cria uma sessão para tokenização de cartão no frontend
