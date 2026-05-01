@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Executar Reset de Senha
  * POST /api/auth/reset-password

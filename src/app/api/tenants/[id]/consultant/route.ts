@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Gerenciamento do consultor de uma clínica
  * GET - Obter consultor atual

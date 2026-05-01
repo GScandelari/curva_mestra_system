@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Aprovar reivindicação de vínculo
  * POST - Clinic admin aprova vínculo com consultor

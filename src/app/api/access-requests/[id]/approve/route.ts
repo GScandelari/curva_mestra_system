@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * API Route: Aprovar Solicitação de Acesso Antecipado
  * Cria automaticamente tenant + usuário admin em um clique
