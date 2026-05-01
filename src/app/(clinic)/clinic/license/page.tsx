@@ -36,7 +36,6 @@ function getMaxUsers(tenant: Tenant | null): number {
 const BASE_FEATURES_NO_TENANT = [
   'Gestão de Estoque com FEFO',
   'Controle de Lotes e Validades',
-  'Cadastro de Pacientes',
   'Histórico de Procedimentos',
   'Solicitações de Produtos',
   'Relatórios Básicos',

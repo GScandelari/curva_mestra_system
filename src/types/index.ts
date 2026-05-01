@@ -176,7 +176,7 @@ export interface StatusHistoryEntry {
   changed_by: string; // UID do usuário
   changed_by_name: string; // Nome do usuário
   changed_at: Timestamp;
-  observacao?: string; // Motivo da mudança (ex: "Procedimento realizado", "Paciente cancelou")
+  observacao?: string; // Motivo da mudança (ex: "Procedimento realizado", "Solicitação cancelada pelo usuário")
 }
 
 export interface Solicitacao {
