@@ -73,9 +73,12 @@ export async function getDashboardEstoqueStats(tenantId: string): Promise<Dashbo
 export interface DashboardProcedimentosStats {
   feitos: number; // status === 'concluida' no mês atual
   agendados: number; // status === 'agendada' no mês atual
+  agendadasMes: number; // status === 'agendada', dt_procedimento no mês atual
+  concluidasMes: number; // status === 'concluida', dt_procedimento no mês atual
   total: number; // todos exceto cancelada/reprovada no mês atual
   totalMesAnterior: number;
   crescimentoPercent: number | null; // null se mês anterior for 0
+  crescimentoAbsoluto: number; // total - totalMesAnterior (pode ser negativo)
 }
 
 export async function getDashboardProcedimentosStats(
@@ -113,14 +116,17 @@ export async function getDashboardProcedimentosStats(
 
   let feitos = 0;
   let agendados = 0;
+  let agendadasMes = 0;
+  let concluidasMes = 0;
   let total = 0;
 
   snapAtual.forEach((docSnap) => {
     const status = docSnap.data().status as string;
     if (STATUS_EXCLUIDOS.has(status)) return;
     total++;
-    if (status === 'concluida') feitos++;
+    if (status === 'concluida') { feitos++; concluidasMes++; }
     if (status === 'agendada' || status === 'aprovada') agendados++;
+    if (status === 'agendada') agendadasMes++;
   });
 
   let totalMesAnterior = 0;
@@ -134,5 +140,14 @@ export async function getDashboardProcedimentosStats(
       ? null
       : Math.round(((total - totalMesAnterior) / totalMesAnterior) * 100);
 
-  return { feitos, agendados, total, totalMesAnterior, crescimentoPercent };
+  return {
+    feitos,
+    agendados,
+    agendadasMes,
+    concluidasMes,
+    total,
+    totalMesAnterior,
+    crescimentoPercent,
+    crescimentoAbsoluto: total - totalMesAnterior,
+  };
 }
