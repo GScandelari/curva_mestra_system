@@ -304,12 +304,18 @@ export default function ManualNFPage() {
     setIsLoading(true);
 
     try {
+      // Remover campos undefined do array de produtos antes de salvar no Firestore
+      // (Firestore rejeita undefined; campos opcionais ausentes devem ser omitidos)
+      const produtosSanitizados = produtos.map((p) =>
+        Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined))
+      );
+
       // Salvar NF no Firestore
       const nfData = {
         tenant_id: tenantId,
         numero_nf: numeroNF,
         tipo: tipoNF,
-        produtos: produtos,
+        produtos: produtosSanitizados,
         status: 'success',
         created_by: user?.email || 'unknown',
         created_at: serverTimestamp(),
