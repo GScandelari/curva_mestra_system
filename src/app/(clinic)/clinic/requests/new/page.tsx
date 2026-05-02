@@ -30,8 +30,10 @@ import { listInventory, type InventoryItem } from '@/lib/services/inventoryServi
 import { agruparProdutosPorCodigo, type ProdutoAgrupado } from '@/lib/inventoryUtils';
 import {
   createSolicitacaoWithConsumption,
+  createSolicitacaoEfetuada,
   updateSolicitacaoAgendada,
   type CreateSolicitacaoInput,
+  type CreateSolicitacaoEfetuadaInput,
 } from '@/lib/services/solicitacaoService';
 
 type Step = 'adicionar_produtos' | 'revisao';
@@ -66,6 +68,7 @@ export default function NovaSolicitacaoPage() {
 
   // Estados do formulário
   const [step, setStep] = useState<Step>('adicionar_produtos');
+  const [tipoProcedimento, setTipoProcedimento] = useState<'programado' | 'efetuado'>('programado');
   const [descricao, setDescricao] = useState('');
   const [dtProcedimento, setDtProcedimento] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -186,13 +189,20 @@ export default function NovaSolicitacaoPage() {
       String(dataHoje.getDate()).padStart(2, '0'),
     ].join('-');
 
-    if (dtProcedimento < dataHojeString) {
-      if (isEditMode && createdAtParam && createdAtParam < dtProcedimento) {
-        setError('');
-        return true;
+    if (!isEditMode && tipoProcedimento === 'efetuado') {
+      if (dtProcedimento > dataHojeString) {
+        setError('Procedimento efetuado não pode ter data futura');
+        return false;
       }
-      setError('Data do procedimento não pode ser no passado');
-      return false;
+    } else {
+      if (dtProcedimento < dataHojeString) {
+        if (isEditMode && createdAtParam && createdAtParam < dtProcedimento) {
+          setError('');
+          return true;
+        }
+        setError('Data do procedimento não pode ser no passado');
+        return false;
+      }
     }
 
     setError('');
@@ -356,19 +366,31 @@ export default function NovaSolicitacaoPage() {
   }
 
   async function submitCreateMode(tenantId: string, userName: string) {
-    const input: CreateSolicitacaoInput = {
-      descricao: descricao || undefined,
-      dt_procedimento: new Date(dtProcedimento),
-      produtos: buildProdutosPayload(),
-      observacoes: observacoes || undefined,
-    };
+    const produtos = buildProdutosPayload();
+    const dt_procedimento = new Date(dtProcedimento);
 
-    const result = await createSolicitacaoWithConsumption(tenantId, user!.uid, userName, input);
+    const result =
+      tipoProcedimento === 'efetuado'
+        ? await createSolicitacaoEfetuada(tenantId, user!.uid, userName, {
+            descricao: descricao || undefined,
+            dt_procedimento,
+            produtos,
+            observacoes: observacoes || undefined,
+          } satisfies CreateSolicitacaoEfetuadaInput)
+        : await createSolicitacaoWithConsumption(tenantId, user!.uid, userName, {
+            descricao: descricao || undefined,
+            dt_procedimento,
+            produtos,
+            observacoes: observacoes || undefined,
+          } satisfies CreateSolicitacaoInput);
 
     if (result.success) {
       toast({
         title: 'Procedimento criado com sucesso!',
-        description: 'Os produtos foram reservados no inventário',
+        description:
+          tipoProcedimento === 'efetuado'
+            ? 'Os produtos foram consumidos do inventário'
+            : 'Os produtos foram reservados no inventário',
       });
       router.push(`/clinic/requests/${result.solicitacaoId}`);
     } else {
@@ -481,6 +503,35 @@ export default function NovaSolicitacaoPage() {
                 <CardDescription>Informe os dados e os produtos do procedimento</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {!isEditMode && (
+                  <div className="space-y-2">
+                    <Label>Tipo de Procedimento *</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={tipoProcedimento === 'programado' ? 'default' : 'outline'}
+                        className="flex-1"
+                        onClick={() => setTipoProcedimento('programado')}
+                      >
+                        Procedimento Programado
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={tipoProcedimento === 'efetuado' ? 'default' : 'outline'}
+                        className="flex-1"
+                        onClick={() => setTipoProcedimento('efetuado')}
+                      >
+                        Procedimento Efetuado
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {tipoProcedimento === 'programado'
+                        ? 'Procedimento agendado para o futuro. Os produtos serão reservados e consumidos ao concluir.'
+                        : 'Procedimento já realizado. Os produtos serão consumidos imediatamente do inventário.'}
+                    </p>
+                  </div>
+                )}
+
                 {error && (
                   <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
@@ -669,7 +720,9 @@ export default function NovaSolicitacaoPage() {
               <AlertDescription>
                 {isEditMode
                   ? 'Ao confirmar, as reservas de produtos serão ajustadas automaticamente no inventário. Produtos removidos terão suas reservas liberadas, e novos produtos serão reservados.'
-                  : 'Ao confirmar, os produtos serão RESERVADOS no inventário e o procedimento será criado com status "Agendado". Os produtos só serão consumidos quando o procedimento for concluído.'}
+                  : tipoProcedimento === 'efetuado'
+                    ? 'Ao confirmar, os produtos serão CONSUMIDOS IMEDIATAMENTE do inventário. O procedimento será registrado como já realizado.'
+                    : 'Ao confirmar, os produtos serão RESERVADOS no inventário e o procedimento será criado com status "Agendado". Os produtos só serão consumidos quando o procedimento for concluído.'}
               </AlertDescription>
             </Alert>
 
@@ -760,7 +813,11 @@ export default function NovaSolicitacaoPage() {
                   ) : (
                     <>
                       <Check className="mr-2 h-4 w-4" />
-                      {isEditMode ? 'Confirmar Alterações' : 'Confirmar e Reservar Produtos'}
+                      {isEditMode
+                    ? 'Confirmar Alterações'
+                    : tipoProcedimento === 'efetuado'
+                      ? 'Confirmar e Consumir Produtos'
+                      : 'Confirmar e Reservar Produtos'}
                     </>
                   )}
                 </Button>

@@ -26,10 +26,6 @@ import type {
   StatusHistoryEntry,
   SolicitacaoStatus,
 } from '@/types';
-import {
-  createRequestApprovedNotification,
-  createRequestRejectedNotification,
-} from './notificationService';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -38,6 +34,16 @@ import {
 export interface CreateSolicitacaoInput {
   descricao?: string;
   dt_procedimento: Date;
+  produtos: {
+    inventory_item_id: string;
+    quantidade: number;
+  }[];
+  observacoes?: string;
+}
+
+export interface CreateSolicitacaoEfetuadaInput {
+  descricao?: string;
+  dt_procedimento: Date; // deve ser <= hoje
   produtos: {
     inventory_item_id: string;
     quantidade: number;
@@ -55,12 +61,15 @@ export interface SolicitacaoWithDetails extends Solicitacao {
 // ============================================================================
 
 /**
- * Determina o status inicial da solicitação
- * SEMPRE retorna "agendada" independente da data
- * Produtos são RESERVADOS e só consumidos ao mudar para "concluida"
+ * Determina o status inicial da solicitação com base no tipo informado.
+ * - 'programado' → 'agendada' (reserva de estoque)
+ * - 'efetuado'   → 'efetuada' (débito imediato de estoque)
  */
-export function determineInitialStatus(_dtProcedimento: Date): SolicitacaoStatus {
-  return 'agendada';
+export function determineInitialStatus(
+  _dtProcedimento: Date,
+  tipo: 'programado' | 'efetuado' = 'programado'
+): SolicitacaoStatus {
+  return tipo === 'efetuado' ? 'efetuada' : 'agendada';
 }
 
 // ============================================================================
@@ -322,14 +331,160 @@ export async function createSolicitacaoWithConsumption(
 }
 
 // ============================================================================
+// CRIAÇÃO DE PROCEDIMENTO EFETUADO (DÉBITO IMEDIATO)
+// ============================================================================
+
+/**
+ * Registra um procedimento já realizado.
+ * Debita quantidade_disponivel diretamente (sem reserva).
+ */
+export async function createSolicitacaoEfetuada(
+  tenantId: string,
+  userId: string,
+  userName: string,
+  input: CreateSolicitacaoEfetuadaInput
+): Promise<{
+  success: boolean;
+  solicitacaoId?: string;
+  error?: string;
+  validationErrors?: string[];
+}> {
+  try {
+    const validation = await validateInventoryAvailability(tenantId, input.produtos);
+    if (!validation.valid) {
+      return { success: false, error: 'Erro de validação de estoque', validationErrors: validation.errors };
+    }
+
+    const produtosDetalhados: ProdutoSolicitado[] = [];
+    for (const produto of input.produtos) {
+      const itemSnap = await getDoc(doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id));
+      if (!itemSnap.exists()) throw new Error(`Produto ${produto.inventory_item_id} não encontrado`);
+      const itemData = itemSnap.data() as InventoryItem;
+      produtosDetalhados.push({
+        inventory_item_id: produto.inventory_item_id,
+        produto_codigo: itemData.codigo_produto,
+        produto_nome: itemData.nome_produto,
+        lote: itemData.lote,
+        quantidade: produto.quantidade,
+        quantidade_disponivel_antes: itemData.quantidade_disponivel,
+        valor_unitario: itemData.valor_unitario,
+      });
+    }
+
+    const removeUndefined = (obj: any): any => {
+      const cleaned: any = {};
+      Object.keys(obj).forEach((key) => {
+        if (obj[key] !== undefined && obj[key] !== null) {
+          if (typeof obj[key] === 'object' && !Array.isArray(obj[key]) && !(obj[key] instanceof Timestamp)) {
+            cleaned[key] = removeUndefined(obj[key]);
+          } else if (Array.isArray(obj[key])) {
+            cleaned[key] = obj[key].map((item: any) =>
+              typeof item === 'object' && item !== null ? removeUndefined(item) : item
+            );
+          } else {
+            cleaned[key] = obj[key];
+          }
+        }
+      });
+      return cleaned;
+    };
+
+    const solicitacaoRef = await runTransaction(db, async (transaction) => {
+      // FASE 1: LEITURAS
+      const inventoryReads = input.produtos.map((p) => ({
+        ref: doc(db, 'tenants', tenantId, 'inventory', p.inventory_item_id),
+        quantidade_solicitada: p.quantidade,
+      }));
+      const snapshots = await Promise.all(inventoryReads.map((r) => transaction.get(r.ref)));
+
+      const inventoryData: { ref: any; data: InventoryItem; quantidade_solicitada: number }[] = [];
+      for (let i = 0; i < snapshots.length; i++) {
+        const snap = snapshots[i];
+        if (!snap.exists()) throw new Error(`Produto ${input.produtos[i].inventory_item_id} não encontrado`);
+        const data = snap.data() as InventoryItem;
+        if (data.quantidade_disponivel < inventoryReads[i].quantidade_solicitada) {
+          throw new Error(`Estoque insuficiente para ${data.nome_produto}. Disponível: ${data.quantidade_disponivel}, Solicitado: ${inventoryReads[i].quantidade_solicitada}`);
+        }
+        inventoryData.push({ ref: inventoryReads[i].ref, data, quantidade_solicitada: inventoryReads[i].quantidade_solicitada });
+      }
+
+      // FASE 2: ESCRITAS
+      const now = Timestamp.now();
+      const statusHistory: StatusHistoryEntry[] = [{
+        status: 'efetuada',
+        changed_by: userId,
+        changed_by_name: userName,
+        changed_at: now,
+        observacao: 'Procedimento registrado como já realizado',
+      }];
+
+      const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
+      const newSolicitacaoRef = doc(solicitacoesRef);
+
+      const solicitacaoData = removeUndefined({
+        tenant_id: tenantId,
+        tipo: 'efetuado',
+        descricao: input.descricao,
+        dt_procedimento: Timestamp.fromDate(input.dt_procedimento),
+        produtos_solicitados: produtosDetalhados,
+        status: 'efetuada',
+        status_history: statusHistory,
+        observacoes: input.observacoes,
+        created_by: userId,
+        created_by_name: userName,
+        created_at: now,
+        updated_at: now,
+      });
+
+      transaction.set(newSolicitacaoRef, solicitacaoData);
+
+      // Débito imediato: reduz quantidade_disponivel diretamente (sem reserva)
+      for (const item of inventoryData) {
+        transaction.update(item.ref, {
+          quantidade_disponivel: item.data.quantidade_disponivel - item.quantidade_solicitada,
+          updated_at: now,
+        });
+      }
+
+      // Auditoria de movimentação
+      const activityRef = collection(db, 'tenants', tenantId, 'inventory_activity');
+      for (const produto of produtosDetalhados) {
+        transaction.set(doc(activityRef), removeUndefined({
+          tenant_id: tenantId,
+          inventory_item_id: produto.inventory_item_id,
+          produto_codigo: produto.produto_codigo,
+          produto_nome: produto.produto_nome,
+          lote: produto.lote,
+          tipo: 'consumo_imediato',
+          quantidade: produto.quantidade,
+          quantidade_anterior: produto.quantidade_disponivel_antes,
+          quantidade_posterior: produto.quantidade_disponivel_antes - produto.quantidade,
+          descricao: 'Consumo por procedimento efetuado',
+          solicitacao_id: newSolicitacaoRef.id,
+          created_by: userId,
+          created_by_name: userName,
+          timestamp: now,
+        }));
+      }
+
+      return newSolicitacaoRef;
+    });
+
+    return { success: true, solicitacaoId: solicitacaoRef.id };
+  } catch (error: any) {
+    console.error('Erro ao criar procedimento efetuado:', error);
+    return { success: false, error: error.message || 'Erro ao criar procedimento efetuado' };
+  }
+}
+
+// ============================================================================
 // ATUALIZAÇÃO DE STATUS
 // ============================================================================
 
 /**
- * Atualiza o status de uma solicitação
- * - Aprovação: Consome estoque reservado (se agendada) ou apenas atualiza status
- * - Reprovação: Libera estoque reservado (se agendada)
- * - Cancelamento: Libera/devolve estoque conforme o status atual
+ * Atualiza o status de uma solicitação.
+ * Novo fluxo: agendada | efetuada → concluida | cancelada
+ * Status legados aprovada/reprovada mantidos apenas para compatibilidade histórica.
  */
 export async function updateSolicitacaoStatus(
   tenantId: string,
@@ -361,29 +516,27 @@ export async function updateSolicitacaoStatus(
       }
 
       // Fluxo válido:
-      // agendada → aprovada | reprovada | cancelada
-      // aprovada → concluida | cancelada
-      // reprovada e cancelada → status final (não pode mudar)
+      // agendada  → concluida | cancelada
+      // efetuada  → concluida | cancelada
+      // aprovada  → concluida | cancelada  (legado)
+      // concluida | cancelada | reprovada  → status final
 
-      if (statusAnterior === 'reprovada' || statusAnterior === 'cancelada') {
+      if (['concluida', 'cancelada', 'reprovada'].includes(statusAnterior)) {
         throw new Error(`Não é possível alterar uma solicitação ${statusAnterior}`);
       }
 
-      if (statusAnterior === 'concluida') {
-        throw new Error('Não é possível alterar uma solicitação concluída');
-      }
+      const VALID_TRANSITIONS: Partial<Record<SolicitacaoStatus, SolicitacaoStatus[]>> = {
+        agendada: ['concluida', 'cancelada'],
+        efetuada: ['concluida', 'cancelada'],
+        aprovada: ['concluida', 'cancelada'], // legado
+        criada:   ['agendada', 'cancelada'],  // legado
+      };
 
-      if (
-        statusAnterior === 'agendada' &&
-        !['aprovada', 'reprovada', 'cancelada'].includes(newStatus)
-      ) {
+      const allowed = VALID_TRANSITIONS[statusAnterior] ?? [];
+      if (!allowed.includes(newStatus)) {
         throw new Error(
-          "Status inválido. De 'agendada' só pode ir para: aprovada, reprovada ou cancelada"
+          `Transição inválida: '${statusAnterior}' → '${newStatus}'. Permitido: ${allowed.join(', ')}`
         );
-      }
-
-      if (statusAnterior === 'aprovada' && !['concluida', 'cancelada'].includes(newStatus)) {
-        throw new Error("Status inválido. De 'aprovada' só pode ir para: concluída ou cancelada");
       }
 
       // 2. Processar mudanças de estoque baseado na transição de status
@@ -405,29 +558,12 @@ export async function updateSolicitacaoStatus(
       }
 
       // FASE 2: TODAS AS ESCRITAS (after all reads)
-      // Lógica de atualização de estoque - Fluxo Correto:
       //
-      // CRIAÇÃO (status: agendada):
-      //   - quantidade_reservada += quantidade (adiciona ao reservado)
-      //   - quantidade_disponivel -= quantidade (remove do disponível)
-      //   - Total = disponível + reservado (permanece constante)
-      //
-      // AGENDADA → APROVADA:
-      //   - quantidade_reservada NÃO muda (mantém reserva)
-      //   - quantidade_disponivel NÃO muda (produtos já foram movidos para reservado)
-      //
-      // APROVADA → CONCLUÍDA:
-      //   - quantidade_reservada -= quantidade (libera reserva - CONSUMO EFETIVO!)
-      //   - quantidade_disponivel NÃO muda (já foi descontado na criação)
-      //   - Total diminui (consumo efetivo = inicial - reservado)
-      //
-      // AGENDADA → REPROVADA/CANCELADA:
-      //   - quantidade_reservada -= quantidade (libera reserva)
-      //   - quantidade_disponivel += quantidade (devolve ao disponível)
-      //
-      // APROVADA → CANCELADA:
-      //   - quantidade_reservada -= quantidade (libera reserva)
-      //   - quantidade_disponivel += quantidade (devolve ao disponível)
+      // AGENDADA → CONCLUÍDA: libera reserva (consumo efetivo já ocorreu na criação)
+      // AGENDADA → CANCELADA: libera reserva e devolve ao disponível
+      // EFETUADA → CONCLUÍDA: apenas atualiza status (estoque já debitado na criação)
+      // EFETUADA → CANCELADA: devolve quantidade_disponivel (estorna débito direto)
+      // APROVADA → * : comportamento legado mantido
 
       for (const produto of solicitacao.produtos_solicitados) {
         const itemData = produtosData.get(produto.inventory_item_id);
@@ -435,44 +571,27 @@ export async function updateSolicitacaoStatus(
 
         const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
 
-        if (statusAnterior === 'agendada' && newStatus === 'aprovada') {
-          // Aprovar solicitação agendada: Mantém a reserva (produtos continuam reservados)
-          // Nenhuma ação necessária no inventário
-          // Produtos já foram movidos de "disponível" para "reservado" na criação
-        } else if (
-          statusAnterior === 'agendada' &&
-          (newStatus === 'reprovada' || newStatus === 'cancelada')
-        ) {
-          // Reprovar/Cancelar agendada: Libera reserva E devolve ao disponível
-          const novaReserva = (itemData.quantidade_reservada || 0) - produto.quantidade;
-          const novoDisponivel = (itemData.quantidade_disponivel || 0) + produto.quantidade;
-
+        if ((statusAnterior === 'agendada' || statusAnterior === 'aprovada') && newStatus === 'concluida') {
+          // Libera reserva — disponível não muda (já foi descontado na criação)
           transaction.update(itemRef, {
-            quantidade_reservada: Math.max(0, novaReserva),
-            quantidade_disponivel: novoDisponivel,
+            quantidade_reservada: Math.max(0, (itemData.quantidade_reservada || 0) - produto.quantidade),
             updated_at: now,
           });
-        } else if (statusAnterior === 'aprovada' && newStatus === 'concluida') {
-          // Concluir aprovada: Apenas libera reserva (CONSUMO EFETIVO!)
-          // Disponível NÃO muda porque já foi descontado na criação
-          // O total diminui = consumo efetivo
-          const novaReserva = (itemData.quantidade_reservada || 0) - produto.quantidade;
-
+        } else if ((statusAnterior === 'agendada' || statusAnterior === 'aprovada') && newStatus === 'cancelada') {
+          // Libera reserva e devolve ao disponível
           transaction.update(itemRef, {
-            quantidade_reservada: Math.max(0, novaReserva),
+            quantidade_reservada: Math.max(0, (itemData.quantidade_reservada || 0) - produto.quantidade),
+            quantidade_disponivel: (itemData.quantidade_disponivel || 0) + produto.quantidade,
             updated_at: now,
           });
-        } else if (statusAnterior === 'aprovada' && newStatus === 'cancelada') {
-          // Cancelar aprovada: Libera reserva E devolve ao disponível
-          const novaReserva = (itemData.quantidade_reservada || 0) - produto.quantidade;
-          const novoDisponivel = (itemData.quantidade_disponivel || 0) + produto.quantidade;
-
+        } else if (statusAnterior === 'efetuada' && newStatus === 'cancelada') {
+          // Estorna o débito direto feito na criação
           transaction.update(itemRef, {
-            quantidade_reservada: Math.max(0, novaReserva),
-            quantidade_disponivel: novoDisponivel,
+            quantidade_disponivel: (itemData.quantidade_disponivel || 0) + produto.quantidade,
             updated_at: now,
           });
         }
+        // efetuada → concluida: nenhuma ação no estoque (já debitado)
       }
 
       // 3. Atualizar status e histórico
@@ -514,25 +633,6 @@ export async function updateSolicitacaoStatus(
 
       transaction.update(solicitacaoRef, updateData);
     });
-
-    // 4. Criar notificações após atualização bem-sucedida
-    try {
-      const requestNumber = `#${solicitacaoId.slice(-6).toUpperCase()}`;
-
-      if (newStatus === 'aprovada') {
-        await createRequestApprovedNotification(tenantId, requestNumber, solicitacaoId);
-      } else if (newStatus === 'reprovada') {
-        await createRequestRejectedNotification(tenantId, requestNumber, solicitacaoId);
-      } else if (newStatus === 'concluida') {
-        // TODO: Criar notificação de conclusão se necessário
-      }
-    } catch (notificationError: any) {
-      // Log erro mas não falha a operação principal
-      console.error(
-        'Erro ao criar notificação (operação de status foi concluída):',
-        notificationError
-      );
-    }
 
     return { success: true };
   } catch (error: any) {
@@ -964,11 +1064,10 @@ export async function getUpcomingProcedures(
 
     const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
 
-    // Buscar solicitações agendadas, aprovadas e criadas (não concluídas)
-    // que tenham data de procedimento até 2 semanas no futuro
+    // Buscar procedimentos em aberto (agendados ou efetuados) até 2 semanas no futuro
     const q = query(
       solicitacoesRef,
-      where('status', 'in', ['criada', 'agendada', 'aprovada']),
+      where('status', 'in', ['agendada', 'efetuada']),
       where('dt_procedimento', '<=', Timestamp.fromDate(twoWeeksFromNow)),
       orderBy('dt_procedimento', 'asc'),
       firestoreLimit(limitCount)
