@@ -34,6 +34,7 @@ export interface InventoryItem {
   active: boolean;
   created_at: Date;
   updated_at: Date;
+  category?: string; // categoria do master product (desnormalizada para filtros)
   // Campos de fragmentação (presentes apenas em produtos fragmentáveis)
   fragmentavel?: boolean;
   unidades_por_embalagem?: number;
@@ -363,6 +364,7 @@ export async function getInventoryItem(
         data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at),
       updated_at:
         data.updated_at instanceof Timestamp ? data.updated_at.toDate() : new Date(data.updated_at),
+      category: data.category as string | undefined,
       fragmentavel: data.fragmentavel as boolean | undefined,
       unidades_por_embalagem: data.unidades_por_embalagem as number | undefined,
       quantidade_embalagens: data.quantidade_embalagens as number | undefined,

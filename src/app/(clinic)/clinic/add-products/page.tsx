@@ -34,6 +34,7 @@ interface MasterProduct {
   id: string;
   code: string;
   name: string;
+  category?: string;
   fragmentavel: boolean;
   unidades_por_embalagem?: number;
 }
@@ -42,6 +43,7 @@ interface NFProduct {
   master_product_id?: string;
   codigo: string;
   nome_produto: string;
+  category?: string;
   lote: string;
   quantidade: number; // sempre em unidades
   dt_validade: string;
@@ -129,6 +131,7 @@ export default function ManualNFPage() {
         id: doc.id,
         code: doc.data().code,
         name: doc.data().name,
+        category: doc.data().category,
         fragmentavel: doc.data().fragmentavel ?? false,
         unidades_por_embalagem: doc.data().unidades_por_embalagem,
       }));
@@ -182,6 +185,7 @@ export default function ManualNFPage() {
         master_product_id: product.id,
         codigo: product.code,
         nome_produto: getNomeCompletoMasterProduct(product as any),
+        category: product.category,
         lote,
         quantidade: quantidade_inicial,
         dt_validade: dtValidade,
@@ -327,6 +331,7 @@ export default function ManualNFPage() {
           produto_id: produto.master_product_id || null,
           codigo_produto: produto.codigo,
           nome_produto: produto.nome_produto,
+          category: produto.category || null,
           lote: produto.lote,
           quantidade_inicial: produto.quantidade,
           quantidade_disponivel: produto.quantidade,
