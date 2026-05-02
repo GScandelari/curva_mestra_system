@@ -17,6 +17,7 @@ import {
   limit as firestoreLimit,
   Timestamp,
   serverTimestamp,
+  collectionGroup,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -146,10 +147,36 @@ export async function getMasterProductByCode(code: string) {
   }
 }
 
+/**
+ * Verifica se um produto master está em uso em algum inventário de tenant.
+ * Usado para bloquear edição de fragmentavel/unidades_por_embalagem.
+ */
+export async function isMasterProductInUse(productId: string): Promise<boolean> {
+  try {
+    const q = query(
+      collectionGroup(db, 'inventory'),
+      where('master_product_id', '==', productId),
+      firestoreLimit(1)
+    );
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
+  } catch {
+    // collectionGroup pode falhar se não houver índice — tratar como "não em uso" para não bloquear
+    return false;
+  }
+}
+
 // Criar novo produto master
 export async function createMasterProduct(data: CreateMasterProductData) {
   try {
-    const { code, name, active = true } = data;
+    const {
+      code,
+      name,
+      active = true,
+      category,
+      fragmentavel = false,
+      unidades_por_embalagem,
+    } = data;
 
     // Verificar se já existe produto com este código
     const existing = await getMasterProductByCode(code);
@@ -157,13 +184,19 @@ export async function createMasterProduct(data: CreateMasterProductData) {
       throw new Error(`Já existe um produto com o código ${code}`);
     }
 
-    const productData = {
+    const productData: Record<string, any> = {
       code: code.trim(),
       name: name.trim().toUpperCase(),
       active,
+      fragmentavel,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     };
+
+    if (category !== undefined) productData.category = category;
+    if (fragmentavel && unidades_por_embalagem !== undefined) {
+      productData.unidades_por_embalagem = unidades_por_embalagem;
+    }
 
     const docRef = await addDoc(collection(db, 'master_products'), productData);
 
@@ -187,14 +220,25 @@ export async function updateMasterProduct(productId: string, data: UpdateMasterP
       throw new Error('productId é obrigatório');
     }
 
+    // Bloquear edição de campos de fragmentação se produto está em uso
+    const tentandoAlterarFragmentacao =
+      data.fragmentavel !== undefined || data.unidades_por_embalagem !== undefined;
+    if (tentandoAlterarFragmentacao) {
+      const emUso = await isMasterProductInUse(productId);
+      if (emUso) {
+        throw new Error(
+          'Este produto já está em uso no inventário de clínicas. As configurações de fragmentação não podem ser alteradas.'
+        );
+      }
+    }
+
     const docRef = doc(db, 'master_products', productId);
 
-    const firestoreData: any = {
+    const firestoreData: Record<string, any> = {
       updated_at: serverTimestamp(),
     };
 
     if (data.code !== undefined) {
-      // Verificar se já existe outro produto com este código
       const existing = await getMasterProductByCode(data.code);
       if (existing.product && existing.product.id !== productId) {
         throw new Error(`Já existe um produto com o código ${data.code}`);
@@ -202,12 +246,12 @@ export async function updateMasterProduct(productId: string, data: UpdateMasterP
       firestoreData.code = data.code.trim();
     }
 
-    if (data.name !== undefined) {
-      firestoreData.name = data.name.trim().toUpperCase();
-    }
-
-    if (data.active !== undefined) {
-      firestoreData.active = data.active;
+    if (data.name !== undefined) firestoreData.name = data.name.trim().toUpperCase();
+    if (data.active !== undefined) firestoreData.active = data.active;
+    if (data.category !== undefined) firestoreData.category = data.category;
+    if (data.fragmentavel !== undefined) firestoreData.fragmentavel = data.fragmentavel;
+    if (data.unidades_por_embalagem !== undefined) {
+      firestoreData.unidades_por_embalagem = data.unidades_por_embalagem;
     }
 
     await updateDoc(docRef, firestoreData);
