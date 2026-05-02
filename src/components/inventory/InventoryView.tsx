@@ -24,7 +24,16 @@ import {
   ArrowLeft,
   Download,
   Plus,
+  Tag,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { MASTER_PRODUCT_CATEGORIES } from '@/types/masterProduct';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { exportToExcel, formatDecimalBR } from '@/lib/services/reportService';
 import { db } from '@/lib/firebase';
@@ -73,6 +82,7 @@ function parseItem(doc: { id: string; data: () => Record<string, unknown> }): In
     valor_unitario: data.valor_unitario as number,
     nf_numero: data.nf_numero as string | undefined,
     nf_id: data.nf_id as string | undefined,
+    category: data.category as string | undefined,
     active: data.active as boolean,
     created_at:
       data.created_at instanceof Timestamp
@@ -85,7 +95,12 @@ function parseItem(doc: { id: string; data: () => Record<string, unknown> }): In
   };
 }
 
-function applyFilter(data: InventoryItem[], filter: string, search: string): InventoryItem[] {
+function applyFilter(
+  data: InventoryItem[],
+  filter: string,
+  search: string,
+  category: string
+): InventoryItem[] {
   let filtered = [...data];
 
   if (filter === 'expiring') {
@@ -101,6 +116,10 @@ function applyFilter(data: InventoryItem[], filter: string, search: string): Inv
     );
   } else if (filter === 'out_of_stock') {
     filtered = filtered.filter((item) => item.quantidade_disponivel === 0);
+  }
+
+  if (category !== 'all') {
+    filtered = filtered.filter((item) => item.category === category);
   }
 
   if (search) {
@@ -168,10 +187,11 @@ export function InventoryView({
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState<string>(initialFilter ?? 'all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const filteredInventory = applyFilter(inventory, filterBy, searchTerm);
+  const filteredInventory = applyFilter(inventory, filterBy, searchTerm, categoryFilter);
 
   useEffect(() => {
     const ref = collection(db, 'tenants', tenantId, 'inventory');
@@ -329,6 +349,20 @@ export function InventoryView({
                   className="pl-10"
                 />
               </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-52">
+                  <Tag className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {MASTER_PRODUCT_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="flex gap-2 flex-wrap">
                 {(['all', 'expiring', 'low_stock', 'out_of_stock'] as const).map((f) => (
                   <Button
