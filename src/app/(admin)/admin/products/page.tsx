@@ -77,8 +77,7 @@ export default function ProductsPage() {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.code.toLowerCase().includes(searchLower) ||
-          p.name.toLowerCase().includes(searchLower)
+          p.code.toLowerCase().includes(searchLower) || p.name.toLowerCase().includes(searchLower)
       );
     }
 

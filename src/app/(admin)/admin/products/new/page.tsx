@@ -213,7 +213,9 @@ export default function NewProductPage() {
 
               {name.trim() && (
                 <div className="rounded-md bg-muted p-3 space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">Pré-visualização do nome</p>
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Pré-visualização do nome
+                  </p>
                   <p className="text-sm font-mono font-semibold">{nomeCompleto}</p>
                 </div>
               )}

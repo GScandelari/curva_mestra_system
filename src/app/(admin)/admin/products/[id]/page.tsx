@@ -82,7 +82,9 @@ export default function EditProductPage() {
         ...product,
         name: normalizeProductName(name),
         fragmentavel,
-        unidades_por_embalagem: fragmentavel ? Number(unidadesPorEmbalagem) || undefined : undefined,
+        unidades_por_embalagem: fragmentavel
+          ? Number(unidadesPorEmbalagem) || undefined
+          : undefined,
         created_at: product.created_at ?? Timestamp.now(),
         updated_at: product.updated_at ?? Timestamp.now(),
       })
@@ -282,7 +284,9 @@ export default function EditProductPage() {
 
               {name.trim() && (
                 <div className="rounded-md bg-muted p-3 space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">Pré-visualização do nome</p>
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Pré-visualização do nome
+                  </p>
                   <p className="text-sm font-mono font-semibold">{nomeCompleto}</p>
                 </div>
               )}
