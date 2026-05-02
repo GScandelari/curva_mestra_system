@@ -3,7 +3,7 @@
  * Funções de agregação de dados para o Dashboard da Clínica
  */
 
-import { collection, query, where, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // ============================================================================
@@ -28,38 +28,8 @@ export async function getDashboardEstoqueStats(tenantId: string): Promise<Dashbo
   const q = query(inventoryRef, where('active', '==', true));
   const snapshot = await getDocs(q);
 
-  // Coletar IDs de master products únicos
-  const masterIdSet = new Set<string>();
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    const masterId = data.master_product_id || data.produto_id;
-    if (masterId) masterIdSet.add(masterId);
-  });
-
-  // Buscar grupos dos master products em lotes de 30 (limite do Firestore `in`)
-  const masterIds = Array.from(masterIdSet);
-  const grupoMap: Record<string, string> = {};
-
-  for (let i = 0; i < masterIds.length; i += 30) {
-    const batch = masterIds.slice(i, i + 30);
-    await Promise.all(
-      batch.map(async (id) => {
-        try {
-          const masterDoc = await getDoc(doc(db, 'master_products', id));
-          if (masterDoc.exists()) {
-            const grupo = masterDoc.data().grupo as string | undefined;
-            grupoMap[id] = grupo || 'Sem Categoria';
-          } else {
-            grupoMap[id] = 'Sem Categoria';
-          }
-        } catch {
-          grupoMap[id] = 'Sem Categoria';
-        }
-      })
-    );
-  }
-
-  // Agrupar itens por categoria
+  // Agrupar itens por categoria usando o campo denormalizado `category`
+  // (gravado em cada doc de inventário no momento da entrada pelo add-products)
   const categoriaMap: Record<string, CategoriaStats> = {};
   let totalUnidades = 0;
   let totalValor = 0;
@@ -69,8 +39,7 @@ export async function getDashboardEstoqueStats(tenantId: string): Promise<Dashbo
     const quantidade = data.quantidade_disponivel || 0;
     if (quantidade <= 0) return;
 
-    const masterId = data.master_product_id || data.produto_id;
-    const categoria = masterId ? (grupoMap[masterId] ?? 'Sem Categoria') : 'Sem Categoria';
+    const categoria = (data.category as string | undefined) || 'Sem Categoria';
     const valor = quantidade * (data.valor_unitario || 0);
 
     if (!categoriaMap[categoria]) {
