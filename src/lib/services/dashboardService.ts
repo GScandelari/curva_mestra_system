@@ -120,7 +120,7 @@ export async function getDashboardProcedimentosStats(
     if (STATUS_EXCLUIDOS.has(status)) return;
     total++;
     if (status === 'concluida') feitos++;
-    if (status === 'agendada') agendados++;
+    if (status === 'agendada' || status === 'aprovada') agendados++;
   });
 
   let totalMesAnterior = 0;
