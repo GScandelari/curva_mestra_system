@@ -1,5 +1,25 @@
 import { Timestamp } from 'firebase/firestore';
 
+// ============================================================================
+// CATEGORIAS
+// ============================================================================
+
+export const MASTER_PRODUCT_CATEGORIES = [
+  'Preenchedores',
+  'Bioestimuladores',
+  'Fios de PDO',
+  'Toxina',
+  'Cannulas',
+  'Care Home',
+  'Care Professional',
+] as const;
+
+export type MasterProductCategory = (typeof MASTER_PRODUCT_CATEGORIES)[number];
+
+// ============================================================================
+// INTERFACES
+// ============================================================================
+
 /**
  * Interface principal para Produto Master (Catálogo Rennova)
  * Produtos disponíveis do fornecedor Rennova
@@ -7,33 +27,53 @@ import { Timestamp } from 'firebase/firestore';
 export interface MasterProduct {
   id: string;
   code: string; // Código do produto Rennova (7 dígitos)
-  name: string; // Nome do produto
-  grupo?: string; // Grupo/categoria do produto (ex: "Preenchedores", "Bioestimuladores")
+  name: string; // Nome base do produto (SEM quantidade/unidade para fragmentáveis)
+  category?: MasterProductCategory; // Categoria (alinhado com Firestore — era "grupo")
   active: boolean; // Produto ativo/descontinuado
+  fragmentavel: boolean; // Produto vendido em embalagem composta? (undefined = false)
+  unidades_por_embalagem?: number; // Obrigatório quando fragmentavel=true
   created_at: Timestamp;
   updated_at: Timestamp;
 }
 
 /**
  * Dados para criar um novo Produto Master
- * Omite campos gerados automaticamente (id, timestamps)
  */
 export interface CreateMasterProductData {
   code: string;
   name: string;
-  grupo?: string; // Grupo/categoria do produto
+  category?: MasterProductCategory;
   active?: boolean; // Padrão: true
+  fragmentavel?: boolean; // Padrão: false
+  unidades_por_embalagem?: number;
 }
 
 /**
  * Dados para atualizar um Produto Master existente
- * Todos os campos são opcionais
  */
 export interface UpdateMasterProductData {
   code?: string;
   name?: string;
-  grupo?: string;
+  category?: MasterProductCategory;
   active?: boolean;
+  fragmentavel?: boolean;
+  unidades_por_embalagem?: number;
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Retorna o nome completo do produto para exibição.
+ * Para fragmentáveis: "{name} {unidades_por_embalagem} UND"
+ * Para não fragmentáveis: "{name}"
+ */
+export function getNomeCompletoMasterProduct(product: MasterProduct): string {
+  if (!product.fragmentavel || !product.unidades_por_embalagem) {
+    return product.name;
+  }
+  return `${product.name} ${product.unidades_por_embalagem} UND`;
 }
 
 /**

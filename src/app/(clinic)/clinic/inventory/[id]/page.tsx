@@ -311,6 +311,38 @@ export default function InventoryItemPage() {
           </Card>
         </div>
 
+        {/* Fragmentação */}
+        {item.fragmentavel && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações de Fragmentação</CardTitle>
+              <CardDescription>Este produto foi adquirido em embalagem composta</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Unidades por Embalagem</p>
+                <p className="text-xl font-bold">{item.unidades_por_embalagem ?? '—'}</p>
+              </div>
+              {item.quantidade_embalagens !== undefined && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Embalagens Compradas</p>
+                  <p className="text-xl font-bold">{item.quantidade_embalagens}</p>
+                </div>
+              )}
+              {item.valor_por_embalagem !== undefined && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Valor por Embalagem</p>
+                  <p className="text-xl font-bold">{formatCurrency(item.valor_por_embalagem)}</p>
+                </div>
+              )}
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Quantidade Inicial (UND)</p>
+                <p className="text-xl font-bold">{item.quantidade_inicial}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Datas e Histórico */}
         <div className="grid gap-6 md:grid-cols-2">
           <Card>

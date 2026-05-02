@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 30/04/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
 **Tipo:** Feature
 **Branch sugerida:** `feature/fragmentacao-produto-rennova`
 **Prioridade:** Alta
-**Versão:** 1.0
+**Versão:** 1.1
+**Concluído em:** 01/05/2026
+**Concluído por:** Guilherme Scandelari
 
 > O sistema trata todos os produtos Rennova como unidades indivisíveis. Esta feature introduz o conceito de produto **fragmentável** — adquirido em embalagem composta (ex: caixa com 60 unidades) mas consumido por unidade individual nos procedimentos. A conversão ocorre na entrada do inventário, preservando a semântica de todas as camadas downstream (consumo, FEFO, relatórios, alertas) sem qualquer alteração nesses módulos. Além disso, corrige o campo `grupo` → `category` na interface `MasterProduct`, alinhando o TypeScript com o Firestore.
 

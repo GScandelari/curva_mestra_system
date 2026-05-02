@@ -7,11 +7,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, Package } from 'lucide-react';
-import { getMasterProduct, updateMasterProduct } from '@/lib/services/masterProductService';
-import { validateProductCode, normalizeProductName } from '@/types/masterProduct';
-import { MasterProduct } from '@/types/masterProduct';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Save, Package, AlertTriangle } from 'lucide-react';
+import {
+  getMasterProduct,
+  updateMasterProduct,
+  isMasterProductInUse,
+} from '@/lib/services/masterProductService';
+import {
+  validateProductCode,
+  normalizeProductName,
+  MASTER_PRODUCT_CATEGORIES,
+  getNomeCompletoMasterProduct,
+} from '@/types/masterProduct';
+import type { MasterProduct, MasterProductCategory } from '@/types/masterProduct';
+import { Timestamp } from 'firebase/firestore';
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -22,6 +40,10 @@ export default function EditProductPage() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [active, setActive] = useState(true);
+  const [category, setCategory] = useState<MasterProductCategory | ''>('');
+  const [fragmentavel, setFragmentavel] = useState(false);
+  const [unidadesPorEmbalagem, setUnidadesPorEmbalagem] = useState<string>('');
+  const [emUso, setEmUso] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,11 +57,18 @@ export default function EditProductPage() {
   const loadProduct = async () => {
     try {
       setLoading(true);
-      const { product: data } = await getMasterProduct(productId);
+      const [{ product: data }, inUso] = await Promise.all([
+        getMasterProduct(productId),
+        isMasterProductInUse(productId),
+      ]);
       setProduct(data);
       setCode(data.code);
       setName(data.name);
       setActive(data.active);
+      setCategory(data.category ?? '');
+      setFragmentavel(data.fragmentavel);
+      setUnidadesPorEmbalagem(data.unidades_por_embalagem?.toString() ?? '');
+      setEmUso(inUso);
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar produto');
       console.error('Erro ao carregar produto:', err);
@@ -47,6 +76,19 @@ export default function EditProductPage() {
       setLoading(false);
     }
   };
+
+  const nomeCompleto = product
+    ? getNomeCompletoMasterProduct({
+        ...product,
+        name: normalizeProductName(name),
+        fragmentavel,
+        unidades_por_embalagem: fragmentavel
+          ? Number(unidadesPorEmbalagem) || undefined
+          : undefined,
+        created_at: product.created_at ?? Timestamp.now(),
+        updated_at: product.updated_at ?? Timestamp.now(),
+      })
+    : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +110,11 @@ export default function EditProductPage() {
       return;
     }
 
+    if (fragmentavel && (!unidadesPorEmbalagem || Number(unidadesPorEmbalagem) < 2)) {
+      setError('Produto fragmentável requer unidades por embalagem (mínimo 2)');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -75,6 +122,9 @@ export default function EditProductPage() {
         code: code.trim(),
         name: normalizeProductName(name),
         active,
+        category: category || undefined,
+        fragmentavel,
+        unidades_por_embalagem: fragmentavel ? Number(unidadesPorEmbalagem) : undefined,
       });
 
       setSuccess('Produto atualizado com sucesso!');
@@ -163,6 +213,83 @@ export default function EditProductPage() {
                   disabled={saving}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Categoria</Label>
+                <Select
+                  value={category}
+                  onValueChange={(v) => setCategory(v as MasterProductCategory)}
+                  disabled={saving}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MASTER_PRODUCT_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3 rounded-md border p-4">
+                {emUso && (
+                  <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Este produto está em uso no inventário de clínicas. As configurações de
+                      fragmentação não podem ser alteradas.
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="fragmentavel">Produto Fragmentável</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Vendido em embalagem com múltiplas unidades (ex: caixa com 60 fios)
+                    </p>
+                  </div>
+                  <Switch
+                    id="fragmentavel"
+                    checked={fragmentavel}
+                    onCheckedChange={(v) => {
+                      setFragmentavel(v);
+                      if (!v) setUnidadesPorEmbalagem('');
+                    }}
+                    disabled={saving || emUso}
+                  />
+                </div>
+
+                {fragmentavel && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label htmlFor="unidades">
+                      Unidades por Embalagem <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="unidades"
+                      type="number"
+                      min={2}
+                      step={1}
+                      value={unidadesPorEmbalagem}
+                      onChange={(e) => setUnidadesPorEmbalagem(e.target.value)}
+                      placeholder="Ex: 60"
+                      disabled={saving || emUso}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {name.trim() && (
+                <div className="rounded-md bg-muted p-3 space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Pré-visualização do nome
+                  </p>
+                  <p className="text-sm font-mono font-semibold">{nomeCompleto}</p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Status do Produto</Label>
