@@ -80,6 +80,7 @@ export default function SolicitacaoDetalhesPage() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
       agendada: 'secondary',
+      efetuada: 'secondary',
       aprovada: 'default',
       concluida: 'default',
       reprovada: 'destructive',
@@ -88,6 +89,7 @@ export default function SolicitacaoDetalhesPage() {
 
     const labels: Record<string, string> = {
       agendada: 'Agendada',
+      efetuada: 'Efetuada',
       aprovada: 'Aprovada',
       concluida: 'Concluída',
       reprovada: 'Reprovada',
@@ -105,7 +107,7 @@ export default function SolicitacaoDetalhesPage() {
   };
 
   const handleStatusUpdate = async (
-    newStatus: 'aprovada' | 'reprovada' | 'cancelada' | 'concluida',
+    newStatus: 'concluida' | 'cancelada',
     observacao?: string
   ) => {
     if (!tenantId || !user || !solicitacao) return;
@@ -124,13 +126,7 @@ export default function SolicitacaoDetalhesPage() {
       if (result.success) {
         toast({
           title: 'Status atualizado',
-          description: `Procedimento ${
-            newStatus === 'aprovada'
-              ? 'aprovado'
-              : newStatus === 'reprovada'
-                ? 'reprovado'
-                : 'cancelado'
-          } com sucesso.`,
+          description: `Procedimento ${newStatus === 'concluida' ? 'concluído' : 'cancelado'} com sucesso.`,
         });
 
         // Recarregar dados
@@ -211,7 +207,7 @@ export default function SolicitacaoDetalhesPage() {
             solicitacao.status !== 'reprovada' &&
             solicitacao.status !== 'cancelada' && (
               <div className="flex gap-2 mt-4 flex-wrap">
-                {/* AGENDADA → Editar, Aprovar, Reprovar ou Cancelar */}
+                {/* AGENDADA → Editar, Concluir ou Cancelar */}
                 {solicitacao.status === 'agendada' && (
                   <>
                     <Button
@@ -224,24 +220,39 @@ export default function SolicitacaoDetalhesPage() {
                     </Button>
 
                     <Button
-                      onClick={() => handleStatusUpdate('aprovada', 'Aprovado pelo administrador')}
+                      onClick={() => handleStatusUpdate('concluida', 'Procedimento concluído')}
                       disabled={updating}
                       variant="default"
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <CheckCircle className="mr-2 h-4 w-4" />
-                      Aprovar Procedimento
+                      Concluir Procedimento
                     </Button>
 
                     <Button
                       onClick={() =>
-                        handleStatusUpdate('reprovada', 'Reprovado pelo administrador')
+                        handleStatusUpdate('cancelada', 'Cancelado pelo administrador')
                       }
                       disabled={updating}
-                      variant="destructive"
+                      variant="outline"
                     >
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Reprovar Procedimento
+                      <Ban className="mr-2 h-4 w-4" />
+                      Cancelar Procedimento
+                    </Button>
+                  </>
+                )}
+
+                {/* EFETUADA → Concluir ou Cancelar */}
+                {solicitacao.status === 'efetuada' && (
+                  <>
+                    <Button
+                      onClick={() => handleStatusUpdate('concluida', 'Procedimento concluído')}
+                      disabled={updating}
+                      variant="default"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Concluir Procedimento
                     </Button>
 
                     <Button
@@ -489,7 +500,18 @@ export default function SolicitacaoDetalhesPage() {
             <AlertTitle>Estoque Reservado</AlertTitle>
             <AlertDescription>
               Os produtos estão reservados no inventário para este procedimento agendado. O consumo
-              será efetivado quando o procedimento for aprovado.
+              será efetivado ao concluir o procedimento.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {solicitacao.status === 'efetuada' && (
+          <Alert>
+            <Check className="h-4 w-4" />
+            <AlertTitle>Procedimento Efetuado</AlertTitle>
+            <AlertDescription>
+              Este procedimento já foi realizado. Os produtos foram consumidos do inventário no
+              momento do registro.
             </AlertDescription>
           </Alert>
         )}

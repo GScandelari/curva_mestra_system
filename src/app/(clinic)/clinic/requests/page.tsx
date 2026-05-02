@@ -95,6 +95,7 @@ export default function SolicitacoesPage() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
       agendada: 'secondary',
+      efetuada: 'secondary',
       aprovada: 'default',
       concluida: 'default',
       reprovada: 'destructive',
@@ -103,6 +104,7 @@ export default function SolicitacoesPage() {
 
     const labels: Record<string, string> = {
       agendada: 'Agendada',
+      efetuada: 'Efetuada',
       aprovada: 'Aprovada',
       concluida: 'Concluída',
       reprovada: 'Reprovada',
@@ -227,9 +229,8 @@ export default function SolicitacoesPage() {
                 <SelectContent>
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="agendada">Agendada</SelectItem>
-                  <SelectItem value="aprovada">Aprovada</SelectItem>
+                  <SelectItem value="efetuada">Efetuada</SelectItem>
                   <SelectItem value="concluida">Concluída</SelectItem>
-                  <SelectItem value="reprovada">Reprovada</SelectItem>
                   <SelectItem value="cancelada">Cancelada</SelectItem>
                 </SelectContent>
               </Select>
