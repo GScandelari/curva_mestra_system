@@ -7,9 +7,9 @@
 **Tipo:** Feature
 **Branch sugerida:** `feature/reformulacao-dashboard-clinica`
 **Prioridade:** Alta
-**Versão:** 1.0
+**Versão:** 1.1
 
-> O Dashboard atual (`/clinic/dashboard`) exibe informações dispersas sem organização clara por domínio. O objetivo desta feature é reestruturar a página para apresentar três blocos independentes e bem definidos — **Estoque**, **Procedimentos** e **Alertas** — dando ao administrador da clínica uma visão rápida e acionável do estado da operação. Os dados de estoque passam a ser agrupados por categoria (campo `grupo` do MasterProduct), com total de unidades e valor por categoria. Os dados de procedimentos passam a ser contextualizados no mês atual, com comparativo de crescimento em relação ao mês anterior.
+> O Dashboard atual (`/clinic/dashboard`) exibe informações dispersas sem organização clara por domínio. O objetivo desta feature é reestruturar a página para apresentar cinco seções bem definidas — **Estoque**, **Procedimentos**, **Alertas**, **Próximos Procedimentos** e **Atividade Recente** — dando ao administrador da clínica uma visão rápida e acionável do estado da operação. Os dados de estoque passam a ser agrupados por categoria (campo `grupo` do MasterProduct), com total de unidades e valor por categoria. Os dados de procedimentos passam a ser contextualizados no mês atual, com comparativo de crescimento em relação ao mês anterior. As seções de Próximos Procedimentos e Atividade Recente são mantidas do dashboard atual, preservando sua funcionalidade existente.
 
 ---
 
@@ -25,12 +25,12 @@ git pull origin develop
 git checkout -b feature/reformulacao-dashboard-clinica
 ```
 
-| Step   | Tipo    | Escopo      | Mensagem sugerida                                                                    |
-| ------ | ------- | ----------- | ------------------------------------------------------------------------------------ |
-| STEP 1 | `feat`  | `dashboard` | `feat(dashboard): add getDashboardEstoqueStats service with category grouping`       |
-| STEP 2 | `feat`  | `dashboard` | `feat(dashboard): add getDashboardProcedimentosStats service with monthly comparison` |
-| STEP 3 | `feat`  | `dashboard` | `feat(dashboard): restructure clinic dashboard page into Estoque/Procedimentos/Alertas blocks` |
-| STEP 4 | `docs`  | `tasks`     | `docs(tasks): move FEAT-reformulacao-dashboard-clinica to TASK_COMPLETED`            |
+| Step   | Tipo    | Escopo      | Mensagem sugerida                                                                             |
+| ------ | ------- | ----------- | --------------------------------------------------------------------------------------------- |
+| STEP 1 | `feat`  | `dashboard` | `feat(dashboard): add getDashboardEstoqueStats service with category grouping`                |
+| STEP 2 | `feat`  | `dashboard` | `feat(dashboard): add getDashboardProcedimentosStats service with monthly comparison`         |
+| STEP 3 | `feat`  | `dashboard` | `feat(dashboard): restructure clinic dashboard with summary blocks and detail sections`       |
+| STEP 4 | `docs`  | `tasks`     | `docs(tasks): move FEAT-reformulacao-dashboard-clinica to TASK_COMPLETED`                     |
 
 ---
 
@@ -44,8 +44,11 @@ A página `src/app/(clinic)/clinic/dashboard/page.tsx` exibe:
 **Problemas identificados:**
 - Estoque exibe apenas o total de unidades sem agrupamento por categoria
 - Procedimentos mostram apenas os próximos agendados, sem contexto do mês atual nem comparativo histórico
-- "Atividade Recente" (movimentações de estoque) não faz parte do escopo dos 3 blocos definidos — pode ser mantida ou removida a critério do desenvolvedor
 - Seção "Ações Rápidas" é redundante com a navegação lateral — pode ser mantida ou removida
+
+**O que deve ser mantido:**
+- "Próximos Procedimentos" — manter com a funcionalidade atual (procedimentos agendados nas próximas 2 semanas)
+- "Atividade Recente" — manter com a funcionalidade atual (últimas movimentações do estoque)
 
 ---
 
@@ -110,7 +113,7 @@ O campo `grupo` do `MasterProduct` é a categoria a ser usada para agrupamento. 
 │  Visão geral da clínica                                         │
 ├────────────────────┬────────────────────┬───────────────────────┤
 │   ESTOQUE          │   PROCEDIMENTOS    │   ALERTAS             │
-│                    │                    │                       │
+│                    │   (mês atual)      │                       │
 │  Por categoria:    │  Feitos:      12   │  Vencidos:      2     │
 │  Preenchedores 40  │  Agendados:    8   │  Vencem em 30d: 5     │
 │  Bioestimul.   10  │  Total mês:   20   │  Estoque baixo: 3     │
@@ -127,7 +130,14 @@ O campo `grupo` do `MasterProduct` é a categoria a ser usada para agrupamento. 
 │  Por categoria:    │                    │                       │
 │  Preench. R$XXX    │                    │                       │
 │  ...               │                    │                       │
-└────────────────────┴────────────────────┴───────────────────────┘
+├────────────────────┴────────────────────┴───────────────────────┤
+│                                                                 │
+│  ┌──────────────────────────┐  ┌──────────────────────────┐    │
+│  │  PRÓXIMOS PROCEDIMENTOS  │  │    ATIVIDADE RECENTE      │    │
+│  │  (próximas 2 semanas)    │  │  (últimas movimentações)  │    │
+│  │  [lista existente]       │  │  [lista existente]        │    │
+│  └──────────────────────────┘  └──────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -237,7 +247,17 @@ const [alertasStats, setAlertasStats] = useState<{
 - Cores: vencidos = vermelho, vencendo = amarelo, baixo = laranja
 - Cada linha é clicável e navega para `/clinic/inventory` com o filtro correspondente
 
-**Validação:** Verificar que os 3 blocos carregam corretamente, exibem loading skeleton, e mostram estado vazio quando não há dados.
+**Seção Próximos Procedimentos** (abaixo dos 3 blocos, lado a lado com Atividade Recente):
+- Manter a funcionalidade atual integralmente: lista de procedimentos agendados nas próximas 2 semanas
+- Fonte de dados: `getUpcomingProcedures(tenantId, 5)` — já existe em `solicitacaoService`
+- Comportamento de clique, badge de status e link "Ver todos" devem ser preservados
+
+**Seção Atividade Recente** (abaixo dos 3 blocos, ao lado de Próximos Procedimentos):
+- Manter a funcionalidade atual integralmente: lista das últimas movimentações do estoque
+- Fonte de dados: `getRecentActivity(tenantId, 5)` — já existe em `inventoryService`
+- Ícones de entrada/saída e formatação de timestamp devem ser preservados
+
+**Validação:** Verificar que todos os blocos e seções carregam corretamente, exibem loading skeleton, e mostram estado vazio quando não há dados.
 
 ### STEP 4 — Modo B: mover doc para TASK_COMPLETED
 
@@ -266,13 +286,14 @@ Executar o **Modo B** do agente `dev-task-manager` ainda na task branch antes de
 - O campo `grupo` no `MasterProduct` é opcional — produtos cadastrados sem grupo devem aparecer em "Sem Categoria" no dashboard, não devem ser ignorados.
 - O "estoque mínimo" está atualmente hardcoded como `< 10 unidades` no código existente. Manter esse threshold por ora.
 - Não há índice Firestore para `dt_procedimento` range query combinada com `status` — filtrar `status` em memória para evitar erros de índice.
-- O bloco de "Atividade Recente" do dashboard atual pode ser removido nesta refatoração — não faz parte dos 3 blocos definidos pelo produto.
-- A seção de "Ações Rápidas" pode ser mantida abaixo dos 3 blocos ou removida — decisão do desenvolvedor durante a implementação.
+- "Próximos Procedimentos" e "Atividade Recente" são mantidos obrigatoriamente — exibidos abaixo dos 3 blocos de resumo, lado a lado.
+- A seção de "Ações Rápidas" pode ser mantida ou removida — decisão do desenvolvedor durante a implementação.
 
 ---
 
 ## 13. Histórico de Versões
 
-| Versão | Data       | Autor               | Descrição          |
-| ------ | ---------- | ------------------- | ------------------ |
-| 1.0    | 01/05/2026 | Doc Writer (Claude) | Documento criado   |
+| Versão | Data       | Autor               | Descrição                                                              |
+| ------ | ---------- | ------------------- | ---------------------------------------------------------------------- |
+| 1.0    | 01/05/2026 | Doc Writer (Claude) | Documento criado                                                       |
+| 1.1    | 01/05/2026 | Doc Writer (Claude) | Adicionadas seções Próximos Procedimentos e Atividade Recente ao escopo |
