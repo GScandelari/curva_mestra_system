@@ -3,15 +3,7 @@
  * Funções de agregação de dados para o Dashboard da Clínica
  */
 
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  Timestamp,
-  doc,
-  getDoc,
-} from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // ============================================================================
@@ -31,9 +23,7 @@ export interface DashboardEstoqueStats {
   totalValor: number;
 }
 
-export async function getDashboardEstoqueStats(
-  tenantId: string
-): Promise<DashboardEstoqueStats> {
+export async function getDashboardEstoqueStats(tenantId: string): Promise<DashboardEstoqueStats> {
   const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
   const q = query(inventoryRef, where('active', '==', true));
   const snapshot = await getDocs(q);
