@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -21,7 +28,12 @@ import {
   deactivateMasterProduct,
   reactivateMasterProduct,
 } from '@/lib/services/masterProductService';
-import { MasterProduct } from '@/types/masterProduct';
+import {
+  MasterProduct,
+  MASTER_PRODUCT_CATEGORIES,
+  getNomeCompletoMasterProduct,
+} from '@/types/masterProduct';
+import type { MasterProductCategory } from '@/types/masterProduct';
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -30,6 +42,7 @@ export default function ProductsPage() {
   const [filteredProducts, setFilteredProducts] = useState<MasterProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<MasterProductCategory | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -39,7 +52,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     filterProducts();
-  }, [products, searchTerm, showInactive]);
+  }, [products, searchTerm, showInactive, categoryFilter]);
 
   const loadProducts = async () => {
     try {
@@ -64,12 +77,17 @@ export default function ProductsPage() {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.code.toLowerCase().includes(searchLower) || p.name.toLowerCase().includes(searchLower)
+          p.code.toLowerCase().includes(searchLower) ||
+          p.name.toLowerCase().includes(searchLower)
       );
     }
 
     if (!showInactive) {
       filtered = filtered.filter((p) => p.active);
+    }
+
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter((p) => p.category === categoryFilter);
     }
 
     setFilteredProducts(filtered);
@@ -125,6 +143,23 @@ export default function ProductsPage() {
                 />
               </div>
 
+              <Select
+                value={categoryFilter}
+                onValueChange={(v) => setCategoryFilter(v as MasterProductCategory | 'all')}
+              >
+                <SelectTrigger className="w-full md:w-56">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {MASTER_PRODUCT_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Button
                 variant={showInactive ? 'default' : 'outline'}
                 onClick={() => setShowInactive(!showInactive)}
@@ -155,6 +190,7 @@ export default function ProductsPage() {
                   <TableRow>
                     <TableHead>Código</TableHead>
                     <TableHead>Nome do Produto</TableHead>
+                    <TableHead>Categoria</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -163,7 +199,21 @@ export default function ProductsPage() {
                   {filteredProducts.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell className="font-mono font-medium">{product.code}</TableCell>
-                      <TableCell>{product.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span>{getNomeCompletoMasterProduct(product)}</span>
+                          {product.fragmentavel && (
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              Fragmentável
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground">
+                          {product.category ?? '—'}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         {product.active ? (
                           <Badge variant="default">Ativo</Badge>

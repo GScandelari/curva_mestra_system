@@ -28,12 +28,54 @@ export interface InventoryItem {
   quantidade_reservada?: number;
   dt_validade: Date;
   dt_entrada: Date;
-  valor_unitario: number;
+  valor_unitario: number; // sempre por UNIDADE (não por embalagem)
   nf_numero?: string;
   nf_id?: string;
   active: boolean;
   created_at: Date;
   updated_at: Date;
+  // Campos de fragmentação (presentes apenas em produtos fragmentáveis)
+  fragmentavel?: boolean;
+  unidades_por_embalagem?: number;
+  quantidade_embalagens?: number; // auditoria: quantas embalagens foram compradas
+  valor_por_embalagem?: number; // auditoria: valor original por embalagem
+}
+
+// ============================================================================
+// HELPER DE CÁLCULO DE INVENTÁRIO (FRAGMENTAÇÃO)
+// ============================================================================
+
+export interface CalcInventarioParams {
+  quantidadeInformada: number; // embalagens (se fragmentável) ou unidades
+  fragmentavel: boolean;
+  unidadesPorEmbalagem?: number;
+  valorInformado: number; // por embalagem (se fragmentável) ou por unidade
+}
+
+export interface CalcInventarioResult {
+  quantidade_inicial: number; // sempre em unidades
+  valor_unitario: number; // sempre por unidade
+}
+
+/**
+ * Calcula quantidade_inicial e valor_unitario para entrada de inventário.
+ * Para produtos fragmentáveis, converte embalagens → unidades e distribui o valor.
+ * Para não fragmentáveis, retorna os valores informados sem alteração.
+ */
+export function calcularQuantidadeInventario(params: CalcInventarioParams): CalcInventarioResult {
+  const { quantidadeInformada, fragmentavel, unidadesPorEmbalagem, valorInformado } = params;
+
+  if (!fragmentavel || !unidadesPorEmbalagem) {
+    return {
+      quantidade_inicial: quantidadeInformada,
+      valor_unitario: valorInformado,
+    };
+  }
+
+  return {
+    quantidade_inicial: quantidadeInformada * unidadesPorEmbalagem,
+    valor_unitario: valorInformado / unidadesPorEmbalagem,
+  };
 }
 
 export interface InventoryStats {
@@ -321,6 +363,10 @@ export async function getInventoryItem(
         data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at),
       updated_at:
         data.updated_at instanceof Timestamp ? data.updated_at.toDate() : new Date(data.updated_at),
+      fragmentavel: data.fragmentavel as boolean | undefined,
+      unidades_por_embalagem: data.unidades_por_embalagem as number | undefined,
+      quantidade_embalagens: data.quantidade_embalagens as number | undefined,
+      valor_por_embalagem: data.valor_por_embalagem as number | undefined,
     };
   } catch (error) {
     console.error('Erro ao buscar item do inventário:', error);

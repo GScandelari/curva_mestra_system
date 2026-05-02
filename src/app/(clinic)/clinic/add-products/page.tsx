@@ -27,11 +27,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
+import { calcularQuantidadeInventario } from '@/lib/services/inventoryService';
+import { getNomeCompletoMasterProduct } from '@/types/masterProduct';
 
 interface MasterProduct {
   id: string;
   code: string;
   name: string;
+  fragmentavel: boolean;
+  unidades_por_embalagem?: number;
 }
 
 interface NFProduct {
@@ -39,9 +43,14 @@ interface NFProduct {
   codigo: string;
   nome_produto: string;
   lote: string;
-  quantidade: number;
+  quantidade: number; // sempre em unidades
   dt_validade: string;
-  valor_unitario: number;
+  valor_unitario: number; // sempre por unidade
+  // Campos de auditoria (fragmentação)
+  fragmentavel?: boolean;
+  unidades_por_embalagem?: number;
+  quantidade_embalagens?: number;
+  valor_por_embalagem?: number;
 }
 
 export default function ManualNFPage() {
@@ -61,6 +70,7 @@ export default function ManualNFPage() {
 
   // Form fields para adicionar produto
   const [selectedProduct, setSelectedProduct] = useState('');
+  const [selectedProductObj, setSelectedProductObj] = useState<MasterProduct | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredProducts, setFilteredProducts] = useState<MasterProduct[]>([]);
@@ -119,6 +129,8 @@ export default function ManualNFPage() {
         id: doc.id,
         code: doc.data().code,
         name: doc.data().name,
+        fragmentavel: doc.data().fragmentavel ?? false,
+        unidades_por_embalagem: doc.data().unidades_por_embalagem,
       }));
       setMasterProducts(products);
     } catch (error) {
@@ -157,14 +169,27 @@ export default function ManualNFPage() {
       console.log('Found product:', product);
       if (!product) return;
 
+      const qtdInformada = parseFloat(quantidade);
+      const valorInformado = parseFloat(valorUnitario);
+      const { quantidade_inicial, valor_unitario: valorUnit } = calcularQuantidadeInventario({
+        quantidadeInformada: qtdInformada,
+        fragmentavel: product.fragmentavel,
+        unidadesPorEmbalagem: product.unidades_por_embalagem,
+        valorInformado,
+      });
+
       const newProduct: NFProduct = {
         master_product_id: product.id,
         codigo: product.code,
-        nome_produto: product.name,
+        nome_produto: getNomeCompletoMasterProduct(product as any),
         lote,
-        quantidade: parseFloat(quantidade),
+        quantidade: quantidade_inicial,
         dt_validade: dtValidade,
-        valor_unitario: parseFloat(valorUnitario),
+        valor_unitario: valorUnit,
+        fragmentavel: product.fragmentavel,
+        unidades_por_embalagem: product.unidades_por_embalagem,
+        quantidade_embalagens: product.fragmentavel ? qtdInformada : undefined,
+        valor_por_embalagem: product.fragmentavel ? valorInformado : undefined,
       };
 
       console.log('Adding product:', newProduct);
@@ -201,6 +226,7 @@ export default function ManualNFPage() {
 
     // Limpar campos
     setSelectedProduct('');
+    setSelectedProductObj(null);
     setProductSearch('');
     setShowSuggestions(false);
     setCodigoOutraMarca('');
@@ -293,7 +319,7 @@ export default function ManualNFPage() {
       // Adicionar produtos ao inventário
       console.log('Adding products to inventory...');
       for (const produto of produtos) {
-        const inventoryData = {
+        const inventoryData: Record<string, any> = {
           tenant_id: tenantId,
           nf_import_id: nfRef.id,
           nf_numero: numeroNF,
@@ -312,6 +338,14 @@ export default function ManualNFPage() {
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
         };
+
+        // Campos de auditoria para produtos fragmentáveis
+        if (produto.fragmentavel) {
+          inventoryData.fragmentavel = true;
+          inventoryData.unidades_por_embalagem = produto.unidades_por_embalagem;
+          inventoryData.quantidade_embalagens = produto.quantidade_embalagens;
+          inventoryData.valor_por_embalagem = produto.valor_por_embalagem;
+        }
 
         console.log('Adding inventory item:', inventoryData);
         await addDoc(collection(db, `tenants/${tenantId}/inventory`), inventoryData);
@@ -564,7 +598,10 @@ export default function ManualNFPage() {
                                       className="w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground transition-colors text-sm"
                                       onClick={() => {
                                         setSelectedProduct(product.id);
-                                        setProductSearch(`${product.code} - ${product.name}`);
+                                        setSelectedProductObj(product);
+                                        setProductSearch(
+                                          `${product.code} - ${getNomeCompletoMasterProduct(product as any)}`
+                                        );
                                         setShowSuggestions(false);
                                       }}
                                     >
@@ -572,7 +609,12 @@ export default function ManualNFPage() {
                                         {product.code}
                                       </span>
                                       {' - '}
-                                      <span>{product.name}</span>
+                                      <span>{getNomeCompletoMasterProduct(product as any)}</span>
+                                      {product.fragmentavel && (
+                                        <span className="ml-2 text-xs text-muted-foreground">
+                                          (embalagem c/ {product.unidades_por_embalagem} UND)
+                                        </span>
+                                      )}
                                     </button>
                                   ))}
                                 </div>
@@ -621,14 +663,35 @@ export default function ManualNFPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="quantidade">Quantidade</Label>
+                          <Label htmlFor="quantidade">
+                            {tipoNF === 'rennova' && selectedProductObj?.fragmentavel
+                              ? 'Número de Embalagens'
+                              : 'Quantidade'}
+                          </Label>
                           <Input
                             id="quantidade"
                             type="number"
-                            placeholder="Ex: 10"
+                            placeholder={
+                              tipoNF === 'rennova' && selectedProductObj?.fragmentavel
+                                ? 'Ex: 2'
+                                : 'Ex: 10'
+                            }
                             value={quantidade}
                             onChange={(e) => setQuantidade(e.target.value)}
                           />
+                          {tipoNF === 'rennova' &&
+                            selectedProductObj?.fragmentavel &&
+                            quantidade && (
+                              <p className="text-xs text-muted-foreground">
+                                {quantidade} embalagem(ns) ×{' '}
+                                {selectedProductObj.unidades_por_embalagem} UND ={' '}
+                                <strong>
+                                  {parseFloat(quantidade) *
+                                    (selectedProductObj.unidades_por_embalagem ?? 1)}{' '}
+                                  unidades
+                                </strong>
+                              </p>
+                            )}
                         </div>
                       </div>
 
@@ -643,7 +706,11 @@ export default function ManualNFPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="valor-unitario">Valor Unitário (R$)</Label>
+                          <Label htmlFor="valor-unitario">
+                            {tipoNF === 'rennova' && selectedProductObj?.fragmentavel
+                              ? 'Valor por Embalagem (R$)'
+                              : 'Valor Unitário (R$)'}
+                          </Label>
                           <Input
                             id="valor-unitario"
                             type="number"
@@ -652,6 +719,21 @@ export default function ManualNFPage() {
                             value={valorUnitario}
                             onChange={(e) => setValorUnitario(e.target.value)}
                           />
+                          {tipoNF === 'rennova' &&
+                            selectedProductObj?.fragmentavel &&
+                            valorUnitario &&
+                            selectedProductObj.unidades_por_embalagem && (
+                              <p className="text-xs text-muted-foreground">
+                                Valor por unidade:{' '}
+                                <strong>
+                                  R${' '}
+                                  {(
+                                    parseFloat(valorUnitario) /
+                                    selectedProductObj.unidades_por_embalagem
+                                  ).toFixed(4)}
+                                </strong>
+                              </p>
+                            )}
                         </div>
                       </div>
 
