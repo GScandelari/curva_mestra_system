@@ -102,3 +102,37 @@ describe('agruparProdutosPorCodigo', () => {
     expect(agruparProdutosPorCodigo([])).toEqual([]);
   });
 });
+
+import { calcularQuantidadeInventario } from '@/lib/services/inventoryService';
+
+describe('calcularQuantidadeInventario', () => {
+  it('retorna valores intactos para produto não fragmentável', () => {
+    const result = calcularQuantidadeInventario({
+      quantidadeInformada: 5,
+      fragmentavel: false,
+      valorInformado: 100,
+    });
+    expect(result).toEqual({ quantidade_inicial: 5, valor_unitario: 100 });
+  });
+
+  it('converte embalagens em unidades e divide o valor para produto fragmentável', () => {
+    const result = calcularQuantidadeInventario({
+      quantidadeInformada: 2,
+      fragmentavel: true,
+      unidadesPorEmbalagem: 60,
+      valorInformado: 50,
+    });
+    expect(result.quantidade_inicial).toBe(120);
+    expect(result.valor_unitario).toBeCloseTo(0.8333, 4);
+  });
+
+  it('fallback para não fragmentável quando fragmentavel=true mas sem unidadesPorEmbalagem', () => {
+    const result = calcularQuantidadeInventario({
+      quantidadeInformada: 3,
+      fragmentavel: true,
+      unidadesPorEmbalagem: undefined,
+      valorInformado: 75,
+    });
+    expect(result).toEqual({ quantidade_inicial: 3, valor_unitario: 75 });
+  });
+});
