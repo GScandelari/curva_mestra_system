@@ -78,6 +78,7 @@ export default function NovaSolicitacaoPage() {
   const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado<InventoryItem>[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([]);
   const [selectedProductCode, setSelectedProductCode] = useState('');
+  const [selectedLoteId, setSelectedLoteId] = useState('');
   const [quantidadeSolicitada, setQuantidadeSolicitada] = useState('1');
 
   // Estados de loading e erro
@@ -263,6 +264,56 @@ export default function NovaSolicitacaoPage() {
 
   const handleAdicionarProduto = () => {
     const quantidade = parseInt(quantidadeSolicitada);
+
+    if (tipoProcedimento === 'efetuado') {
+      if (!selectedProductCode) {
+        toast({ title: 'Selecione um produto', description: 'Escolha um produto do inventário', variant: 'destructive' });
+        return;
+      }
+      if (!selectedLoteId) {
+        toast({ title: 'Selecione o lote', description: 'Informe o lote utilizado no procedimento', variant: 'destructive' });
+        return;
+      }
+      if (Number.isNaN(quantidade) || quantidade <= 0) {
+        toast({ title: 'Quantidade inválida', description: 'Informe uma quantidade válida', variant: 'destructive' });
+        return;
+      }
+
+      const loteItem = inventoryItems.find((item) => item.id === selectedLoteId);
+      if (!loteItem) return;
+
+      if (quantidade > loteItem.quantidade_disponivel) {
+        toast({ title: 'Estoque insuficiente', description: `Disponível: ${loteItem.quantidade_disponivel} unidades`, variant: 'destructive' });
+        return;
+      }
+      if (produtosSelecionados.some((p) => p.inventory_item_id === selectedLoteId)) {
+        toast({ title: 'Lote já adicionado', description: 'Este lote já está na lista', variant: 'destructive' });
+        return;
+      }
+
+      setProdutosSelecionados([
+        ...produtosSelecionados,
+        {
+          inventory_item_id: loteItem.id,
+          produto_codigo: loteItem.codigo_produto,
+          produto_nome: loteItem.nome_produto,
+          lote: loteItem.lote,
+          quantidade_solicitada: quantidade,
+          quantidade_disponivel: loteItem.quantidade_disponivel,
+          valor_unitario: loteItem.valor_unitario,
+        },
+      ]);
+      setSelectedProductCode('');
+      setSelectedLoteId('');
+      setQuantidadeSolicitada('1');
+      toast({
+        title: 'Produto adicionado',
+        description: `${loteItem.nome_produto} - Lote: ${loteItem.lote} (${quantidade} un)`,
+      });
+      return;
+    }
+
+    // Modo Programado — alocação FEFO automática
     const produtoAgrupado = produtosAgrupados.find((p) => p.codigo_produto === selectedProductCode);
 
     const validationError = validateProductSelection(
@@ -511,7 +562,7 @@ export default function NovaSolicitacaoPage() {
                         type="button"
                         variant={tipoProcedimento === 'programado' ? 'default' : 'outline'}
                         className="flex-1"
-                        onClick={() => setTipoProcedimento('programado')}
+                        onClick={() => { setTipoProcedimento('programado'); setSelectedLoteId(''); }}
                       >
                         Procedimento Programado
                       </Button>
@@ -519,7 +570,7 @@ export default function NovaSolicitacaoPage() {
                         type="button"
                         variant={tipoProcedimento === 'efetuado' ? 'default' : 'outline'}
                         className="flex-1"
-                        onClick={() => setTipoProcedimento('efetuado')}
+                        onClick={() => { setTipoProcedimento('efetuado'); setSelectedLoteId(''); }}
                       >
                         Procedimento Efetuado
                       </Button>
@@ -587,7 +638,7 @@ export default function NovaSolicitacaoPage() {
                     <Label htmlFor="produto">Produto</Label>
                     <Select
                       value={selectedProductCode}
-                      onValueChange={setSelectedProductCode}
+                      onValueChange={(v) => { setSelectedProductCode(v); setSelectedLoteId(''); }}
                       disabled={loading}
                     >
                       <SelectTrigger id="produto">
@@ -619,6 +670,29 @@ export default function NovaSolicitacaoPage() {
                     </div>
                   </div>
                 </div>
+
+                {tipoProcedimento === 'efetuado' && selectedProductCode && (
+                  <div className="space-y-2">
+                    <Label htmlFor="lote">Lote Utilizado *</Label>
+                    <Select
+                      value={selectedLoteId}
+                      onValueChange={setSelectedLoteId}
+                    >
+                      <SelectTrigger id="lote">
+                        <SelectValue placeholder="Selecione o lote utilizado no procedimento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {inventoryItems
+                          .filter((item) => item.codigo_produto === selectedProductCode)
+                          .map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              Lote {item.lote} — {item.quantidade_disponivel} un. disponíveis (val. {String(item.dt_validade)})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {produtosSelecionados.length > 0 && (
                   <div className="space-y-2">
