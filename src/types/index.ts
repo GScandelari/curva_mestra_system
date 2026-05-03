@@ -164,11 +164,12 @@ export interface InventoryItem {
 // ============================================================================
 
 export type SolicitacaoStatus =
-  | 'criada'
-  | 'agendada'
+  | 'criada' // legado
+  | 'agendada' // procedimento programado, aguardando realização
+  | 'efetuada' // procedimento registrado como já realizado, aguardando conclusão formal
   | 'concluida'
-  | 'aprovada'
-  | 'reprovada'
+  | 'aprovada' // legado — mantido para dados históricos
+  | 'reprovada' // legado — mantido para dados históricos
   | 'cancelada';
 
 export interface StatusHistoryEntry {
@@ -182,6 +183,7 @@ export interface StatusHistoryEntry {
 export interface Solicitacao {
   id: string;
   tenant_id: string;
+  tipo?: 'programado' | 'efetuado'; // undefined = legado (tratado como 'programado')
   descricao?: string; // Identificação opcional do procedimento (texto livre)
   dt_procedimento: Timestamp; // Data do procedimento (obrigatório)
   produtos_solicitados: ProdutoSolicitado[];
