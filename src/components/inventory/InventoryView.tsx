@@ -93,7 +93,6 @@ function parseItem(doc: { id: string; data: () => Record<string, unknown> }): In
       data.updated_at instanceof Timestamp
         ? data.updated_at.toDate()
         : new Date((data.updated_at as string) || Date.now()),
-    limite_estoque_baixo: data.limite_estoque_baixo as number | undefined,
   };
 }
 
