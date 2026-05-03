@@ -144,8 +144,6 @@ export async function checkLowStock(tenantId: string): Promise<{
       return results;
     }
 
-    const minQuantity = settings.low_stock_threshold || 10;
-
     // Buscar produtos no inventário
     const inventoryRef = collection(db, `tenants/${tenantId}/inventory`);
     const inventorySnap = await getDocs(inventoryRef);
@@ -156,8 +154,14 @@ export async function checkLowStock(tenantId: string): Promise<{
     for (const docSnap of inventorySnap.docs) {
       const item = { id: docSnap.id, ...docSnap.data() } as InventoryItem;
 
-      // Verificar se está abaixo do limite
-      if (item.quantidade_disponivel < minQuantity) {
+      // Limite por item, fallback para configuração do tenant, fallback padrão 10
+      const minQuantity =
+        (docSnap.data().limite_estoque_baixo as number | undefined) ??
+        settings.low_stock_threshold ??
+        10;
+
+      // Verificar se está em estoque baixo (quantidade > 0 e dentro do limite)
+      if (item.quantidade_disponivel > 0 && item.quantidade_disponivel <= minQuantity) {
         try {
           // Verificar se já existe notificação para este produto
           const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);

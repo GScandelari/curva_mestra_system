@@ -2,6 +2,7 @@ import {
   parseInventoryDate,
   computeInventoryStats,
   agruparProdutosPorCodigo,
+  getStatusEstoque,
 } from '@/lib/inventoryUtils';
 
 describe('parseInventoryDate', () => {
@@ -50,8 +51,8 @@ describe('computeInventoryStats', () => {
     expect(stats.expiring_soon).toBe(1);
   });
 
-  it('counts items with low stock (<=5)', () => {
-    const docs = [makeDoc(5, '01/06/2026'), makeDoc(6, '01/06/2026'), makeDoc(1, '01/06/2026')];
+  it('counts items with low stock (<=10 default threshold)', () => {
+    const docs = [makeDoc(5, '01/06/2026'), makeDoc(11, '01/06/2026'), makeDoc(10, '01/06/2026')];
     const stats = computeInventoryStats(docs, cutoff);
     expect(stats.low_stock).toBe(2);
   });
@@ -100,6 +101,46 @@ describe('agruparProdutosPorCodigo', () => {
 
   it('returns empty array for empty input', () => {
     expect(agruparProdutosPorCodigo([])).toEqual([]);
+  });
+});
+
+describe('getStatusEstoque', () => {
+  it('returns Sem estoque when quantidade is 0', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 0 })).toBe('Sem estoque');
+  });
+
+  it('returns Sem estoque when quantidade is 0 with custom limite', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 0, limite_estoque_baixo: 5 })).toBe('Sem estoque');
+  });
+
+  it('returns Baixo when quantidade <= default threshold (10)', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 10 })).toBe('Baixo');
+    expect(getStatusEstoque({ quantidade_disponivel: 1 })).toBe('Baixo');
+  });
+
+  it('returns Normal when quantidade > default threshold (10)', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 11 })).toBe('Normal');
+  });
+
+  it('returns Baixo when quantidade <= custom limite', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 5, limite_estoque_baixo: 5 })).toBe('Baixo');
+  });
+
+  it('returns Normal when quantidade > custom limite', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 6, limite_estoque_baixo: 5 })).toBe('Normal');
+  });
+
+  it('returns Baixo when quantidade is within high custom limite', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 20, limite_estoque_baixo: 50 })).toBe('Baixo');
+  });
+
+  it('returns Normal when quantidade exceeds high custom limite', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 51, limite_estoque_baixo: 50 })).toBe('Normal');
+  });
+
+  it('uses default 10 when limite_estoque_baixo is undefined', () => {
+    expect(getStatusEstoque({ quantidade_disponivel: 10, limite_estoque_baixo: undefined })).toBe('Baixo');
+    expect(getStatusEstoque({ quantidade_disponivel: 11, limite_estoque_baixo: undefined })).toBe('Normal');
   });
 });
 
