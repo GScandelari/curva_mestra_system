@@ -4,9 +4,14 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, UserCheck } from 'lucide-react';
+import { Building2, Users, UserCheck } from 'lucide-react';
 
 import dynamic from 'next/dynamic';
+
+const ClinicInfoTab = dynamic(() => import('@/components/clinic/ClinicInfoTab'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-center">Carregando...</div>,
+});
 
 const UsersTab = dynamic(() => import('@/components/clinic/UsersTab'), {
   ssr: false,
@@ -23,7 +28,7 @@ export default function MyClinicPage() {
   const { claims } = useAuth();
 
   const isAdmin = claims?.role === 'clinic_admin';
-  const defaultTab = searchParams.get('tab') || 'users';
+  const defaultTab = searchParams.get('tab') || 'clinic';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   useEffect(() => {
@@ -35,7 +40,7 @@ export default function MyClinicPage() {
 
   useEffect(() => {
     if (!isAdmin && activeTab === 'users') {
-      setActiveTab('consultant');
+      setActiveTab('clinic');
     }
   }, [isAdmin, activeTab]);
 
@@ -50,11 +55,17 @@ export default function MyClinicPage() {
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Minha Clínica</h1>
-        <p className="text-muted-foreground">Gerencie usuários e consultor da sua clínica</p>
+        <p className="text-muted-foreground">
+          Gerencie as informações, usuários e consultor da sua clínica
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
+          <TabsTrigger value="clinic" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Clínica
+          </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -66,6 +77,10 @@ export default function MyClinicPage() {
             Consultor
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="clinic">
+          <ClinicInfoTab />
+        </TabsContent>
 
         {isAdmin && (
           <TabsContent value="users">
