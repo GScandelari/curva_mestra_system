@@ -337,8 +337,8 @@ export default function ClinicDashboard() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Realizados</span>
-                      <span className="font-semibold">{procedimentosStats.feitos}</span>
+                      <span className="text-muted-foreground">Efetuados</span>
+                      <span className="font-semibold">{procedimentosStats.efetuados}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Agendados</span>

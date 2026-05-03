@@ -30,8 +30,10 @@ import { listInventory, type InventoryItem } from '@/lib/services/inventoryServi
 import { agruparProdutosPorCodigo, type ProdutoAgrupado } from '@/lib/inventoryUtils';
 import {
   createSolicitacaoWithConsumption,
+  createSolicitacaoEfetuada,
   updateSolicitacaoAgendada,
   type CreateSolicitacaoInput,
+  type CreateSolicitacaoEfetuadaInput,
 } from '@/lib/services/solicitacaoService';
 
 type Step = 'adicionar_produtos' | 'revisao';
@@ -66,6 +68,7 @@ export default function NovaSolicitacaoPage() {
 
   // Estados do formulário
   const [step, setStep] = useState<Step>('adicionar_produtos');
+  const [tipoProcedimento, setTipoProcedimento] = useState<'programado' | 'efetuado'>('programado');
   const [descricao, setDescricao] = useState('');
   const [dtProcedimento, setDtProcedimento] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -75,6 +78,7 @@ export default function NovaSolicitacaoPage() {
   const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado<InventoryItem>[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([]);
   const [selectedProductCode, setSelectedProductCode] = useState('');
+  const [selectedLoteId, setSelectedLoteId] = useState('');
   const [quantidadeSolicitada, setQuantidadeSolicitada] = useState('1');
 
   // Estados de loading e erro
@@ -186,13 +190,20 @@ export default function NovaSolicitacaoPage() {
       String(dataHoje.getDate()).padStart(2, '0'),
     ].join('-');
 
-    if (dtProcedimento < dataHojeString) {
-      if (isEditMode && createdAtParam && createdAtParam < dtProcedimento) {
-        setError('');
-        return true;
+    if (!isEditMode && tipoProcedimento === 'efetuado') {
+      if (dtProcedimento > dataHojeString) {
+        setError('Procedimento efetuado não pode ter data futura');
+        return false;
       }
-      setError('Data do procedimento não pode ser no passado');
-      return false;
+    } else {
+      if (dtProcedimento < dataHojeString) {
+        if (isEditMode && createdAtParam && createdAtParam < dtProcedimento) {
+          setError('');
+          return true;
+        }
+        setError('Data do procedimento não pode ser no passado');
+        return false;
+      }
     }
 
     setError('');
@@ -253,6 +264,76 @@ export default function NovaSolicitacaoPage() {
 
   const handleAdicionarProduto = () => {
     const quantidade = parseInt(quantidadeSolicitada);
+
+    if (tipoProcedimento === 'efetuado') {
+      if (!selectedProductCode) {
+        toast({
+          title: 'Selecione um produto',
+          description: 'Escolha um produto do inventário',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!selectedLoteId) {
+        toast({
+          title: 'Selecione o lote',
+          description: 'Informe o lote utilizado no procedimento',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (Number.isNaN(quantidade) || quantidade <= 0) {
+        toast({
+          title: 'Quantidade inválida',
+          description: 'Informe uma quantidade válida',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const loteItem = inventoryItems.find((item) => item.id === selectedLoteId);
+      if (!loteItem) return;
+
+      if (quantidade > loteItem.quantidade_disponivel) {
+        toast({
+          title: 'Estoque insuficiente',
+          description: `Disponível: ${loteItem.quantidade_disponivel} unidades`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (produtosSelecionados.some((p) => p.inventory_item_id === selectedLoteId)) {
+        toast({
+          title: 'Lote já adicionado',
+          description: 'Este lote já está na lista',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setProdutosSelecionados([
+        ...produtosSelecionados,
+        {
+          inventory_item_id: loteItem.id,
+          produto_codigo: loteItem.codigo_produto,
+          produto_nome: loteItem.nome_produto,
+          lote: loteItem.lote,
+          quantidade_solicitada: quantidade,
+          quantidade_disponivel: loteItem.quantidade_disponivel,
+          valor_unitario: loteItem.valor_unitario,
+        },
+      ]);
+      setSelectedProductCode('');
+      setSelectedLoteId('');
+      setQuantidadeSolicitada('1');
+      toast({
+        title: 'Produto adicionado',
+        description: `${loteItem.nome_produto} - Lote: ${loteItem.lote} (${quantidade} un)`,
+      });
+      return;
+    }
+
+    // Modo Programado — alocação FEFO automática
     const produtoAgrupado = produtosAgrupados.find((p) => p.codigo_produto === selectedProductCode);
 
     const validationError = validateProductSelection(
@@ -356,19 +437,31 @@ export default function NovaSolicitacaoPage() {
   }
 
   async function submitCreateMode(tenantId: string, userName: string) {
-    const input: CreateSolicitacaoInput = {
-      descricao: descricao || undefined,
-      dt_procedimento: new Date(dtProcedimento),
-      produtos: buildProdutosPayload(),
-      observacoes: observacoes || undefined,
-    };
+    const produtos = buildProdutosPayload();
+    const dt_procedimento = new Date(dtProcedimento);
 
-    const result = await createSolicitacaoWithConsumption(tenantId, user!.uid, userName, input);
+    const result =
+      tipoProcedimento === 'efetuado'
+        ? await createSolicitacaoEfetuada(tenantId, user!.uid, userName, {
+            descricao: descricao || undefined,
+            dt_procedimento,
+            produtos,
+            observacoes: observacoes || undefined,
+          } satisfies CreateSolicitacaoEfetuadaInput)
+        : await createSolicitacaoWithConsumption(tenantId, user!.uid, userName, {
+            descricao: descricao || undefined,
+            dt_procedimento,
+            produtos,
+            observacoes: observacoes || undefined,
+          } satisfies CreateSolicitacaoInput);
 
     if (result.success) {
       toast({
         title: 'Procedimento criado com sucesso!',
-        description: 'Os produtos foram reservados no inventário',
+        description:
+          tipoProcedimento === 'efetuado'
+            ? 'Os produtos foram consumidos do inventário'
+            : 'Os produtos foram reservados no inventário',
       });
       router.push(`/clinic/requests/${result.solicitacaoId}`);
     } else {
@@ -481,6 +574,41 @@ export default function NovaSolicitacaoPage() {
                 <CardDescription>Informe os dados e os produtos do procedimento</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {!isEditMode && (
+                  <div className="space-y-2">
+                    <Label>Tipo de Procedimento *</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={tipoProcedimento === 'programado' ? 'default' : 'outline'}
+                        className="flex-1"
+                        onClick={() => {
+                          setTipoProcedimento('programado');
+                          setSelectedLoteId('');
+                        }}
+                      >
+                        Procedimento Programado
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={tipoProcedimento === 'efetuado' ? 'default' : 'outline'}
+                        className="flex-1"
+                        onClick={() => {
+                          setTipoProcedimento('efetuado');
+                          setSelectedLoteId('');
+                        }}
+                      >
+                        Procedimento Efetuado
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {tipoProcedimento === 'programado'
+                        ? 'Procedimento agendado para o futuro. Os produtos serão reservados e consumidos ao concluir.'
+                        : 'Procedimento já realizado. Os produtos serão consumidos imediatamente do inventário.'}
+                    </p>
+                  </div>
+                )}
+
                 {error && (
                   <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
@@ -536,7 +664,10 @@ export default function NovaSolicitacaoPage() {
                     <Label htmlFor="produto">Produto</Label>
                     <Select
                       value={selectedProductCode}
-                      onValueChange={setSelectedProductCode}
+                      onValueChange={(v) => {
+                        setSelectedProductCode(v);
+                        setSelectedLoteId('');
+                      }}
                       disabled={loading}
                     >
                       <SelectTrigger id="produto">
@@ -568,6 +699,27 @@ export default function NovaSolicitacaoPage() {
                     </div>
                   </div>
                 </div>
+
+                {tipoProcedimento === 'efetuado' && selectedProductCode && (
+                  <div className="space-y-2">
+                    <Label htmlFor="lote">Lote Utilizado *</Label>
+                    <Select value={selectedLoteId} onValueChange={setSelectedLoteId}>
+                      <SelectTrigger id="lote">
+                        <SelectValue placeholder="Selecione o lote utilizado no procedimento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {inventoryItems
+                          .filter((item) => item.codigo_produto === selectedProductCode)
+                          .map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              Lote {item.lote} — {item.quantidade_disponivel} un. disponíveis (val.{' '}
+                              {String(item.dt_validade)})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {produtosSelecionados.length > 0 && (
                   <div className="space-y-2">
@@ -669,7 +821,9 @@ export default function NovaSolicitacaoPage() {
               <AlertDescription>
                 {isEditMode
                   ? 'Ao confirmar, as reservas de produtos serão ajustadas automaticamente no inventário. Produtos removidos terão suas reservas liberadas, e novos produtos serão reservados.'
-                  : 'Ao confirmar, os produtos serão RESERVADOS no inventário e o procedimento será criado com status "Agendado". Os produtos só serão consumidos quando o procedimento for concluído.'}
+                  : tipoProcedimento === 'efetuado'
+                    ? 'Ao confirmar, os produtos serão CONSUMIDOS IMEDIATAMENTE do inventário. O procedimento será registrado como já realizado.'
+                    : 'Ao confirmar, os produtos serão RESERVADOS no inventário e o procedimento será criado com status "Agendado". Os produtos só serão consumidos quando o procedimento for concluído.'}
               </AlertDescription>
             </Alert>
 
@@ -760,7 +914,11 @@ export default function NovaSolicitacaoPage() {
                   ) : (
                     <>
                       <Check className="mr-2 h-4 w-4" />
-                      {isEditMode ? 'Confirmar Alterações' : 'Confirmar e Reservar Produtos'}
+                      {isEditMode
+                        ? 'Confirmar Alterações'
+                        : tipoProcedimento === 'efetuado'
+                          ? 'Confirmar e Consumir Produtos'
+                          : 'Confirmar e Reservar Produtos'}
                     </>
                   )}
                 </Button>

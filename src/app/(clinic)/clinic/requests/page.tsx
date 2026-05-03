@@ -25,6 +25,10 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, FileText, Search, Calendar, Package, Settings } from 'lucide-react';
 import { listSolicitacoes, type SolicitacaoWithDetails } from '@/lib/services/solicitacaoService';
+import {
+  getDashboardProcedimentosStats,
+  type DashboardProcedimentosStats,
+} from '@/lib/services/dashboardService';
 import { formatTimestamp } from '@/lib/utils';
 
 export default function SolicitacoesPage() {
@@ -36,6 +40,8 @@ export default function SolicitacoesPage() {
 
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mesStats, setMesStats] = useState<DashboardProcedimentosStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -59,6 +65,27 @@ export default function SolicitacoesPage() {
     loadSolicitacoes();
   }, [tenantId, statusFilter]);
 
+  useEffect(() => {
+    async function loadStats() {
+      if (!tenantId) return;
+      try {
+        setLoadingStats(true);
+        const stats = await getDashboardProcedimentosStats(tenantId);
+        setMesStats(stats);
+      } catch (error) {
+        console.error('Erro ao carregar stats do mês:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    }
+    loadStats();
+  }, [tenantId]);
+
+  const mesLabel = (() => {
+    const s = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+
   const filteredSolicitacoes = solicitacoes.filter((sol) => {
     const matchesSearch =
       !searchTerm || (sol.descricao ?? '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -68,6 +95,7 @@ export default function SolicitacoesPage() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
       agendada: 'secondary',
+      efetuada: 'secondary',
       aprovada: 'default',
       concluida: 'default',
       reprovada: 'destructive',
@@ -76,6 +104,7 @@ export default function SolicitacoesPage() {
 
     const labels: Record<string, string> = {
       agendada: 'Agendada',
+      efetuada: 'Efetuada',
       aprovada: 'Aprovada',
       concluida: 'Concluída',
       reprovada: 'Reprovada',
@@ -112,14 +141,44 @@ export default function SolicitacoesPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total</CardTitle>
+              <CardTitle className="text-sm font-medium">Mês: {mesLabel}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{solicitacoes.length}</div>
+              {loadingStats ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{mesStats?.total ?? '—'}</div>
+                  {mesStats &&
+                    (mesStats.totalMesAnterior === 0 ? (
+                      <p className="text-xs text-muted-foreground mt-1">Primeiro mês com dados</p>
+                    ) : (
+                      <p
+                        className={`text-xs mt-1 ${
+                          mesStats.crescimentoAbsoluto > 0
+                            ? 'text-green-600'
+                            : mesStats.crescimentoAbsoluto < 0
+                              ? 'text-red-600'
+                              : 'text-muted-foreground'
+                        }`}
+                      >
+                        {mesStats.crescimentoAbsoluto > 0
+                          ? '▲'
+                          : mesStats.crescimentoAbsoluto < 0
+                            ? '▼'
+                            : '→'}{' '}
+                        {mesStats.crescimentoAbsoluto > 0 ? '+' : ''}
+                        {mesStats.crescimentoPercent}% (
+                        {mesStats.crescimentoAbsoluto > 0 ? '+' : ''}
+                        {mesStats.crescimentoAbsoluto} vs mês anterior)
+                      </p>
+                    ))}
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -129,21 +188,11 @@ export default function SolicitacoesPage() {
               <Calendar className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {solicitacoes.filter((s) => s.status === 'agendada').length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Aprovadas</CardTitle>
-              <Package className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {solicitacoes.filter((s) => s.status === 'aprovada').length}
-              </div>
+              {loadingStats ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{mesStats?.agendadasMes ?? '—'}</div>
+              )}
             </CardContent>
           </Card>
 
@@ -153,9 +202,11 @@ export default function SolicitacoesPage() {
               <Package className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {solicitacoes.filter((s) => s.status === 'concluida').length}
-              </div>
+              {loadingStats ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{mesStats?.concluidasMes ?? '—'}</div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -185,9 +236,8 @@ export default function SolicitacoesPage() {
                 <SelectContent>
                   <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="agendada">Agendada</SelectItem>
-                  <SelectItem value="aprovada">Aprovada</SelectItem>
+                  <SelectItem value="efetuada">Efetuada</SelectItem>
                   <SelectItem value="concluida">Concluída</SelectItem>
-                  <SelectItem value="reprovada">Reprovada</SelectItem>
                   <SelectItem value="cancelada">Cancelada</SelectItem>
                 </SelectContent>
               </Select>
