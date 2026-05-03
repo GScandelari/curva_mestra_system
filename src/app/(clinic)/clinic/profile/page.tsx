@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +12,6 @@ import {
   Mail,
   Key,
   Save,
-  Building2,
-  MapPin,
   FileCheck,
   CheckCircle2,
 } from 'lucide-react';
@@ -27,18 +24,10 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Tenant } from '@/types/tenant';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ProfilePage() {
-  const { user, claims } = useAuth();
-  const router = useRouter();
-  const tenantId = claims?.tenant_id;
-
-  // Tenant data
-  const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [tenantLoading, setTenantLoading] = useState(true);
+  const { user } = useAuth();
 
   // Profile form
   const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -57,28 +46,6 @@ export default function ProfilePage() {
   // Terms acceptance
   const [termsAcceptances, setTermsAcceptances] = useState<any[]>([]);
   const [termsLoading, setTermsLoading] = useState(true);
-
-  // Load tenant data
-  useEffect(() => {
-    async function loadTenant() {
-      if (!tenantId) return;
-
-      try {
-        setTenantLoading(true);
-        const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
-
-        if (tenantDoc.exists()) {
-          setTenant({ id: tenantDoc.id, ...tenantDoc.data() } as Tenant);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados da clínica:', error);
-      } finally {
-        setTenantLoading(false);
-      }
-    }
-
-    loadTenant();
-  }, [tenantId]);
 
   // Load terms acceptances
   useEffect(() => {
@@ -221,82 +188,6 @@ export default function ProfilePage() {
             <h1 className="text-3xl font-bold tracking-tight">Meu Perfil</h1>
             <p className="text-muted-foreground">Gerencie suas informações pessoais e segurança</p>
           </div>
-
-          {/* Clinic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Informações da Clínica
-              </CardTitle>
-              <CardDescription>Dados da clínica à qual você está vinculado</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {tenantLoading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : tenant ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground">Nome da Clínica</Label>
-                      <p className="font-medium">{tenant.name}</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground">
-                        {tenant.document_type === 'cnpj' ? 'CNPJ' : 'CPF'}
-                      </Label>
-                      <p className="font-medium">{tenant.document_number}</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground">Email</Label>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <p className="font-medium">{tenant.email}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground">Telefone</Label>
-                      <p className="font-medium">{tenant.phone}</p>
-                    </div>
-                  </div>
-
-                  {(tenant.address || tenant.city || tenant.state || tenant.cep) && (
-                    <div className="pt-4 border-t">
-                      <Label className="text-muted-foreground flex items-center gap-2 mb-2">
-                        <MapPin className="h-4 w-4" />
-                        Localização
-                      </Label>
-                      <div className="space-y-1">
-                        {tenant.address && <p className="text-sm">{tenant.address}</p>}
-                        {(tenant.city || tenant.state) && (
-                          <p className="text-sm">
-                            {[tenant.city, tenant.state].filter(Boolean).join(' - ')}
-                          </p>
-                        )}
-                        {tenant.cep && <p className="text-sm">CEP: {tenant.cep}</p>}
-                        {tenant.timezone && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Fuso horário: {tenant.timezone}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Não foi possível carregar os dados da clínica
-                </p>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Profile Information */}
           <Card>

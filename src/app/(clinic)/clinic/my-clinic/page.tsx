@@ -1,26 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Shield, Bell, TrendingDown } from 'lucide-react';
+import { Building2, Users, UserCheck, TrendingDown } from 'lucide-react';
 
-// Import page components (we'll create these next)
 import dynamic from 'next/dynamic';
+
+const ClinicInfoTab = dynamic(() => import('@/components/clinic/ClinicInfoTab'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-center">Carregando...</div>,
+});
 
 const UsersTab = dynamic(() => import('@/components/clinic/UsersTab'), {
   ssr: false,
   loading: () => <div className="p-8 text-center">Carregando...</div>,
 });
 
-const LicenseTab = dynamic(() => import('@/components/clinic/LicenseTab'), {
-  ssr: false,
-  loading: () => <div className="p-8 text-center">Carregando...</div>,
-});
-
-const AlertsTab = dynamic(() => import('@/components/clinic/AlertsTab'), {
+const ConsultantTab = dynamic(() => import('@/components/clinic/ConsultantTab'), {
   ssr: false,
   loading: () => <div className="p-8 text-center">Carregando...</div>,
 });
@@ -31,15 +29,13 @@ const StockLimitsTab = dynamic(() => import('@/components/clinic/StockLimitsTab'
 });
 
 export default function MyClinicPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { claims } = useAuth();
 
   const isAdmin = claims?.role === 'clinic_admin';
-  const defaultTab = searchParams.get('tab') || 'license';
+  const defaultTab = searchParams.get('tab') || 'clinic';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
-  // Sincronizar activeTab com URL ao montar ou quando searchParams mudar
   useEffect(() => {
     const urlTab = searchParams.get('tab');
     if (urlTab && urlTab !== activeTab) {
@@ -47,17 +43,14 @@ export default function MyClinicPage() {
     }
   }, [searchParams]);
 
-  // Redirect non-admins if they try to access admin-only tabs
   useEffect(() => {
-    if (!isAdmin && (activeTab === 'users' || activeTab === 'alerts' || activeTab === 'stock_limits')) {
-      setActiveTab('license');
+    if (!isAdmin && (activeTab === 'users' || activeTab === 'stock_limits')) {
+      setActiveTab('clinic');
     }
   }, [isAdmin, activeTab]);
 
-  // Handler para mudança de tab
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // Atualizar URL sem reload usando window.history
     const url = new URL(window.location.href);
     url.searchParams.set('tab', value);
     window.history.pushState({}, '', url.toString());
@@ -68,53 +61,53 @@ export default function MyClinicPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Minha Clínica</h1>
         <p className="text-muted-foreground">
-          Gerencie usuários, licença e configurações de alertas da sua clínica
+          Gerencie as informações, usuários e consultor da sua clínica
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-1'} mb-6`}>
-          <TabsTrigger value="license" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Licença
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} mb-6`}>
+          <TabsTrigger value="clinic" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Clínica
           </TabsTrigger>
           {isAdmin && (
-            <>
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Usuários
-              </TabsTrigger>
-              <TabsTrigger value="alerts" className="flex items-center gap-2">
-                <Bell className="h-4 w-4" />
-                Alertas
-              </TabsTrigger>
-              <TabsTrigger value="stock_limits" className="flex items-center gap-2">
-                <TrendingDown className="h-4 w-4" />
-                Limite de Estoque
-              </TabsTrigger>
-            </>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Usuários
+            </TabsTrigger>
           )}
+          {isAdmin && (
+            <TabsTrigger value="stock_limits" className="flex items-center gap-2">
+              <TrendingDown className="h-4 w-4" />
+              Limite de Estoque
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="consultant" className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4" />
+            Consultor
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="license">
-          <LicenseTab />
+        <TabsContent value="clinic">
+          <ClinicInfoTab />
         </TabsContent>
 
         {isAdmin && (
-          <>
-            <TabsContent value="users">
-              <UsersTab />
-            </TabsContent>
-
-            <TabsContent value="alerts">
-              <AlertsTab />
-            </TabsContent>
-
-            <TabsContent value="stock_limits">
-              <StockLimitsTab />
-            </TabsContent>
-          </>
+          <TabsContent value="users">
+            <UsersTab />
+          </TabsContent>
         )}
+
+        {isAdmin && (
+          <TabsContent value="stock_limits">
+            <StockLimitsTab />
+          </TabsContent>
+        )}
+
+        <TabsContent value="consultant">
+          <ConsultantTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
