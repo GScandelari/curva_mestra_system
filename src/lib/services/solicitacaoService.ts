@@ -110,6 +110,42 @@ async function buildProdutosDetalhados(
   return result;
 }
 
+function writeActivityLogs(
+  transaction: Transaction,
+  tenantId: string,
+  produtosDetalhados: ProdutoSolicitado[],
+  solicitacaoId: string,
+  userId: string,
+  userName: string,
+  now: Timestamp,
+  tipo: string,
+  descricao: string,
+  quantidadePosteriorFn: (p: ProdutoSolicitado) => number
+): void {
+  const activityRef = collection(db, 'tenants', tenantId, 'inventory_activity');
+  for (const produto of produtosDetalhados) {
+    transaction.set(
+      doc(activityRef),
+      removeUndefined({
+        tenant_id: tenantId,
+        inventory_item_id: produto.inventory_item_id,
+        produto_codigo: produto.produto_codigo,
+        produto_nome: produto.produto_nome,
+        lote: produto.lote,
+        tipo,
+        quantidade: produto.quantidade,
+        quantidade_anterior: produto.quantidade_disponivel_antes,
+        quantidade_posterior: quantidadePosteriorFn(produto),
+        descricao,
+        solicitacao_id: solicitacaoId,
+        created_by: userId,
+        created_by_name: userName,
+        timestamp: now,
+      })
+    );
+  }
+}
+
 async function readInventoryInTransaction(
   transaction: Transaction,
   tenantId: string,
@@ -280,28 +316,18 @@ export async function createSolicitacaoWithConsumption(
       }
 
       // 3.5. Registrar movimentação de estoque (para auditoria)
-      for (const produto of produtosDetalhados) {
-        const activityRef = collection(db, 'tenants', tenantId, 'inventory_activity');
-
-        const activityData = removeUndefined({
-          tenant_id: tenantId,
-          inventory_item_id: produto.inventory_item_id,
-          produto_codigo: produto.produto_codigo,
-          produto_nome: produto.produto_nome,
-          lote: produto.lote,
-          tipo: 'reserva',
-          quantidade: produto.quantidade,
-          quantidade_anterior: produto.quantidade_disponivel_antes,
-          quantidade_posterior: produto.quantidade_disponivel_antes, // Disponível não muda
-          descricao: `Reserva para procedimento agendado`,
-          solicitacao_id: newSolicitacaoRef.id,
-          created_by: userId,
-          created_by_name: userName,
-          timestamp: now,
-        });
-
-        transaction.set(doc(activityRef), activityData);
-      }
+      writeActivityLogs(
+        transaction,
+        tenantId,
+        produtosDetalhados,
+        newSolicitacaoRef.id,
+        userId,
+        userName,
+        now,
+        'reserva',
+        'Reserva para procedimento agendado',
+        (p) => p.quantidade_disponivel_antes
+      );
 
       return newSolicitacaoRef;
     });
@@ -395,28 +421,18 @@ export async function createSolicitacaoEfetuada(
       }
 
       // Auditoria de movimentação
-      const activityRef = collection(db, 'tenants', tenantId, 'inventory_activity');
-      for (const produto of produtosDetalhados) {
-        transaction.set(
-          doc(activityRef),
-          removeUndefined({
-            tenant_id: tenantId,
-            inventory_item_id: produto.inventory_item_id,
-            produto_codigo: produto.produto_codigo,
-            produto_nome: produto.produto_nome,
-            lote: produto.lote,
-            tipo: 'consumo_imediato',
-            quantidade: produto.quantidade,
-            quantidade_anterior: produto.quantidade_disponivel_antes,
-            quantidade_posterior: produto.quantidade_disponivel_antes - produto.quantidade,
-            descricao: 'Consumo por procedimento efetuado',
-            solicitacao_id: newSolicitacaoRef.id,
-            created_by: userId,
-            created_by_name: userName,
-            timestamp: now,
-          })
-        );
-      }
+      writeActivityLogs(
+        transaction,
+        tenantId,
+        produtosDetalhados,
+        newSolicitacaoRef.id,
+        userId,
+        userName,
+        now,
+        'consumo_imediato',
+        'Consumo por procedimento efetuado',
+        (p) => p.quantidade_disponivel_antes - p.quantidade
+      );
 
       return newSolicitacaoRef;
     });
