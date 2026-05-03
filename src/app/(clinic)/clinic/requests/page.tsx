@@ -153,23 +153,30 @@ export default function SolicitacoesPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold">{mesStats?.total ?? '—'}</div>
-                  {mesStats && (
-                    mesStats.totalMesAnterior === 0 ? (
+                  {mesStats &&
+                    (mesStats.totalMesAnterior === 0 ? (
                       <p className="text-xs text-muted-foreground mt-1">Primeiro mês com dados</p>
                     ) : (
-                      <p className={`text-xs mt-1 ${
-                        mesStats.crescimentoAbsoluto > 0
-                          ? 'text-green-600'
+                      <p
+                        className={`text-xs mt-1 ${
+                          mesStats.crescimentoAbsoluto > 0
+                            ? 'text-green-600'
+                            : mesStats.crescimentoAbsoluto < 0
+                              ? 'text-red-600'
+                              : 'text-muted-foreground'
+                        }`}
+                      >
+                        {mesStats.crescimentoAbsoluto > 0
+                          ? '▲'
                           : mesStats.crescimentoAbsoluto < 0
-                            ? 'text-red-600'
-                            : 'text-muted-foreground'
-                      }`}>
-                        {mesStats.crescimentoAbsoluto > 0 ? '▲' : mesStats.crescimentoAbsoluto < 0 ? '▼' : '→'}{' '}
-                        {mesStats.crescimentoAbsoluto > 0 ? '+' : ''}{mesStats.crescimentoPercent}%
-                        {' '}({mesStats.crescimentoAbsoluto > 0 ? '+' : ''}{mesStats.crescimentoAbsoluto} vs mês anterior)
+                            ? '▼'
+                            : '→'}{' '}
+                        {mesStats.crescimentoAbsoluto > 0 ? '+' : ''}
+                        {mesStats.crescimentoPercent}% (
+                        {mesStats.crescimentoAbsoluto > 0 ? '+' : ''}
+                        {mesStats.crescimentoAbsoluto} vs mês anterior)
                       </p>
-                    )
-                  )}
+                    ))}
                 </>
               )}
             </CardContent>

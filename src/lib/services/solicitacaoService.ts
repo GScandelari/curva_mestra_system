@@ -352,13 +352,20 @@ export async function createSolicitacaoEfetuada(
   try {
     const validation = await validateInventoryAvailability(tenantId, input.produtos);
     if (!validation.valid) {
-      return { success: false, error: 'Erro de validação de estoque', validationErrors: validation.errors };
+      return {
+        success: false,
+        error: 'Erro de validação de estoque',
+        validationErrors: validation.errors,
+      };
     }
 
     const produtosDetalhados: ProdutoSolicitado[] = [];
     for (const produto of input.produtos) {
-      const itemSnap = await getDoc(doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id));
-      if (!itemSnap.exists()) throw new Error(`Produto ${produto.inventory_item_id} não encontrado`);
+      const itemSnap = await getDoc(
+        doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id)
+      );
+      if (!itemSnap.exists())
+        throw new Error(`Produto ${produto.inventory_item_id} não encontrado`);
       const itemData = itemSnap.data() as InventoryItem;
       produtosDetalhados.push({
         inventory_item_id: produto.inventory_item_id,
@@ -375,7 +382,11 @@ export async function createSolicitacaoEfetuada(
       const cleaned: any = {};
       Object.keys(obj).forEach((key) => {
         if (obj[key] !== undefined && obj[key] !== null) {
-          if (typeof obj[key] === 'object' && !Array.isArray(obj[key]) && !(obj[key] instanceof Timestamp)) {
+          if (
+            typeof obj[key] === 'object' &&
+            !Array.isArray(obj[key]) &&
+            !(obj[key] instanceof Timestamp)
+          ) {
             cleaned[key] = removeUndefined(obj[key]);
           } else if (Array.isArray(obj[key])) {
             cleaned[key] = obj[key].map((item: any) =>
@@ -400,23 +411,32 @@ export async function createSolicitacaoEfetuada(
       const inventoryData: { ref: any; data: InventoryItem; quantidade_solicitada: number }[] = [];
       for (let i = 0; i < snapshots.length; i++) {
         const snap = snapshots[i];
-        if (!snap.exists()) throw new Error(`Produto ${input.produtos[i].inventory_item_id} não encontrado`);
+        if (!snap.exists())
+          throw new Error(`Produto ${input.produtos[i].inventory_item_id} não encontrado`);
         const data = snap.data() as InventoryItem;
         if (data.quantidade_disponivel < inventoryReads[i].quantidade_solicitada) {
-          throw new Error(`Estoque insuficiente para ${data.nome_produto}. Disponível: ${data.quantidade_disponivel}, Solicitado: ${inventoryReads[i].quantidade_solicitada}`);
+          throw new Error(
+            `Estoque insuficiente para ${data.nome_produto}. Disponível: ${data.quantidade_disponivel}, Solicitado: ${inventoryReads[i].quantidade_solicitada}`
+          );
         }
-        inventoryData.push({ ref: inventoryReads[i].ref, data, quantidade_solicitada: inventoryReads[i].quantidade_solicitada });
+        inventoryData.push({
+          ref: inventoryReads[i].ref,
+          data,
+          quantidade_solicitada: inventoryReads[i].quantidade_solicitada,
+        });
       }
 
       // FASE 2: ESCRITAS
       const now = Timestamp.now();
-      const statusHistory: StatusHistoryEntry[] = [{
-        status: 'efetuada',
-        changed_by: userId,
-        changed_by_name: userName,
-        changed_at: now,
-        observacao: 'Procedimento registrado como já realizado',
-      }];
+      const statusHistory: StatusHistoryEntry[] = [
+        {
+          status: 'efetuada',
+          changed_by: userId,
+          changed_by_name: userName,
+          changed_at: now,
+          observacao: 'Procedimento registrado como já realizado',
+        },
+      ];
 
       const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
       const newSolicitacaoRef = doc(solicitacoesRef);
@@ -449,22 +469,25 @@ export async function createSolicitacaoEfetuada(
       // Auditoria de movimentação
       const activityRef = collection(db, 'tenants', tenantId, 'inventory_activity');
       for (const produto of produtosDetalhados) {
-        transaction.set(doc(activityRef), removeUndefined({
-          tenant_id: tenantId,
-          inventory_item_id: produto.inventory_item_id,
-          produto_codigo: produto.produto_codigo,
-          produto_nome: produto.produto_nome,
-          lote: produto.lote,
-          tipo: 'consumo_imediato',
-          quantidade: produto.quantidade,
-          quantidade_anterior: produto.quantidade_disponivel_antes,
-          quantidade_posterior: produto.quantidade_disponivel_antes - produto.quantidade,
-          descricao: 'Consumo por procedimento efetuado',
-          solicitacao_id: newSolicitacaoRef.id,
-          created_by: userId,
-          created_by_name: userName,
-          timestamp: now,
-        }));
+        transaction.set(
+          doc(activityRef),
+          removeUndefined({
+            tenant_id: tenantId,
+            inventory_item_id: produto.inventory_item_id,
+            produto_codigo: produto.produto_codigo,
+            produto_nome: produto.produto_nome,
+            lote: produto.lote,
+            tipo: 'consumo_imediato',
+            quantidade: produto.quantidade,
+            quantidade_anterior: produto.quantidade_disponivel_antes,
+            quantidade_posterior: produto.quantidade_disponivel_antes - produto.quantidade,
+            descricao: 'Consumo por procedimento efetuado',
+            solicitacao_id: newSolicitacaoRef.id,
+            created_by: userId,
+            created_by_name: userName,
+            timestamp: now,
+          })
+        );
       }
 
       return newSolicitacaoRef;
@@ -529,7 +552,7 @@ export async function updateSolicitacaoStatus(
         agendada: ['concluida', 'cancelada'],
         efetuada: ['concluida', 'cancelada'],
         aprovada: ['concluida', 'cancelada'], // legado
-        criada:   ['agendada', 'cancelada'],  // legado
+        criada: ['agendada', 'cancelada'], // legado
       };
 
       const allowed = VALID_TRANSITIONS[statusAnterior] ?? [];
@@ -571,16 +594,28 @@ export async function updateSolicitacaoStatus(
 
         const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
 
-        if ((statusAnterior === 'agendada' || statusAnterior === 'aprovada') && newStatus === 'concluida') {
+        if (
+          (statusAnterior === 'agendada' || statusAnterior === 'aprovada') &&
+          newStatus === 'concluida'
+        ) {
           // Libera reserva — disponível não muda (já foi descontado na criação)
           transaction.update(itemRef, {
-            quantidade_reservada: Math.max(0, (itemData.quantidade_reservada || 0) - produto.quantidade),
+            quantidade_reservada: Math.max(
+              0,
+              (itemData.quantidade_reservada || 0) - produto.quantidade
+            ),
             updated_at: now,
           });
-        } else if ((statusAnterior === 'agendada' || statusAnterior === 'aprovada') && newStatus === 'cancelada') {
+        } else if (
+          (statusAnterior === 'agendada' || statusAnterior === 'aprovada') &&
+          newStatus === 'cancelada'
+        ) {
           // Libera reserva e devolve ao disponível
           transaction.update(itemRef, {
-            quantidade_reservada: Math.max(0, (itemData.quantidade_reservada || 0) - produto.quantidade),
+            quantidade_reservada: Math.max(
+              0,
+              (itemData.quantidade_reservada || 0) - produto.quantidade
+            ),
             quantidade_disponivel: (itemData.quantidade_disponivel || 0) + produto.quantidade,
             updated_at: now,
           });

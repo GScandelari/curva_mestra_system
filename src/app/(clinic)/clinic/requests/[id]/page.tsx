@@ -106,10 +106,7 @@ export default function SolicitacaoDetalhesPage() {
     }).format(value);
   };
 
-  const handleStatusUpdate = async (
-    newStatus: 'concluida' | 'cancelada',
-    observacao?: string
-  ) => {
+  const handleStatusUpdate = async (newStatus: 'concluida' | 'cancelada', observacao?: string) => {
     if (!tenantId || !user || !solicitacao) return;
 
     setUpdating(true);

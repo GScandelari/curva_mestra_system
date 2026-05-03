@@ -267,15 +267,27 @@ export default function NovaSolicitacaoPage() {
 
     if (tipoProcedimento === 'efetuado') {
       if (!selectedProductCode) {
-        toast({ title: 'Selecione um produto', description: 'Escolha um produto do inventário', variant: 'destructive' });
+        toast({
+          title: 'Selecione um produto',
+          description: 'Escolha um produto do inventário',
+          variant: 'destructive',
+        });
         return;
       }
       if (!selectedLoteId) {
-        toast({ title: 'Selecione o lote', description: 'Informe o lote utilizado no procedimento', variant: 'destructive' });
+        toast({
+          title: 'Selecione o lote',
+          description: 'Informe o lote utilizado no procedimento',
+          variant: 'destructive',
+        });
         return;
       }
       if (Number.isNaN(quantidade) || quantidade <= 0) {
-        toast({ title: 'Quantidade inválida', description: 'Informe uma quantidade válida', variant: 'destructive' });
+        toast({
+          title: 'Quantidade inválida',
+          description: 'Informe uma quantidade válida',
+          variant: 'destructive',
+        });
         return;
       }
 
@@ -283,11 +295,19 @@ export default function NovaSolicitacaoPage() {
       if (!loteItem) return;
 
       if (quantidade > loteItem.quantidade_disponivel) {
-        toast({ title: 'Estoque insuficiente', description: `Disponível: ${loteItem.quantidade_disponivel} unidades`, variant: 'destructive' });
+        toast({
+          title: 'Estoque insuficiente',
+          description: `Disponível: ${loteItem.quantidade_disponivel} unidades`,
+          variant: 'destructive',
+        });
         return;
       }
       if (produtosSelecionados.some((p) => p.inventory_item_id === selectedLoteId)) {
-        toast({ title: 'Lote já adicionado', description: 'Este lote já está na lista', variant: 'destructive' });
+        toast({
+          title: 'Lote já adicionado',
+          description: 'Este lote já está na lista',
+          variant: 'destructive',
+        });
         return;
       }
 
@@ -562,7 +582,10 @@ export default function NovaSolicitacaoPage() {
                         type="button"
                         variant={tipoProcedimento === 'programado' ? 'default' : 'outline'}
                         className="flex-1"
-                        onClick={() => { setTipoProcedimento('programado'); setSelectedLoteId(''); }}
+                        onClick={() => {
+                          setTipoProcedimento('programado');
+                          setSelectedLoteId('');
+                        }}
                       >
                         Procedimento Programado
                       </Button>
@@ -570,7 +593,10 @@ export default function NovaSolicitacaoPage() {
                         type="button"
                         variant={tipoProcedimento === 'efetuado' ? 'default' : 'outline'}
                         className="flex-1"
-                        onClick={() => { setTipoProcedimento('efetuado'); setSelectedLoteId(''); }}
+                        onClick={() => {
+                          setTipoProcedimento('efetuado');
+                          setSelectedLoteId('');
+                        }}
                       >
                         Procedimento Efetuado
                       </Button>
@@ -638,7 +664,10 @@ export default function NovaSolicitacaoPage() {
                     <Label htmlFor="produto">Produto</Label>
                     <Select
                       value={selectedProductCode}
-                      onValueChange={(v) => { setSelectedProductCode(v); setSelectedLoteId(''); }}
+                      onValueChange={(v) => {
+                        setSelectedProductCode(v);
+                        setSelectedLoteId('');
+                      }}
                       disabled={loading}
                     >
                       <SelectTrigger id="produto">
@@ -674,10 +703,7 @@ export default function NovaSolicitacaoPage() {
                 {tipoProcedimento === 'efetuado' && selectedProductCode && (
                   <div className="space-y-2">
                     <Label htmlFor="lote">Lote Utilizado *</Label>
-                    <Select
-                      value={selectedLoteId}
-                      onValueChange={setSelectedLoteId}
-                    >
+                    <Select value={selectedLoteId} onValueChange={setSelectedLoteId}>
                       <SelectTrigger id="lote">
                         <SelectValue placeholder="Selecione o lote utilizado no procedimento" />
                       </SelectTrigger>
@@ -686,7 +712,8 @@ export default function NovaSolicitacaoPage() {
                           .filter((item) => item.codigo_produto === selectedProductCode)
                           .map((item) => (
                             <SelectItem key={item.id} value={item.id}>
-                              Lote {item.lote} — {item.quantidade_disponivel} un. disponíveis (val. {String(item.dt_validade)})
+                              Lote {item.lote} — {item.quantidade_disponivel} un. disponíveis (val.{' '}
+                              {String(item.dt_validade)})
                             </SelectItem>
                           ))}
                       </SelectContent>
@@ -888,10 +915,10 @@ export default function NovaSolicitacaoPage() {
                     <>
                       <Check className="mr-2 h-4 w-4" />
                       {isEditMode
-                    ? 'Confirmar Alterações'
-                    : tipoProcedimento === 'efetuado'
-                      ? 'Confirmar e Consumir Produtos'
-                      : 'Confirmar e Reservar Produtos'}
+                        ? 'Confirmar Alterações'
+                        : tipoProcedimento === 'efetuado'
+                          ? 'Confirmar e Consumir Produtos'
+                          : 'Confirmar e Reservar Produtos'}
                     </>
                   )}
                 </Button>

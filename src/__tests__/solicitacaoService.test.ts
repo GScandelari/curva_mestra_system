@@ -1,5 +1,8 @@
 import { determineInitialStatus } from '@/lib/services/solicitacaoService';
-import type { CreateSolicitacaoInput, CreateSolicitacaoEfetuadaInput } from '@/lib/services/solicitacaoService';
+import type {
+  CreateSolicitacaoInput,
+  CreateSolicitacaoEfetuadaInput,
+} from '@/lib/services/solicitacaoService';
 
 describe('determineInitialStatus', () => {
   it('returns "agendada" for tipo programado with a future date', () => {

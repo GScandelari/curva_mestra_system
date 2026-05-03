@@ -164,11 +164,11 @@ export interface InventoryItem {
 // ============================================================================
 
 export type SolicitacaoStatus =
-  | 'criada'    // legado
-  | 'agendada'  // procedimento programado, aguardando realização
-  | 'efetuada'  // procedimento registrado como já realizado, aguardando conclusão formal
+  | 'criada' // legado
+  | 'agendada' // procedimento programado, aguardando realização
+  | 'efetuada' // procedimento registrado como já realizado, aguardando conclusão formal
   | 'concluida'
-  | 'aprovada'  // legado — mantido para dados históricos
+  | 'aprovada' // legado — mantido para dados históricos
   | 'reprovada' // legado — mantido para dados históricos
   | 'cancelada';
 

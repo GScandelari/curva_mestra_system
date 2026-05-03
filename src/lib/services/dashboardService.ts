@@ -71,8 +71,8 @@ export async function getDashboardEstoqueStats(tenantId: string): Promise<Dashbo
 // ============================================================================
 
 export interface DashboardProcedimentosStats {
-  efetuados: number;    // status === 'concluida' no mês atual
-  agendados: number;    // status === 'agendada' | 'efetuada' no mês atual (abertos)
+  efetuados: number; // status === 'concluida' no mês atual
+  agendados: number; // status === 'agendada' | 'efetuada' no mês atual (abertos)
   agendadasMes: number; // status === 'agendada', dt_procedimento no mês atual
   concluidasMes: number; // status === 'concluida', dt_procedimento no mês atual
   total: number; // todos exceto cancelada/reprovada no mês atual
@@ -124,7 +124,10 @@ export async function getDashboardProcedimentosStats(
     const status = docSnap.data().status as string;
     if (STATUS_EXCLUIDOS.has(status)) return;
     total++;
-    if (status === 'concluida') { efetuados++; concluidasMes++; }
+    if (status === 'concluida') {
+      efetuados++;
+      concluidasMes++;
+    }
     if (status === 'agendada' || status === 'efetuada' || status === 'aprovada') agendados++;
     if (status === 'agendada') agendadasMes++;
   });
