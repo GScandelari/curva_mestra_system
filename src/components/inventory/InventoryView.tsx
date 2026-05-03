@@ -47,6 +47,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { type InventoryItem } from '@/lib/services/inventoryService';
+import { getStatusEstoque } from '@/lib/inventoryUtils';
 
 interface InventoryViewProps {
   tenantId: string;
@@ -92,6 +93,7 @@ function parseItem(doc: { id: string; data: () => Record<string, unknown> }): In
       data.updated_at instanceof Timestamp
         ? data.updated_at.toDate()
         : new Date((data.updated_at as string) || Date.now()),
+    limite_estoque_baixo: data.limite_estoque_baixo as number | undefined,
   };
 }
 
@@ -111,9 +113,7 @@ function applyFilter(
       (item) => item.dt_validade <= in30Days && item.quantidade_disponivel > 0
     );
   } else if (filter === 'low_stock') {
-    filtered = filtered.filter(
-      (item) => item.quantidade_disponivel > 0 && item.quantidade_disponivel < 10
-    );
+    filtered = filtered.filter((item) => getStatusEstoque(item) === 'Baixo');
   } else if (filter === 'out_of_stock') {
     filtered = filtered.filter((item) => item.quantidade_disponivel === 0);
   }
@@ -155,15 +155,16 @@ function ExpiryBadge({ date, quantity }: { date: Date; quantity: number }) {
   return <Badge variant="default">{days} dias</Badge>;
 }
 
-function StockBadge({ quantity }: { quantity: number }) {
-  if (quantity === 0)
+function StockBadge({ item }: { item: InventoryItem }) {
+  const status = getStatusEstoque(item);
+  if (status === 'Sem estoque')
     return (
       <Badge variant="destructive" className="gap-1">
         <TrendingDown className="h-3 w-3" />
         Esgotado
       </Badge>
     );
-  if (quantity < 10)
+  if (status === 'Baixo')
     return (
       <Badge variant="warning" className="gap-1">
         <AlertTriangle className="h-3 w-3" />
@@ -323,11 +324,7 @@ export function InventoryView({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
-                {
-                  inventory.filter(
-                    (item) => item.quantidade_disponivel > 0 && item.quantidade_disponivel < 10
-                  ).length
-                }
+                {inventory.filter((item) => getStatusEstoque(item) === 'Baixo').length}
               </div>
             </CardContent>
           </Card>
@@ -465,7 +462,7 @@ export function InventoryView({
                               date={item.dt_validade}
                               quantity={item.quantidade_disponivel}
                             />
-                            <StockBadge quantity={item.quantidade_disponivel} />
+                            <StockBadge item={item} />
                           </div>
                         </TableCell>
                       </TableRow>
