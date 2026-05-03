@@ -108,12 +108,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
-    // Apenas system_admin ou clinic_admin do tenant podem transferir
+    // Apenas system_admin ou o próprio consultor vinculado podem transferir
     const isSystemAdmin = decodedToken.is_system_admin;
-    const isClinicAdmin =
-      decodedToken.role === 'clinic_admin' && decodedToken.tenant_id === tenantId;
+    const isConsultant =
+      decodedToken.is_consultant && decodedToken.authorized_tenants?.includes(tenantId);
 
-    if (!isSystemAdmin && !isClinicAdmin) {
+    if (!isSystemAdmin && !isConsultant) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -244,12 +244,12 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
 
-    // Apenas system_admin ou clinic_admin do tenant podem remover
+    // Apenas system_admin ou o próprio consultor vinculado podem remover
     const isSystemAdmin = decodedToken.is_system_admin;
-    const isClinicAdmin =
-      decodedToken.role === 'clinic_admin' && decodedToken.tenant_id === tenantId;
+    const isConsultant =
+      decodedToken.is_consultant && decodedToken.authorized_tenants?.includes(tenantId);
 
-    if (!isSystemAdmin && !isClinicAdmin) {
+    if (!isSystemAdmin && !isConsultant) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
