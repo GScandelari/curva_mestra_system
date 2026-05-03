@@ -13,6 +13,8 @@ import {
   Timestamp,
   doc,
   getDoc,
+  updateDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -40,6 +42,7 @@ export interface InventoryItem {
   unidades_por_embalagem?: number;
   quantidade_embalagens?: number; // auditoria: quantas embalagens foram compradas
   valor_por_embalagem?: number; // auditoria: valor original por embalagem
+  limite_estoque_baixo?: number;
 }
 
 // ============================================================================
@@ -148,8 +151,9 @@ export async function getInventoryStats(tenantId: string): Promise<InventoryStat
           produtosVencendo30dias++;
         }
 
-        // Verificar estoque baixo (menos de 10 unidades)
-        if (quantidade < 10) {
+        // Verificar estoque baixo (por limite individual ou padrão 10)
+        const limite = (data.limite_estoque_baixo as number | undefined) ?? 10;
+        if (quantidade <= limite) {
           produtosEstoqueBaixo++;
         }
       }
@@ -314,6 +318,7 @@ export async function listInventory(
           data.updated_at instanceof Timestamp
             ? data.updated_at.toDate()
             : new Date(data.updated_at),
+        limite_estoque_baixo: data.limite_estoque_baixo as number | undefined,
       });
     });
 
@@ -369,9 +374,25 @@ export async function getInventoryItem(
       unidades_por_embalagem: data.unidades_por_embalagem as number | undefined,
       quantidade_embalagens: data.quantidade_embalagens as number | undefined,
       valor_por_embalagem: data.valor_por_embalagem as number | undefined,
+      limite_estoque_baixo: data.limite_estoque_baixo as number | undefined,
     };
   } catch (error) {
     console.error('Erro ao buscar item do inventário:', error);
     throw error;
   }
+}
+
+/**
+ * Atualiza o limite de estoque baixo de um item do inventário
+ */
+export async function updateInventoryItemLimite(
+  tenantId: string,
+  itemId: string,
+  limiteEstoqueBaixo: number
+): Promise<void> {
+  const itemRef = doc(db, 'tenants', tenantId, 'inventory', itemId);
+  await updateDoc(itemRef, {
+    limite_estoque_baixo: limiteEstoqueBaixo,
+    updated_at: serverTimestamp(),
+  });
 }
