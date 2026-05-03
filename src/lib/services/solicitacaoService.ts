@@ -60,6 +60,30 @@ export interface SolicitacaoWithDetails extends Solicitacao {
 // HELPER FUNCTIONS
 // ============================================================================
 
+function removeUndefined(obj: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
+  Object.keys(obj).forEach((key) => {
+    if (obj[key] !== undefined && obj[key] !== null) {
+      if (
+        typeof obj[key] === 'object' &&
+        !Array.isArray(obj[key]) &&
+        !(obj[key] instanceof Timestamp)
+      ) {
+        cleaned[key] = removeUndefined(obj[key] as Record<string, unknown>);
+      } else if (Array.isArray(obj[key])) {
+        cleaned[key] = (obj[key] as unknown[]).map((item) =>
+          typeof item === 'object' && item !== null
+            ? removeUndefined(item as Record<string, unknown>)
+            : item
+        );
+      } else {
+        cleaned[key] = obj[key];
+      }
+    }
+  });
+  return cleaned;
+}
+
 /**
  * Determina o status inicial da solicitação com base no tipo informado.
  * - 'programado' → 'agendada' (reserva de estoque)
@@ -176,29 +200,6 @@ export async function createSolicitacaoWithConsumption(
 
     // 3.1. Criar solicitação e atualizar inventário em transação
     const solicitacaoRef = await runTransaction(db, async (transaction) => {
-      // Função helper para remover campos undefined
-      const removeUndefined = (obj: any): any => {
-        const cleaned: any = {};
-        Object.keys(obj).forEach((key) => {
-          if (obj[key] !== undefined && obj[key] !== null) {
-            if (
-              typeof obj[key] === 'object' &&
-              !Array.isArray(obj[key]) &&
-              !(obj[key] instanceof Timestamp)
-            ) {
-              cleaned[key] = removeUndefined(obj[key]);
-            } else if (Array.isArray(obj[key])) {
-              cleaned[key] = obj[key].map((item: any) =>
-                typeof item === 'object' && item !== null ? removeUndefined(item) : item
-              );
-            } else {
-              cleaned[key] = obj[key];
-            }
-          }
-        });
-        return cleaned;
-      };
-
       // ========== FASE 1: TODAS AS LEITURAS ==========
       // 3.1. Ler e verificar estoque de todos os produtos
       const inventoryReads = [];
@@ -377,28 +378,6 @@ export async function createSolicitacaoEfetuada(
         valor_unitario: itemData.valor_unitario,
       });
     }
-
-    const removeUndefined = (obj: any): any => {
-      const cleaned: any = {};
-      Object.keys(obj).forEach((key) => {
-        if (obj[key] !== undefined && obj[key] !== null) {
-          if (
-            typeof obj[key] === 'object' &&
-            !Array.isArray(obj[key]) &&
-            !(obj[key] instanceof Timestamp)
-          ) {
-            cleaned[key] = removeUndefined(obj[key]);
-          } else if (Array.isArray(obj[key])) {
-            cleaned[key] = obj[key].map((item: any) =>
-              typeof item === 'object' && item !== null ? removeUndefined(item) : item
-            );
-          } else {
-            cleaned[key] = obj[key];
-          }
-        }
-      });
-      return cleaned;
-    };
 
     const solicitacaoRef = await runTransaction(db, async (transaction) => {
       // FASE 1: LEITURAS
