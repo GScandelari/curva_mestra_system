@@ -9,7 +9,6 @@ export interface InventoryItemLike {
   nome_produto: string;
   quantidade_disponivel: number;
   dt_validade: Date;
-  limite_estoque_baixo?: number;
 }
 
 export interface ProdutoAgrupado<T extends InventoryItemLike = InventoryItemLike> {
@@ -59,8 +58,7 @@ export function computeInventoryStats(
     total_items++;
     const expDate = parseInventoryDate(data.dt_validade);
     if (expDate && expDate <= cutoffDate) expiring_soon++;
-    const limite = (data.limite_estoque_baixo as number | undefined) ?? 10;
-    if ((data.quantidade_disponivel as number) <= limite) low_stock++;
+    if ((data.quantidade_disponivel as number) <= 10) low_stock++;
   }
 
   return { total_items, expiring_soon, low_stock };

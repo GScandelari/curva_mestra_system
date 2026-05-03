@@ -13,8 +13,7 @@ import {
   Timestamp,
   doc,
   getDoc,
-  updateDoc,
-  serverTimestamp,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -42,7 +41,6 @@ export interface InventoryItem {
   unidades_por_embalagem?: number;
   quantidade_embalagens?: number; // auditoria: quantas embalagens foram compradas
   valor_por_embalagem?: number; // auditoria: valor original por embalagem
-  limite_estoque_baixo?: number;
 }
 
 // ============================================================================
@@ -151,9 +149,7 @@ export async function getInventoryStats(tenantId: string): Promise<InventoryStat
           produtosVencendo30dias++;
         }
 
-        // Verificar estoque baixo (por limite individual ou padrão 10)
-        const limite = (data.limite_estoque_baixo as number | undefined) ?? 10;
-        if (quantidade <= limite) {
+        if (quantidade <= 10) {
           produtosEstoqueBaixo++;
         }
       }
@@ -318,7 +314,6 @@ export async function listInventory(
           data.updated_at instanceof Timestamp
             ? data.updated_at.toDate()
             : new Date(data.updated_at),
-        limite_estoque_baixo: data.limite_estoque_baixo as number | undefined,
       });
     });
 
@@ -374,7 +369,6 @@ export async function getInventoryItem(
       unidades_por_embalagem: data.unidades_por_embalagem as number | undefined,
       quantidade_embalagens: data.quantidade_embalagens as number | undefined,
       valor_por_embalagem: data.valor_por_embalagem as number | undefined,
-      limite_estoque_baixo: data.limite_estoque_baixo as number | undefined,
     };
   } catch (error) {
     console.error('Erro ao buscar item do inventário:', error);
@@ -383,16 +377,27 @@ export async function getInventoryItem(
 }
 
 /**
- * Atualiza o limite de estoque baixo de um item do inventário
+ * Retorna um Map<codigo_produto, limite_estoque_baixo> para o tenant.
+ * Lê de tenants/{tenantId}/stock_limits/{codigo_produto}.
  */
-export async function updateInventoryItemLimite(
+export async function getStockLimitsMap(tenantId: string): Promise<Map<string, number>> {
+  const limitsRef = collection(db, 'tenants', tenantId, 'stock_limits');
+  const snapshot = await getDocs(limitsRef);
+  const map = new Map<string, number>();
+  snapshot.forEach((d) => {
+    map.set(d.id, d.data().limite_estoque_baixo as number);
+  });
+  return map;
+}
+
+/**
+ * Persiste o limite de estoque baixo de um produto (por codigo_produto).
+ */
+export async function updateStockLimit(
   tenantId: string,
-  itemId: string,
+  codigoProduto: string,
   limiteEstoqueBaixo: number
 ): Promise<void> {
-  const itemRef = doc(db, 'tenants', tenantId, 'inventory', itemId);
-  await updateDoc(itemRef, {
-    limite_estoque_baixo: limiteEstoqueBaixo,
-    updated_at: serverTimestamp(),
-  });
+  const limitRef = doc(db, 'tenants', tenantId, 'stock_limits', codigoProduto);
+  await setDoc(limitRef, { limite_estoque_baixo: limiteEstoqueBaixo }, { merge: true });
 }
