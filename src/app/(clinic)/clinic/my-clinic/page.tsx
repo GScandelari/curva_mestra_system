@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Users, UserCheck } from 'lucide-react';
+import { Building2, Users, UserCheck, TrendingDown } from 'lucide-react';
 
 import dynamic from 'next/dynamic';
 
@@ -19,6 +19,11 @@ const UsersTab = dynamic(() => import('@/components/clinic/UsersTab'), {
 });
 
 const ConsultantTab = dynamic(() => import('@/components/clinic/ConsultantTab'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-center">Carregando...</div>,
+});
+
+const StockLimitsTab = dynamic(() => import('@/components/clinic/StockLimitsTab'), {
   ssr: false,
   loading: () => <div className="p-8 text-center">Carregando...</div>,
 });
@@ -39,7 +44,7 @@ export default function MyClinicPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!isAdmin && activeTab === 'users') {
+    if (!isAdmin && (activeTab === 'users' || activeTab === 'stock_limits')) {
       setActiveTab('clinic');
     }
   }, [isAdmin, activeTab]);
@@ -61,7 +66,7 @@ export default function MyClinicPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} mb-6`}>
           <TabsTrigger value="clinic" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Clínica
@@ -70,6 +75,12 @@ export default function MyClinicPage() {
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Usuários
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="stock_limits" className="flex items-center gap-2">
+              <TrendingDown className="h-4 w-4" />
+              Limite de Estoque
             </TabsTrigger>
           )}
           <TabsTrigger value="consultant" className="flex items-center gap-2">
@@ -85,6 +96,12 @@ export default function MyClinicPage() {
         {isAdmin && (
           <TabsContent value="users">
             <UsersTab />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="stock_limits">
+            <StockLimitsTab />
           </TabsContent>
         )}
 

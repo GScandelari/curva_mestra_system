@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -17,15 +16,8 @@ import {
   AlertTriangle,
   FileText,
   Barcode,
-  Pencil,
-  Check,
-  X,
 } from 'lucide-react';
-import {
-  getInventoryItem,
-  updateInventoryItemLimite,
-  type InventoryItem,
-} from '@/lib/services/inventoryService';
+import { getInventoryItem, getStockLimitsMap, type InventoryItem } from '@/lib/services/inventoryService';
 import { getStatusEstoque, type StatusEstoque } from '@/lib/inventoryUtils';
 
 export default function InventoryItemPage() {
@@ -34,16 +26,12 @@ export default function InventoryItemPage() {
   const params = useParams();
 
   const [item, setItem] = useState<InventoryItem | null>(null);
+  const [stockLimit, setStockLimit] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [editandoLimite, setEditandoLimite] = useState(false);
-  const [limiteInput, setLimiteInput] = useState('');
-  const [salvandoLimite, setSalvandoLimite] = useState(false);
-
   const tenantId = claims?.tenant_id;
   const itemId = params.id as string;
-  const isAdmin = claims?.role === 'clinic_admin';
 
   useEffect(() => {
     async function loadItem() {
@@ -53,14 +41,18 @@ export default function InventoryItemPage() {
         setLoading(true);
         setError('');
 
-        const data = await getInventoryItem(tenantId, itemId);
+        const [data, limitsMap] = await Promise.all([
+          getInventoryItem(tenantId, itemId),
+          getStockLimitsMap(tenantId),
+        ]);
+
         if (!data) {
           setError('Produto não encontrado');
           return;
         }
 
         setItem(data);
-        setLimiteInput(String(data.limite_estoque_baixo ?? 10));
+        setStockLimit(limitsMap.get(data.codigo_produto));
       } catch (err: any) {
         console.error('Erro ao carregar produto:', err);
         setError('Erro ao carregar produto');
@@ -71,23 +63,6 @@ export default function InventoryItemPage() {
 
     loadItem();
   }, [tenantId, itemId]);
-
-  const handleSalvarLimite = async () => {
-    if (!tenantId || !item) return;
-    const valor = parseInt(limiteInput, 10);
-    if (isNaN(valor) || valor < 0) return;
-
-    setSalvandoLimite(true);
-    try {
-      await updateInventoryItemLimite(tenantId, item.id, valor);
-      setItem({ ...item, limite_estoque_baixo: valor });
-      setEditandoLimite(false);
-    } catch (err) {
-      console.error('Erro ao salvar limite:', err);
-    } finally {
-      setSalvandoLimite(false);
-    }
-  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('pt-BR', {
@@ -124,31 +99,15 @@ export default function InventoryItemPage() {
     const days = getDaysUntilExpiry(date);
 
     if (days < 0) {
-      return {
-        text: 'Vencido',
-        variant: 'destructive' as const,
-        icon: AlertTriangle,
-      };
+      return { text: 'Vencido', variant: 'destructive' as const, icon: AlertTriangle };
     }
     if (days <= 7) {
-      return {
-        text: `Vence em ${days} dias`,
-        variant: 'destructive' as const,
-        icon: AlertTriangle,
-      };
+      return { text: `Vence em ${days} dias`, variant: 'destructive' as const, icon: AlertTriangle };
     }
     if (days <= 30) {
-      return {
-        text: `Vence em ${days} dias`,
-        variant: 'warning' as const,
-        icon: AlertTriangle,
-      };
+      return { text: `Vence em ${days} dias`, variant: 'warning' as const, icon: AlertTriangle };
     }
-    return {
-      text: `Vence em ${days} dias`,
-      variant: 'default' as const,
-      icon: Calendar,
-    };
+    return { text: `Vence em ${days} dias`, variant: 'default' as const, icon: Calendar };
   };
 
   const getStockStatusDisplay = (status: StatusEstoque) => {
@@ -191,10 +150,12 @@ export default function InventoryItemPage() {
   }
 
   const expiryStatus = getExpiryStatus(item.dt_validade);
-  const stockStatus = getStockStatusDisplay(getStatusEstoque(item));
+  const stockStatus = getStockStatusDisplay(
+    getStatusEstoque({ quantidade_disponivel: item.quantidade_disponivel, limite_estoque_baixo: stockLimit })
+  );
   const ExpiryIcon = expiryStatus.icon;
   const StockIcon = stockStatus.icon;
-  const limiteAtual = item.limite_estoque_baixo ?? 10;
+  const limiteAtual = stockLimit ?? 10;
 
   return (
     <div className="container py-8">
@@ -305,57 +266,14 @@ export default function InventoryItemPage() {
                 </div>
               </div>
 
-              {/* Limite de Estoque Baixo */}
               <div className="pt-4 border-t">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-medium">Limite de Estoque Baixo</p>
-                  {isAdmin && !editandoLimite && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={() => {
-                        setLimiteInput(String(limiteAtual));
-                        setEditandoLimite(true);
-                      }}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-                {editandoLimite ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      value={limiteInput}
-                      onChange={(e) => setLimiteInput(e.target.value)}
-                      className="h-8 w-24"
-                      disabled={salvandoLimite}
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8"
-                      onClick={handleSalvarLimite}
-                      disabled={salvandoLimite}
-                    >
-                      <Check className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8"
-                      onClick={() => setEditandoLimite(false)}
-                      disabled={salvandoLimite}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-xl font-bold">{limiteAtual} unidades</p>
-                )}
+                <p className="text-sm font-medium mb-1">Limite de Estoque Baixo</p>
+                <p className="text-xl font-bold">{limiteAtual} unidades</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {`≤ ${limiteAtual} unidades = Baixo; ≥ ${limiteAtual + 1} = Normal`}
+                  {`≤ ${limiteAtual} = Baixo · ≥ ${limiteAtual + 1} = Normal`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Configure em Minha Clínica → Limite de Estoque
                 </p>
               </div>
 
