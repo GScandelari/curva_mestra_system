@@ -17,6 +17,8 @@ import {
   Timestamp,
   runTransaction,
   writeBatch,
+  type Transaction,
+  type DocumentReference,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type {
@@ -82,6 +84,52 @@ function removeUndefined(obj: Record<string, unknown>): Record<string, unknown> 
     }
   });
   return cleaned;
+}
+
+async function buildProdutosDetalhados(
+  tenantId: string,
+  produtos: { inventory_item_id: string; quantidade: number }[]
+): Promise<ProdutoSolicitado[]> {
+  const result: ProdutoSolicitado[] = [];
+  for (const produto of produtos) {
+    const itemSnap = await getDoc(
+      doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id)
+    );
+    if (!itemSnap.exists()) throw new Error(`Produto ${produto.inventory_item_id} não encontrado`);
+    const itemData = itemSnap.data() as InventoryItem;
+    result.push({
+      inventory_item_id: produto.inventory_item_id,
+      produto_codigo: itemData.codigo_produto,
+      produto_nome: itemData.nome_produto,
+      lote: itemData.lote,
+      quantidade: produto.quantidade,
+      quantidade_disponivel_antes: itemData.quantidade_disponivel,
+      valor_unitario: itemData.valor_unitario,
+    });
+  }
+  return result;
+}
+
+async function readInventoryInTransaction(
+  transaction: Transaction,
+  tenantId: string,
+  produtos: { inventory_item_id: string; quantidade: number }[]
+): Promise<{ ref: DocumentReference; data: InventoryItem; quantidade_solicitada: number }[]> {
+  const reads = produtos.map((p) => ({
+    ref: doc(db, 'tenants', tenantId, 'inventory', p.inventory_item_id),
+    quantidade_solicitada: p.quantidade,
+  }));
+  const snapshots = await Promise.all(reads.map((r) => transaction.get(r.ref)));
+  return snapshots.map((snap, i) => {
+    if (!snap.exists()) throw new Error(`Produto ${produtos[i].inventory_item_id} não encontrado`);
+    const data = snap.data() as InventoryItem;
+    if (data.quantidade_disponivel < reads[i].quantidade_solicitada) {
+      throw new Error(
+        `Estoque insuficiente para ${data.nome_produto}. Disponível: ${data.quantidade_disponivel}, Solicitado: ${reads[i].quantidade_solicitada}`
+      );
+    }
+    return { ref: reads[i].ref, data, quantidade_solicitada: reads[i].quantidade_solicitada };
+  });
 }
 
 /**
@@ -171,28 +219,7 @@ export async function createSolicitacaoWithConsumption(
     }
 
     // 2. Buscar detalhes de todos os produtos para a solicitação
-    const produtosDetalhados: ProdutoSolicitado[] = [];
-
-    for (const produto of input.produtos) {
-      const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
-      const itemSnap = await getDoc(itemRef);
-
-      if (!itemSnap.exists()) {
-        throw new Error(`Produto ${produto.inventory_item_id} não encontrado`);
-      }
-
-      const itemData = itemSnap.data() as InventoryItem;
-
-      produtosDetalhados.push({
-        inventory_item_id: produto.inventory_item_id,
-        produto_codigo: itemData.codigo_produto,
-        produto_nome: itemData.nome_produto,
-        lote: itemData.lote,
-        quantidade: produto.quantidade,
-        quantidade_disponivel_antes: itemData.quantidade_disponivel,
-        valor_unitario: itemData.valor_unitario,
-      });
-    }
+    const produtosDetalhados = await buildProdutosDetalhados(tenantId, input.produtos);
 
     // 3. Determinar status inicial baseado na data do procedimento
     const statusInicial = determineInitialStatus(input.dt_procedimento);
@@ -201,46 +228,7 @@ export async function createSolicitacaoWithConsumption(
     // 3.1. Criar solicitação e atualizar inventário em transação
     const solicitacaoRef = await runTransaction(db, async (transaction) => {
       // ========== FASE 1: TODAS AS LEITURAS ==========
-      // 3.1. Ler e verificar estoque de todos os produtos
-      const inventoryReads = [];
-      for (const produto of input.produtos) {
-        const itemRef = doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id);
-        inventoryReads.push({
-          ref: itemRef,
-          quantidade_solicitada: produto.quantidade,
-        });
-      }
-
-      // Fazer todas as leituras
-      const inventorySnapshots = await Promise.all(
-        inventoryReads.map((item) => transaction.get(item.ref))
-      );
-
-      // Validar estoque
-      const inventoryData: { ref: any; data: InventoryItem; quantidade_solicitada: number }[] = [];
-      for (let i = 0; i < inventorySnapshots.length; i++) {
-        const itemSnap = inventorySnapshots[i];
-        const inventoryRead = inventoryReads[i];
-
-        if (!itemSnap.exists()) {
-          throw new Error(`Produto com ID ${input.produtos[i].inventory_item_id} não encontrado`);
-        }
-
-        const itemData = itemSnap.data() as InventoryItem;
-
-        if (itemData.quantidade_disponivel < inventoryRead.quantidade_solicitada) {
-          throw new Error(
-            `Estoque insuficiente para ${itemData.nome_produto}. ` +
-              `Disponível: ${itemData.quantidade_disponivel}, Solicitado: ${inventoryRead.quantidade_solicitada}`
-          );
-        }
-
-        inventoryData.push({
-          ref: inventoryRead.ref,
-          data: itemData,
-          quantidade_solicitada: inventoryRead.quantidade_solicitada,
-        });
-      }
+      const inventoryData = await readInventoryInTransaction(transaction, tenantId, input.produtos);
 
       // ========== FASE 2: TODAS AS ESCRITAS ==========
       // 3.2. Criar entrada no histórico de status
@@ -360,50 +348,11 @@ export async function createSolicitacaoEfetuada(
       };
     }
 
-    const produtosDetalhados: ProdutoSolicitado[] = [];
-    for (const produto of input.produtos) {
-      const itemSnap = await getDoc(
-        doc(db, 'tenants', tenantId, 'inventory', produto.inventory_item_id)
-      );
-      if (!itemSnap.exists())
-        throw new Error(`Produto ${produto.inventory_item_id} não encontrado`);
-      const itemData = itemSnap.data() as InventoryItem;
-      produtosDetalhados.push({
-        inventory_item_id: produto.inventory_item_id,
-        produto_codigo: itemData.codigo_produto,
-        produto_nome: itemData.nome_produto,
-        lote: itemData.lote,
-        quantidade: produto.quantidade,
-        quantidade_disponivel_antes: itemData.quantidade_disponivel,
-        valor_unitario: itemData.valor_unitario,
-      });
-    }
+    const produtosDetalhados = await buildProdutosDetalhados(tenantId, input.produtos);
 
     const solicitacaoRef = await runTransaction(db, async (transaction) => {
       // FASE 1: LEITURAS
-      const inventoryReads = input.produtos.map((p) => ({
-        ref: doc(db, 'tenants', tenantId, 'inventory', p.inventory_item_id),
-        quantidade_solicitada: p.quantidade,
-      }));
-      const snapshots = await Promise.all(inventoryReads.map((r) => transaction.get(r.ref)));
-
-      const inventoryData: { ref: any; data: InventoryItem; quantidade_solicitada: number }[] = [];
-      for (let i = 0; i < snapshots.length; i++) {
-        const snap = snapshots[i];
-        if (!snap.exists())
-          throw new Error(`Produto ${input.produtos[i].inventory_item_id} não encontrado`);
-        const data = snap.data() as InventoryItem;
-        if (data.quantidade_disponivel < inventoryReads[i].quantidade_solicitada) {
-          throw new Error(
-            `Estoque insuficiente para ${data.nome_produto}. Disponível: ${data.quantidade_disponivel}, Solicitado: ${inventoryReads[i].quantidade_solicitada}`
-          );
-        }
-        inventoryData.push({
-          ref: inventoryReads[i].ref,
-          data,
-          quantidade_solicitada: inventoryReads[i].quantidade_solicitada,
-        });
-      }
+      const inventoryData = await readInventoryInTransaction(transaction, tenantId, input.produtos);
 
       // FASE 2: ESCRITAS
       const now = Timestamp.now();
