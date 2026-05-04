@@ -369,49 +369,51 @@ export default function SolicitacaoDetalhesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Lote</TableHead>
-                  <TableHead className="text-right">Qtd Consumida</TableHead>
-                  <TableHead className="text-right">Valor Unit.</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {solicitacao.produtos_solicitados.map((produto, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{produto.produto_nome}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Código: {produto.produto_codigo}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Lote</TableHead>
+                    <TableHead className="text-right">Qtd Consumida</TableHead>
+                    <TableHead className="text-right">Valor Unit.</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {solicitacao.produtos_solicitados.map((produto, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{produto.produto_nome}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Código: {produto.produto_codigo}
+                          </div>
                         </div>
-                      </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{produto.lote}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{produto.quantidade}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(produto.valor_unitario)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(produto.quantidade * produto.valor_unitario)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-right font-bold">
+                      Valor Total:
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{produto.lote}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">{produto.quantidade}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(produto.valor_unitario)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(produto.quantidade * produto.valor_unitario)}
+                    <TableCell className="text-right font-bold text-primary">
+                      {formatCurrency(solicitacao.valor_total)}
                     </TableCell>
                   </TableRow>
-                ))}
-                <TableRow>
-                  <TableCell colSpan={4} className="text-right font-bold">
-                    Valor Total:
-                  </TableCell>
-                  <TableCell className="text-right font-bold text-primary">
-                    {formatCurrency(solicitacao.valor_total)}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 
