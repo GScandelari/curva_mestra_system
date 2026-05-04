@@ -106,86 +106,88 @@ export default function StockLimitsTab() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Produto</TableHead>
-              <TableHead className="text-right">Qtd. em Estoque</TableHead>
-              <TableHead className="text-right w-48">Limite (≤ X = Baixo)</TableHead>
-              <TableHead className="w-20" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {produtos.map((produto) => {
-              const limite = limitsMap.get(produto.codigo_produto) ?? 10;
-              const isEditing = editingCode === produto.codigo_produto;
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Produto</TableHead>
+                <TableHead className="text-right">Qtd. em Estoque</TableHead>
+                <TableHead className="text-right w-48">Limite (≤ X = Baixo)</TableHead>
+                <TableHead className="w-20" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {produtos.map((produto) => {
+                const limite = limitsMap.get(produto.codigo_produto) ?? 10;
+                const isEditing = editingCode === produto.codigo_produto;
 
-              return (
-                <TableRow key={produto.codigo_produto}>
-                  <TableCell className="font-mono text-xs">{produto.codigo_produto}</TableCell>
-                  <TableCell className="font-medium">{produto.nome_produto}</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {produto.quantidade_total}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {isEditing ? (
-                      <div className="flex justify-end">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className="h-8 w-24"
-                          disabled={saving}
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSave(produto.codigo_produto);
-                            if (e.key === 'Escape') handleCancel();
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <span className="font-medium">{limite}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {isEditing ? (
-                      <div className="flex justify-end gap-1">
+                return (
+                  <TableRow key={produto.codigo_produto}>
+                    <TableCell className="font-mono text-xs">{produto.codigo_produto}</TableCell>
+                    <TableCell className="font-medium">{produto.nome_produto}</TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {produto.quantidade_total}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isEditing ? (
+                        <div className="flex justify-end">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="h-8 w-24"
+                            disabled={saving}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSave(produto.codigo_produto);
+                              if (e.key === 'Escape') handleCancel();
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <span className="font-medium">{limite}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isEditing ? (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleSave(produto.codigo_produto)}
+                            disabled={saving}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={handleCancel}
+                            disabled={saving}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
                         <Button
+                          variant="ghost"
                           size="sm"
                           className="h-8 w-8 p-0"
-                          onClick={() => handleSave(produto.codigo_produto)}
-                          disabled={saving}
+                          onClick={() => handleEdit(produto.codigo_produto)}
                         >
-                          <Check className="h-3 w-3" />
+                          <Pencil className="h-3 w-3" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={handleCancel}
-                          disabled={saving}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleEdit(produto.codigo_produto)}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

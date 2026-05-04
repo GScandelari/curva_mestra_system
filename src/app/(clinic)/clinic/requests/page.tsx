@@ -125,7 +125,7 @@ export default function SolicitacoesPage() {
     <div className="container py-8">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Procedimentos</h2>
             <p className="text-muted-foreground">
@@ -273,53 +273,55 @@ export default function SolicitacoesPage() {
                 </Button>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Data Procedimento</TableHead>
-                    <TableHead className="text-right">Produtos</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Criado em</TableHead>
-                    <TableHead className="text-center">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSolicitacoes.map((solicitacao) => (
-                    <TableRow key={solicitacao.id}>
-                      <TableCell>
-                        <div className="font-medium">{solicitacao.descricao || '—'}</div>
-                      </TableCell>
-                      <TableCell>
-                        {solicitacao.dt_procedimento?.toDate
-                          ? solicitacao.dt_procedimento.toDate().toLocaleDateString('pt-BR')
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="outline">{solicitacao.total_produtos}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(solicitacao.valor_total)}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(solicitacao.status)}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {formatTimestamp(solicitacao.created_at)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => router.push(`/clinic/requests/${solicitacao.id}`)}
-                        >
-                          <Settings className="mr-2 h-4 w-4" />
-                          Gerenciar
-                        </Button>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Data Procedimento</TableHead>
+                      <TableHead className="text-right">Produtos</TableHead>
+                      <TableHead className="text-right">Valor Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Criado em</TableHead>
+                      <TableHead className="text-center">Ações</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSolicitacoes.map((solicitacao) => (
+                      <TableRow key={solicitacao.id}>
+                        <TableCell>
+                          <div className="font-medium">{solicitacao.descricao || '—'}</div>
+                        </TableCell>
+                        <TableCell>
+                          {solicitacao.dt_procedimento?.toDate
+                            ? solicitacao.dt_procedimento.toDate().toLocaleDateString('pt-BR')
+                            : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline">{solicitacao.total_produtos}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(solicitacao.valor_total)}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(solicitacao.status)}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {formatTimestamp(solicitacao.created_at)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(`/clinic/requests/${solicitacao.id}`)}
+                          >
+                            <Settings className="mr-2 h-4 w-4" />
+                            Gerenciar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
