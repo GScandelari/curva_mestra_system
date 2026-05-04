@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Search,
   FileBarChart,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +43,11 @@ export function ConsultantLayout({ children }: ConsultantLayoutProps) {
       name: 'Buscar Clínicas',
       href: '/consultant/clinics/search',
       icon: Search,
+    },
+    {
+      name: 'Transferências',
+      href: '/consultant/transfer-requests',
+      icon: ArrowRightLeft,
     },
     {
       name: 'Relatórios',
