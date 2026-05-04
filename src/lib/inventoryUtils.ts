@@ -18,6 +18,17 @@ export interface ProdutoAgrupado<T extends InventoryItemLike = InventoryItemLike
   lotes: T[];
 }
 
+export type StatusEstoque = 'Normal' | 'Baixo' | 'Sem estoque';
+
+export function getStatusEstoque(item: {
+  quantidade_disponivel: number;
+  limite_estoque_baixo?: number;
+}): StatusEstoque {
+  if (item.quantidade_disponivel === 0) return 'Sem estoque';
+  const limite = item.limite_estoque_baixo ?? 10;
+  return item.quantidade_disponivel <= limite ? 'Baixo' : 'Normal';
+}
+
 export function parseInventoryDate(dt_validade: unknown): Date | null {
   if (!dt_validade) return null;
   if (typeof dt_validade === 'string') {
@@ -47,7 +58,7 @@ export function computeInventoryStats(
     total_items++;
     const expDate = parseInventoryDate(data.dt_validade);
     if (expDate && expDate <= cutoffDate) expiring_soon++;
-    if ((data.quantidade_disponivel as number) <= 5) low_stock++;
+    if ((data.quantidade_disponivel as number) <= 10) low_stock++;
   }
 
   return { total_items, expiring_soon, low_stock };

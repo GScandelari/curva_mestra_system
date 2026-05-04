@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +9,6 @@ import {
   Mail,
   Phone,
   Copy,
-  RefreshCw,
-  Trash2,
   AlertTriangle,
   Clock,
   CheckCircle,
@@ -22,13 +19,11 @@ import { useToast } from '@/hooks/use-toast';
 import type { Consultant, ConsultantClaim } from '@/types';
 
 export default function ClinicConsultantPage() {
-  const router = useRouter();
   const { user, tenantId, role } = useAuth();
   const { toast } = useToast();
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [pendingClaims, setPendingClaims] = useState<ConsultantClaim[]>([]);
   const [loading, setLoading] = useState(true);
-  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     if (user && tenantId) {
@@ -76,38 +71,6 @@ export default function ClinicConsultantPage() {
     if (consultant?.code) {
       navigator.clipboard.writeText(consultant.code);
       toast({ title: 'Código copiado' });
-    }
-  };
-
-  const handleRemoveConsultant = async () => {
-    if (!user || !tenantId || !consultant) return;
-
-    if (!confirm('Tem certeza que deseja remover o consultor? Esta ação não pode ser desfeita.')) {
-      return;
-    }
-
-    setRemoving(true);
-
-    try {
-      const token = await user.getIdToken();
-
-      const response = await fetch(`/api/tenants/${tenantId}/consultant`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao remover consultor');
-      }
-
-      toast({ title: 'Consultor removido com sucesso' });
-      setConsultant(null);
-    } catch (error: any) {
-      toast({ title: error.message || 'Erro ao remover consultor', variant: 'destructive' });
-    } finally {
-      setRemoving(false);
     }
   };
 
@@ -292,29 +255,6 @@ export default function ClinicConsultantPage() {
                   <span className="font-medium">{consultant.phone}</span>
                 </div>
               </div>
-
-              {/* Actions */}
-              {isClinicAdmin && (
-                <div className="flex gap-4 pt-4 border-t">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => router.push('/clinic/consultant/transfer')}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Transferir
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 text-destructive hover:text-destructive"
-                    onClick={handleRemoveConsultant}
-                    disabled={removing}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    {removing ? 'Removendo...' : 'Remover'}
-                  </Button>
-                </div>
-              )}
             </CardContent>
           </Card>
         ) : (
@@ -327,12 +267,6 @@ export default function ClinicConsultantPage() {
                   Sua clínica ainda não possui um consultor vinculado. O consultor pode solicitar
                   vínculo informando seu CNPJ/CPF.
                 </p>
-                {isClinicAdmin && (
-                  <Button onClick={() => router.push('/clinic/consultant/transfer')}>
-                    <UserCheck className="mr-2 h-4 w-4" />
-                    Vincular Consultor
-                  </Button>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -349,7 +283,6 @@ export default function ClinicConsultantPage() {
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• Consultores têm acesso somente leitura aos dados da clínica</li>
                 <li>• Cada clínica pode ter apenas um consultor vinculado</li>
-                <li>• Você pode transferir ou remover o consultor a qualquer momento</li>
                 <li>• O consultor pode acompanhar estoque, procedimentos e relatórios</li>
               </ul>
             </div>
