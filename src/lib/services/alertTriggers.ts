@@ -144,7 +144,12 @@ export async function checkLowStock(tenantId: string): Promise<{
       return results;
     }
 
-    const minQuantity = settings.low_stock_threshold || 10;
+    // Buscar limites por produto (stock_limits subcollection)
+    const stockLimitsSnap = await getDocs(collection(db, `tenants/${tenantId}/stock_limits`));
+    const stockLimitsMap = new Map<string, number>();
+    stockLimitsSnap.forEach((d) => {
+      stockLimitsMap.set(d.id, d.data().limite_estoque_baixo as number);
+    });
 
     // Buscar produtos no inventário
     const inventoryRef = collection(db, `tenants/${tenantId}/inventory`);
@@ -152,44 +157,58 @@ export async function checkLowStock(tenantId: string): Promise<{
 
     results.checked = inventorySnap.size;
 
-    // Verificar cada produto
+    // Agrupar quantidade total por codigo_produto (soma de todos os lotes)
+    const totalByCode = new Map<string, number>();
+    const representativeLot = new Map<string, InventoryItem>();
     for (const docSnap of inventorySnap.docs) {
       const item = { id: docSnap.id, ...docSnap.data() } as InventoryItem;
+      totalByCode.set(item.codigo_produto, (totalByCode.get(item.codigo_produto) ?? 0) + item.quantidade_disponivel);
+      if (!representativeLot.has(item.codigo_produto)) {
+        representativeLot.set(item.codigo_produto, item);
+      }
+    }
 
-      // Verificar se está abaixo do limite
-      if (item.quantidade_disponivel < minQuantity) {
+    // Verificar cada produto (agrupado por codigo_produto)
+    for (const [codigoProduto, totalQty] of totalByCode.entries()) {
+      const item = representativeLot.get(codigoProduto)!;
+
+      // Limite por produto, fallback para threshold global, fallback padrão 10
+      const minQuantity =
+        stockLimitsMap.get(codigoProduto) ?? settings.low_stock_threshold ?? 10;
+
+      // Verificar se o total do produto está em estoque baixo
+      if (totalQty > 0 && totalQty <= minQuantity) {
         try {
-          // Verificar se já existe notificação para este produto
+          // Verificar se já existe notificação não lida para este produto
           const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
           const existingNotificationQuery = query(
             notificationsRef,
             where('type', '==', 'low_stock'),
-            where('inventory_id', '==', item.id),
+            where('codigo_produto', '==', codigoProduto),
             where('read', '==', false)
           );
 
           const existingNotifications = await getDocs(existingNotificationQuery);
 
-          // Se já existe notificação não lida, pular
           if (!existingNotifications.empty) {
             continue;
           }
 
-          // Criar notificação
+          // Criar notificação com o total do produto
           await createLowStockNotification(
             tenantId,
             item.nome_produto,
-            item.codigo_produto,
-            item.quantidade_disponivel,
+            codigoProduto,
+            totalQty,
             minQuantity,
             item.id,
-            item.codigo_produto
+            codigoProduto
           );
 
           results.notificationsCreated++;
 
           console.log(
-            `✅ Alerta criado: ${item.nome_produto} com ${item.quantidade_disponivel} unidades (mín: ${minQuantity})`
+            `✅ Alerta criado: ${item.nome_produto} com ${totalQty} unidades no total (mín: ${minQuantity})`
           );
         } catch (error: any) {
           console.error(`Erro ao criar notificação para ${item.nome_produto}:`, error);

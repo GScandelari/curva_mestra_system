@@ -13,6 +13,7 @@ import {
   Timestamp,
   doc,
   getDoc,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -148,8 +149,7 @@ export async function getInventoryStats(tenantId: string): Promise<InventoryStat
           produtosVencendo30dias++;
         }
 
-        // Verificar estoque baixo (menos de 10 unidades)
-        if (quantidade < 10) {
+        if (quantidade <= 10) {
           produtosEstoqueBaixo++;
         }
       }
@@ -374,4 +374,30 @@ export async function getInventoryItem(
     console.error('Erro ao buscar item do inventário:', error);
     throw error;
   }
+}
+
+/**
+ * Retorna um Map<codigo_produto, limite_estoque_baixo> para o tenant.
+ * Lê de tenants/{tenantId}/stock_limits/{codigo_produto}.
+ */
+export async function getStockLimitsMap(tenantId: string): Promise<Map<string, number>> {
+  const limitsRef = collection(db, 'tenants', tenantId, 'stock_limits');
+  const snapshot = await getDocs(limitsRef);
+  const map = new Map<string, number>();
+  snapshot.forEach((d) => {
+    map.set(d.id, d.data().limite_estoque_baixo as number);
+  });
+  return map;
+}
+
+/**
+ * Persiste o limite de estoque baixo de um produto (por codigo_produto).
+ */
+export async function updateStockLimit(
+  tenantId: string,
+  codigoProduto: string,
+  limiteEstoqueBaixo: number
+): Promise<void> {
+  const limitRef = doc(db, 'tenants', tenantId, 'stock_limits', codigoProduto);
+  await setDoc(limitRef, { limite_estoque_baixo: limiteEstoqueBaixo }, { merge: true });
 }

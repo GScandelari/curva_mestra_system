@@ -47,6 +47,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { type InventoryItem } from '@/lib/services/inventoryService';
+import { getStatusEstoque, type StatusEstoque } from '@/lib/inventoryUtils';
 
 interface InventoryViewProps {
   tenantId: string;
@@ -99,9 +100,17 @@ function applyFilter(
   data: InventoryItem[],
   filter: string,
   search: string,
-  category: string
+  category: string,
+  limitsMap: Map<string, number>,
+  totalByCode: Map<string, number>
 ): InventoryItem[] {
   let filtered = [...data];
+
+  const productStatus = (item: InventoryItem): StatusEstoque =>
+    getStatusEstoque({
+      quantidade_disponivel: totalByCode.get(item.codigo_produto) ?? item.quantidade_disponivel,
+      limite_estoque_baixo: limitsMap.get(item.codigo_produto),
+    });
 
   if (filter === 'expiring') {
     const now = new Date();
@@ -111,9 +120,7 @@ function applyFilter(
       (item) => item.dt_validade <= in30Days && item.quantidade_disponivel > 0
     );
   } else if (filter === 'low_stock') {
-    filtered = filtered.filter(
-      (item) => item.quantidade_disponivel > 0 && item.quantidade_disponivel < 10
-    );
+    filtered = filtered.filter((item) => productStatus(item) === 'Baixo');
   } else if (filter === 'out_of_stock') {
     filtered = filtered.filter((item) => item.quantidade_disponivel === 0);
   }
@@ -155,15 +162,15 @@ function ExpiryBadge({ date, quantity }: { date: Date; quantity: number }) {
   return <Badge variant="default">{days} dias</Badge>;
 }
 
-function StockBadge({ quantity }: { quantity: number }) {
-  if (quantity === 0)
+function StockBadge({ status }: { status: StatusEstoque }) {
+  if (status === 'Sem estoque')
     return (
       <Badge variant="destructive" className="gap-1">
         <TrendingDown className="h-3 w-3" />
         Esgotado
       </Badge>
     );
-  if (quantity < 10)
+  if (status === 'Baixo')
     return (
       <Badge variant="warning" className="gap-1">
         <AlertTriangle className="h-3 w-3" />
@@ -185,17 +192,42 @@ export function InventoryView({
 }: InventoryViewProps) {
   const router = useRouter();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [limitsMap, setLimitsMap] = useState<Map<string, number>>(new Map());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState<string>(initialFilter ?? 'all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const filteredInventory = applyFilter(inventory, filterBy, searchTerm, categoryFilter);
+  // Quantidade total por codigo_produto (soma de todos os lotes)
+  const totalByCode = new Map<string, number>();
+  for (const item of inventory) {
+    totalByCode.set(
+      item.codigo_produto,
+      (totalByCode.get(item.codigo_produto) ?? 0) + item.quantidade_disponivel
+    );
+  }
+
+  const getItemStatus = (item: InventoryItem) =>
+    getStatusEstoque({
+      quantidade_disponivel: totalByCode.get(item.codigo_produto) ?? item.quantidade_disponivel,
+      limite_estoque_baixo: limitsMap.get(item.codigo_produto),
+    });
+
+  const filteredInventory = applyFilter(inventory, filterBy, searchTerm, categoryFilter, limitsMap, totalByCode);
 
   useEffect(() => {
     const ref = collection(db, 'tenants', tenantId, 'inventory');
     const q = query(ref, where('active', '==', true), orderBy('nome_produto', 'asc'));
+
+    // Carrega limites por produto (não crítico — falha silenciosa)
+    getDocs(collection(db, 'tenants', tenantId, 'stock_limits'))
+      .then((snap) => {
+        const map = new Map<string, number>();
+        snap.forEach((d) => map.set(d.id, d.data().limite_estoque_baixo as number));
+        setLimitsMap(map);
+      })
+      .catch(() => {});
 
     if (realtime) {
       const unsubscribe = onSnapshot(
@@ -324,9 +356,11 @@ export function InventoryView({
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
                 {
-                  inventory.filter(
-                    (item) => item.quantidade_disponivel > 0 && item.quantidade_disponivel < 10
-                  ).length
+                  new Set(
+                    inventory
+                      .filter((item) => getItemStatus(item) === 'Baixo')
+                      .map((item) => item.codigo_produto)
+                  ).size
                 }
               </div>
             </CardContent>
@@ -465,7 +499,7 @@ export function InventoryView({
                               date={item.dt_validade}
                               quantity={item.quantidade_disponivel}
                             />
-                            <StockBadge quantity={item.quantidade_disponivel} />
+                            <StockBadge status={getItemStatus(item)} />
                           </div>
                         </TableCell>
                       </TableRow>

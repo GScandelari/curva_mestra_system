@@ -17,7 +17,8 @@ import {
   FileText,
   Barcode,
 } from 'lucide-react';
-import { getInventoryItem, type InventoryItem } from '@/lib/services/inventoryService';
+import { getInventoryItem, getStockLimitsMap, type InventoryItem } from '@/lib/services/inventoryService';
+import { getStatusEstoque, type StatusEstoque } from '@/lib/inventoryUtils';
 
 export default function InventoryItemPage() {
   const { claims } = useAuth();
@@ -25,6 +26,7 @@ export default function InventoryItemPage() {
   const params = useParams();
 
   const [item, setItem] = useState<InventoryItem | null>(null);
+  const [stockLimit, setStockLimit] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -39,13 +41,18 @@ export default function InventoryItemPage() {
         setLoading(true);
         setError('');
 
-        const data = await getInventoryItem(tenantId, itemId);
+        const [data, limitsMap] = await Promise.all([
+          getInventoryItem(tenantId, itemId),
+          getStockLimitsMap(tenantId),
+        ]);
+
         if (!data) {
           setError('Produto não encontrado');
           return;
         }
 
         setItem(data);
+        setStockLimit(limitsMap.get(data.codigo_produto));
       } catch (err: any) {
         console.error('Erro ao carregar produto:', err);
         setError('Erro ao carregar produto');
@@ -92,55 +99,25 @@ export default function InventoryItemPage() {
     const days = getDaysUntilExpiry(date);
 
     if (days < 0) {
-      return {
-        text: 'Vencido',
-        variant: 'destructive' as const,
-        icon: AlertTriangle,
-      };
+      return { text: 'Vencido', variant: 'destructive' as const, icon: AlertTriangle };
     }
     if (days <= 7) {
-      return {
-        text: `Vence em ${days} dias`,
-        variant: 'destructive' as const,
-        icon: AlertTriangle,
-      };
+      return { text: `Vence em ${days} dias`, variant: 'destructive' as const, icon: AlertTriangle };
     }
     if (days <= 30) {
-      return {
-        text: `Vence em ${days} dias`,
-        variant: 'warning' as const,
-        icon: AlertTriangle,
-      };
+      return { text: `Vence em ${days} dias`, variant: 'warning' as const, icon: AlertTriangle };
     }
-    return {
-      text: `Vence em ${days} dias`,
-      variant: 'default' as const,
-      icon: Calendar,
-    };
+    return { text: `Vence em ${days} dias`, variant: 'default' as const, icon: Calendar };
   };
 
-  const getStockStatus = (quantity: number, initial: number) => {
-    const percentage = (quantity / initial) * 100;
-
-    if (quantity === 0) {
-      return {
-        text: 'Esgotado',
-        variant: 'destructive' as const,
-        icon: TrendingDown,
-      };
+  const getStockStatusDisplay = (status: StatusEstoque) => {
+    if (status === 'Sem estoque') {
+      return { text: 'Esgotado', variant: 'destructive' as const, icon: TrendingDown };
     }
-    if (quantity < 10 || percentage < 20) {
-      return {
-        text: 'Estoque Baixo',
-        variant: 'warning' as const,
-        icon: AlertTriangle,
-      };
+    if (status === 'Baixo') {
+      return { text: 'Estoque Baixo', variant: 'warning' as const, icon: AlertTriangle };
     }
-    return {
-      text: 'Estoque Normal',
-      variant: 'default' as const,
-      icon: Package,
-    };
+    return { text: 'Estoque Normal', variant: 'default' as const, icon: Package };
   };
 
   if (loading) {
@@ -173,9 +150,12 @@ export default function InventoryItemPage() {
   }
 
   const expiryStatus = getExpiryStatus(item.dt_validade);
-  const stockStatus = getStockStatus(item.quantidade_disponivel, item.quantidade_inicial);
+  const stockStatus = getStockStatusDisplay(
+    getStatusEstoque({ quantidade_disponivel: item.quantidade_disponivel, limite_estoque_baixo: stockLimit })
+  );
   const ExpiryIcon = expiryStatus.icon;
   const StockIcon = stockStatus.icon;
+  const limiteAtual = stockLimit ?? 10;
 
   return (
     <div className="container py-8">
@@ -287,6 +267,17 @@ export default function InventoryItemPage() {
               </div>
 
               <div className="pt-4 border-t">
+                <p className="text-sm font-medium mb-1">Limite de Estoque Baixo</p>
+                <p className="text-xl font-bold">{limiteAtual} unidades</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {`≤ ${limiteAtual} = Baixo · ≥ ${limiteAtual + 1} = Normal`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Configure em Minha Clínica → Limite de Estoque
+                </p>
+              </div>
+
+              <div className="pt-2 border-t">
                 <div className="flex items-center gap-3">
                   <DollarSign className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
