@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, Building2, Loader2, CheckCircle2, AlertCircle, UserCheck } from 'lucide-react';
+import { Search, Building2, Loader2, CheckCircle2, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { ClaimClinicDialog } from '@/components/consultant/ClaimClinicDialog';
@@ -105,7 +105,7 @@ export default function SearchClinicsPage() {
             Buscar Clínicas
           </h1>
           <p className="text-muted-foreground">
-            Encontre clínicas por CNPJ ou CPF para solicitar vínculo
+            Encontre clínicas por CNPJ ou CPF para vincular ou solicitar transferência
           </p>
         </div>
 
@@ -113,7 +113,7 @@ export default function SearchClinicsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Buscar por Documento</CardTitle>
-            <CardDescription>Informe o CNPJ ou CPF da clínica que deseja vincular</CardDescription>
+            <CardDescription>Informe o CNPJ ou CPF da clínica</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -184,15 +184,16 @@ export default function SearchClinicsPage() {
                       </div>
 
                       {tenant.consultant_id ? (
-                        <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-md">
-                          <UserCheck className="h-5 w-5 text-green-600" />
-                          <div>
-                            <p className="text-sm font-medium text-green-800">
-                              Já possui consultor vinculado
-                            </p>
-                            <p className="text-xs text-green-600">{tenant.consultant_name}</p>
-                          </div>
-                        </div>
+                        <Button
+                          className="w-full bg-amber-600 hover:bg-amber-700"
+                          onClick={() => {
+                            setSelectedTenant(tenant);
+                            setDialogOpen(true);
+                          }}
+                        >
+                          <ArrowRightLeft className="mr-2 h-4 w-4" />
+                          Solicitar Transferência
+                        </Button>
                       ) : (
                         <Button
                           className="w-full bg-sky-600 hover:bg-sky-700"
@@ -202,7 +203,7 @@ export default function SearchClinicsPage() {
                           }}
                         >
                           <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Solicitar Vínculo
+                          Vincular Agora
                         </Button>
                       )}
                     </div>
@@ -220,9 +221,9 @@ export default function SearchClinicsPage() {
               <h4 className="font-medium text-sky-800 mb-2">Como funciona?</h4>
               <ol className="list-decimal list-inside text-sm text-sky-700 space-y-1">
                 <li>Busque a clínica pelo CNPJ ou CPF</li>
-                <li>Solicite o vínculo com a clínica</li>
-                <li>Aguarde a aprovação do administrador da clínica</li>
-                <li>Após aprovado, você terá acesso aos dados da clínica</li>
+                <li>Se a clínica não tem consultor → vínculo automático imediato</li>
+                <li>Se a clínica já tem consultor → envie um pedido de transferência</li>
+                <li>O consultor atual aprova ou rejeita o pedido</li>
               </ol>
             </div>
           </CardContent>
