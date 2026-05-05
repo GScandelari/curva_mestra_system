@@ -177,7 +177,7 @@ export default function ClinicDashboard() {
   };
 
   const getExpiryBadgeVariant = (dias: number): 'destructive' | 'warning' | 'default' => {
-    if (dias <= 0 || dias <= 7) return 'destructive';
+    if (dias <= 7) return 'destructive';
     if (dias <= 30) return 'warning';
     return 'default';
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,13 +25,7 @@ export default function ConsultantDashboardPage() {
   const [pendingClaims, setPendingClaims] = useState<ConsultantClaim[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user && consultantId) {
-      loadDashboardData();
-    }
-  }, [user, consultantId]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -71,7 +65,16 @@ export default function ConsultantDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+    // refreshClaims e toast são omitidos das deps: não são refs estáveis em useAuth/useToast
+    // e não afetam quando o carregamento deve ser re-executado (apenas user/consultantId determinam isso)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, consultantId]);
+
+  useEffect(() => {
+    if (user && consultantId) {
+      void loadDashboardData();
+    }
+  }, [user, consultantId, loadDashboardData]);
 
   const copyCode = () => {
     if (consultant?.code) {
