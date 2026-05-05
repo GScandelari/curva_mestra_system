@@ -2,3 +2,4 @@
 .next/
 node_modules/
 ONLY_FOR_DEVS/
+CHANGELOG.md
