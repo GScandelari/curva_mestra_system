@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Building2, CheckCircle2, Loader2 } from 'lucide-react';
+import { Building2, CheckCircle2, Loader2, ArrowRightLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -40,6 +40,9 @@ export function ClaimClinicDialog({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [autoLinked, setAutoLinked] = useState(false);
+
+  const hasConsultant = !!tenant?.consultant_id;
 
   const handleClaim = async () => {
     if (!tenant || !user) return;
@@ -55,28 +58,32 @@ export function ClaimClinicDialog({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          tenant_id: tenant.id,
-        }),
+        body: JSON.stringify({ tenant_id: tenant.id }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao enviar solicitação');
+        throw new Error(data.error || 'Erro ao processar solicitação');
       }
 
+      setAutoLinked(data.auto_linked === true);
       setSuccess(true);
-      toast({ title: 'Solicitação enviada com sucesso!' });
 
-      // Aguardar um pouco antes de fechar
+      if (data.auto_linked) {
+        toast({ title: 'Vínculo estabelecido com sucesso!' });
+      } else {
+        toast({ title: 'Pedido de transferência enviado ao consultor atual.' });
+      }
+
       setTimeout(() => {
         setSuccess(false);
+        setAutoLinked(false);
         onOpenChange(false);
         onSuccess?.();
-      }, 2000);
+      }, 2500);
     } catch (error: any) {
-      toast({ title: error.message || 'Erro ao enviar solicitação', variant: 'destructive' });
+      toast({ title: error.message || 'Erro ao processar solicitação', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -85,26 +92,29 @@ export function ClaimClinicDialog({
   const handleClose = () => {
     if (!loading) {
       setSuccess(false);
+      setAutoLinked(false);
       onOpenChange(false);
     }
   };
 
   if (!tenant) return null;
 
-  const hasConsultant = !!tenant.consultant_id;
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-sky-600" />
-            Solicitar Vínculo
+            {hasConsultant ? (
+              <ArrowRightLeft className="h-5 w-5 text-amber-600" />
+            ) : (
+              <Building2 className="h-5 w-5 text-sky-600" />
+            )}
+            {hasConsultant ? 'Solicitar Transferência' : 'Confirmar Vínculo'}
           </DialogTitle>
           <DialogDescription>
             {hasConsultant
-              ? 'Esta clínica já possui um consultor vinculado.'
-              : 'Confirme para enviar uma solicitação de vínculo para esta clínica.'}
+              ? `Esta clínica já possui o consultor ${tenant.consultant_name} vinculado. Um pedido será enviado para que ele aprove a transferência.`
+              : 'Ao confirmar, você será vinculado imediatamente como consultor desta clínica.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -112,7 +122,9 @@ export function ClaimClinicDialog({
           <div className="flex flex-col items-center justify-center py-8 gap-4">
             <CheckCircle2 className="h-16 w-16 text-green-500" />
             <p className="text-center text-muted-foreground">
-              Solicitação enviada! Aguarde a aprovação do administrador da clínica.
+              {autoLinked
+                ? 'Vínculo estabelecido! Você já tem acesso à clínica.'
+                : 'Pedido enviado! Aguarde a resposta do consultor atual.'}
             </p>
           </div>
         ) : (
@@ -133,9 +145,8 @@ export function ClaimClinicDialog({
               {hasConsultant && (
                 <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
                   <p className="text-sm text-amber-800">
-                    <strong>Atenção:</strong> Esta clínica já possui o consultor{' '}
-                    <strong>{tenant.consultant_name}</strong> vinculado. Não é possível solicitar
-                    vínculo.
+                    <strong>Consultor atual:</strong> {tenant.consultant_name}. O pedido de
+                    transferência será enviado para aprovação dele.
                   </p>
                 </div>
               )}
@@ -147,11 +158,11 @@ export function ClaimClinicDialog({
               </Button>
               <Button
                 onClick={handleClaim}
-                disabled={loading || hasConsultant}
-                className="bg-sky-600 hover:bg-sky-700"
+                disabled={loading}
+                className={hasConsultant ? 'bg-amber-600 hover:bg-amber-700' : 'bg-sky-600 hover:bg-sky-700'}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Enviar Solicitação
+                {hasConsultant ? 'Solicitar Transferência' : 'Vincular Agora'}
               </Button>
             </DialogFooter>
           </>
