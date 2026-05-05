@@ -112,7 +112,18 @@
       "Bash(sed -n '88,91p' \"/c/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra/scripts/update-master-products-with-groups.js\")",
       "Bash(sed -n '51,54p' \"/c/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra/functions/src/services/emailService.ts\")",
       "Bash(sed -n '91,94p' \"/c/Users/scand/OneDrive/Área de Trabalho/Curva Mestra/curva_mestra/src/app/\\(clinic\\)/clinic/setup/page.tsx\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git restore *)",
+      "Bash(git rm *)",
+      "Bash(rm .github/workflows/deploy-lhuan-dev.yml)",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 24757445335 --log)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run list --workflow=deploy-gscandelari-dev.yml --limit=1)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 24757855700 --log)",
+      "Bash(git stash *)",
+      "PowerShell(git fetch *)"
     ],
     "deny": [],
     "ask": []

@@ -35,12 +35,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const claimData = claimDoc.data();
 
-    // Verificar permissão: system_admin ou clinic_admin do tenant
+    // Apenas system_admin pode aprovar claims diretamente (o novo fluxo usa auto-link)
     const isSystemAdmin = decodedToken.is_system_admin;
-    const isClinicAdmin =
-      decodedToken.role === 'clinic_admin' && decodedToken.tenant_id === claimData?.tenant_id;
 
-    if (!isSystemAdmin && !isClinicAdmin) {
+    if (!isSystemAdmin) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 

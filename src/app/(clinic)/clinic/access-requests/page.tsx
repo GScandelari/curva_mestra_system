@@ -253,54 +253,58 @@ export default function ClinicAccessRequestsPage() {
                 <p className="text-muted-foreground">Não há pedidos de acesso no momento</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Solicitante</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{request.full_name}</div>
-                          <div className="text-xs text-muted-foreground">{request.email}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {request.created_at?.toDate
-                          ? request.created_at.toDate().toLocaleDateString('pt-BR')
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleApprove(request)}
-                          disabled={
-                            processingId === request.id || (limits?.available_slots || 0) <= 0
-                          }
-                        >
-                          <CheckCircle className="mr-1 h-4 w-4" />
-                          Aprovar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => openRejectDialog(request)}
-                          disabled={processingId === request.id}
-                        >
-                          <XCircle className="mr-1 h-4 w-4" />
-                          Rejeitar
-                        </Button>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Solicitante</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {requests.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{request.full_name}</div>
+                            <div className="text-xs text-muted-foreground">{request.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {request.created_at?.toDate
+                            ? request.created_at.toDate().toLocaleDateString('pt-BR')
+                            : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleApprove(request)}
+                              disabled={
+                                processingId === request.id || (limits?.available_slots || 0) <= 0
+                              }
+                            >
+                              <CheckCircle className="mr-1 h-4 w-4" />
+                              Aprovar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => openRejectDialog(request)}
+                              disabled={processingId === request.id}
+                            >
+                              <XCircle className="mr-1 h-4 w-4" />
+                              Rejeitar
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

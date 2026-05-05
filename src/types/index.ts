@@ -420,3 +420,23 @@ export interface ConsultantClaim {
   created_at: Timestamp;
   updated_at: Timestamp;
 }
+
+export type ConsultantTransferRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ConsultantTransferRequest {
+  id: string;
+  requesting_consultant_id: string;
+  requesting_consultant_name: string;
+  requesting_consultant_code: string;
+  current_consultant_id: string;
+  current_consultant_name: string;
+  tenant_id: string;
+  tenant_name: string;
+  tenant_document: string;
+  status: ConsultantTransferRequestStatus;
+  rejection_reason?: string;
+  approved_at?: Timestamp;
+  rejected_at?: Timestamp;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}

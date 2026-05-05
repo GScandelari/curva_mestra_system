@@ -66,7 +66,7 @@ export default function MyClinicPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} mb-6`}>
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'} mb-6`}>
           <TabsTrigger value="clinic" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Clínica

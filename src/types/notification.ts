@@ -14,7 +14,9 @@ export type NotificationType =
   | 'request_created' // Nova solicitação criada (para admins)
   | 'new_user' // Novo usuário adicionado à clínica
   | 'license_expiring' // Licença próxima do vencimento
-  | 'license_expired'; // Licença expirada
+  | 'license_expired' // Licença expirada
+  | 'consultant_linked' // Consultor vinculado automaticamente à clínica
+  | 'consultant_claim'; // Solicitação de vínculo de consultor (legado)
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
