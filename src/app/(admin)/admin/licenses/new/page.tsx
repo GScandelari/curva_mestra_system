@@ -28,8 +28,8 @@ export default function NewLicensePage() {
 
   useEffect(() => {
     loadTenants();
-    // Calcular data de término padrão (6 meses)
-    calculateEndDate('semestral');
+    calculateEndDate('semestral', formData.start_date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadTenants() {
@@ -45,8 +45,8 @@ export default function NewLicensePage() {
     }
   }
 
-  function calculateEndDate(planId: string) {
-    const startDate = new Date(formData.start_date);
+  function calculateEndDate(planId: string, startDateStr: string) {
+    const startDate = new Date(startDateStr);
     const endDate = new Date(startDate);
 
     if (planId === 'semestral') {
@@ -63,7 +63,7 @@ export default function NewLicensePage() {
 
   function handlePlanChange(planId: string) {
     setFormData((prev) => ({ ...prev, plan_id: planId }));
-    calculateEndDate(planId);
+    calculateEndDate(planId, formData.start_date);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -179,7 +179,7 @@ export default function NewLicensePage() {
                   value={formData.start_date}
                   onChange={(e) => {
                     setFormData({ ...formData, start_date: e.target.value });
-                    calculateEndDate(formData.plan_id);
+                    calculateEndDate(formData.plan_id, e.target.value);
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />

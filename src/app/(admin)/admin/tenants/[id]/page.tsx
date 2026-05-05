@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -96,12 +96,7 @@ export default function EditTenantPage() {
   const [assigningConsultant, setAssigningConsultant] = useState(false);
   const [removingConsultant, setRemovingConsultant] = useState(false);
 
-  useEffect(() => {
-    loadTenant();
-    loadUsers();
-  }, [tenantId]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoadingUsers(true);
       const result = await listClinicUsers(tenantId);
@@ -111,9 +106,9 @@ export default function EditTenantPage() {
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [tenantId]);
 
-  const loadTenant = async () => {
+  const loadTenant = useCallback(async () => {
     try {
       setLoadingTenant(true);
       setError('');
@@ -139,7 +134,12 @@ export default function EditTenantPage() {
     } finally {
       setLoadingTenant(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    void loadTenant();
+    void loadUsers();
+  }, [loadTenant, loadUsers]);
 
   function validateTenantForm(): string | null {
     if (!name.trim()) return 'Nome da clínica é obrigatório';
