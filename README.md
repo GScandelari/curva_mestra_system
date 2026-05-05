@@ -2,159 +2,85 @@
 
 Sistema SaaS Multi-Tenant para Clínicas de Harmonização Facial e Corporal.
 
-Gestão inteligente de estoque Rennova com controle de lotes, validades, licenças e consumo por paciente.
+**Responsável:** Guilherme Stanke Scandelari ([@GScandelari](https://github.com/GScandelari))
 
-## Stack Tecnológica
+---
 
-| Camada             | Tecnologia                                                      |
-| ------------------ | --------------------------------------------------------------- |
-| **Frontend**       | Next.js 15 (App Router) + TypeScript + Tailwind CSS + Shadcn/ui |
-| **Backend**        | Firebase Functions 2nd gen (TypeScript)                         |
-| **Banco de Dados** | Firestore (multi-tenant com RLS)                                |
-| **Autenticação**   | Firebase Auth + Custom Claims                                   |
-| **Storage**        | Firebase Storage                                                |
-| **Deploy**         | Firebase Hosting + GitHub Actions                               |
+## Fluxo de Trabalho
 
-## Funcionalidades
+### Branches
 
-### Portal System Admin
+| Branch                    | Finalidade                                                   |
+| ------------------------- | ------------------------------------------------------------ |
+| `master`                  | Produção — protegida, exige CI + 1 aprovação                 |
+| `develop`                 | Integração — protegida, exige CI + 1 aprovação               |
+| `gscandelari_setup`       | Branch pessoal de validação (Guilherme) — exige CI           |
+| `lhuan_setup`             | Branch pessoal de validação (Lhuan) — exige CI               |
+| `feat/`, `fix/`, `chore/` | Branches de tarefa — efêmeras, criadas a partir de `develop` |
 
-- Dashboard com métricas do sistema
-- Gestão completa de clínicas (CRUD)
-- Gestão de usuários por clínica
-- Catálogo de produtos master Rennova
-- Sistema de licenças e planos
-- Gestão de consultores
-
-### Portal Clinic Admin
-
-- Dashboard com métricas em tempo real
-- Gestão de inventário com alertas de vencimento
-- Sistema de procedimentos (agendamento, execução, histórico)
-- Gestão de pacientes
-- Relatórios (valor de estoque, vencimentos, consumo)
-- Onboarding guiado para novas clínicas
-- Vinculação com consultores
-
-### Portal do Consultor
-
-- Dashboard com clínicas vinculadas
-- Visualização read-only de dados das clínicas
-- Acesso a inventário, procedimentos e relatórios
-- Sistema de solicitação de vínculo com clínicas
-
-### Segurança Multi-Tenant
-
-- Isolamento completo de dados por clínica
-- Custom Claims para controle de acesso
-- Regras Firestore com RLS (Row Level Security)
-- Três níveis de acesso: system_admin, clinic_admin, clinic_user, clinic_consultant
-
-## Início Rápido
-
-### Pré-requisitos
-
-- Node.js 20+
-- Firebase CLI (`npm install -g firebase-tools`)
-
-### Instalação
-
-```bash
-# Clone o repositório
-git clone git@github.com:GScandelari/curva_mestra_system.git
-cd curva_mestra
-
-# Instale as dependências
-npm install
-
-# Instale as dependências das Functions
-cd functions && npm install && cd ..
-
-# Configure as variáveis de ambiente
-cp .env.example .env.local
-# Edite .env.local com suas credenciais do Firebase
-```
-
-### Desenvolvimento Local
-
-```bash
-# Inicie os emuladores Firebase
-firebase emulators:start
-
-# Em outro terminal, inicie o Next.js
-npm run dev
-```
-
-Acesse http://localhost:3000
-
-## Estrutura do Projeto
+### Ciclo de uma tarefa
 
 ```
-curva_mestra/
-├── src/
-│   ├── app/                    # Next.js 15 App Router
-│   │   ├── (auth)/             # Rotas públicas (login, registro)
-│   │   ├── (admin)/            # Portal System Admin
-│   │   ├── (clinic)/           # Portal Clinic Admin
-│   │   └── (consultant)/       # Portal do Consultor
-│   ├── components/             # Componentes UI (shadcn)
-│   ├── lib/                    # Utilitários e serviços
-│   ├── hooks/                  # React hooks customizados
-│   └── types/                  # TypeScript types
-├── functions/                  # Firebase Cloud Functions
-├── docs/                       # Documentação
-├── scripts/                    # Scripts de manutenção
-└── dev-tools/                  # Ferramentas de desenvolvimento
+develop → task branch → PR → dev branch → validar → PR → develop → PR → master
 ```
 
-## Deploy
+1. Criar branch a partir de `develop`: `git checkout -b feat/nome-da-tarefa`
+2. Desenvolver e commitar seguindo Conventional Commits
+3. Abrir PR da task branch para a **branch pessoal** (`gscandelari_setup` ou `lhuan_setup`)
+4. CI roda automaticamente — validar no ambiente de preview
+5. Abrir PR da branch pessoal para `develop`
+6. CI + aprovação obrigatória — auto-merge habilitado após aprovação
+7. Abrir PR de `develop` para `master`
+8. CI + aprovação obrigatória — merge dispara release automático (release-please)
 
-O deploy é automatizado via GitHub Actions ao fazer push na branch `master`.
+> **Regra:** o merge nunca é feito manualmente antes do PR. O PR **é** o mecanismo de merge.
 
-Para deploy manual:
+### Conventional Commits
 
-```bash
-# Build do Next.js
-npm run build
-
-# Deploy completo
-firebase deploy
-
-# Deploy apenas hosting
-firebase deploy --only hosting
-
-# Deploy apenas functions
-firebase deploy --only functions
-
-# Deploy apenas regras do Firestore
-firebase deploy --only firestore:rules
+```
+feat:   nova funcionalidade
+fix:    correção de bug
+chore:  manutenção, CI, dependências
+docs:   documentação
 ```
 
-## Documentação
+---
 
-- [docs/features/](./docs/features/) - Funcionalidades e roadmap
-- [docs/legal/](./docs/legal/) - Documentos legais (termos de uso)
-- [CLAUDE.md](./CLAUDE.md) - Instruções para desenvolvimento com IA
-- [CHANGELOG.md](./CHANGELOG.md) - Histórico de versões
+## CI/CD
 
-## Roles e Permissões
+### Pipelines
 
-| Role                | Descrição                                        |
-| ------------------- | ------------------------------------------------ |
-| `system_admin`      | Administrador do sistema, acesso total           |
-| `clinic_admin`      | Administrador da clínica, gestão completa        |
-| `clinic_user`       | Usuário da clínica, acesso limitado              |
-| `clinic_consultant` | Consultor, acesso read-only a múltiplas clínicas |
+| Pipeline                     | Gatilho                                           | Jobs                                               |
+| ---------------------------- | ------------------------------------------------- | -------------------------------------------------- |
+| **CI Pipeline**              | push/PR em `master`, `develop`, branches pessoais | Linting, Type Check, Build, Unit Tests             |
+| **Security & Quality Check** | push/PR em `master`, `develop`, branches pessoais | Security Audit, Code Quality Analysis (SonarCloud) |
+| **Deploy Firebase**          | push em `master`                                  | Deploy produção                                    |
+| **Deploy Dev**               | push nas branches pessoais                        | Deploy ambiente de preview                         |
+| **Release**                  | push em `master`                                  | release-please (bump de versão + CHANGELOG)        |
 
-## Contribuição
+### Qualidade
 
-Este projeto segue Conventional Commits:
+- **SonarCloud** — análise de qualidade e cobertura a cada push
+- **Husky + lint-staged** — Prettier executa automaticamente nos arquivos staged antes de cada commit
+- **Branch protection** — nenhum merge em `master` ou `develop` sem CI verde e aprovação
 
-- `feat:` nova funcionalidade
-- `fix:` correção de bug
-- `chore:` tarefas de manutenção
-- `docs:` documentação
+---
 
-## Licença
+## Ambientes
 
-Projeto privado - Curva Mestra © 2025-2026
+| Ambiente      | URL                       | Branch              |
+| ------------- | ------------------------- | ------------------- |
+| Produção      | `(Firebase Hosting)`      | `master`            |
+| Dev Guilherme | `dev-gscandelari.web.app` | `gscandelari_setup` |
+
+---
+
+## Documentação Interna
+
+- [`CLAUDE.md`](./CLAUDE.md) — instruções de arquitetura e convenções para desenvolvimento com IA
+- [`ONLY_FOR_DEVS/`](./ONLY_FOR_DEVS/) — guias, tasks pendentes e decisões técnicas
+- [`CHANGELOG.md`](./CHANGELOG.md) — histórico de versões (gerado automaticamente)
+
+---
+
+Projeto privado — Curva Mestra © 2025-2026
