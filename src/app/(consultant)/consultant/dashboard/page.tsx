@@ -65,7 +65,10 @@ export default function ConsultantDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, consultantId, refreshClaims, toast]);
+    // refreshClaims e toast são omitidos das deps: não são refs estáveis em useAuth/useToast
+    // e não afetam quando o carregamento deve ser re-executado (apenas user/consultantId determinam isso)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, consultantId]);
 
   useEffect(() => {
     if (user && consultantId) {
