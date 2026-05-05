@@ -1,6 +1,6 @@
 {
   "name": "curva-mestra",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sistema SaaS Multi-Tenant para Clínicas de Harmonização Facial e Corporal",
   "private": true,
   "scripts": {

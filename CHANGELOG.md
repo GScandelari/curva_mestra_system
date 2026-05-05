@@ -5,6 +5,16 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.0.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.0.0...v1.0.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **quality:** corrigir 6 bugs reportados pelo SonarCloud ([#95](https://github.com/GScandelari/curva_mestra_system/issues/95)) ([c2eb436](https://github.com/GScandelari/curva_mestra_system/commit/c2eb43612337f086e657cee65509e0c579ffb683))
+* **quality:** corrigir 6 bugs reportados pelo SonarCloud ([#96](https://github.com/GScandelari/curva_mestra_system/issues/96)) ([84f0654](https://github.com/GScandelari/curva_mestra_system/commit/84f0654149ea9ec25f4336ba542193077e88aefe))
+* **quality:** corrigir 6 bugs reportados pelo SonarCloud ([#97](https://github.com/GScandelari/curva_mestra_system/issues/97)) ([915956a](https://github.com/GScandelari/curva_mestra_system/commit/915956a91a4c859fb4e236f535b38a4e1e492b2f))
+* **quality:** corrigir loop infinito e vazamento de mensagem de erro ([5ad5d87](https://github.com/GScandelari/curva_mestra_system/commit/5ad5d87f916453b2eb5125ad217c4f04179f52ec))
+
 ## [Não Lançado]
 
 ### Planejado
