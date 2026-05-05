@@ -144,7 +144,12 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
         <div className="flex items-center justify-between px-4 py-2">
           <DropdownMenuLabel className="p-0">Notificações</DropdownMenuLabel>
           {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleMarkAllAsRead()}
+              className="text-xs"
+            >
               Marcar todas como lidas
             </Button>
           )}
@@ -173,7 +178,7 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
                     relative rounded-lg border p-3 cursor-pointer transition-colors
                     ${!notification.read ? 'bg-blue-50 border-blue-200' : getPriorityColor(notification.priority)}
                   `}
-                  onClick={() => handleNotificationClick(notification)}
+                  onClick={() => void handleNotificationClick(notification)}
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">{getNotificationIcon(notification.type)}</div>
@@ -203,7 +208,7 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
                           variant="ghost"
                           size="sm"
                           className="h-6 w-6 p-0"
-                          onClick={(e) => handleDelete(e, notification.id)}
+                          onClick={(e) => void handleDelete(e, notification.id)}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -220,7 +225,12 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
           <>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Button variant="ghost" size="sm" onClick={handleClearAll} className="w-full text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void handleClearAll()}
+                className="w-full text-xs"
+              >
                 <Trash2 className="h-3 w-3 mr-2" />
                 Limpar notificações lidas
               </Button>

@@ -4,7 +4,7 @@ on:
   push:
     branches: [master, develop, release/*]
   pull_request:
-    branches: [master, develop]
+    branches: [master, develop, gscandelari_setup, lhuan_setup]
 
 jobs:
   lint:
