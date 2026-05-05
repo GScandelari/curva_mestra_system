@@ -32,4 +32,4 @@ jobs:
         with:
           release-type: node
           package-name: curva-mestra-system
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
