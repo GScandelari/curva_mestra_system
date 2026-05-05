@@ -162,7 +162,10 @@ export async function checkLowStock(tenantId: string): Promise<{
     const representativeLot = new Map<string, InventoryItem>();
     for (const docSnap of inventorySnap.docs) {
       const item = { id: docSnap.id, ...docSnap.data() } as InventoryItem;
-      totalByCode.set(item.codigo_produto, (totalByCode.get(item.codigo_produto) ?? 0) + item.quantidade_disponivel);
+      totalByCode.set(
+        item.codigo_produto,
+        (totalByCode.get(item.codigo_produto) ?? 0) + item.quantidade_disponivel
+      );
       if (!representativeLot.has(item.codigo_produto)) {
         representativeLot.set(item.codigo_produto, item);
       }
@@ -173,8 +176,7 @@ export async function checkLowStock(tenantId: string): Promise<{
       const item = representativeLot.get(codigoProduto)!;
 
       // Limite por produto, fallback para threshold global, fallback padrão 10
-      const minQuantity =
-        stockLimitsMap.get(codigoProduto) ?? settings.low_stock_threshold ?? 10;
+      const minQuantity = stockLimitsMap.get(codigoProduto) ?? settings.low_stock_threshold ?? 10;
 
       // Verificar se o total do produto está em estoque baixo
       if (totalQty > 0 && totalQty <= minQuantity) {

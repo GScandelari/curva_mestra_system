@@ -159,7 +159,9 @@ export function ClaimClinicDialog({
               <Button
                 onClick={handleClaim}
                 disabled={loading}
-                className={hasConsultant ? 'bg-amber-600 hover:bg-amber-700' : 'bg-sky-600 hover:bg-sky-700'}
+                className={
+                  hasConsultant ? 'bg-amber-600 hover:bg-amber-700' : 'bg-sky-600 hover:bg-sky-700'
+                }
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {hasConsultant ? 'Solicitar Transferência' : 'Vincular Agora'}

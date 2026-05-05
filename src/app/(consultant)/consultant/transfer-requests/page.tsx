@@ -107,10 +107,8 @@ export default function TransferRequestsPage() {
   const history = requests.filter((r) => r.status !== 'pending');
 
   const getStatusBadge = (status: ConsultantTransferRequest['status']) => {
-    if (status === 'approved')
-      return <Badge variant="default">Aprovado</Badge>;
-    if (status === 'rejected')
-      return <Badge variant="destructive">Rejeitado</Badge>;
+    if (status === 'approved') return <Badge variant="default">Aprovado</Badge>;
+    if (status === 'rejected') return <Badge variant="destructive">Rejeitado</Badge>;
     return (
       <Badge variant="outline" className="bg-amber-100 text-amber-800">
         Pendente
@@ -142,8 +140,7 @@ export default function TransferRequestsPage() {
         </p>
         {request.status === 'rejected' && request.rejection_reason && (
           <p>
-            <span className="font-medium text-foreground">Motivo:</span>{' '}
-            {request.rejection_reason}
+            <span className="font-medium text-foreground">Motivo:</span> {request.rejection_reason}
           </p>
         )}
       </div>
@@ -200,7 +197,10 @@ export default function TransferRequestsPage() {
                 <Clock className="h-4 w-4" />
                 Pendentes
                 {pending.length > 0 && (
-                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  <Badge
+                    variant="destructive"
+                    className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                  >
                     {pending.length}
                   </Badge>
                 )}
@@ -212,15 +212,15 @@ export default function TransferRequestsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Pedidos Pendentes</CardTitle>
-                  <CardDescription>
-                    Pedidos aguardando sua decisão
-                  </CardDescription>
+                  <CardDescription>Pedidos aguardando sua decisão</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {pending.length === 0 ? (
                     <div className="text-center py-12">
                       <ArrowRightLeft className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
-                      <p className="text-muted-foreground">Nenhum pedido de transferência pendente</p>
+                      <p className="text-muted-foreground">
+                        Nenhum pedido de transferência pendente
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-4">

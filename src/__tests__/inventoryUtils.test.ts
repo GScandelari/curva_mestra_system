@@ -110,7 +110,9 @@ describe('getStatusEstoque', () => {
   });
 
   it('returns Sem estoque when quantidade is 0 with custom limite', () => {
-    expect(getStatusEstoque({ quantidade_disponivel: 0, limite_estoque_baixo: 5 })).toBe('Sem estoque');
+    expect(getStatusEstoque({ quantidade_disponivel: 0, limite_estoque_baixo: 5 })).toBe(
+      'Sem estoque'
+    );
   });
 
   it('returns Baixo when quantidade <= default threshold (10)', () => {
@@ -135,12 +137,18 @@ describe('getStatusEstoque', () => {
   });
 
   it('returns Normal when quantidade exceeds high custom limite', () => {
-    expect(getStatusEstoque({ quantidade_disponivel: 51, limite_estoque_baixo: 50 })).toBe('Normal');
+    expect(getStatusEstoque({ quantidade_disponivel: 51, limite_estoque_baixo: 50 })).toBe(
+      'Normal'
+    );
   });
 
   it('uses default 10 when limite_estoque_baixo is undefined', () => {
-    expect(getStatusEstoque({ quantidade_disponivel: 10, limite_estoque_baixo: undefined })).toBe('Baixo');
-    expect(getStatusEstoque({ quantidade_disponivel: 11, limite_estoque_baixo: undefined })).toBe('Normal');
+    expect(getStatusEstoque({ quantidade_disponivel: 10, limite_estoque_baixo: undefined })).toBe(
+      'Baixo'
+    );
+    expect(getStatusEstoque({ quantidade_disponivel: 11, limite_estoque_baixo: undefined })).toBe(
+      'Normal'
+    );
   });
 });
 

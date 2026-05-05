@@ -101,8 +101,8 @@ export default function StockLimitsTab() {
       <CardHeader>
         <CardTitle>Limite de Estoque por Produto</CardTitle>
         <CardDescription>
-          Define a quantidade mínima para cada produto. Abaixo ou igual ao limite, o produto
-          aparece como &quot;Estoque Baixo&quot; e gera alertas de notificação.
+          Define a quantidade mínima para cada produto. Abaixo ou igual ao limite, o produto aparece
+          como &quot;Estoque Baixo&quot; e gera alertas de notificação.
         </CardDescription>
       </CardHeader>
       <CardContent>

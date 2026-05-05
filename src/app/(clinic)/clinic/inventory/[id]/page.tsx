@@ -17,7 +17,11 @@ import {
   FileText,
   Barcode,
 } from 'lucide-react';
-import { getInventoryItem, getStockLimitsMap, type InventoryItem } from '@/lib/services/inventoryService';
+import {
+  getInventoryItem,
+  getStockLimitsMap,
+  type InventoryItem,
+} from '@/lib/services/inventoryService';
 import { getStatusEstoque, type StatusEstoque } from '@/lib/inventoryUtils';
 
 export default function InventoryItemPage() {
@@ -102,7 +106,11 @@ export default function InventoryItemPage() {
       return { text: 'Vencido', variant: 'destructive' as const, icon: AlertTriangle };
     }
     if (days <= 7) {
-      return { text: `Vence em ${days} dias`, variant: 'destructive' as const, icon: AlertTriangle };
+      return {
+        text: `Vence em ${days} dias`,
+        variant: 'destructive' as const,
+        icon: AlertTriangle,
+      };
     }
     if (days <= 30) {
       return { text: `Vence em ${days} dias`, variant: 'warning' as const, icon: AlertTriangle };
@@ -151,7 +159,10 @@ export default function InventoryItemPage() {
 
   const expiryStatus = getExpiryStatus(item.dt_validade);
   const stockStatus = getStockStatusDisplay(
-    getStatusEstoque({ quantidade_disponivel: item.quantidade_disponivel, limite_estoque_baixo: stockLimit })
+    getStatusEstoque({
+      quantidade_disponivel: item.quantidade_disponivel,
+      limite_estoque_baixo: stockLimit,
+    })
   );
   const ExpiryIcon = expiryStatus.icon;
   const StockIcon = stockStatus.icon;

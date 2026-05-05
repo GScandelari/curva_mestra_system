@@ -23,7 +23,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       .get();
 
     if (!transferDoc.exists) {
-      return NextResponse.json({ error: 'Pedido de transferência não encontrado' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Pedido de transferência não encontrado' },
+        { status: 404 }
+      );
     }
 
     const transferData = transferDoc.data()!;

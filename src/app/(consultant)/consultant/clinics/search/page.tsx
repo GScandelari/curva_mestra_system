@@ -5,7 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, Building2, Loader2, CheckCircle2, AlertCircle, ArrowRightLeft } from 'lucide-react';
+import {
+  Search,
+  Building2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRightLeft,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { ClaimClinicDialog } from '@/components/consultant/ClaimClinicDialog';

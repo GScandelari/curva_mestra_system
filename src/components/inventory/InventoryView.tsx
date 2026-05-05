@@ -214,7 +214,14 @@ export function InventoryView({
       limite_estoque_baixo: limitsMap.get(item.codigo_produto),
     });
 
-  const filteredInventory = applyFilter(inventory, filterBy, searchTerm, categoryFilter, limitsMap, totalByCode);
+  const filteredInventory = applyFilter(
+    inventory,
+    filterBy,
+    searchTerm,
+    categoryFilter,
+    limitsMap,
+    totalByCode
+  );
 
   useEffect(() => {
     const ref = collection(db, 'tenants', tenantId, 'inventory');
