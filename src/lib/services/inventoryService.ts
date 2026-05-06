@@ -14,6 +14,8 @@ import {
   doc,
   getDoc,
   setDoc,
+  writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -400,4 +402,69 @@ export async function updateStockLimit(
 ): Promise<void> {
   const limitRef = doc(db, 'tenants', tenantId, 'stock_limits', codigoProduto);
   await setDoc(limitRef, { limite_estoque_baixo: limiteEstoqueBaixo }, { merge: true });
+}
+
+// ============================================================================
+// INSERÇÃO EM LOTE (IMPORTAÇÃO XML NF-e)
+// ============================================================================
+
+export interface AddInventoryItemsParams {
+  tenantId: string;
+  nfNumero: string;
+  nfId: string;
+  items: Array<{
+    produto_id: string;
+    codigo_produto: string;
+    nome_produto: string;
+    lote: string;
+    quantidade: number;
+    dt_validade: Date;
+    valor_unitario: number;
+    category?: string;
+    fragmentavel?: boolean;
+    unidades_por_embalagem?: number;
+    quantidade_embalagens?: number;
+    valor_por_embalagem?: number;
+  }>;
+}
+
+/**
+ * Grava um lote de itens no inventário do tenant usando writeBatch para atomicidade.
+ */
+export async function addInventoryItems(params: AddInventoryItemsParams): Promise<void> {
+  const { tenantId, nfNumero, nfId, items } = params;
+
+  if (items.length === 0) return;
+
+  const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+  const batch = writeBatch(db);
+
+  for (const item of items) {
+    const newDocRef = doc(inventoryRef);
+    batch.set(newDocRef, {
+      tenant_id: tenantId,
+      produto_id: item.produto_id,
+      codigo_produto: item.codigo_produto,
+      nome_produto: item.nome_produto,
+      lote: item.lote,
+      quantidade_inicial: item.quantidade,
+      quantidade_disponivel: item.quantidade,
+      quantidade_reservada: 0,
+      dt_validade: Timestamp.fromDate(item.dt_validade),
+      dt_entrada: serverTimestamp(),
+      valor_unitario: item.valor_unitario,
+      nf_numero: nfNumero,
+      nf_id: nfId,
+      active: true,
+      category: item.category ?? null,
+      fragmentavel: item.fragmentavel ?? false,
+      unidades_por_embalagem: item.unidades_por_embalagem ?? null,
+      quantidade_embalagens: item.quantidade_embalagens ?? null,
+      valor_por_embalagem: item.valor_por_embalagem ?? null,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+  }
+
+  await batch.commit();
 }
