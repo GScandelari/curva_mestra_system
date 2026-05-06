@@ -20,7 +20,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import type { NFImport, NFImportCreate, ParsedNF } from '@/types/nf';
-import { getProductByCode } from '@/lib/services/productService';
+import { getMasterProductByCode } from '@/lib/services/masterProductService';
 import {
   addInventoryItems,
   calcularQuantidadeInventario,
@@ -204,7 +204,7 @@ export async function processNFAndAddToInventory(
     const produtosNovos: string[] = [];
 
     for (const produto of parsedData.produtos) {
-      const masterProduct = await getProductByCode(produto.codigo);
+      const { product: masterProduct } = await getMasterProductByCode(produto.codigo);
 
       if (!masterProduct) {
         produtosNovos.push(produto.codigo);
@@ -214,9 +214,8 @@ export async function processNFAndAddToInventory(
       const [day, month, year] = produto.dt_validade.split('/').map(Number);
       const dtValidade = new Date(year, month - 1, day);
 
-      const masterAny = masterProduct as unknown as Record<string, unknown>;
-      const fragmentavel = Boolean(masterAny.fragmentavel);
-      const unidadesPorEmbalagem = masterAny.unidades_por_embalagem as number | undefined;
+      const fragmentavel = masterProduct.fragmentavel ?? false;
+      const unidadesPorEmbalagem = masterProduct.unidades_por_embalagem;
 
       const { quantidade_inicial, valor_unitario } = calcularQuantidadeInventario({
         quantidadeInformada: produto.quantidade,
@@ -233,7 +232,7 @@ export async function processNFAndAddToInventory(
         quantidade: quantidade_inicial,
         dt_validade: dtValidade,
         valor_unitario,
-        category: masterAny.category as string | undefined,
+        category: masterProduct.category,
         fragmentavel,
         unidades_por_embalagem: unidadesPorEmbalagem,
         quantidade_embalagens: fragmentavel ? produto.quantidade : undefined,

@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import { FileUpload } from '@/components/upload/FileUpload';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
@@ -31,7 +29,6 @@ export default function UploadPage() {
   const router = useRouter();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [nfNumber, setNfNumber] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<
@@ -70,11 +67,6 @@ export default function UploadPage() {
       return;
     }
 
-    if (!nfNumber.trim()) {
-      setError('Por favor, informe o número da Nota Fiscal');
-      return;
-    }
-
     try {
       setUploading(true);
       setError('');
@@ -96,19 +88,12 @@ export default function UploadPage() {
       setUploadProgress(100);
       clearInterval(progressInterval);
 
-      // 2. Criar registro de importação
-      const newImportId = await createNFImport({
-        tenant_id: tenantId,
-        numero_nf: nfNumber,
-        arquivo_nome: selectedFile.name,
-        arquivo_url: fileUrl,
-        created_by: userId,
-      });
-
-      setImportId(newImportId);
       setUploadStatus('processing');
 
-      // 3. Processar XML usando a API NF-e
+      // 2. Processar XML usando a API NF-e
+      let parsedNF: ParsedNF;
+      let parseWarnings: XmlParseError[] = [];
+
       try {
         const formData = new FormData();
         formData.append('file', selectedFile);
@@ -134,21 +119,30 @@ export default function UploadPage() {
           );
         }
 
-        setParsedData(parseResult.parsedNF);
-
-        if (parseResult.parsedNF.numero) {
-          setNfNumber(parseResult.parsedNF.numero);
-        }
-
-        if (parseResult.warnings && parseResult.warnings.length > 0) {
-          setWarnings(parseResult.warnings);
-        }
+        parsedNF = parseResult.parsedNF;
+        parseWarnings = parseResult.warnings ?? [];
       } catch (parseError: unknown) {
         const msg =
           parseError instanceof Error ? parseError.message : 'Erro ao processar o XML da NF-e';
         setError(msg);
         setUploadStatus('error');
         return;
+      }
+
+      // 3. Criar registro de importação com número extraído do XML
+      const newImportId = await createNFImport({
+        tenant_id: tenantId,
+        numero_nf: parsedNF.numero,
+        arquivo_nome: selectedFile.name,
+        arquivo_url: fileUrl,
+        created_by: userId,
+      });
+
+      setImportId(newImportId);
+      setParsedData(parsedNF);
+
+      if (parseWarnings.length > 0) {
+        setWarnings(parseWarnings);
       }
 
       // 4. Mostrar preview para confirmação do usuário
@@ -189,7 +183,6 @@ export default function UploadPage() {
 
   const resetUpload = () => {
     setSelectedFile(null);
-    setNfNumber('');
     setUploadStatus('idle');
     setError('');
     setImportId('');
@@ -227,23 +220,6 @@ export default function UploadPage() {
             <CardContent className="space-y-6">
               <FileUpload onFileSelect={handleFileSelect} disabled={uploading} />
 
-              {selectedFile && (
-                <div className="space-y-2">
-                  <Label htmlFor="nf-number">Número da Nota Fiscal *</Label>
-                  <Input
-                    id="nf-number"
-                    type="text"
-                    placeholder="Ex: 027117"
-                    value={nfNumber}
-                    onChange={(e) => setNfNumber(e.target.value)}
-                    disabled={uploading}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Será preenchido automaticamente após o processamento do XML
-                  </p>
-                </div>
-              )}
-
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -254,11 +230,7 @@ export default function UploadPage() {
 
               {selectedFile && (
                 <div className="flex gap-3">
-                  <Button
-                    onClick={handleUpload}
-                    disabled={uploading || !nfNumber.trim()}
-                    className="flex-1"
-                  >
+                  <Button onClick={handleUpload} disabled={uploading} className="flex-1">
                     {uploading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
