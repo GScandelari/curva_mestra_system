@@ -169,7 +169,7 @@ export function ConsultantLayout({ children }: ConsultantLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-[#f5f3ef] h-screen">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-[#f5f3ef] h-screen px-6">{children}</main>
       </div>
     </TooltipProvider>
   );
