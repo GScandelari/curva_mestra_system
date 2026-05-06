@@ -1,80 +1,11 @@
 export const dynamic = 'force-dynamic';
 
-/**
- * API Route: Reivindicações de vínculo consultor-clínica
- * GET - Listar reivindicações
- * POST - Criar nova reivindicação
- */
-
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue, WriteBatch } from 'firebase-admin/firestore';
 
 /**
- * GET - Listar reivindicações
- */
-export async function GET(req: NextRequest) {
-  try {
-    // Verificar autenticação
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(token);
-
-    const { searchParams } = new URL(req.url);
-    const consultantId = searchParams.get('consultant_id');
-    const tenantId = searchParams.get('tenant_id');
-    const status = searchParams.get('status');
-
-    let query = adminDb.collection('consultant_claims').orderBy('created_at', 'desc');
-
-    // Filtrar baseado no role do usuário
-    if (decodedToken.is_system_admin) {
-      // System admin pode ver todas
-      if (consultantId) {
-        query = query.where('consultant_id', '==', consultantId) as any;
-      }
-      if (tenantId) {
-        query = query.where('tenant_id', '==', tenantId) as any;
-      }
-    } else if (decodedToken.is_consultant && decodedToken.consultant_id) {
-      // Consultor vê apenas suas próprias
-      query = query.where('consultant_id', '==', decodedToken.consultant_id) as any;
-    } else if (decodedToken.tenant_id && decodedToken.role === 'clinic_admin') {
-      // Clinic admin vê apenas do seu tenant
-      query = query.where('tenant_id', '==', decodedToken.tenant_id) as any;
-    } else {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-    }
-
-    if (status) {
-      query = query.where('status', '==', status) as any;
-    }
-
-    const snapshot = await query.get();
-    const claims = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: claims,
-    });
-  } catch (error: any) {
-    console.error('Erro ao listar reivindicações:', error);
-    return NextResponse.json(
-      { error: error.message || 'Erro ao listar reivindicações' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * POST - Criar reivindicação de vínculo
+ * POST - Vincular consultor a uma clínica (auto-link) ou iniciar transferência
  */
 export async function POST(req: NextRequest) {
   try {

@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LayoutDashboard, Building2, Search, Clock, ArrowRight, Copy } from 'lucide-react';
+import { LayoutDashboard, Building2, Search, ArrowRight, Copy } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import type { Consultant, ConsultantClaim } from '@/types';
+import type { Consultant } from '@/types';
 
 interface ClinicSummary {
   id: string;
@@ -22,7 +22,6 @@ export default function ConsultantDashboardPage() {
   const { toast } = useToast();
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [clinics, setClinics] = useState<ClinicSummary[]>([]);
-  const [pendingClaims, setPendingClaims] = useState<ConsultantClaim[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = useCallback(async () => {
@@ -48,17 +47,7 @@ export default function ConsultantDashboardPage() {
       const clinicsData = await clinicsRes.json();
       if (clinicsRes.ok) {
         setClinics(clinicsData.data || []);
-        // Refresh claims to sync authorized_tenants from server
         await refreshClaims();
-      }
-
-      // Load pending claims
-      const claimsRes = await fetch('/api/consultants/claims?status=pending', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const claimsData = await claimsRes.json();
-      if (claimsRes.ok) {
-        setPendingClaims(claimsData.data || []);
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -145,17 +134,6 @@ export default function ConsultantDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Solicitações Pendentes</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{pendingClaims.length}</div>
-              <p className="text-xs text-muted-foreground">aguardando aprovação</p>
-            </CardContent>
-          </Card>
-
           <Card
             className="cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => router.push('/consultant/clinics/search')}
@@ -171,43 +149,6 @@ export default function ConsultantDashboardPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Pending Claims */}
-        {pendingClaims.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-amber-500" />
-                Solicitações Pendentes
-              </CardTitle>
-              <CardDescription>Aguardando aprovação das clínicas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {pendingClaims.map((claim) => (
-                  <div
-                    key={claim.id}
-                    className="flex items-center justify-between p-3 border rounded-lg bg-amber-50 border-amber-200"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Building2 className="h-5 w-5 text-amber-600" />
-                      <div>
-                        <p className="font-medium">{claim.tenant_name}</p>
-                        <p className="text-sm text-muted-foreground">{claim.tenant_document}</p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className="bg-amber-100 text-amber-800 border-amber-300"
-                    >
-                      Pendente
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* My Clinics */}
         <Card>
