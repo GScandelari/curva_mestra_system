@@ -160,22 +160,28 @@ Claude AI é o arquiteto oficial – siga este arquivo à risca.
 
 ## Funcionalidades Desabilitadas
 
-### Importação de PDF (DANFE Rennova)
+### Importação via XML NF-e (SEFAZ v4.00)
 
-**Status**: DESABILITADO permanentemente (por ora)
-**Motivo**: Decisão de simplificar o MVP e focar apenas em cadastro manual
-**Arquivos Afetados**:
-
-- `src/app/api/parse-nf/route.ts` (API route não utilizada - manter para referência futura)
+**Status**: ATIVO — substituiu a importação via PDF definitivamente
+**Implementado em**: `feature/importacao-xml-nfe` (2026-05-06)
 
 **Decisão de Produto**:
 
-1. MVP irá operar APENAS com cadastro manual de produtos no Portal Admin
-2. Funcionalidade de importação via DANFE pode ser implementada no futuro
-3. API route `/api/parse-nf` permanece no código como referência, mas não está conectada à interface
+1. Importação via PDF (DANFE) foi REMOVIDA — `src/app/api/parse-nf/route.ts` foi deletado
+2. Importação via XML NF-e SEFAZ v4.00 é a estratégia permanente e única
+3. Parser usa `fast-xml-parser` com `removeNSPrefix: true` — sem OCR, sem regex
+
+**Arquivos Principais**:
+
+- `src/lib/parseNfeXml.ts` — parser puro (funções `convertXmlDate`, `extractText`, `parseNfeXml`)
+- `src/app/api/parse-nf-xml/route.ts` — endpoint POST que recebe XML via FormData
+- `src/components/upload/FileUpload.tsx` — aceita apenas `.xml` (PDF rejeitado)
+- `src/app/(clinic)/clinic/upload/page.tsx` — tela de upload XML com preview e confirmação
 
 **Sistema Atual**:
 
-- System Admin cadastra produtos manualmente em `/admin/products/new`
-- Campos: código (7-8 dígitos) e nome do produto (uppercase automático)
-- Produtos ficam disponíveis no catálogo master para todas as clínicas
+- Clinic Admin faz upload do XML da NF-e em `/clinic/upload`
+- Produtos são extraídos automaticamente (sem OCR) e exibidos em preview
+- Confirmação grava itens em `tenants/{tenantId}/inventory` via `writeBatch`
+- Se `cProd` não existe no catálogo master (`products`), status vira `novo_produto_pendente`
+- Acesso via sub-step "Importar XML da NF-e" em `/clinic/add-products` (opção Rennova)

@@ -20,6 +20,12 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import type { NFImport, NFImportCreate, ParsedNF } from '@/types/nf';
+import { getProductByCode } from '@/lib/services/productService';
+import {
+  addInventoryItems,
+  calcularQuantidadeInventario,
+  type AddInventoryItemsParams,
+} from '@/lib/services/inventoryService';
 
 /**
  * Upload de arquivo PDF para Firebase Storage
@@ -176,8 +182,14 @@ export async function listNFImports(
 }
 
 /**
- * Processa NF e adiciona produtos ao inventário
- * NOTA: Esta função será expandida quando o OCR estiver implementado
+ * Processa NF confirmada pelo usuário e grava produtos no inventário.
+ *
+ * Fluxo:
+ *   1. Marca import como 'processing'.
+ *   2. Para cada NFProduct, busca no catálogo master por código exato (cProd).
+ *   3. Se qualquer produto não existe no master, aborta e marca como 'novo_produto_pendente'.
+ *   4. Se todos existem, aplica calcularQuantidadeInventario e chama addInventoryItems.
+ *   5. Marca import como 'success'.
  */
 export async function processNFAndAddToInventory(
   tenantId: string,
@@ -185,29 +197,86 @@ export async function processNFAndAddToInventory(
   parsedData: ParsedNF
 ): Promise<{ success: boolean; message: string }> {
   try {
-    // TODO: Implementar lógica de adição ao inventário
-    // Por enquanto, apenas simula sucesso
+    await updateNFImportStatus(tenantId, importId, 'processing');
+
+    type ResolvedItem = AddInventoryItemsParams['items'][number];
+    const resolvedItems: ResolvedItem[] = [];
+    const produtosNovos: string[] = [];
+
+    for (const produto of parsedData.produtos) {
+      const masterProduct = await getProductByCode(produto.codigo);
+
+      if (!masterProduct) {
+        produtosNovos.push(produto.codigo);
+        continue;
+      }
+
+      const [day, month, year] = produto.dt_validade.split('/').map(Number);
+      const dtValidade = new Date(year, month - 1, day);
+
+      const masterAny = masterProduct as unknown as Record<string, unknown>;
+      const fragmentavel = Boolean(masterAny.fragmentavel);
+      const unidadesPorEmbalagem = masterAny.unidades_por_embalagem as number | undefined;
+
+      const { quantidade_inicial, valor_unitario } = calcularQuantidadeInventario({
+        quantidadeInformada: produto.quantidade,
+        fragmentavel,
+        unidadesPorEmbalagem,
+        valorInformado: produto.valor_unitario,
+      });
+
+      resolvedItems.push({
+        produto_id: masterProduct.id,
+        codigo_produto: produto.codigo,
+        nome_produto: produto.nome_produto,
+        lote: produto.lote,
+        quantidade: quantidade_inicial,
+        dt_validade: dtValidade,
+        valor_unitario,
+        category: masterAny.category as string | undefined,
+        fragmentavel,
+        unidades_por_embalagem: unidadesPorEmbalagem,
+        quantidade_embalagens: fragmentavel ? produto.quantidade : undefined,
+        valor_por_embalagem: fragmentavel ? produto.valor_unitario : undefined,
+      });
+    }
+
+    if (produtosNovos.length > 0) {
+      await updateNFImportStatus(tenantId, importId, 'novo_produto_pendente', {
+        produtos_importados: 0,
+        produtos_novos: produtosNovos.length,
+        parsed_data: parsedData,
+        error_message: `Produtos não encontrados no catálogo master: ${produtosNovos.join(', ')}`,
+      });
+
+      return {
+        success: false,
+        message: `${produtosNovos.length} produto(s) não encontrado(s) no catálogo master. Solicite ao administrador que cadastre os produtos antes de reimportar.`,
+      };
+    }
+
+    await addInventoryItems({
+      tenantId,
+      nfNumero: parsedData.numero,
+      nfId: importId,
+      items: resolvedItems,
+    });
 
     await updateNFImportStatus(tenantId, importId, 'success', {
-      produtos_importados: parsedData.produtos.length,
+      produtos_importados: resolvedItems.length,
       produtos_novos: 0,
       parsed_data: parsedData,
     });
 
     return {
       success: true,
-      message: `${parsedData.produtos.length} produtos importados com sucesso`,
+      message: `${resolvedItems.length} produto(s) adicionado(s) ao estoque com sucesso.`,
     };
-  } catch (error: any) {
-    console.error('Erro ao processar NF:', error);
-
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao processar NF';
     await updateNFImportStatus(tenantId, importId, 'error', {
-      error_message: error.message || 'Erro ao processar NF',
+      error_message: msg,
     });
-
-    return {
-      success: false,
-      message: error.message || 'Erro ao processar NF',
-    };
+    return { success: false, message: msg };
   }
 }
