@@ -95,8 +95,9 @@ export default function NovaSolicitacaoPage() {
       try {
         setLoading(true);
         const items = await listInventory(tenantId);
+        const now = new Date();
         const availableItems = items.filter(
-          (item) => item.active && item.quantidade_disponivel > 0
+          (item) => item.active && item.quantidade_disponivel > 0 && item.dt_validade > now
         );
         setInventoryItems(availableItems);
         setProdutosAgrupados(agruparProdutosPorCodigo(availableItems));
