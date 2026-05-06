@@ -14,6 +14,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   writeBatch,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -402,6 +403,22 @@ export async function updateStockLimit(
 ): Promise<void> {
   const limitRef = doc(db, 'tenants', tenantId, 'stock_limits', codigoProduto);
   await setDoc(limitRef, { limite_estoque_baixo: limiteEstoqueBaixo }, { merge: true });
+}
+
+// ============================================================================
+// DESATIVAÇÃO (SOFT DELETE)
+// ============================================================================
+
+/**
+ * Desativa um item do inventário (active = false).
+ * O item deixa de aparecer no estoque e não pode ser usado em procedimentos.
+ */
+export async function deactivateInventoryItem(tenantId: string, itemId: string): Promise<void> {
+  const itemRef = doc(db, 'tenants', tenantId, 'inventory', itemId);
+  await updateDoc(itemRef, {
+    active: false,
+    updated_at: serverTimestamp(),
+  });
 }
 
 // ============================================================================

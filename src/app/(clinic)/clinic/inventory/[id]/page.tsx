@@ -8,6 +8,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   ArrowLeft,
   Package,
   Calendar,
@@ -16,10 +27,12 @@ import {
   AlertTriangle,
   FileText,
   Barcode,
+  Trash2,
 } from 'lucide-react';
 import {
   getInventoryItem,
   getStockLimitsMap,
+  deactivateInventoryItem,
   type InventoryItem,
 } from '@/lib/services/inventoryService';
 import { getStatusEstoque, type StatusEstoque } from '@/lib/inventoryUtils';
@@ -33,6 +46,9 @@ export default function InventoryItemPage() {
   const [stockLimit, setStockLimit] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deactivating, setDeactivating] = useState(false);
+
+  const isAdmin = claims?.role === 'clinic_admin';
 
   const tenantId = claims?.tenant_id;
   const itemId = params.id as string;
@@ -67,6 +83,18 @@ export default function InventoryItemPage() {
 
     loadItem();
   }, [tenantId, itemId]);
+
+  const handleDeactivate = async () => {
+    if (!tenantId || !itemId) return;
+    try {
+      setDeactivating(true);
+      await deactivateInventoryItem(tenantId, itemId);
+      router.push('/clinic/inventory');
+    } catch {
+      setError('Erro ao desativar produto. Tente novamente.');
+      setDeactivating(false);
+    }
+  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('pt-BR', {
@@ -181,7 +209,7 @@ export default function InventoryItemPage() {
             <h2 className="text-3xl font-bold tracking-tight">{item.nome_produto}</h2>
             <p className="text-muted-foreground">Código: {item.codigo_produto}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Badge variant={expiryStatus.variant}>
               <ExpiryIcon className="mr-1 h-3 w-3" />
               {expiryStatus.text}
@@ -190,6 +218,41 @@ export default function InventoryItemPage() {
               <StockIcon className="mr-1 h-3 w-3" />
               {stockStatus.text}
             </Badge>
+            {isAdmin && item.active && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" disabled={deactivating}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Desativar
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Desativar produto do estoque?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      <strong>{item.nome_produto}</strong> — Lote: {item.lote}
+                      <br />O produto será removido do estoque ativo e não poderá ser usado em
+                      procedimentos. Esta ação pode ser revertida pelo administrador do sistema.
+                      {item.quantidade_reservada && item.quantidade_reservada > 0 ? (
+                        <span className="block mt-2 text-destructive font-medium">
+                          Atenção: este lote tem {item.quantidade_reservada} unidade(s) reservadas
+                          em procedimentos agendados.
+                        </span>
+                      ) : null}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeactivate}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Sim, desativar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
 
