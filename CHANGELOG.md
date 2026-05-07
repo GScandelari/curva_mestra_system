@@ -5,6 +5,28 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.1.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.0.1...v1.1.0) (2026-05-07)
+
+
+### Features
+
+* **api:** add parseNfeXml library and parse-nf-xml route for SEFAZ NF-e XML ([1770b06](https://github.com/GScandelari/curva_mestra_system/commit/1770b06647c8c6bcfd443a9310da38a75367f397))
+* **consultant:** sidebar colapsável com botão flutuante, tooltip e persistência ([07cb9c8](https://github.com/GScandelari/curva_mestra_system/commit/07cb9c8f4e4ecb465125746bd1592e280f7b16ae))
+* **inventory:** add getProductByCode to productService and addInventoryItems to inventoryService ([3449a61](https://github.com/GScandelari/curva_mestra_system/commit/3449a61adf46e1839c8cdd0dfdc7a234854405c3))
+* **inventory:** busca por NF, desativacao de itens e bloqueio de vencidos ([59fba1e](https://github.com/GScandelari/curva_mestra_system/commit/59fba1e8bb9d0da12945a47e8c0a1d29a7360f55))
+* **inventory:** desativacao forcada com redistribuicao de reservas FEFO ([7e35521](https://github.com/GScandelari/curva_mestra_system/commit/7e35521cc0893e9b8e56cf1e60708e339836beff))
+* **inventory:** implement processNFAndAddToInventory with real Firestore writes ([4f9e051](https://github.com/GScandelari/curva_mestra_system/commit/4f9e051e3dae26a67645d9254b134739090e654f))
+* **types:** extend NFProduct and ParsedNF for XML fields and add XmlParseError type ([41e2aa4](https://github.com/GScandelari/curva_mestra_system/commit/41e2aa4b7c83e1ffc9656497ee6956376b2e0c06))
+* **ui:** rewrite FileUpload for XML-only, adapt upload page and add XML sub-step in add-products ([6e2c5ad](https://github.com/GScandelari/curva_mestra_system/commit/6e2c5ad0a071132f95396496f76c9dd5a90ea094))
+
+
+### Bug Fixes
+
+* **ci:** regenerate package-lock.json to restore missing testing-library packages ([a8f0dde](https://github.com/GScandelari/curva_mestra_system/commit/a8f0dde8608e5c68187c7e667df8c75add1d4739))
+* **consultant:** adicionar padding horizontal no main content ([52ad16c](https://github.com/GScandelari/curva_mestra_system/commit/52ad16c070aaad6a5ee1eaf3f9305d65ee072465))
+* **nf-import:** use master_products collection and remove manual NF input ([40051ab](https://github.com/GScandelari/curva_mestra_system/commit/40051ab6f637cb522505bdadc0bd8941c97078b1))
+* **storage:** allow XML content types in /danfe/{tenantId} upload rule ([a094e52](https://github.com/GScandelari/curva_mestra_system/commit/a094e52a8672a1817489a8f79c006c566932f2d0))
+
 ## [1.0.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.0.0...v1.0.1) (2026-05-05)
 
 
