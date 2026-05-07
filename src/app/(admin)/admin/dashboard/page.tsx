@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building2, UserCog, Package, CheckCircle, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -46,7 +46,6 @@ export default function SystemAdminDashboard() {
     try {
       setLoading(true);
 
-      // Buscar tenants
       const tenantsSnapshot = await getDocs(collection(db, 'tenants'));
       const tenants = tenantsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
@@ -70,7 +69,6 @@ export default function SystemAdminDashboard() {
     try {
       const recentActivities: Activity[] = [];
 
-      // Buscar últimos tenants criados
       const tenantsQuery = query(
         collection(db, 'tenants'),
         orderBy('created_at', 'desc'),
@@ -90,7 +88,6 @@ export default function SystemAdminDashboard() {
         });
       });
 
-      // Buscar últimos usuários criados
       const usersQuery = query(collection(db, 'users'), orderBy('created_at', 'desc'), limit(3));
       const usersSnapshot = await getDocs(usersQuery);
       usersSnapshot.forEach((doc) => {
@@ -128,7 +125,6 @@ export default function SystemAdminDashboard() {
         }
       });
 
-      // Ordenar por timestamp (mais recente primeiro) e pegar as 5 mais recentes
       const sortedActivities = recentActivities
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
         .slice(0, 5);
@@ -149,7 +145,7 @@ export default function SystemAdminDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Clínicas</CardTitle>
@@ -158,6 +154,22 @@ export default function SystemAdminDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{loading ? '...' : stats.totalTenants}</div>
               <p className="text-xs text-muted-foreground">{stats.activeTenants} ativas</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Clínicas Ativas</CardTitle>
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading ? '...' : stats.activeTenants}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.totalTenants > 0
+                  ? Math.round((stats.activeTenants / stats.totalTenants) * 100)
+                  : 0}
+                % do total
+              </p>
             </CardContent>
           </Card>
 
@@ -174,13 +186,16 @@ export default function SystemAdminDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Clínicas Ativas</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : stats.activeTenants}</div>
+              <div className="text-2xl font-bold">{loading ? '...' : stats.activeUsers}</div>
               <p className="text-xs text-muted-foreground">
-                de {stats.totalTenants} cadastradas
+                {stats.totalUsers > 0
+                  ? Math.round((stats.activeUsers / stats.totalUsers) * 100)
+                  : 0}
+                % do total
               </p>
             </CardContent>
           </Card>
@@ -192,7 +207,7 @@ export default function SystemAdminDashboard() {
             <CardTitle>Ações Rápidas</CardTitle>
             <CardDescription>Acesse as principais funcionalidades</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Button
               variant="outline"
               className="h-auto flex-col py-4"

@@ -74,8 +74,7 @@ export interface Tenant {
   email: string;
   phone?: string;
   address?: string | Address;
-  plan_id?: string; // DEPRECATED: mantido para compatibilidade
-  max_users: number; // NOVO: 1 para CPF, 5 para CNPJ
+  max_users: number; // Limite de usuários: 1 para CPF (autônomo), 5 para CNPJ (clínica)
   active: boolean;
   suspension?: SuspensionInfo; // NOVO: Informações de suspensão
   consultant_id?: string; // ID do consultor atual

@@ -19,8 +19,7 @@ export interface Tenant {
   state?: string; // NOVO: estado separado
   cep?: string; // NOVO: CEP separado
   timezone?: string; // NOVO: timezone (ex: "America/Sao_Paulo")
-  plan_id?: string; // DEPRECATED: mantido para compatibilidade com dados existentes
-  max_users: number; // NOVO: 1 para CPF, 5 para CNPJ
+  max_users: number; // 1 para CPF (autônomo), 5 para CNPJ (clínica)
   active: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -43,7 +42,6 @@ export interface CreateTenantData {
   state?: string; // NOVO: estado separado
   cep?: string; // NOVO: CEP separado
   timezone?: string; // NOVO: timezone
-  plan_id?: string; // DEPRECATED: compatibilidade
   active?: boolean; // Padrão: true
   // NOVO: dados do administrador
   admin_name?: string;
@@ -75,7 +73,6 @@ export interface UpdateTenantData {
   state?: string; // NOVO: estado separado
   cep?: string; // NOVO: CEP separado
   timezone?: string; // NOVO: timezone
-  plan_id?: string; // DEPRECATED: compatibilidade
   active?: boolean;
 }
 
