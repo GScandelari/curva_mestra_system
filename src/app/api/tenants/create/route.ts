@@ -27,7 +27,8 @@ export async function POST(request: NextRequest) {
     let decodedToken;
     try {
       decodedToken = await auth.verifyIdToken(token);
-    } catch {
+    } catch (error) {
+      console.error('[tenants/create] Token verification failed:', error);
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
 
