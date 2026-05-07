@@ -174,7 +174,6 @@ Equipe Curva Mestra`
         city: clinicData.city.trim(),
         state: clinicData.state.trim(),
         cep: clinicData.cep.replace(/\D/g, ''),
-        plan_id: undefined,
         // Dados do administrador
         admin_name: adminData.name.trim(),
         admin_email: adminData.email.trim(),
@@ -446,6 +445,7 @@ Equipe Curva Mestra`
                   </select>
                 </div>
               </div>
+
 
             </CardContent>
           </Card>

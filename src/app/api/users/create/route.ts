@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Buscar dados do tenant para obter o plan_id
     const tenantRef = adminDb.collection('tenants').doc(tenantId);
     const tenantDoc = await tenantRef.get();
 

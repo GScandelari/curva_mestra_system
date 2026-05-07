@@ -39,6 +39,7 @@ export default function TenantsListPage() {
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [error, setError] = useState('');
 
+
   useEffect(() => {
     loadTenants();
   }, [showActiveOnly]);
