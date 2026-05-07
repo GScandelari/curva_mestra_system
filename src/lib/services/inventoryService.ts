@@ -410,8 +410,7 @@ export async function updateStockLimit(
 // ============================================================================
 
 /**
- * Desativa um item do inventário (active = false).
- * O item deixa de aparecer no estoque e não pode ser usado em procedimentos.
+ * Desativa um item sem reservas ativas (active = false).
  */
 export async function deactivateInventoryItem(tenantId: string, itemId: string): Promise<void> {
   const itemRef = doc(db, 'tenants', tenantId, 'inventory', itemId);
@@ -419,6 +418,318 @@ export async function deactivateInventoryItem(tenantId: string, itemId: string):
     active: false,
     updated_at: serverTimestamp(),
   });
+}
+
+// ============================================================================
+// DESATIVAÇÃO FORÇADA (COM REDISTRIBUIÇÃO DE RESERVAS)
+// ============================================================================
+
+export interface ImpactedProcedimento {
+  id: string;
+  descricao?: string;
+  dt_procedimento: Date;
+  quantidade_reservada: number;
+}
+
+export interface ForceDeactivateResult {
+  procedimentosAlterados: number;
+  procedimentosCancelados: number;
+}
+
+/**
+ * Retorna os procedimentos agendados que têm este item reservado.
+ */
+export async function checkInventoryItemReservations(
+  tenantId: string,
+  itemId: string
+): Promise<ImpactedProcedimento[]> {
+  const q = query(
+    collection(db, 'tenants', tenantId, 'solicitacoes'),
+    where('status', '==', 'agendada')
+  );
+  const snap = await getDocs(q);
+
+  const impacted: ImpactedProcedimento[] = [];
+  snap.docs.forEach((d) => {
+    const data = d.data();
+    const produtos = (data.produtos_solicitados ?? []) as Array<{
+      inventory_item_id: string;
+      quantidade: number;
+    }>;
+    const entry = produtos.find((p) => p.inventory_item_id === itemId);
+    if (entry) {
+      impacted.push({
+        id: d.id,
+        descricao: data.descricao as string | undefined,
+        dt_procedimento:
+          data.dt_procedimento instanceof Timestamp
+            ? data.dt_procedimento.toDate()
+            : new Date(data.dt_procedimento as string),
+        quantidade_reservada: entry.quantidade,
+      });
+    }
+  });
+
+  return impacted;
+}
+
+/**
+ * Desativa um item com reservas ativas redistribuindo-as para outros lotes do mesmo produto (FEFO).
+ *
+ * Para cada procedimento agendado que usa o item:
+ * - Lotes alternativos disponíveis: substitui via FEFO. Se insuficientes, avisa
+ *   "Produtos alterados - revisar antes de concluir".
+ * - Sem lotes alternativos: remove o produto e avisa
+ *   "{nome} (lote {X}) removido - revisar antes de concluir".
+ * - Procedimento fica sem produtos: cancela com "Produtos indisponíveis".
+ * Avisos são cumulativos no campo observacoes do procedimento.
+ */
+export async function forceDeactivateInventoryItem(
+  tenantId: string,
+  itemId: string
+): Promise<ForceDeactivateResult> {
+  const now = new Date();
+
+  // ── 1. Gather data ──────────────────────────────────────────────────────────
+  const itemRef = doc(db, 'tenants', tenantId, 'inventory', itemId);
+  const itemSnap = await getDoc(itemRef);
+  if (!itemSnap.exists()) throw new Error('Item não encontrado');
+
+  const itemRaw = itemSnap.data();
+  const codigoProduto = itemRaw.codigo_produto as string;
+  const nomeProduto = itemRaw.nome_produto as string;
+  const loteDeactivated = itemRaw.lote as string;
+  const itemCurrentDisponivel = (itemRaw.quantidade_disponivel as number) || 0;
+  const itemCurrentReservada = (itemRaw.quantidade_reservada as number) || 0;
+
+  // Agendada solicitacoes
+  const solSnap = await getDocs(
+    query(collection(db, 'tenants', tenantId, 'solicitacoes'), where('status', '==', 'agendada'))
+  );
+
+  interface ProdutoRaw {
+    inventory_item_id: string;
+    produto_codigo: string;
+    produto_nome: string;
+    lote: string;
+    quantidade: number;
+    quantidade_disponivel_antes: number;
+    valor_unitario: number;
+  }
+
+  interface SolRaw {
+    id: string;
+    descricao?: string;
+    observacoes?: string;
+    status_history?: unknown[];
+    produtos_solicitados: ProdutoRaw[];
+  }
+
+  const impactedSols: SolRaw[] = [];
+  solSnap.docs.forEach((d) => {
+    const data = d.data() as Omit<SolRaw, 'id'>;
+    if (data.produtos_solicitados?.some((p) => p.inventory_item_id === itemId)) {
+      impactedSols.push({ id: d.id, ...data });
+    }
+  });
+
+  // Alternative lots: same product, active, not expired, FEFO order
+  const altSnap = await getDocs(
+    query(
+      collection(db, 'tenants', tenantId, 'inventory'),
+      where('codigo_produto', '==', codigoProduto),
+      where('active', '==', true),
+      orderBy('dt_validade', 'asc')
+    )
+  );
+
+  interface AltLot {
+    id: string;
+    lote: string;
+    nome_produto: string;
+    codigo_produto: string;
+    quantidade_disponivel: number;
+    quantidade_reservada: number;
+    valor_unitario: number;
+    dt_validade: Date;
+  }
+
+  const altLots: AltLot[] = altSnap.docs
+    .filter((d) => d.id !== itemId)
+    .map((d) => {
+      const data = d.data();
+      const dtVal =
+        data.dt_validade instanceof Timestamp
+          ? data.dt_validade.toDate()
+          : new Date(data.dt_validade as string);
+      return {
+        id: d.id,
+        lote: data.lote as string,
+        nome_produto: data.nome_produto as string,
+        codigo_produto: data.codigo_produto as string,
+        quantidade_disponivel: (data.quantidade_disponivel as number) || 0,
+        quantidade_reservada: (data.quantidade_reservada as number) || 0,
+        valor_unitario: (data.valor_unitario as number) || 0,
+        dt_validade: dtVal,
+      };
+    })
+    .filter((l) => l.dt_validade > now);
+
+  // ── 2. Pre-compute allocations ───────────────────────────────────────────────
+  // runningAvailable tracks disponivel across procedures (mutable during allocation)
+  const runningAvailable = new Map<string, number>(
+    altLots.map((l) => [l.id, l.quantidade_disponivel])
+  );
+
+  interface ProcessedSol {
+    sol: SolRaw;
+    oldQty: number;
+    newAllocations: Array<{ lotId: string; quantidade: number }>;
+    newProdutos: ProdutoRaw[];
+    warnings: string[];
+    cancel: boolean;
+  }
+
+  const processed: ProcessedSol[] = [];
+
+  for (const sol of impactedSols) {
+    const entry = sol.produtos_solicitados.find((p) => p.inventory_item_id === itemId)!;
+    const quantidadeNecessaria = entry.quantidade;
+
+    const newAllocations: Array<{ lotId: string; quantidade: number }> = [];
+    let quantidadeAlocada = 0;
+
+    for (const altLot of altLots) {
+      if (quantidadeAlocada >= quantidadeNecessaria) break;
+      const disponivel = runningAvailable.get(altLot.id) ?? 0;
+      if (disponivel <= 0) continue;
+      const toTake = Math.min(disponivel, quantidadeNecessaria - quantidadeAlocada);
+      newAllocations.push({ lotId: altLot.id, quantidade: toTake });
+      runningAvailable.set(altLot.id, disponivel - toTake);
+      quantidadeAlocada += toTake;
+    }
+
+    // Build merged produtos list (merges quantity if alt lot already in procedure)
+    const otherProdutos = sol.produtos_solicitados.filter((p) => p.inventory_item_id !== itemId);
+    const mergedMap = new Map<string, ProdutoRaw>(
+      otherProdutos.map((p) => [p.inventory_item_id, { ...p }])
+    );
+
+    for (const alloc of newAllocations) {
+      const altLot = altLots.find((l) => l.id === alloc.lotId)!;
+      if (mergedMap.has(alloc.lotId)) {
+        const existing = mergedMap.get(alloc.lotId)!;
+        mergedMap.set(alloc.lotId, {
+          ...existing,
+          quantidade: existing.quantidade + alloc.quantidade,
+        });
+      } else {
+        mergedMap.set(alloc.lotId, {
+          inventory_item_id: alloc.lotId,
+          produto_codigo: altLot.codigo_produto,
+          produto_nome: altLot.nome_produto,
+          lote: altLot.lote,
+          quantidade: alloc.quantidade,
+          quantidade_disponivel_antes: altLot.quantidade_disponivel,
+          valor_unitario: altLot.valor_unitario,
+        });
+      }
+    }
+
+    const newProdutos = Array.from(mergedMap.values());
+
+    const warnings: string[] = [];
+    if (newAllocations.length === 0) {
+      warnings.push(
+        `${nomeProduto} (lote ${loteDeactivated}) removido - revisar antes de concluir`
+      );
+    } else if (quantidadeAlocada < quantidadeNecessaria) {
+      warnings.push('Produtos alterados - revisar antes de concluir');
+    }
+    const cancel = newProdutos.length === 0;
+    if (cancel) warnings.push('Produtos indisponíveis');
+
+    processed.push({
+      sol,
+      oldQty: quantidadeNecessaria,
+      newAllocations,
+      newProdutos,
+      warnings,
+      cancel,
+    });
+  }
+
+  // ── 3. Write batch ───────────────────────────────────────────────────────────
+  const batch = writeBatch(db);
+  const nowTs = Timestamp.now();
+
+  // Deactivate old item and release its reservations
+  const totalRelease = processed.reduce((sum, p) => sum + p.oldQty, 0);
+  batch.update(itemRef, {
+    active: false,
+    quantidade_reservada: Math.max(0, itemCurrentReservada - totalRelease),
+    quantidade_disponivel: Math.max(0, itemCurrentDisponivel + totalRelease),
+    updated_at: nowTs,
+  });
+
+  // Update alternative lots that received new reservations
+  for (const altLot of altLots) {
+    const remaining = runningAvailable.get(altLot.id) ?? altLot.quantidade_disponivel;
+    const allocated = altLot.quantidade_disponivel - remaining;
+    if (allocated > 0) {
+      batch.update(doc(db, 'tenants', tenantId, 'inventory', altLot.id), {
+        quantidade_reservada: altLot.quantidade_reservada + allocated,
+        quantidade_disponivel: remaining,
+        updated_at: nowTs,
+      });
+    }
+  }
+
+  // Update solicitacoes
+  let procedimentosAlterados = 0;
+  let procedimentosCancelados = 0;
+
+  for (const p of processed) {
+    const solRef = doc(db, 'tenants', tenantId, 'solicitacoes', p.sol.id);
+    const existingObs = p.sol.observacoes ?? '';
+    const newObs =
+      p.warnings.length > 0
+        ? existingObs
+          ? `${existingObs}\n${p.warnings.join('\n')}`
+          : p.warnings.join('\n')
+        : existingObs;
+
+    if (p.cancel) {
+      const statusHistory = [
+        ...(p.sol.status_history ?? []),
+        {
+          status: 'cancelada',
+          changed_by: 'system',
+          changed_by_name: 'Sistema',
+          changed_at: nowTs,
+          observacao: 'Cancelado automaticamente: todos os produtos foram removidos do estoque',
+        },
+      ];
+      batch.update(solRef, {
+        status: 'cancelada',
+        status_history: statusHistory,
+        ...(newObs ? { observacoes: newObs } : {}),
+        updated_at: nowTs,
+      });
+      procedimentosCancelados++;
+    } else {
+      batch.update(solRef, {
+        produtos_solicitados: p.newProdutos,
+        ...(newObs ? { observacoes: newObs } : {}),
+        updated_at: nowTs,
+      });
+      procedimentosAlterados++;
+    }
+  }
+
+  await batch.commit();
+
+  return { procedimentosAlterados, procedimentosCancelados };
 }
 
 // ============================================================================
