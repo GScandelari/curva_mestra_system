@@ -445,8 +445,6 @@ Equipe Curva Mestra`
                   </select>
                 </div>
               </div>
-
-
             </CardContent>
           </Card>
         )}

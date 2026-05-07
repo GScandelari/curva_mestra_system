@@ -17,16 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import {
-  Plus,
-  Search,
-  Building2,
-  Mail,
-  Phone,
-  FileText,
-  Edit,
-  XCircle,
-} from 'lucide-react';
+import { Plus, Search, Building2, Mail, Phone, FileText, Edit, XCircle } from 'lucide-react';
 import { listTenants, deactivateTenant } from '@/lib/services/tenantServiceDirect';
 import { Tenant } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
@@ -38,7 +29,6 @@ export default function TenantsListPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [error, setError] = useState('');
-
 
   useEffect(() => {
     loadTenants();
