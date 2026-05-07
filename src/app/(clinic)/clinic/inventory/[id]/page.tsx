@@ -7,6 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   ArrowLeft,
   Package,
@@ -16,11 +25,17 @@ import {
   AlertTriangle,
   FileText,
   Barcode,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import {
   getInventoryItem,
   getStockLimitsMap,
+  deactivateInventoryItem,
+  checkInventoryItemReservations,
+  forceDeactivateInventoryItem,
   type InventoryItem,
+  type ImpactedProcedimento,
 } from '@/lib/services/inventoryService';
 import { getStatusEstoque, type StatusEstoque } from '@/lib/inventoryUtils';
 
@@ -33,6 +48,17 @@ export default function InventoryItemPage() {
   const [stockLimit, setStockLimit] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Deactivation dialog state
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [loadingImpacted, setLoadingImpacted] = useState(false);
+  const [impactedProcedimentos, setImpactedProcedimentos] = useState<ImpactedProcedimento[] | null>(
+    null
+  );
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState('');
+
+  const isAdmin = claims?.role === 'clinic_admin';
 
   const tenantId = claims?.tenant_id;
   const itemId = params.id as string;
@@ -67,6 +93,46 @@ export default function InventoryItemPage() {
 
     loadItem();
   }, [tenantId, itemId]);
+
+  const handleOpenDeactivate = async () => {
+    if (!tenantId || !itemId) return;
+    setDeactivateOpen(true);
+    setDeactivateError('');
+    setImpactedProcedimentos(null);
+    setLoadingImpacted(true);
+    try {
+      const impacted = await checkInventoryItemReservations(tenantId, itemId);
+      setImpactedProcedimentos(impacted);
+    } catch {
+      setImpactedProcedimentos([]);
+    } finally {
+      setLoadingImpacted(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!tenantId || !itemId) return;
+    try {
+      setDeactivating(true);
+      await deactivateInventoryItem(tenantId, itemId);
+      router.push('/clinic/inventory');
+    } catch {
+      setDeactivateError('Erro ao desativar produto. Tente novamente.');
+      setDeactivating(false);
+    }
+  };
+
+  const handleForceDeactivate = async () => {
+    if (!tenantId || !itemId) return;
+    try {
+      setDeactivating(true);
+      await forceDeactivateInventoryItem(tenantId, itemId);
+      router.push('/clinic/inventory');
+    } catch {
+      setDeactivateError('Erro ao processar desativação. Tente novamente.');
+      setDeactivating(false);
+    }
+  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('pt-BR', {
@@ -181,7 +247,7 @@ export default function InventoryItemPage() {
             <h2 className="text-3xl font-bold tracking-tight">{item.nome_produto}</h2>
             <p className="text-muted-foreground">Código: {item.codigo_produto}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Badge variant={expiryStatus.variant}>
               <ExpiryIcon className="mr-1 h-3 w-3" />
               {expiryStatus.text}
@@ -190,6 +256,17 @@ export default function InventoryItemPage() {
               <StockIcon className="mr-1 h-3 w-3" />
               {stockStatus.text}
             </Badge>
+            {isAdmin && item.active && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleOpenDeactivate}
+                disabled={deactivating}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Desativar
+              </Button>
+            )}
           </div>
         </div>
 
@@ -398,6 +475,100 @@ export default function InventoryItemPage() {
           </Card>
         </div>
       </div>
+
+      {/* Deactivation Dialog */}
+      <Dialog open={deactivateOpen} onOpenChange={setDeactivateOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Desativar produto do estoque</DialogTitle>
+            <DialogDescription>
+              <strong>{item.nome_produto}</strong> — Lote: {item.lote}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingImpacted ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : impactedProcedimentos === null ? null : impactedProcedimentos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Este produto não possui reservas ativas. Ele será removido do estoque e não poderá ser
+              usado em procedimentos.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Produto com reservas ativas</AlertTitle>
+                <AlertDescription>
+                  Este lote está reservado em{' '}
+                  <strong>{impactedProcedimentos.length} procedimento(s)</strong> agendado(s). Use
+                  &quot;Forçar exclusão&quot; para redistribuir automaticamente para outros lotes
+                  disponíveis.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-1 max-h-52 overflow-y-auto rounded-md border p-3 bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                  Procedimentos impactados
+                </p>
+                {impactedProcedimentos.map((p) => (
+                  <div key={p.id} className="flex justify-between items-center text-sm py-1">
+                    <span className="font-medium">{formatDate(p.dt_procedimento)}</span>
+                    <span className="text-muted-foreground truncate mx-2 flex-1">
+                      {p.descricao ?? 'Sem descrição'}
+                    </span>
+                    <span className="text-orange-600 font-mono text-xs shrink-0">
+                      {p.quantidade_reservada} un.
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {deactivateError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{deactivateError}</AlertDescription>
+            </Alert>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeactivateOpen(false)}
+              disabled={deactivating}
+            >
+              Cancelar
+            </Button>
+            {impactedProcedimentos !== null && impactedProcedimentos.length === 0 && (
+              <Button variant="destructive" onClick={handleDeactivate} disabled={deactivating}>
+                {deactivating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Desativando...
+                  </>
+                ) : (
+                  'Confirmar desativação'
+                )}
+              </Button>
+            )}
+            {impactedProcedimentos !== null && impactedProcedimentos.length > 0 && (
+              <Button variant="destructive" onClick={handleForceDeactivate} disabled={deactivating}>
+                {deactivating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  'Forçar exclusão'
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

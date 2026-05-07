@@ -9,6 +9,7 @@ import {
   query,
   orderBy,
   where,
+  limit,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
@@ -162,6 +163,24 @@ export async function deleteProduct(productId: string): Promise<void> {
     await deleteDoc(productRef);
   } catch (error) {
     console.error('Erro ao remover produto:', error);
+    throw error;
+  }
+}
+
+/**
+ * Busca um produto do catálogo master pelo código exato.
+ * Retorna null se não encontrado.
+ */
+export async function getProductByCode(code: string): Promise<Product | null> {
+  try {
+    const productsRef = collection(db, 'products');
+    const q = query(productsRef, where('code', '==', code), limit(1));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    const docSnap = snapshot.docs[0];
+    return { id: docSnap.id, ...docSnap.data() } as Product;
+  } catch (error) {
+    console.error('Erro ao buscar produto por código:', error);
     throw error;
   }
 }
