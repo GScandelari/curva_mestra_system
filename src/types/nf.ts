@@ -6,14 +6,29 @@ export interface NFProduct {
   lote: string;
   quantidade: number;
   dt_validade: string; // formato DD/MM/YYYY
+  dt_fabricacao?: string; // formato DD/MM/YYYY (opcional)
   valor_unitario: number;
+  sem_rastro?: boolean; // true quando <rastro> ausente no XML
 }
 
 export interface ParsedNF {
   numero: string;
   data_emissao?: string;
   fornecedor?: string;
+  cnpj_fornecedor?: string;
   produtos: NFProduct[];
+}
+
+export type XmlParseErrorCode =
+  | 'INVALID_FORMAT'
+  | 'MISSING_NF_NUMBER'
+  | 'NO_PRODUCTS_FOUND'
+  | 'MALFORMED_PRODUCT';
+
+export interface XmlParseError {
+  code: XmlParseErrorCode;
+  message: string;
+  itemIndex?: number;
 }
 
 export interface NFImport {
