@@ -74,7 +74,7 @@ export interface Tenant {
   email: string;
   phone?: string;
   address?: string | Address;
-  plan_id: string;
+  plan_id?: string; // DEPRECATED: mantido para compatibilidade
   max_users: number; // NOVO: 1 para CPF, 5 para CNPJ
   active: boolean;
   suspension?: SuspensionInfo; // NOVO: Informações de suspensão
@@ -205,26 +205,6 @@ export interface ProdutoSolicitado {
   quantidade: number; // Quantidade consumida
   quantidade_disponivel_antes: number; // Para auditoria
   valor_unitario: number; // Valor no momento do consumo
-}
-
-// ============================================================================
-// LICENÇAS
-// ============================================================================
-
-export type LicenseStatus = 'ativa' | 'pendente' | 'expirada' | 'suspensa';
-
-export interface License {
-  id: string;
-  tenant_id: string;
-  plan_id: string;
-  status: LicenseStatus;
-  max_users: number;
-  features: string[];
-  start_date: Timestamp;
-  end_date: Timestamp;
-  auto_renew: boolean;
-  created_at: Timestamp;
-  updated_at: Timestamp;
 }
 
 // ============================================================================

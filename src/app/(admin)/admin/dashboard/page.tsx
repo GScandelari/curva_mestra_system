@@ -3,21 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Users,
-  Building2,
-  CreditCard,
-  UserCog,
-  Package,
-  DollarSign,
-  TrendingUp,
-  CheckCircle,
-  UserPlus,
-} from 'lucide-react';
+import { Users, Building2, UserCog, Package, CheckCircle, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { PLANS } from '@/lib/constants/plans';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -26,29 +15,11 @@ interface DashboardStats {
   activeTenants: number;
   totalUsers: number;
   activeUsers: number;
-  planCounts: {
-    semestral: number;
-    anual: number;
-  };
-  revenue: {
-    semestral: {
-      monthly: number;
-      total: number;
-      count: number;
-    };
-    anual: {
-      monthly: number;
-      total: number;
-      count: number;
-    };
-    totalMonthly: number;
-    totalAnnual: number;
-  };
 }
 
 interface Activity {
   id: string;
-  type: 'tenant' | 'user' | 'license' | 'access_request';
+  type: 'tenant' | 'user' | 'access_request';
   title: string;
   description: string;
   timestamp: Date;
@@ -62,13 +33,6 @@ export default function SystemAdminDashboard() {
     activeTenants: 0,
     totalUsers: 0,
     activeUsers: 0,
-    planCounts: { semestral: 0, anual: 0 },
-    revenue: {
-      semestral: { monthly: 0, total: 0, count: 0 },
-      anual: { monthly: 0, total: 0, count: 0 },
-      totalMonthly: 0,
-      totalAnnual: 0,
-    },
   });
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -89,59 +53,12 @@ export default function SystemAdminDashboard() {
       const totalTenants = tenants.length;
       const activeTenants = tenants.filter((t: any) => t.active).length;
 
-      // Contar planos
-      const semestralTenants = tenants.filter((t: any) => t.plan_id === 'semestral');
-      const anualTenants = tenants.filter((t: any) => t.plan_id === 'anual');
-
-      const planCounts = {
-        semestral: semestralTenants.length,
-        anual: anualTenants.length,
-      };
-
-      // Calcular faturamento
-      const semestralPrice = PLANS.semestral.price;
-      const anualPrice = PLANS.anual.price;
-
-      // Faturamento semestral (R$ 59,90/mês por 6 meses)
-      const semestralMonthly = semestralTenants.length * semestralPrice;
-      const semestralTotal = semestralMonthly * 6;
-
-      // Faturamento anual (R$ 49,90/mês por 12 meses)
-      const anualMonthly = anualTenants.length * anualPrice;
-      const anualTotal = anualMonthly * 12;
-
-      // Totais
-      const totalMonthly = semestralMonthly + anualMonthly;
-      const totalAnnual = semestralTotal + anualTotal;
-
-      const revenue = {
-        semestral: {
-          monthly: semestralMonthly,
-          total: semestralTotal,
-          count: semestralTenants.length,
-        },
-        anual: {
-          monthly: anualMonthly,
-          total: anualTotal,
-          count: anualTenants.length,
-        },
-        totalMonthly,
-        totalAnnual,
-      };
-
       // Buscar usuários da coleção raiz
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const totalUsers = usersSnapshot.size;
       const activeUsers = usersSnapshot.docs.filter((doc: any) => doc.data().active).length;
 
-      setStats({
-        totalTenants,
-        activeTenants,
-        totalUsers,
-        activeUsers,
-        planCounts,
-        revenue,
-      });
+      setStats({ totalTenants, activeTenants, totalUsers, activeUsers });
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
     } finally {
@@ -189,27 +106,6 @@ export default function SystemAdminDashboard() {
         });
       });
 
-      // Buscar últimas licenças criadas
-      const licensesQuery = query(
-        collection(db, 'licenses'),
-        orderBy('created_at', 'desc'),
-        limit(3)
-      );
-      const licensesSnapshot = await getDocs(licensesQuery);
-      licensesSnapshot.forEach((doc) => {
-        const data = doc.data();
-        const createdAt = data.created_at?.toDate() || new Date();
-        const planName = data.plan_id === 'semestral' ? 'Semestral' : 'Anual';
-        recentActivities.push({
-          id: doc.id,
-          type: 'license',
-          title: `Licença ${planName} ativada`,
-          description: `Plano ${planName}`,
-          timestamp: createdAt,
-          icon: CreditCard,
-        });
-      });
-
       // Buscar últimas solicitações aprovadas
       const accessRequestsQuery = query(
         collection(db, 'access_requests'),
@@ -252,85 +148,6 @@ export default function SystemAdminDashboard() {
           <p className="text-muted-foreground">Visão geral da plataforma</p>
         </div>
 
-        {/* Revenue Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Faturamento Mensal Total</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading
-                  ? '...'
-                  : new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(stats.revenue.totalMonthly)}
-              </div>
-              <p className="text-xs text-muted-foreground">{stats.activeTenants} clínicas ativas</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Plano Semestral</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading
-                  ? '...'
-                  : new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(stats.revenue.semestral.monthly)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {stats.revenue.semestral.count} clínicas · R$ 59,90/mês
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Plano Anual</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading
-                  ? '...'
-                  : new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(stats.revenue.anual.monthly)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {stats.revenue.anual.count} clínicas · R$ 49,90/mês
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Projeção Anual</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading
-                  ? '...'
-                  : new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(stats.revenue.totalAnnual)}
-              </div>
-              <p className="text-xs text-muted-foreground">Faturamento total dos contratos</p>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
@@ -346,25 +163,25 @@ export default function SystemAdminDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Licenças por Plano</CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : stats.activeTenants}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.planCounts.semestral} Semestral · {stats.planCounts.anual} Anual
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{loading ? '...' : stats.totalUsers}</div>
               <p className="text-xs text-muted-foreground">{stats.activeUsers} ativos</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Clínicas Ativas</CardTitle>
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading ? '...' : stats.activeTenants}</div>
+              <p className="text-xs text-muted-foreground">
+                de {stats.totalTenants} cadastradas
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -399,14 +216,6 @@ export default function SystemAdminDashboard() {
             >
               <Package className="h-6 w-6 mb-2" />
               <span>Gerenciar Produtos</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto flex-col py-4"
-              onClick={() => router.push('/admin/licenses')}
-            >
-              <CreditCard className="h-6 w-6 mb-2" />
-              <span>Gerenciar Licenças</span>
             </Button>
           </CardContent>
         </Card>

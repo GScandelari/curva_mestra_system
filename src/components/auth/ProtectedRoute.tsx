@@ -1,22 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/types';
-import { needsOnboarding, getNextOnboardingStep } from '@/lib/services/tenantOnboardingService';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
   requireAuth?: boolean;
-  skipOnboardingCheck?: boolean; // Para rotas de setup não verificarem
+  skipOnboardingCheck?: boolean; // Mantido para compatibilidade (não usado)
 }
 
 /**
  * Componente para proteger rotas
  * - Redireciona para login se não autenticado
- * - Redireciona para onboarding se não completou setup
  * - Redireciona para dashboard apropriado se não tem permissão
  * - Permite acesso se role está na lista de allowedRoles
  */
@@ -24,12 +22,9 @@ export function ProtectedRoute({
   children,
   allowedRoles,
   requireAuth = true,
-  skipOnboardingCheck = false,
 }: ProtectedRouteProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const { user, loading, claims, role } = useAuth();
-  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
   useEffect(() => {
     async function checkAccess() {
@@ -53,46 +48,6 @@ export function ProtectedRoute({
         return;
       }
 
-      // Verificar onboarding (apenas para clinic_admin e clinic_user)
-      if (
-        !skipOnboardingCheck &&
-        user &&
-        claims?.tenant_id &&
-        (role === 'clinic_admin' || role === 'clinic_user')
-      ) {
-        // Não verificar se já está em rota de setup
-        const isSetupRoute = pathname?.startsWith('/clinic/setup');
-
-        if (!isSetupRoute) {
-          setCheckingOnboarding(true);
-
-          try {
-            const needsSetup = await needsOnboarding(claims.tenant_id);
-
-            if (needsSetup) {
-              const nextStep = await getNextOnboardingStep(claims.tenant_id);
-
-              // Redirecionar para a etapa pendente
-              switch (nextStep) {
-                case 'pending_setup':
-                  router.push('/clinic/setup');
-                  return;
-                case 'pending_plan':
-                  router.push('/clinic/setup/plan');
-                  return;
-                case 'pending_payment':
-                  router.push('/clinic/setup/payment');
-                  return;
-              }
-            }
-          } catch (error) {
-            console.error('Erro ao verificar onboarding:', error);
-          } finally {
-            setCheckingOnboarding(false);
-          }
-        }
-      }
-
       // Se tem roles permitidos, verificar permissão
       if (allowedRoles && allowedRoles.length > 0 && role) {
         if (!allowedRoles.includes(role)) {
@@ -104,27 +59,15 @@ export function ProtectedRoute({
     }
 
     checkAccess();
-  }, [
-    user,
-    loading,
-    claims,
-    role,
-    allowedRoles,
-    requireAuth,
-    skipOnboardingCheck,
-    pathname,
-    router,
-  ]);
+  }, [user, loading, claims, role, allowedRoles, requireAuth, router]);
 
-  // Mostrar loading enquanto verifica autenticação ou onboarding
-  if (loading || checkingOnboarding) {
+  // Mostrar loading enquanto verifica autenticação
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">
-            {checkingOnboarding ? 'Verificando configuração...' : 'Carregando...'}
-          </p>
+          <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
     );

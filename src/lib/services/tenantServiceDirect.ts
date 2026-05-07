@@ -19,7 +19,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Tenant, CreateTenantData, UpdateTenantData } from '@/types/tenant';
-import { initializeTenantOnboarding } from './tenantOnboardingService';
 
 interface ListTenantsParams {
   limit?: number;
@@ -128,13 +127,12 @@ export async function createTenant(data: CreateTenantData) {
       cnpj,
       max_users,
       email,
-      plan_id = 'semestral',
       phone,
       address,
       city,
       state,
       cep,
-      active = false,
+      active = true,
     } = data;
 
     const tenantData = {
@@ -144,26 +142,17 @@ export async function createTenant(data: CreateTenantData) {
       cnpj: cnpj || document_number, // Manter compatibilidade
       max_users,
       email,
-      plan_id,
       phone: phone || '',
       address: address || '',
       city: city || '', // Cidade separada
       state: state || '', // Estado separado
       cep: cep || '', // CEP separado
-      active, // Tenant inicia INATIVO até completar onboarding
+      active,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     };
 
     const docRef = await addDoc(collection(db, 'tenants'), tenantData);
-
-    // Inicializa registro de onboarding
-    try {
-      await initializeTenantOnboarding(docRef.id);
-    } catch (onboardingError) {
-      console.error('Erro ao inicializar onboarding:', onboardingError);
-      // Não falhar a criação do tenant por erro no onboarding
-    }
 
     return {
       tenantId: docRef.id,
@@ -199,7 +188,6 @@ export async function updateTenant(tenantId: string, data: UpdateTenantData) {
     if (data.city !== undefined) firestoreData.city = data.city;
     if (data.state !== undefined) firestoreData.state = data.state;
     if (data.cep !== undefined) firestoreData.cep = data.cep;
-    if (data.plan_id !== undefined) firestoreData.plan_id = data.plan_id;
     if (data.active !== undefined) firestoreData.active = data.active;
 
     await updateDoc(docRef, firestoreData);
