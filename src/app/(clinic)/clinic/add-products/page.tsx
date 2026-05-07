@@ -60,9 +60,9 @@ export default function ManualNFPage() {
   const { toast } = useToast();
   const { user, tenantId } = useAuth();
 
-  const [step, setStep] = useState<'select_type' | 'enter_nf' | 'add_products' | 'review'>(
-    'select_type'
-  );
+  const [step, setStep] = useState<
+    'select_type' | 'select_method' | 'enter_nf' | 'add_products' | 'review'
+  >('select_type');
   const [tipoNF, setTipoNF] = useState<'rennova' | 'outra_marca' | null>(null);
   const [numeroNF, setNumeroNF] = useState('');
   const [produtos, setProdutos] = useState<NFProduct[]>([]);
@@ -108,7 +108,11 @@ export default function ManualNFPage() {
 
   const handleSelectType = (type: 'rennova' | 'outra_marca') => {
     setTipoNF(type);
-    setStep('enter_nf');
+    if (type === 'rennova') {
+      setStep('select_method');
+    } else {
+      setStep('enter_nf');
+    }
   };
 
   const handleContinueToProducts = () => {
@@ -386,6 +390,7 @@ export default function ManualNFPage() {
   const getStepNumber = () => {
     switch (step) {
       case 'select_type':
+      case 'select_method':
         return 1;
       case 'enter_nf':
         return 2;
@@ -507,6 +512,47 @@ export default function ManualNFPage() {
           </Card>
         )}
 
+        {/* Sub-step: Escolha de método (apenas Rennova) */}
+        {step === 'select_method' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Como deseja adicionar os produtos Rennova?</CardTitle>
+              <CardDescription>
+                Escolha entre cadastro manual ou importação automática via XML da NF-e
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-32 flex-col gap-2 text-base"
+                  onClick={() => setStep('enter_nf')}
+                >
+                  <span className="font-semibold">Inserção Manual</span>
+                  <span className="text-xs text-muted-foreground font-normal">
+                    Informe os dados produto a produto
+                  </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-32 flex-col gap-2 text-base"
+                  onClick={() => router.push('/clinic/upload')}
+                >
+                  <span className="font-semibold">Importar XML da NF-e</span>
+                  <span className="text-xs text-muted-foreground font-normal">
+                    Faça upload do XML e os dados são preenchidos automaticamente
+                  </span>
+                </Button>
+              </div>
+              <div className="flex justify-start mt-4">
+                <Button variant="ghost" size="sm" onClick={() => setStep('select_type')}>
+                  ← Voltar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Passo 2: Informar número da NF */}
         {step === 'enter_nf' && (
           <Card>
@@ -528,7 +574,10 @@ export default function ManualNFPage() {
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setStep('select_type')}>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(tipoNF === 'rennova' ? 'select_method' : 'select_type')}
+                >
                   Voltar
                 </Button>
                 <Button onClick={handleContinueToProducts}>Continuar</Button>

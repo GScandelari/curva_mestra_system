@@ -135,7 +135,8 @@ function applyFilter(
       (item) =>
         item.nome_produto.toLowerCase().includes(searchLower) ||
         item.codigo_produto.toLowerCase().includes(searchLower) ||
-        item.lote.toLowerCase().includes(searchLower)
+        item.lote.toLowerCase().includes(searchLower) ||
+        (item.nf_numero ?? '').toLowerCase().includes(searchLower)
     );
   }
 
@@ -384,7 +385,7 @@ export function InventoryView({
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por produto, código ou lote..."
+                  placeholder="Buscar por produto, código, lote ou NF..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -464,6 +465,7 @@ export function InventoryView({
                       <TableHead>Código</TableHead>
                       <TableHead>Produto</TableHead>
                       <TableHead>Lote</TableHead>
+                      <TableHead>NF</TableHead>
                       <TableHead className="text-right">Qtd. Total</TableHead>
                       <TableHead className="text-right">Reservado</TableHead>
                       <TableHead className="text-right">Disponível</TableHead>
@@ -482,6 +484,9 @@ export function InventoryView({
                         <TableCell className="font-mono text-xs">{item.codigo_produto}</TableCell>
                         <TableCell className="font-medium">{item.nome_produto}</TableCell>
                         <TableCell className="font-mono text-xs">{item.lote}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {item.nf_numero ?? '—'}
+                        </TableCell>
                         <TableCell className="text-right font-semibold text-gray-900">
                           {item.quantidade_disponivel + (item.quantidade_reservada || 0)}
                         </TableCell>

@@ -399,28 +399,6 @@ export interface Consultant {
   created_by?: string; // UID do admin que criou
 }
 
-export type ConsultantClaimStatus = 'pending' | 'approved' | 'rejected';
-
-export interface ConsultantClaim {
-  id: string;
-  consultant_id: string; // ID do consultor solicitante
-  consultant_name: string; // Nome (desnormalizado)
-  consultant_code: string; // Código (desnormalizado)
-  tenant_id: string; // ID da clínica solicitada
-  tenant_name: string; // Nome da clínica (desnormalizado)
-  tenant_document: string; // CNPJ/CPF da clínica (desnormalizado)
-  status: ConsultantClaimStatus;
-  approved_by?: string; // UID do admin que aprovou
-  approved_by_name?: string;
-  approved_at?: Timestamp;
-  rejected_by?: string;
-  rejected_by_name?: string;
-  rejected_at?: Timestamp;
-  rejection_reason?: string;
-  created_at: Timestamp;
-  updated_at: Timestamp;
-}
-
 export type ConsultantTransferRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface ConsultantTransferRequest {

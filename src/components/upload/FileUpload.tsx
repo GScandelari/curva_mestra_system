@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { Upload, File, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -15,7 +14,7 @@ interface FileUploadProps {
 
 export function FileUpload({
   onFileSelect,
-  accept = '.pdf',
+  accept = '.xml',
   maxSizeMB = 10,
   disabled = false,
 }: FileUploadProps) {
@@ -26,13 +25,13 @@ export function FileUpload({
   const validateFile = (file: File): boolean => {
     setError('');
 
-    // Validar tipo
-    if (!file.type.includes('pdf')) {
-      setError('Apenas arquivos PDF são permitidos');
+    const isXml = file.type.includes('xml') || file.name.toLowerCase().endsWith('.xml');
+
+    if (!isXml) {
+      setError('Apenas arquivos XML da NF-e são permitidos');
       return false;
     }
 
-    // Validar tamanho
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
     if (file.size > maxSizeBytes) {
       setError(`Arquivo muito grande. Máximo: ${maxSizeMB}MB`);
@@ -64,20 +63,18 @@ export function FileUpload({
       e.preventDefault();
       e.stopPropagation();
       setDragActive(false);
-
       if (disabled) return;
-
       if (e.dataTransfer.files && e.dataTransfer.files[0]) {
         handleFile(e.dataTransfer.files[0]);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [disabled]
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     if (disabled) return;
-
     if (e.target.files && e.target.files[0]) {
       handleFile(e.target.files[0]);
     }
@@ -133,10 +130,12 @@ export function FileUpload({
                   ? 'Solte o arquivo aqui'
                   : selectedFile
                     ? 'Arquivo selecionado'
-                    : 'Arraste e solte o PDF da NF-e'}
+                    : 'Arraste e solte o XML da NF-e'}
               </p>
               <p className="text-sm text-muted-foreground">ou clique para selecionar</p>
-              <p className="text-xs text-muted-foreground">Máximo: {maxSizeMB}MB • Formato: PDF</p>
+              <p className="text-xs text-muted-foreground">
+                Formato: XML (NF-e SEFAZ) • Máximo: {maxSizeMB}MB
+              </p>
             </div>
 
             <input
@@ -160,7 +159,6 @@ export function FileUpload({
         </CardContent>
       </Card>
 
-      {/* Error Message */}
       {error && (
         <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4" />
@@ -168,7 +166,6 @@ export function FileUpload({
         </div>
       )}
 
-      {/* Selected File Info */}
       {selectedFile && !error && (
         <Card>
           <CardContent className="p-4">
@@ -176,12 +173,10 @@ export function FileUpload({
               <div className="flex-shrink-0 rounded-lg bg-primary/10 p-3">
                 <File className="h-6 w-6 text-primary" />
               </div>
-
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{selectedFile.name}</p>
                 <p className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
               </div>
-
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 <Button
