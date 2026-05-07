@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic';
  * POST /api/tenants/create
  *
  * Cria um novo tenant (clínica) junto com o usuário administrador
- * e envia e-mail de boas-vindas personalizado
+ * e envia e-mail de boas-vindas personalizado.
+ * Requer autenticação como system_admin.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,6 +15,29 @@ import { CreateTenantData } from '@/types/tenant';
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificar autenticação e role system_admin
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    const auth = getAdminAuth();
+
+    let decodedToken;
+    try {
+      decodedToken = await auth.verifyIdToken(token);
+    } catch {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
+    if (!decodedToken.is_system_admin) {
+      return NextResponse.json(
+        { error: 'Apenas system_admin pode criar clínicas' },
+        { status: 403 }
+      );
+    }
+
     const data: CreateTenantData = await request.json();
 
     // Validações básicas
@@ -26,7 +50,6 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getAdminFirestore();
-    const auth = getAdminAuth();
 
     // 1. Criar o tenant (clínica)
     const tenantData = {

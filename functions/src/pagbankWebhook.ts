@@ -193,7 +193,7 @@ export const pagbankWebhook = onRequest(
         message: `Status da assinatura: ${newStatus}`,
       };
 
-      await db.collection('notifications').add({
+      await db.collection('tenants').doc(tenantId).collection('notifications').add({
         tenant_id: tenantId,
         user_id: null, // Notificação para todos os usuários do tenant
         type: 'payment',
