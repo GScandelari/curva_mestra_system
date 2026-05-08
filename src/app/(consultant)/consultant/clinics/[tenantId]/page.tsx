@@ -17,7 +17,15 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { formatTimestamp } from '@/lib/utils';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  limit,
+  QueryConstraint,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   parseInventoryDate,
@@ -90,10 +98,11 @@ export default function ClinicDetailPage() {
       // If the endpoint returns the tenant info, use it
       // Otherwise we'll load directly from Firestore
 
-      // Load inventory stats
+      // Load inventory stats — consultor vê apenas itens Rennova
       try {
         const inventoryRef = collection(db, `tenants/${tenantId}/inventory`);
-        const inventorySnapshot = await getDocs(inventoryRef);
+        const constraints: QueryConstraint[] = [where('brand', '==', 'Rennova')];
+        const inventorySnapshot = await getDocs(query(inventoryRef, ...constraints));
 
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
@@ -219,7 +228,9 @@ export default function ClinicDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.total_items}</div>
-              <p className="text-xs text-muted-foreground">produtos com estoque disponível</p>
+              <p className="text-xs text-muted-foreground">
+                produtos Rennova com estoque disponível
+              </p>
             </CardContent>
           </Card>
 
@@ -241,7 +252,9 @@ export default function ClinicDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{stats.low_stock}</div>
-              <p className="text-xs text-muted-foreground">produtos com 5 unidades ou menos</p>
+              <p className="text-xs text-muted-foreground">
+                produtos Rennova com 5 unidades ou menos
+              </p>
             </CardContent>
           </Card>
         </div>

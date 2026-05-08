@@ -107,11 +107,7 @@ function applyFilter(
   totalByCode: Map<string, number>,
   onlyBrand?: string
 ): InventoryItem[] {
-  let filtered = [...data];
-
-  if (onlyBrand) {
-    filtered = filtered.filter((item) => item.brand === onlyBrand);
-  }
+  let filtered = onlyBrand ? data.filter((item) => item.brand === onlyBrand) : [...data];
 
   const productStatus = (item: InventoryItem): StatusEstoque =>
     getStatusEstoque({
