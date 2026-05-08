@@ -16,12 +16,23 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Building2, CheckCircle2 } from 'lucide-react';
-import { completeClinicSetup, getTenantOnboarding } from '@/lib/services/tenantOnboardingService';
-import { getTenant } from '@/lib/services/tenantServiceDirect';
-import { ClinicSetupData } from '@/types/onboarding';
+import { getTenant, updateTenant } from '@/lib/services/tenantServiceDirect';
+import type { UpdateTenantData } from '@/types/tenant';
 import { validateCNPJ } from '@/types/tenant';
 import { InfoIcon } from 'lucide-react';
 import { parseAddressFromString } from '@/lib/formatters';
+
+interface ClinicSetupData {
+  name: string;
+  document_type: 'cnpj' | 'cpf';
+  document_number: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  cep: string;
+}
 
 export default function ClinicSetupPage() {
   const { user, claims, signOut } = useAuth();
@@ -58,13 +69,6 @@ export default function ClinicSetupPage() {
 
     try {
       setLoadingData(true);
-
-      // Verifica se já completou onboarding
-      const onboarding = await getTenantOnboarding(tenantId);
-      if (onboarding?.status === 'completed') {
-        router.push('/clinic/dashboard');
-        return;
-      }
 
       // Carrega dados existentes do tenant (inseridos pelo system_admin)
       const { tenant } = await getTenant(tenantId);
@@ -231,13 +235,21 @@ export default function ClinicSetupPage() {
     setError('');
 
     try {
-      const result = await completeClinicSetup(tenantId, formData);
+      const updateData: UpdateTenantData = {
+        name: formData.name,
+        document_type: formData.document_type,
+        document_number: formData.document_number.replace(/\D/g, ''),
+        email: formData.email,
+        phone: formData.phone.replace(/\D/g, ''),
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        cep: formData.cep.replace(/\D/g, ''),
+        max_users: formData.document_type === 'cnpj' ? 5 : 1,
+      };
 
-      if (result.success) {
-        router.push('/clinic/dashboard');
-      } else {
-        setError(result.error || 'Erro ao salvar configurações');
-      }
+      await updateTenant(tenantId, updateData);
+      router.push('/clinic/dashboard');
     } catch (err: any) {
       setError(err.message || 'Erro ao processar solicitação');
     } finally {

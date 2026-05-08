@@ -14,13 +14,6 @@ export { onUserCreated } from './onUserCreated';
 export { onTenantCreated } from './onTenantCreated';
 export { onAccessRequestCreated } from './onAccessRequestCreated';
 
-// Scheduled Functions - Licenças
-export { checkLicenseExpiration } from './checkLicenseExpiration';
-
-// PagBank Integration
-export { createPagBankSubscription } from './createPagBankSubscription';
-export { pagbankWebhook } from './pagbankWebhook';
-
 // Callable Functions - E-mails personalizados
 export { sendCustomEmail } from './sendCustomEmail';
 export { sendTempPasswordEmail } from './sendTemporaryPasswordEmail';

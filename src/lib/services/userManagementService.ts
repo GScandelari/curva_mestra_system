@@ -19,7 +19,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User, UserRole } from '@/types';
-import { getActiveLicenseByTenant } from './licenseService';
 
 // ============================================================================
 // TYPES
@@ -51,17 +50,20 @@ export async function canAddUser(tenantId: string): Promise<{
   error?: string;
 }> {
   try {
-    // 1. Buscar licença ativa do tenant
-    const license = await getActiveLicenseByTenant(tenantId);
+    // 1. Buscar max_users direto do tenant
+    const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
 
-    if (!license) {
+    if (!tenantDoc.exists()) {
       return {
         canAdd: false,
         currentCount: 0,
         maxUsers: 0,
-        error: 'Tenant não possui licença ativa',
+        error: 'Tenant não encontrado',
       };
     }
+
+    const tenantData = tenantDoc.data();
+    const maxUsers: number = tenantData?.max_users ?? 5;
 
     // 2. Contar usuários ativos do tenant
     const usersRef = collection(db, 'users');
@@ -70,7 +72,6 @@ export async function canAddUser(tenantId: string): Promise<{
     const currentCount = snapshot.size;
 
     // 3. Verificar limite
-    const maxUsers = license.max_users;
     const canAdd = currentCount < maxUsers;
 
     return {

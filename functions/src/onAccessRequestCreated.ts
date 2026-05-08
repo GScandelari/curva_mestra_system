@@ -4,10 +4,14 @@
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { defineString } from 'firebase-functions/params';
 import { sendEmail } from './services/emailService';
 
-// E-mail do system_admin
-const SYSTEM_ADMIN_EMAIL = 'scandelari.guilherme@curvamestra.com.br';
+// E-mail do system_admin (configurável via: firebase functions:config:set ou defineString)
+const SYSTEM_ADMIN_EMAIL = defineString('SYSTEM_ADMIN_EMAIL', {
+  default: 'scandelari.guilherme@curvamestra.com.br',
+  description: 'E-mail do system_admin para receber notificações de novas solicitações de acesso',
+});
 
 /**
  * Formata o documento (CPF ou CNPJ) para exibição
@@ -218,12 +222,12 @@ export const onAccessRequestCreated = onDocumentCreated(
 
     try {
       await sendEmail({
-        to: SYSTEM_ADMIN_EMAIL,
+        to: SYSTEM_ADMIN_EMAIL.value(),
         subject: `Solicitação de Acesso - ${formattedDocument}`,
         html,
       });
 
-      console.log(`✅ E-mail de notificação enviado para ${SYSTEM_ADMIN_EMAIL}`);
+      console.log(`✅ E-mail de notificação enviado para ${SYSTEM_ADMIN_EMAIL.value()}`);
     } catch (error) {
       console.error('❌ Erro ao enviar e-mail de notificação:', error);
       // Não lançamos o erro para não impedir a criação da solicitação

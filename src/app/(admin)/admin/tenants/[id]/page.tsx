@@ -31,7 +31,6 @@ import {
   reactivateTenant,
 } from '@/lib/services/tenantServiceDirect';
 import { listClinicUsers, ClinicUser } from '@/lib/services/clinicUserService';
-import { formatPlanPrice, getPlanMaxUsers } from '@/lib/constants/plans';
 import { Tenant, DocumentType, Consultant } from '@/types';
 import { formatAddress, formatCNPJ } from '@/lib/utils';
 import {
@@ -39,7 +38,6 @@ import {
   formatDocumentAuto,
   getDocumentType,
 } from '@/lib/utils/documentValidation';
-import TenantPaymentInfo from '@/components/admin/TenantPaymentInfo';
 import {
   Dialog,
   DialogContent,
@@ -69,7 +67,6 @@ export default function EditTenantPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [planId, setPlanId] = useState('semestral');
   const [active, setActive] = useState(true);
 
   const [loading, setLoading] = useState(false);
@@ -126,7 +123,6 @@ export default function EditTenantPage() {
       // Converter address de objeto para string se necessário
       const addressStr = formatAddress(tenantData.address);
       setAddress(addressStr === 'Não informado' ? '' : addressStr);
-      setPlanId(tenantData.plan_id);
       setActive(tenantData.active);
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar clínica');
@@ -175,7 +171,6 @@ export default function EditTenantPage() {
         email: email.trim(),
         phone: phone.trim(),
         address: address.trim(),
-        plan_id: planId as 'semestral' | 'anual',
         active,
       });
 
@@ -451,17 +446,6 @@ export default function EditTenantPage() {
                   <p className="text-base">{tenant.phone || 'Não informado'}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Plano</p>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-base">
-                      {tenant.plan_id}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {formatPlanPrice(tenant.plan_id)}/mês
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Endereço</p>
                   <p className="text-base">{formatAddress(tenant.address)}</p>
                 </div>
@@ -537,9 +521,6 @@ export default function EditTenantPage() {
             </CardContent>
           </Card>
         )}
-
-        {/* Informações de Pagamento */}
-        {tenant && <TenantPaymentInfo tenantId={tenantId} tenantName={tenant.name} />}
 
         {/* Consultor Rennova */}
         {tenant && (
@@ -700,22 +681,6 @@ export default function EditTenantPage() {
                   placeholder="Rua, número, bairro, cidade - UF"
                   disabled={loading}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="planId">
-                  Plano <span className="text-destructive">*</span>
-                </Label>
-                <select
-                  id="planId"
-                  value={planId}
-                  onChange={(e) => setPlanId(e.target.value)}
-                  disabled={loading}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="semestral">Plano Semestral - R$ 59,90/mês</option>
-                  <option value="anual">Plano Anual - R$ 49,90/mês</option>
-                </select>
               </div>
 
               <div className="space-y-2">

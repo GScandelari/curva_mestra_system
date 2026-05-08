@@ -19,8 +19,7 @@ export interface Tenant {
   state?: string; // NOVO: estado separado
   cep?: string; // NOVO: CEP separado
   timezone?: string; // NOVO: timezone (ex: "America/Sao_Paulo")
-  plan_id: 'semestral' | 'anual';
-  max_users: number; // NOVO: 1 para CPF, 5 para CNPJ
+  max_users: number; // 1 para CPF (autônomo), 5 para CNPJ (clínica)
   active: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -43,7 +42,6 @@ export interface CreateTenantData {
   state?: string; // NOVO: estado separado
   cep?: string; // NOVO: CEP separado
   timezone?: string; // NOVO: timezone
-  plan_id: 'semestral' | 'anual';
   active?: boolean; // Padrão: true
   // NOVO: dados do administrador
   admin_name?: string;
@@ -75,29 +73,8 @@ export interface UpdateTenantData {
   state?: string; // NOVO: estado separado
   cep?: string; // NOVO: CEP separado
   timezone?: string; // NOVO: timezone
-  plan_id?: 'semestral' | 'anual';
   active?: boolean;
 }
-
-/**
- * Planos disponíveis no sistema
- */
-export const PLANS = {
-  semestral: {
-    id: 'semestral',
-    name: 'Plano Semestral',
-    description: '6 meses de acesso completo ao sistema',
-    price: 59.9,
-    period: 'mês',
-  },
-  anual: {
-    id: 'anual',
-    name: 'Plano Anual',
-    description: '12 meses de acesso completo ao sistema',
-    price: 49.9,
-    period: 'mês',
-  },
-} as const;
 
 /**
  * Helper para formatar CNPJ
