@@ -750,6 +750,7 @@ export interface AddInventoryItemsParams {
     dt_validade: Date;
     valor_unitario: number;
     category?: string;
+    brand?: string;
     fragmentavel?: boolean;
     unidades_por_embalagem?: number;
     quantidade_embalagens?: number;
@@ -786,6 +787,7 @@ export async function addInventoryItems(params: AddInventoryItemsParams): Promis
       nf_id: nfId,
       active: true,
       category: item.category ?? null,
+      brand: item.brand ?? null,
       fragmentavel: item.fragmentavel ?? false,
       unidades_por_embalagem: item.unidades_por_embalagem ?? null,
       quantidade_embalagens: item.quantidade_embalagens ?? null,
