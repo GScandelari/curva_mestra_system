@@ -39,6 +39,7 @@ export interface InventoryItem {
   created_at: Date;
   updated_at: Date;
   category?: string; // categoria do master product (desnormalizada para filtros)
+  brand?: string; // marca do produto ('Rennova' ou outra)
   // Campos de fragmentação (presentes apenas em produtos fragmentáveis)
   fragmentavel?: boolean;
   unidades_por_embalagem?: number;

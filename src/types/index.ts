@@ -153,6 +153,7 @@ export interface InventoryItem {
   produto_id?: string;
   active?: boolean;
   is_rennova?: boolean;
+  brand?: string;
   dt_entrada?: Timestamp;
   created_at: Timestamp;
   updated_at: Timestamp;
