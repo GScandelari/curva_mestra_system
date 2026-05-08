@@ -115,7 +115,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       document_number: request.document_number,
       email: request.email,
       phone: request.phone || '',
-      plan_id: 'early_access', // Plano de acesso antecipado
       max_users,
       active: true,
       created_at: FieldValue.serverTimestamp() as any,
@@ -173,41 +172,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           updated_at: FieldValue.serverTimestamp(),
         });
 
-      // 8. Criar licença de acesso antecipado (6 meses grátis)
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + 6); // 6 meses de acesso
-
-      await adminDb.collection('licenses').add({
-        tenant_id,
-        plan_id: 'early_access',
-        status: 'ativa',
-        max_users,
-        features: ['inventory_management', 'batch_tracking', 'expiration_alerts', 'basic_reports'],
-        start_date: FieldValue.serverTimestamp(),
-        end_date: FieldValue.serverTimestamp(), // Will be updated with correct date
-        auto_renew: false,
-        created_at: FieldValue.serverTimestamp(),
-        updated_at: FieldValue.serverTimestamp(),
-      });
-
-      console.log(`✅ Licença criada para tenant: ${tenant_id}`);
-
-      // 9. Criar documento de onboarding inicial (pending_setup)
-      // O usuário precisa revisar dados, selecionar plano e pagar
-      await adminDb.collection('tenant_onboarding').doc(tenant_id).set({
-        tenant_id,
-        status: 'pending_setup',
-        setup_completed: false, // Dados pré-preenchidos, mas usuário precisa revisar
-        plan_selected: false,
-        payment_confirmed: false,
-        created_at: FieldValue.serverTimestamp(),
-        updated_at: FieldValue.serverTimestamp(),
-      });
-
-      console.log(`✅ Onboarding criado para tenant: ${tenant_id}`);
-
-      // 10. Atualizar solicitação
+      // 8. Atualizar solicitação
       await adminDb.collection('access_requests').doc(requestId).update({
         status: 'aprovada',
         tenant_id,

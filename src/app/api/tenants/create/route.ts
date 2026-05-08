@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic';
  * POST /api/tenants/create
  *
  * Cria um novo tenant (clínica) junto com o usuário administrador
- * e envia e-mail de boas-vindas personalizado
+ * e envia e-mail de boas-vindas personalizado.
+ * Requer autenticação como system_admin.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,6 +15,30 @@ import { CreateTenantData } from '@/types/tenant';
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificar autenticação e role system_admin
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    const auth = getAdminAuth();
+
+    let decodedToken;
+    try {
+      decodedToken = await auth.verifyIdToken(token);
+    } catch (error) {
+      console.error('[tenants/create] Token verification failed:', error);
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
+    if (!decodedToken.is_system_admin) {
+      return NextResponse.json(
+        { error: 'Apenas system_admin pode criar clínicas' },
+        { status: 403 }
+      );
+    }
+
     const data: CreateTenantData = await request.json();
 
     // Validações básicas
@@ -26,7 +51,6 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getAdminFirestore();
-    const auth = getAdminAuth();
 
     // 1. Criar o tenant (clínica)
     const tenantData = {
@@ -36,13 +60,12 @@ export async function POST(request: NextRequest) {
       cnpj: data.cnpj || data.document_number,
       max_users: data.max_users,
       email: data.email,
-      plan_id: data.plan_id,
       phone: data.phone || '',
       address: data.address || '',
       city: data.city || '',
       state: data.state || '',
       cep: data.cep || '',
-      active: false, // Inicia inativo até completar onboarding
+      active: true,
       created_at: new Date(),
       updated_at: new Date(),
     };
@@ -117,50 +140,7 @@ export async function POST(request: NextRequest) {
       // Não falhar a criação por isso, mas registrar o erro
     }
 
-    // 5. Criar licença inicial (baseada no plano)
-    try {
-      const startDate = new Date();
-      const endDate = new Date(startDate);
-
-      // Plano semestral = 6 meses, anual = 12 meses
-      const monthsToAdd = data.plan_id === 'semestral' ? 6 : 12;
-      endDate.setMonth(endDate.getMonth() + monthsToAdd);
-
-      await db.collection('licenses').add({
-        tenant_id: tenantId,
-        plan_id: data.plan_id,
-        max_users: data.max_users,
-        status: 'ativa',
-        auto_renew: false,
-        start_date: startDate,
-        end_date: endDate,
-        created_at: new Date(),
-        updated_at: new Date(),
-      });
-
-      console.log(`✅ Licença criada para tenant ${tenantId}`);
-    } catch (licenseError: any) {
-      console.error('❌ Erro ao criar licença:', licenseError);
-      // Não falhar a criação por isso
-    }
-
-    // 6. Inicializar registro de onboarding
-    try {
-      await db.collection('tenant_onboarding').doc(tenantId).set({
-        tenant_id: tenantId,
-        steps_completed: [],
-        current_step: 'setup_admin',
-        started_at: new Date(),
-        updated_at: new Date(),
-      });
-
-      console.log(`✅ Onboarding inicializado para tenant ${tenantId}`);
-    } catch (onboardingError: any) {
-      console.error('❌ Erro ao inicializar onboarding:', onboardingError);
-      // Não falhar a criação por isso
-    }
-
-    // 7. Enviar e-mail de boas-vindas (se solicitado)
+    // 5. Enviar e-mail de boas-vindas (se solicitado)
     if (data.welcome_email?.send) {
       try {
         // Chamar Cloud Function para enviar o email
@@ -184,7 +164,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 8. Retornar sucesso
+    // 6. Retornar sucesso
     return NextResponse.json(
       {
         success: true,

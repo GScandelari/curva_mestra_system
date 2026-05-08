@@ -13,7 +13,6 @@ import {
   UserPlus,
   LogOut,
   User,
-  CreditCard,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -52,11 +51,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Consultores',
       href: '/admin/consultants',
       icon: UserCheck,
-    },
-    {
-      name: 'Licenças',
-      href: '/admin/licenses',
-      icon: CreditCard,
     },
     {
       name: 'Produtos Rennova',

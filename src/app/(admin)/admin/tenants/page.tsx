@@ -17,22 +17,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import {
-  Plus,
-  Search,
-  Building2,
-  Mail,
-  Phone,
-  FileText,
-  Edit,
-  XCircle,
-  CreditCard,
-} from 'lucide-react';
+import { Plus, Search, Building2, Mail, Phone, FileText, Edit, XCircle } from 'lucide-react';
 import { listTenants, deactivateTenant } from '@/lib/services/tenantServiceDirect';
 import { Tenant } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 export default function TenantsListPage() {
   const router = useRouter();
@@ -41,7 +29,6 @@ export default function TenantsListPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [error, setError] = useState('');
-  const [tenantsWithPayment, setTenantsWithPayment] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadTenants();
@@ -53,37 +40,11 @@ export default function TenantsListPage() {
       setError('');
       const result = await listTenants({ limit: 100, activeOnly: showActiveOnly });
       setTenants(result.tenants);
-
-      // Carregar status de pagamento para cada tenant
-      await loadPaymentStatus(result.tenants.map((t) => t.id));
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar clínicas');
       console.error('Erro ao carregar tenants:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadPaymentStatus = async (tenantIds: string[]) => {
-    try {
-      // Buscar todos os métodos de pagamento default
-      const paymentQuery = query(
-        collection(db, 'payment_methods'),
-        where('is_default', '==', true)
-      );
-      const snapshot = await getDocs(paymentQuery);
-
-      const tenantsWithMethod = new Set<string>();
-      snapshot.docs.forEach((doc) => {
-        const data = doc.data();
-        if (tenantIds.includes(data.tenant_id)) {
-          tenantsWithMethod.add(data.tenant_id);
-        }
-      });
-
-      setTenantsWithPayment(tenantsWithMethod);
-    } catch (error) {
-      console.error('Erro ao carregar status de pagamento:', error);
     }
   };
 
@@ -189,8 +150,6 @@ export default function TenantsListPage() {
                       <TableHead>Nome</TableHead>
                       <TableHead>CPF/CNPJ</TableHead>
                       <TableHead>Contato</TableHead>
-                      <TableHead>Plano</TableHead>
-                      <TableHead>Pagamento</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Criado em</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -224,22 +183,6 @@ export default function TenantsListPage() {
                               </div>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{tenant.plan_id}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {tenantsWithPayment.has(tenant.id) ? (
-                            <div className="flex items-center gap-1 text-green-600">
-                              <CreditCard className="h-4 w-4" />
-                              <span className="text-xs">Configurado</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 text-amber-600">
-                              <CreditCard className="h-4 w-4" />
-                              <span className="text-xs">Pendente</span>
-                            </div>
-                          )}
                         </TableCell>
                         <TableCell>
                           {tenant.active ? (

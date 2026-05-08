@@ -31,7 +31,6 @@ interface ClinicData {
   address: string;
   city: string;
   state: string;
-  planId: 'semestral' | 'anual';
 }
 
 interface AdminData {
@@ -56,7 +55,6 @@ export default function NewTenantPage() {
     address: '',
     city: '',
     state: '',
-    planId: 'semestral',
   });
 
   // Dados do Administrador (Step 2)
@@ -176,8 +174,6 @@ Equipe Curva Mestra`
         city: clinicData.city.trim(),
         state: clinicData.state.trim(),
         cep: clinicData.cep.replace(/\D/g, ''),
-        plan_id: clinicData.planId,
-
         // Dados do administrador
         admin_name: adminData.name.trim(),
         admin_email: adminData.email.trim(),
@@ -448,25 +444,6 @@ Equipe Curva Mestra`
                     <option value="TO">TO</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>
-                  Plano <span className="text-destructive">*</span>
-                </Label>
-                <select
-                  value={clinicData.planId}
-                  onChange={(e) =>
-                    setClinicData({
-                      ...clinicData,
-                      planId: e.target.value as 'semestral' | 'anual',
-                    })
-                  }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="semestral">Plano Semestral - R$ 59,90/mês</option>
-                  <option value="anual">Plano Anual - R$ 49,90/mês</option>
-                </select>
               </div>
             </CardContent>
           </Card>

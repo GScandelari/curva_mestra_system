@@ -127,36 +127,6 @@ service cloud.firestore {
       allow write: if isSystemAdmin();
     }
 
-    // Coleção de licenças
-    match /licenses/{licenseId} {
-      // System admins têm acesso total
-      allow read, write: if isSystemAdmin();
-
-      // Usuários podem ler suas próprias licenças
-      allow read: if isAuthenticated() && resource.data.tenant_id == request.auth.token.tenant_id;
-
-      // Clinic_admin pode criar licença para seu próprio tenant durante onboarding
-      allow create: if isAuthenticated()
-        && request.auth.token.role == 'clinic_admin'
-        && request.resource.data.tenant_id == request.auth.token.tenant_id;
-
-      // Clinic_admin pode atualizar licença do seu próprio tenant
-      allow update: if isAuthenticated()
-        && request.auth.token.role == 'clinic_admin'
-        && resource.data.tenant_id == request.auth.token.tenant_id
-        && request.resource.data.tenant_id == request.auth.token.tenant_id;
-    }
-
-    // Coleção de onboarding de tenants
-    match /tenant_onboarding/{tenantId} {
-      // System admins têm acesso total
-      allow read, write: if isSystemAdmin();
-
-      // Usuários do tenant podem ler, criar e atualizar seu próprio onboarding
-      // Precisa de create porque o documento pode não existir ainda
-      allow read, create, update: if belongsToTenant(tenantId);
-    }
-
     // Coleção de fila de e-mails (apenas para uso interno das Cloud Functions)
     match /email_queue/{emailId} {
       // Apenas system_admin pode ler a fila de e-mails
@@ -202,34 +172,6 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       // Apenas system_admin pode alterar configurações
-      allow write: if isSystemAdmin();
-    }
-
-    // Métodos de pagamento
-    match /payment_methods/{methodId} {
-      // System admins têm acesso total
-      allow read, write: if isSystemAdmin();
-
-      // Usuários podem ler e escrever métodos de pagamento do seu tenant
-      allow read, write: if isAuthenticated()
-        && resource.data.tenant_id == request.auth.token.tenant_id;
-
-      // Permitir criar novo método de pagamento para o próprio tenant
-      allow create: if isAuthenticated()
-        && request.resource.data.tenant_id == request.auth.token.tenant_id;
-    }
-
-    // Histórico de pagamentos
-    match /payment_history/{historyId} {
-      // System admins têm acesso total
-      allow read, write: if isSystemAdmin();
-
-      // Usuários podem ler histórico do seu tenant
-      allow read: if isAuthenticated()
-        && resource.data.tenant_id == request.auth.token.tenant_id;
-
-      // Apenas system_admin ou Cloud Functions podem criar histórico
-      // (via Admin SDK, sem passar pelas regras)
       allow write: if isSystemAdmin();
     }
 

@@ -13,8 +13,6 @@ export type NotificationType =
   | 'request_rejected' // Solicitação reprovada
   | 'request_created' // Nova solicitação criada (para admins)
   | 'new_user' // Novo usuário adicionado à clínica
-  | 'license_expiring' // Licença próxima do vencimento
-  | 'license_expired' // Licença expirada
   | 'consultant_linked' // Consultor vinculado automaticamente à clínica
   | 'consultant_claim'; // Solicitação de vínculo de consultor (legado)
 
@@ -67,10 +65,6 @@ export interface NotificationSettings {
   // Alertas de Solicitações
   enable_request_alerts: boolean;
 
-  // Alertas de Licença
-  enable_license_alerts: boolean;
-  license_warning_days: number; // Dias de antecedência (padrão: 15)
-
   // Preferências de Notificação
   notification_sound: boolean;
   email_notifications: boolean; // Futuro
@@ -111,8 +105,6 @@ export const DEFAULT_NOTIFICATION_SETTINGS: Omit<
   enable_low_stock_alerts: true,
   low_stock_threshold: 10,
   enable_request_alerts: true,
-  enable_license_alerts: true,
-  license_warning_days: 15,
   notification_sound: true,
   email_notifications: false,
 };
