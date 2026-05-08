@@ -28,5 +28,12 @@ export default function ConsultantInventoryPage() {
     );
   }
 
-  return <InventoryView tenantId={tenantId} readOnly backUrl={`/consultant/clinics/${tenantId}`} />;
+  return (
+    <InventoryView
+      tenantId={tenantId}
+      readOnly
+      onlyBrand="Rennova"
+      backUrl={`/consultant/clinics/${tenantId}`}
+    />
+  );
 }
