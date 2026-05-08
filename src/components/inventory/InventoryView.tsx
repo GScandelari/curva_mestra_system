@@ -104,10 +104,9 @@ function applyFilter(
   search: string,
   category: string,
   limitsMap: Map<string, number>,
-  totalByCode: Map<string, number>,
-  onlyBrand?: string
+  totalByCode: Map<string, number>
 ): InventoryItem[] {
-  let filtered = onlyBrand ? data.filter((item) => item.brand === onlyBrand) : [...data];
+  let filtered = [...data];
 
   const productStatus = (item: InventoryItem): StatusEstoque =>
     getStatusEstoque({
@@ -204,9 +203,13 @@ export function InventoryView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const baseInventory = onlyBrand
+    ? inventory.filter((item) => item.brand === onlyBrand)
+    : inventory;
+
   // Quantidade total por codigo_produto (soma de todos os lotes)
   const totalByCode = new Map<string, number>();
-  for (const item of inventory) {
+  for (const item of baseInventory) {
     totalByCode.set(
       item.codigo_produto,
       (totalByCode.get(item.codigo_produto) ?? 0) + item.quantidade_disponivel
@@ -220,13 +223,12 @@ export function InventoryView({
     });
 
   const filteredInventory = applyFilter(
-    inventory,
+    baseInventory,
     filterBy,
     searchTerm,
     categoryFilter,
     limitsMap,
-    totalByCode,
-    onlyBrand
+    totalByCode
   );
 
   useEffect(() => {
@@ -330,7 +332,7 @@ export function InventoryView({
               <CardTitle className="text-sm font-medium">Total de Produtos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{inventory.length}</div>
+              <div className="text-2xl font-bold">{baseInventory.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -339,10 +341,10 @@ export function InventoryView({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {inventory.reduce((acc, item) => acc + item.quantidade_disponivel, 0)}
+                {baseInventory.reduce((acc, item) => acc + item.quantidade_disponivel, 0)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {inventory.reduce((acc, item) => acc + (item.quantidade_reservada || 0), 0)}{' '}
+                {baseInventory.reduce((acc, item) => acc + (item.quantidade_reservada || 0), 0)}{' '}
                 reservados
               </p>
             </CardContent>
@@ -354,7 +356,7 @@ export function InventoryView({
             <CardContent>
               <div className="text-2xl font-bold text-yellow-600">
                 {
-                  inventory.filter((item) => {
+                  baseInventory.filter((item) => {
                     const days = getDaysUntilExpiry(item.dt_validade);
                     return days <= 30 && days >= 0 && item.quantidade_disponivel > 0;
                   }).length
@@ -370,7 +372,7 @@ export function InventoryView({
               <div className="text-2xl font-bold text-orange-600">
                 {
                   new Set(
-                    inventory
+                    baseInventory
                       .filter((item) => getItemStatus(item) === 'Baixo')
                       .map((item) => item.codigo_produto)
                   ).size
