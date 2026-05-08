@@ -29,6 +29,7 @@ import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'fire
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
 import { calcularQuantidadeInventario } from '@/lib/services/inventoryService';
 import { getNomeCompletoMasterProduct } from '@/types/masterProduct';
+import { normalizeBrand } from '@/lib/brandUtils';
 
 interface MasterProduct {
   id: string;
@@ -44,6 +45,7 @@ interface NFProduct {
   codigo: string;
   nome_produto: string;
   category?: string;
+  brand?: string;
   lote: string;
   quantidade: number; // sempre em unidades
   dt_validade: string;
@@ -84,6 +86,7 @@ export default function ManualNFPage() {
   // Form fields para produtos de outra marca
   const [codigoOutraMarca, setCodigoOutraMarca] = useState('');
   const [nomeOutraMarca, setNomeOutraMarca] = useState('');
+  const [brandOutraMarca, setBrandOutraMarca] = useState('');
 
   useEffect(() => {
     if (tipoNF === 'rennova') {
@@ -190,6 +193,7 @@ export default function ManualNFPage() {
         codigo: product.code,
         nome_produto: getNomeCompletoMasterProduct(product as any),
         category: product.category,
+        brand: 'Rennova',
         lote,
         quantidade: quantidade_inicial,
         dt_validade: dtValidade,
@@ -207,6 +211,7 @@ export default function ManualNFPage() {
       if (
         !codigoOutraMarca ||
         !nomeOutraMarca ||
+        !brandOutraMarca ||
         !lote ||
         !quantidade ||
         !dtValidade ||
@@ -223,6 +228,7 @@ export default function ManualNFPage() {
       const newProduct: NFProduct = {
         codigo: codigoOutraMarca,
         nome_produto: nomeOutraMarca,
+        brand: normalizeBrand(brandOutraMarca),
         lote,
         quantidade: parseFloat(quantidade),
         dt_validade: dtValidade,
@@ -239,6 +245,7 @@ export default function ManualNFPage() {
     setShowSuggestions(false);
     setCodigoOutraMarca('');
     setNomeOutraMarca('');
+    setBrandOutraMarca('');
     setLote('');
     setQuantidade('');
     setDtValidade('');
@@ -350,6 +357,7 @@ export default function ManualNFPage() {
           valor_unitario: produto.valor_unitario,
           active: true,
           is_rennova: tipoNF === 'rennova',
+          brand: produto.brand || null,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
         };
@@ -707,6 +715,15 @@ export default function ManualNFPage() {
                               placeholder="Ex: PRODUTO TESTE"
                               value={nomeOutraMarca}
                               onChange={(e) => setNomeOutraMarca(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="brand-outra">Marca</Label>
+                            <Input
+                              id="brand-outra"
+                              placeholder="Ex: Allergan, Merz, Rennova..."
+                              value={brandOutraMarca}
+                              onChange={(e) => setBrandOutraMarca(e.target.value)}
                             />
                           </div>
                         </>
