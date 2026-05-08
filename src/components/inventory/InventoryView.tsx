@@ -56,6 +56,7 @@ interface InventoryViewProps {
   backUrl?: string;
   isAdmin?: boolean;
   initialFilter?: string;
+  onlyBrand?: string;
   onRowClick?: (itemId: string) => void;
   onAddProducts?: () => void;
 }
@@ -84,6 +85,7 @@ function parseItem(doc: { id: string; data: () => Record<string, unknown> }): In
     nf_numero: data.nf_numero as string | undefined,
     nf_id: data.nf_id as string | undefined,
     category: data.category as string | undefined,
+    brand: data.brand as string | undefined,
     active: data.active as boolean,
     created_at:
       data.created_at instanceof Timestamp
@@ -102,9 +104,14 @@ function applyFilter(
   search: string,
   category: string,
   limitsMap: Map<string, number>,
-  totalByCode: Map<string, number>
+  totalByCode: Map<string, number>,
+  onlyBrand?: string
 ): InventoryItem[] {
   let filtered = [...data];
+
+  if (onlyBrand) {
+    filtered = filtered.filter((item) => item.brand === onlyBrand);
+  }
 
   const productStatus = (item: InventoryItem): StatusEstoque =>
     getStatusEstoque({
@@ -188,6 +195,7 @@ export function InventoryView({
   backUrl,
   isAdmin,
   initialFilter,
+  onlyBrand,
   onRowClick,
   onAddProducts,
 }: InventoryViewProps) {
@@ -221,7 +229,8 @@ export function InventoryView({
     searchTerm,
     categoryFilter,
     limitsMap,
-    totalByCode
+    totalByCode,
+    onlyBrand
   );
 
   useEffect(() => {
