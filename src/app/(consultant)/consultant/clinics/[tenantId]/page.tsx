@@ -2,22 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Building2,
-  ArrowLeft,
-  Package,
-  Users,
-  FileBarChart,
-  AlertTriangle,
-  Clock,
-} from 'lucide-react';
+import { Building2, ArrowLeft, Package, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
-import { formatTimestamp } from '@/lib/utils';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   parseInventoryDate,
@@ -36,13 +27,6 @@ interface TenantDetails {
   created_at?: any;
 }
 
-interface RecentProcedure {
-  id: string;
-  descricao?: string;
-  status: string;
-  dt_procedimento: any;
-}
-
 export default function ClinicDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -55,20 +39,16 @@ export default function ClinicDetailPage() {
     expiring_soon: 0,
     low_stock: 0,
   });
-  const [recentProcedures, setRecentProcedures] = useState<RecentProcedure[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Wait for auth to load before checking authorization
     if (authLoading) return;
 
-    // Check authorization only after claims are loaded
     if (claims) {
       if (!authorizedTenants.includes(tenantId)) {
         router.push('/consultant/clinics');
         return;
       }
-      // Authorized - load data
       if (user && tenantId) {
         loadTenantData();
       }
@@ -82,13 +62,9 @@ export default function ClinicDetailPage() {
       setLoading(true);
       const token = await user.getIdToken();
 
-      // Load tenant details
-      const tenantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
+      await fetch(`/api/tenants/${tenantId}/consultant`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      // If the endpoint returns the tenant info, use it
-      // Otherwise we'll load directly from Firestore
 
       // Load inventory stats
       try {
@@ -103,23 +79,7 @@ export default function ClinicDetailPage() {
         console.error('Error loading inventory stats:', e);
       }
 
-      // Load recent procedures
-      try {
-        const proceduresRef = collection(db, `tenants/${tenantId}/solicitacoes`);
-        const proceduresQuery = query(proceduresRef, orderBy('created_at', 'desc'), limit(5));
-        const proceduresSnapshot = await getDocs(proceduresQuery);
-
-        const procedures = proceduresSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as RecentProcedure[];
-
-        setRecentProcedures(procedures);
-      } catch (e) {
-        console.error('Error loading procedures:', e);
-      }
-
-      // Load tenant basic info from tenants collection
+      // Load tenant basic info
       try {
         const { doc: fbDoc, getDoc } = await import('firebase/firestore');
         const tenantDoc = await getDoc(fbDoc(db, 'tenants', tenantId));
@@ -149,23 +109,6 @@ export default function ClinicDetailPage() {
     }
 
     return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<
-      string,
-      { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
-    > = {
-      criada: { label: 'Criada', variant: 'outline' },
-      agendada: { label: 'Agendada', variant: 'default' },
-      concluida: { label: 'Concluída', variant: 'secondary' },
-      aprovada: { label: 'Aprovada', variant: 'default' },
-      reprovada: { label: 'Reprovada', variant: 'destructive' },
-      cancelada: { label: 'Cancelada', variant: 'destructive' },
-    };
-
-    const config = statusMap[status] || { label: status, variant: 'outline' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   if (authLoading || loading) {
@@ -247,71 +190,14 @@ export default function ClinicDetailPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex flex-col gap-2"
-            onClick={() => router.push(`/consultant/clinics/${tenantId}/inventory`)}
-          >
-            <Package className="h-6 w-6" />
-            <span>Ver Estoque</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex flex-col gap-2"
-            onClick={() => router.push(`/consultant/clinics/${tenantId}/procedures`)}
-          >
-            <Users className="h-6 w-6" />
-            <span>Ver Procedimentos</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex flex-col gap-2"
-            onClick={() => router.push(`/consultant/clinics/${tenantId}/reports`)}
-          >
-            <FileBarChart className="h-6 w-6" />
-            <span>Ver Relatórios</span>
-          </Button>
-        </div>
-
-        {/* Recent Procedures */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Procedimentos Recentes
-            </CardTitle>
-            <CardDescription>Últimos procedimentos registrados</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {recentProcedures.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Nenhum procedimento registrado
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentProcedures.map((procedure) => (
-                  <div
-                    key={procedure.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{procedure.descricao || 'Sem descrição'}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {procedure.dt_procedimento
-                          ? formatTimestamp(procedure.dt_procedimento)
-                          : '—'}
-                      </p>
-                    </div>
-                    {getStatusBadge(procedure.status)}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Button
+          variant="outline"
+          className="h-auto py-4 flex flex-col gap-2 w-full md:w-auto"
+          onClick={() => router.push(`/consultant/clinics/${tenantId}/inventory`)}
+        >
+          <Package className="h-6 w-6" />
+          <span>Ver Estoque</span>
+        </Button>
       </div>
     </div>
   );
