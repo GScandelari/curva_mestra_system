@@ -233,6 +233,7 @@ export async function processNFAndAddToInventory(
         dt_validade: dtValidade,
         valor_unitario,
         category: masterProduct.category,
+        brand: 'Rennova',
         fragmentavel,
         unidades_por_embalagem: unidadesPorEmbalagem,
         quantidade_embalagens: fragmentavel ? produto.quantidade : undefined,
