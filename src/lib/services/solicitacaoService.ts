@@ -41,6 +41,8 @@ export interface CreateSolicitacaoInput {
     quantidade: number;
   }[];
   observacoes?: string;
+  protocolo_id?: string;
+  protocolo_nome?: string;
 }
 
 export interface CreateSolicitacaoEfetuadaInput {
@@ -51,6 +53,8 @@ export interface CreateSolicitacaoEfetuadaInput {
     quantidade: number;
   }[];
   observacoes?: string;
+  protocolo_id?: string;
+  protocolo_nome?: string;
 }
 
 export interface SolicitacaoWithDetails extends Solicitacao {
@@ -291,6 +295,8 @@ export async function createSolicitacaoWithConsumption(
         status: statusInicial,
         status_history: statusHistory,
         observacoes: input.observacoes,
+        protocolo_id: input.protocolo_id,
+        protocolo_nome: input.protocolo_nome,
         created_by: userId,
         created_by_name: userName,
         created_at: now,
@@ -404,6 +410,8 @@ export async function createSolicitacaoEfetuada(
         status: 'efetuada',
         status_history: statusHistory,
         observacoes: input.observacoes,
+        protocolo_id: input.protocolo_id,
+        protocolo_nome: input.protocolo_nome,
         created_by: userId,
         created_by_name: userName,
         created_at: now,
