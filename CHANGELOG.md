@@ -5,6 +5,23 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.2.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.1.0...v1.2.0) (2026-05-08)
+
+
+### Features
+
+* **inventory:** auto-assign brand Rennova on NF-e XML import ([c754ce1](https://github.com/GScandelari/curva_mestra_system/commit/c754ce1556f577d3a6a9df1820a59b5e2ff7a761))
+* **inventory:** filter consultant inventory view by brand ([3faea7f](https://github.com/GScandelari/curva_mestra_system/commit/3faea7f2e9c59da288b0ee75c1b5867e42c14a7e))
+* **inventory:** filter consultant views to brand=Rennova only ([92ab513](https://github.com/GScandelari/curva_mestra_system/commit/92ab513054882e19573e52b3e5309b15d72217a5))
+* **types:** add brand field to InventoryItem and normalizeBrand utility ([53f00a5](https://github.com/GScandelari/curva_mestra_system/commit/53f00a5020b6a5eef738f5945bd5fe10fcab33ac))
+* **ui:** add brand input to add-products flow for outras marcas ([1ed5f13](https://github.com/GScandelari/curva_mestra_system/commit/1ed5f13b9fbd0bb8bd628410337e6a4435ff8d57))
+
+
+### Bug Fixes
+
+* **inventory:** use brand-pre-filtered base for InventoryView stats ([090a12c](https://github.com/GScandelari/curva_mestra_system/commit/090a12cfb1bbaab05012e62add053b94b856425b))
+* **ui:** remove procedures and reports access from consultant portal ([a556f58](https://github.com/GScandelari/curva_mestra_system/commit/a556f58800617b4795d5b7334bfaf0b58fa20157))
+
 ## [1.1.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.0.1...v1.1.0) (2026-05-07)
 
 
