@@ -6,7 +6,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -32,13 +31,11 @@ export async function getHistoricalProducts(tenantId: string): Promise<ProdutoHi
 }
 
 export async function listProtocolos(tenantId: string): Promise<Protocolo[]> {
-  const q = query(
-    collection(db, 'tenants', tenantId, 'protocolos'),
-    where('active', '==', true),
-    orderBy('nome')
-  );
+  const q = query(collection(db, 'tenants', tenantId, 'protocolos'), where('active', '==', true));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Protocolo);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Protocolo)
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
 export interface CreateProtocoloInput {
