@@ -35,6 +35,7 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
     { href: '/clinic/dashboard', label: 'Dashboard' },
     { href: '/clinic/inventory', label: 'Gerenciar Estoque' },
     { href: '/clinic/requests', label: 'Procedimentos' },
+    { href: '/clinic/protocolos', label: 'Protocolos' },
     { href: '/clinic/reports', label: 'Relatórios' },
     { href: '/clinic/my-clinic', label: 'Minha Clínica' },
     { href: '/clinic/profile', label: 'Meu Perfil' },
