@@ -48,8 +48,8 @@ export function ProtocoloForm({
 
   const handleAddItem = () => {
     if (!selectedCodigo) return;
-    const qty = parseInt(quantidade);
-    if (isNaN(qty) || qty <= 0) return;
+    const qty = Number.parseInt(quantidade, 10);
+    if (Number.isNaN(qty) || qty <= 0) return;
     if (itens.some((i) => i.codigo_produto === selectedCodigo)) return;
 
     const produto = produtosHistoricos.find((p) => p.codigo_produto === selectedCodigo);
@@ -162,7 +162,10 @@ export function ProtocoloForm({
                       min="1"
                       value={item.quantidade_sugerida}
                       onChange={(e) =>
-                        handleQtyChange(item.codigo_produto, parseInt(e.target.value) || 1)
+                        handleQtyChange(
+                          item.codigo_produto,
+                          Number.parseInt(e.target.value, 10) || 1
+                        )
                       }
                       className="w-20 text-center"
                     />
