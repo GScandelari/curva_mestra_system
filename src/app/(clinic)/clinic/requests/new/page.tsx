@@ -25,7 +25,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Package, AlertTriangle, Check, X, Trash2, Plus } from 'lucide-react';
+import { Package, AlertTriangle, Check, X, Trash2, Plus, ClipboardList } from 'lucide-react';
 import { listInventory, type InventoryItem } from '@/lib/services/inventoryService';
 import { agruparProdutosPorCodigo, type ProdutoAgrupado } from '@/lib/inventoryUtils';
 import {
@@ -35,6 +35,8 @@ import {
   type CreateSolicitacaoInput,
   type CreateSolicitacaoEfetuadaInput,
 } from '@/lib/services/solicitacaoService';
+import { listProtocolos } from '@/lib/services/protocoloService';
+import type { Protocolo } from '@/types';
 
 type Step = 'adicionar_produtos' | 'revisao';
 
@@ -81,6 +83,10 @@ export default function NovaSolicitacaoPage() {
   const [selectedLoteId, setSelectedLoteId] = useState('');
   const [quantidadeSolicitada, setQuantidadeSolicitada] = useState('1');
 
+  // Estados de protocolo
+  const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
+  const [protocoloSelecionado, setProtocoloSelecionado] = useState<Protocolo | null>(null);
+
   // Estados de loading e erro
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -115,6 +121,14 @@ export default function NovaSolicitacaoPage() {
 
     loadInventory();
   }, [tenantId, toast]);
+
+  // Carregar protocolos disponíveis
+  useEffect(() => {
+    if (!tenantId || isEditMode) return;
+    listProtocolos(tenantId)
+      .then(setProtocolos)
+      .catch(() => {});
+  }, [tenantId, isEditMode]);
 
   // Carregar dados para edição
   useEffect(() => {
@@ -262,6 +276,20 @@ export default function NovaSolicitacaoPage() {
       };
     return null;
   }
+
+  const handleAplicarProtocolo = (protocolo: Protocolo) => {
+    const alocados: ProdutoSelecionado[] = [];
+    for (const item of protocolo.itens) {
+      const fefo = alocarProdutoFEFO(item.codigo_produto, item.quantidade_sugerida);
+      alocados.push(...fefo);
+    }
+    setProdutosSelecionados(alocados);
+    setProtocoloSelecionado(protocolo);
+    toast({
+      title: `Protocolo "${protocolo.nome}" aplicado`,
+      description: 'Produtos pré-carregados. Ajuste as quantidades se necessário.',
+    });
+  };
 
   const handleAdicionarProduto = () => {
     const quantidade = parseInt(quantidadeSolicitada);
@@ -448,12 +476,16 @@ export default function NovaSolicitacaoPage() {
             dt_procedimento,
             produtos,
             observacoes: observacoes || undefined,
+            protocolo_id: protocoloSelecionado?.id,
+            protocolo_nome: protocoloSelecionado?.nome,
           } satisfies CreateSolicitacaoEfetuadaInput)
         : await createSolicitacaoWithConsumption(tenantId, user!.uid, userName, {
             descricao: descricao || undefined,
             dt_procedimento,
             produtos,
             observacoes: observacoes || undefined,
+            protocolo_id: protocoloSelecionado?.id,
+            protocolo_nome: protocoloSelecionado?.nome,
           } satisfies CreateSolicitacaoInput);
 
     if (result.success) {
@@ -575,6 +607,58 @@ export default function NovaSolicitacaoPage() {
                 <CardDescription>Informe os dados e os produtos do procedimento</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {!isEditMode && protocolos.length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-dashed p-4 bg-muted/30">
+                    <Label className="flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4" />
+                      Usar Protocolo (opcional)
+                    </Label>
+                    <div className="flex gap-2">
+                      <Select
+                        value={protocoloSelecionado?.id ?? ''}
+                        onValueChange={(v) => {
+                          if (!v) {
+                            setProtocoloSelecionado(null);
+                            return;
+                          }
+                          const p = protocolos.find((x) => x.id === v);
+                          if (p) handleAplicarProtocolo(p);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um protocolo para pré-carregar produtos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {protocolos.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {protocoloSelecionado && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setProtocoloSelecionado(null);
+                            setProdutosSelecionados([]);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {protocoloSelecionado && (
+                      <p className="text-xs text-muted-foreground">
+                        Protocolo &quot;{protocoloSelecionado.nome}&quot; aplicado. Ajuste os
+                        produtos abaixo se necessário.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {!isEditMode && (
                   <div className="space-y-2">
                     <Label>Tipo de Procedimento *</Label>
