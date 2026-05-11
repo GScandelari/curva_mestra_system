@@ -190,6 +190,8 @@ export interface Solicitacao {
   status: SolicitacaoStatus;
   status_history?: StatusHistoryEntry[]; // Histórico de mudanças de status
   observacoes?: string;
+  protocolo_id?: string;
+  protocolo_nome?: string;
   created_by: string; // UID do usuário que criou
   created_by_name?: string; // Nome do usuário que criou
   updated_by?: string;
@@ -357,6 +359,28 @@ export interface PasswordResetToken {
   created_by: string; // UID do admin que iniciou
   used_at?: Timestamp; // Marcado quando usado (one-time)
   invalidated_at?: Timestamp; // Se invalidado manualmente
+}
+
+// ============================================================================
+// PROTOCOLOS DE PROCEDIMENTOS
+// ============================================================================
+
+export interface ProtocoloItem {
+  codigo_produto: string;
+  nome_produto: string;
+  quantidade_sugerida: number;
+}
+
+export interface Protocolo {
+  id: string;
+  tenant_id: string;
+  nome: string;
+  descricao?: string;
+  itens: ProtocoloItem[];
+  active: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  created_by: string;
 }
 
 // ============================================================================
