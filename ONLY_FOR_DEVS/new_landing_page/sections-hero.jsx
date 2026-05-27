@@ -41,12 +41,12 @@ const HEADLINES = {
     eyebrow: "Sistema de gestão · Harmonização orofacial e corporal",
     h1: (
       <>
-        Inventário, aplicações e<br />
+        Inventário, procedimentos e<br />
         investimentos da sua clínica HOF —<br />
         <span className="serif-it">sob a mesma curva.</span>
       </>
     ),
-    sub: "Curva Mestra é o sistema de gestão operacional que conecta o especialista em harmonização e o consultor Rennova em uma única superfície — com visibilidade real de estoque, aplicações registradas por produto e retorno por linha. Zero dado de paciente, por desenho."
+    sub: "Curva Mestra é o sistema de gestão operacional que conecta o especialista em harmonização e o consultor Rennova em uma única superfície — com visibilidade real de estoque, procedimentos registradas por produto e retorno por linha. Zero dado de paciente, por desenho."
   },
   curva: {
     eyebrow: "Exclusivo · Rede de especialistas Rennova",
@@ -67,7 +67,7 @@ const HEADLINES = {
         <span className="serif-it">Mesmo sistema.</span>
       </>
     ),
-    sub: "Da entrada do produto na clínica até a baixa por aplicação, Curva Mestra traz inventário, custos e relacionamento com o consultor Rennova para o mesmo painel — pensado para a complexidade da harmonização orofacial e corporal, sem nunca tocar em dado de paciente."
+    sub: "Da entrada do produto na clínica até a baixa por procedimento, Curva Mestra traz inventário, custos e relacionamento com o consultor Rennova para o mesmo painel — pensado para a complexidade da harmonização orofacial e corporal, sem nunca tocar em dado de paciente."
   }
 };
 
@@ -119,7 +119,7 @@ function Hero({ headlineVariant }) {
         }}>
           {[
             ["Inventário", "Lote, vencimento, valor"],
-            ["Aplicações", "Produto, dose, área, custo"],
+            ["Procedimentos", "Produto, lote, custo"],
             ["Investimentos", "Histórico e projeção"],
             ["Linha direta", "Consultor Rennova"]
           ].map(([t, d], i) => (
@@ -179,7 +179,7 @@ function HeroDashboard() {
       transform: isMobile ? "none" : "perspective(2400px) rotateX(2deg)",
       transformOrigin: "center top"
     }}>
-      <AppChrome title="curvamestra.app / dashboard" role="ESPECIALISTA HOF" height={520}>
+      <AppChrome title="curvamestra.com.br / dashboard" role="ESPECIALISTA HOF" height={520}>
         {/* Top row: título + filtros */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18 }}>
           <div>
@@ -202,8 +202,8 @@ function HeroDashboard() {
         }}>
           {[
             { v: "R$ 28.460", l: "Em estoque (custo)", t: "+R$ 4.120 vs abril" },
-            { v: "184", l: "Aplicações · 30d", t: "+22 vs período anterior", a: true },
-            { v: "R$ 154", l: "Custo médio / aplicação", t: "−R$ 8 vs abril" },
+            { v: "184", l: "Procedimentos · 30d", t: "+22 vs período anterior", a: true },
+            { v: "R$ 154", l: "Custo médio / procedimento", t: "−R$ 8 vs abril" },
             { v: "2", l: "Lotes vencendo", t: "≤ 30 dias", warn: true }
           ].map((k, i) => (
             <Card key={i} padding={18}>
@@ -256,7 +256,7 @@ function HeroDashboard() {
           {/* Chart card */}
           <Card padding={18}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.1em", color: "var(--ink-3)", textTransform: "uppercase" }}>Aplicações / semana</div>
+              <div style={{ fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.1em", color: "var(--ink-3)", textTransform: "uppercase" }}>Procedimentos / semana</div>
               <div style={{ fontSize: 11, color: "var(--gold-2)" }}>+18%</div>
             </div>
             <div style={{ fontFamily: "var(--serif)", fontSize: 28, marginTop: 8 }}>184</div>
@@ -289,9 +289,9 @@ function HeroDashboard() {
             width: 22, height: 22, borderRadius: "50%", background: "var(--gold)",
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             color: "#0a0908", fontFamily: "var(--serif)", fontSize: 11, fontWeight: 600
-          }}>CR</div>
+          }}>AG</div>
           <div>
-            <div style={{ fontSize: 11.5, fontWeight: 500 }}>Carlos Reis</div>
+            <div style={{ fontSize: 11.5, fontWeight: 500 }}>Amanda Giraldi</div>
             <div style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--mono)" }}>Consultor Rennova</div>
           </div>
         </div>
@@ -321,7 +321,7 @@ function Chip({ children, icon }) {
 function Marquee() {
   const items = [
     "Inventário rastreável por lote e validade",
-    "Aplicações registradas por produto, dose e área",
+    "Procedimentos registrados por produto e lote",
     "Investimentos auditáveis em tempo real",
     "Comunicação direta com o consultor Rennova",
     "LGPD por desenho · zero dado de paciente",

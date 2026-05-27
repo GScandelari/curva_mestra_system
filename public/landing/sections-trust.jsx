@@ -74,15 +74,15 @@ function Experience() {
           {[
             {
               eyebrow: "Onboarding",
-              h: "14 dias do contrato à primeira aplicação registrada.",
+              h: "14 dias do contrato ao primeiro procedimento registrado.",
               p: "Importação do seu inventário atual via planilha. Configuração das salas, lotes e produtos em batch. Um treinamento 1:1 incluído.",
               foot: ["Importação por planilha", "Treinamento 1:1", "Acompanhamento 30 dias"]
             },
             {
               eyebrow: "Ritmo de uso",
-              h: "3 cliques para registrar uma aplicação.",
-              p: "Não 11. Não 7. Três. Atalhos de teclado para os fluxos mais usados. Modo rápido para sequências de aplicação no mesmo turno.",
-              foot: ["3 cliques · 1 aplicação", "Atalhos de teclado", "Modo turno"]
+              h: "3 cliques para registrar um procedimento.",
+              p: "Não 11. Não 7. Três. Atalhos de teclado para os fluxos mais usados. Modo rápido para sequências de procedimentos no mesmo turno.",
+              foot: ["3 cliques · 1 procedimento", "Atalhos de teclado", "Modo turno"]
             },
             {
               eyebrow: "Onde você está",
@@ -136,7 +136,7 @@ function Foundation() {
             <ul style={{ listStyle: "none", padding: 0, margin: "26px 0 0", display: "flex", flexDirection: "column", gap: 22 }}>
               {[
                 ["Redução de 18–30% em perdas de inventário", "após implementação de sistemas com rastreabilidade por lote em operações clínicas com alta rotatividade de insumos sensíveis."],
-                ["Aumento de 22% em aderência a protocolos de uso", "quando dados de aplicação são capturados no fluxo, e não retrabalhados em segundo momento."],
+                ["Aumento de 22% em aderência a protocolos de uso", "quando dados de procedimento são capturados no fluxo, e não retrabalhados em segundo momento."],
                 ["Custo direto por sessão cai entre 9 e 14%", "em operações que migram de controle por planilha para sistema com FIFO por lote — efeito atribuído à eliminação de desperdício de validade."],
                 ["Decisão comercial dado-orientada", "fornecedores com visão real do consumo do cliente reportam aumento médio de 14% em volume sustentado, segundo levantamentos de B2B life sciences."]
               ].map(([t, d], i) => (
@@ -168,7 +168,7 @@ function Foundation() {
             <div style={{ marginTop: 26, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
               {[
                 ["Captura no fluxo, não no formulário", "Cada dado é registrado no instante em que existe. Nada de planilhar depois."],
-                ["Um modelo único — operacional", "Inventário, aplicação e custo compartilham o mesmo banco. Paciente, não — esse fica no seu prontuário."],
+                ["Um modelo único — operacional", "Inventário, procedimentos e custo compartilham o mesmo banco. Paciente, não — esse fica no seu prontuário."],
                 ["Cliente é dono do dado", "Especialista decide o que e quando compartilhar. Curva Mestra orquestra; não publica."],
                 ["Construído ao lado da rotina", "Cada release passa por validação com especialistas operando — não por reunião de produto."]
               ].map(([t, d], i) => (
@@ -189,7 +189,7 @@ function FAQ() {
   const items = [
     {
       q: "É difícil de usar? Minha equipe vai conseguir adotar?",
-      a: "Curva Mestra foi desenhada pelo ritmo de quem aplica. O cadastro de aplicação se resolve em três cliques, com atalhos de teclado para os fluxos mais usados. O onboarding inclui importação do inventário atual via planilha e treinamento 1:1 — em duas semanas a clínica está operando integralmente no sistema."
+      a: "Curva Mestra foi desenhada pelo ritmo de quem opera. O cadastro de procedimento se resolve em três cliques, com atalhos de teclado para os fluxos mais usados. O onboarding inclui importação do inventário atual via planilha e treinamento 1:1 — em duas semanas a clínica está operando integralmente no sistema."
     },
     {
       q: "Qual o investimento? É caro de implementar?",
@@ -197,7 +197,7 @@ function FAQ() {
     },
     {
       q: "É seguro? Como vocês tratam os dados dos meus pacientes?",
-      a: "A resposta mais honesta: nós não os tratamos. Curva Mestra, por desenho, não coleta, processa ou armazena qualquer dado de paciente — nome, foto, prontuário, anamnese, número de documento. O sistema opera só sobre dado operacional: produto, lote, dose, área anônima, custo. Sigilo do paciente fica integral no seu prontuário eletrônico. Para os dados operacionais que tratamos, temos LGPD por consequência, criptografia em trânsito (TLS 1.3) e em repouso (AES-256), acesso por perfil, trilha de auditoria completa e backup geográfico diário."
+      a: "A resposta mais honesta: nós não os tratamos. Curva Mestra, por desenho, não coleta, processa ou armazena qualquer dado de paciente — nome, foto, prontuário, anamnese, número de documento. O sistema opera só sobre dado operacional: produto, lote, custo. Sigilo do paciente fica integral no seu prontuário eletrônico. Para os dados operacionais que tratamos, temos LGPD por consequência, criptografia em trânsito (TLS 1.3) e em repouso (AES-256), acesso por perfil, trilha de auditoria completa e backup geográfico diário."
     },
     {
       q: "A Rennova vê os dados dos meus pacientes?",
@@ -209,7 +209,7 @@ function FAQ() {
     },
     {
       q: "Integra com sistemas de prontuário, agenda e meio de pagamento?",
-      a: "Sim — em via única, da Curva para fora. Empurramos o dado operacional da sessão (produto, lote, dose, custo, identificador anônimo) para o seu sistema de prontuário ou agenda, para que você atrele lá ao paciente que fizer sentido. Não puxamos dado de paciente para dentro da Curva. Conectores nativos para os principais sistemas brasileiros e API REST documentada para o resto."
+      a: "Sim — em via única, da Curva para fora. Empurramos o dado operacional da sessão (produto, lote, custo, identificador anônimo) para o seu sistema de prontuário ou agenda, para que você atrele lá ao paciente que fizer sentido. Não puxamos dado de paciente para dentro da Curva. Conectores nativos para os principais sistemas brasileiros e API REST documentada para o resto."
     },
     {
       q: "E se eu precisar sair do sistema no futuro?",

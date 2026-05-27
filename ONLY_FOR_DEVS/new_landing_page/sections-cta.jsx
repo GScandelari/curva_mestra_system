@@ -46,7 +46,7 @@ function RequestAccess() {
                   ["Em 2 dias úteis", "Resposta com confirmação ou pedido de informação adicional."],
                   ["Em até 7 dias", "Reunião de descoberta com a equipe Curva Mestra (60 min, online)."],
                   ["Em até 14 dias", "Onboarding técnico, importação de inventário e treinamento 1:1."],
-                  ["A partir de então", "Primeira aplicação registrada no sistema. A operação muda."]
+                  ["A partir de então", "Primeiro procedimento registrado no sistema. A operação muda."]
                 ].map(([when, what], i) => (
                   <li key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 14, fontSize: 13.5 }}>
                     <span style={{ color: "var(--gold-2)", fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.05em", paddingTop: 1 }}>{when}</span>
