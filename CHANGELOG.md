@@ -5,6 +5,18 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.3.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.2.0...v1.3.0) (2026-05-11)
+
+
+### Features
+
+* **requests:** add Protocolos de Procedimentos ([85273f7](https://github.com/GScandelari/curva_mestra_system/commit/85273f70c22e2f6b38979def7a51ba17b7af3313))
+
+
+### Bug Fixes
+
+* **protocolos:** remove orderBy to avoid missing composite index ([ab9c77b](https://github.com/GScandelari/curva_mestra_system/commit/ab9c77bcd50673292ea1b1c3cb7da57ec23ddf18))
+
 ## [1.2.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.1.0...v1.2.0) (2026-05-08)
 
 
