@@ -89,7 +89,7 @@ function Icon({ name, size = 18, stroke = 1.5, color = "currentColor" }) {
   }
 }
 
-// Mock de aplicação — sidebar oculta em mobile para maximizar área de conteúdo
+// Mock de procedimento — sidebar oculta em mobile para maximizar área de conteúdo
 function AppChrome({ title, role, children, height }) {
   const isMobile = useBreakpoint();
   return (
@@ -134,7 +134,7 @@ function AppSidebar({ active = "Visão geral" }) {
   const items = [
     ["Visão geral", "chart"],
     ["Inventário", "box"],
-    ["Aplicações", "syringe"],
+    ["Procedimentos", "syringe"],
     ["Investimentos", "doc"],
     ["Relatórios", "chart"],   // fix: era "doc", igual a Investimentos
     ["Consultor", "phone"]
