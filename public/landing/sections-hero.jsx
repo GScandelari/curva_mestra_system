@@ -28,7 +28,7 @@ function Nav() {
       </div>
       <div className="nav-cta">
         <span className="dim" style={{ fontSize: 12.5, fontFamily: "var(--mono)" }}>Acesso restrito</span>
-        <a href="https://curvamestra.com.br/login" className="btn btn-primary" style={{ padding: "11px 18px", fontSize: 13.5 }}>
+        <a href="/login" className="btn btn-primary" style={{ padding: "11px 18px", fontSize: 13.5 }}>
           Acessar <span className="arrow">→</span>
         </a>
       </div>
@@ -179,7 +179,7 @@ function HeroDashboard() {
       transform: isMobile ? "none" : "perspective(2400px) rotateX(2deg)",
       transformOrigin: "center top"
     }}>
-      <AppChrome title="curvamestra.com.br / dashboard" role="ESPECIALISTA HOF" height={520}>
+      <AppChrome title="curvamestra / dashboard" role="ESPECIALISTA HOF" height={520}>
         {/* Top row: título + filtros */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18 }}>
           <div>
