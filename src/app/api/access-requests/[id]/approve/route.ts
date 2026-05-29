@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic';
 
 /**
  * API Route: Aprovar Solicitação de Acesso Antecipado
- * Cria automaticamente tenant + usuário admin em um clique
- * Usa a senha que o usuário definiu no cadastro (não gera senha temporária)
+ * Cria automaticamente tenant + usuário admin em um clique.
+ * Gera senha temporária e envia link de redefinição de senha ao usuário.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,13 +12,22 @@ import type { AccessRequest, Tenant, UserRole } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
 
 /**
- * Gera o HTML do e-mail de boas-vindas (aprovação)
- * NÃO contém senha - usuário usa a senha que definiu no cadastro
+ * Gera uma senha temporária aleatória (usada internamente ao criar o usuário).
+ * O usuário jamais vê essa senha — ele define a própria via link de redefinição.
+ */
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#';
+  return Array.from({ length: 24 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+/**
+ * Gera o HTML do e-mail de boas-vindas com link para definir a senha.
  */
 function generateWelcomeEmailHtml(
   displayName: string,
   email: string,
-  businessName: string
+  businessName: string,
+  passwordResetLink: string
 ): string {
   return `
     <!DOCTYPE html>
@@ -28,34 +37,32 @@ function generateWelcomeEmailHtml(
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <div style="background: linear-gradient(135deg, #c9a24a 0%, #8a6b22 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
           <h1 style="margin: 0;">Sua Solicitação foi Aprovada!</h1>
         </div>
         <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
           <p>Olá <strong>${displayName}</strong>,</p>
 
-          <p>Sua solicitação de acesso ao <strong>Curva Mestra</strong> foi aprovada! A clínica <strong>${businessName}</strong> já está ativa no sistema.</p>
+          <p>Sua solicitação de acesso ao <strong>Curva Mestra</strong> foi aprovada! O acesso ao sistema está liberado.</p>
 
           <div style="background: #d1fae5; border: 1px solid #10b981; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <p style="margin: 0; color: #065f46;"><strong>Conta Ativada com Sucesso!</strong></p>
-            <p style="margin: 10px 0 0 0; color: #065f46;">Você já pode fazer login com o email e senha que definiu no cadastro.</p>
+            <p style="margin: 10px 0 0 0; color: #065f46;">Clique no botão abaixo para definir sua senha e acessar o sistema.</p>
           </div>
 
-          <p><strong>Seus dados de acesso:</strong></p>
-          <ul>
-            <li><strong>E-mail:</strong> ${email}</li>
-            <li><strong>Senha:</strong> A senha que você definiu no cadastro</li>
-          </ul>
+          <p><strong>Seu e-mail de acesso:</strong> ${email}</p>
 
-          <div style="text-align: center;">
-            <a href="https://curvamestra.com.br/login" style="display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Fazer Login</a>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${passwordResetLink}" style="display: inline-block; padding: 14px 34px; background: #c9a24a; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Definir minha senha →</a>
           </div>
 
-          <p><strong>Próximos passos:</strong></p>
+          <p style="font-size: 13px; color: #6b7280;">Este link é de uso único e expira em 24 horas. Se precisar de um novo link, acesse <a href="https://curvamestra.com.br/login">curvamestra.com.br/login</a> e clique em "Esqueci a senha".</p>
+
+          <p><strong>Próximos passos após definir a senha:</strong></p>
           <ol>
-            <li>Faça login com seu e-mail e senha</li>
-            <li>Complete o processo de configuração da clínica</li>
-            <li>Comece a usar o sistema!</li>
+            <li>Faça login com seu e-mail em <a href="https://curvamestra.com.br/login">curvamestra.com.br/login</a></li>
+            <li>Configure o perfil da clínica</li>
+            <li>Importe seu primeiro inventário</li>
           </ol>
 
           <p>Se você tiver alguma dúvida, entre em contato conosco.</p>
@@ -97,22 +104,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: 'Solicitação já foi processada' }, { status: 400 });
     }
 
-    // 2. Verificar se a senha foi definida no cadastro
-    if (!request.password) {
-      return NextResponse.json(
-        { error: 'Senha não encontrada na solicitação. O usuário precisa refazer o cadastro.' },
-        { status: 400 }
-      );
-    }
+    // 2. Definir max_users baseado no role / type
+    const max_users = request.type === 'autonomo' || request.role === 'consultor' ? 1 : 5;
 
-    // 3. Definir max_users baseado no tipo
-    const max_users = request.type === 'autonomo' ? 1 : 5;
-
-    // 4. Criar Tenant
+    // 3. Criar Tenant
     const tenantData: Omit<Tenant, 'id'> = {
       name: request.business_name,
-      document_type: request.document_type,
-      document_number: request.document_number,
+      document_type: request.document_type ?? 'cnpj',
+      document_number: request.document_number ?? '',
       email: request.email,
       phone: request.phone || '',
       max_users,
@@ -135,12 +134,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     console.log(`✅ Tenant criado: ${tenant_id} - ${request.business_name}`);
 
-    // 5. Criar usuário no Firebase Auth com a senha que o usuário definiu no cadastro
+    // 4. Criar usuário no Firebase Auth com senha temporária aleatória
     let user_id: string;
     try {
+      const tempPassword = generateTempPassword();
       const userRecord = await adminAuth.createUser({
         email: request.email,
-        password: request.password,
+        password: tempPassword,
         displayName: request.full_name,
         emailVerified: false,
       });
@@ -183,13 +183,22 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         updated_at: FieldValue.serverTimestamp(),
       });
 
-      // 11. Enviar e-mail de boas-vindas (sem senha) via fila de emails
-      // A Cloud Function processEmailQueue irá processar e enviar automaticamente
+      // 5. Gerar link de redefinição de senha para o usuário definir a própria senha
+      let passwordResetLink = 'https://curvamestra.com.br/login';
+      try {
+        passwordResetLink = await adminAuth.generatePasswordResetLink(request.email);
+        console.log(`✅ Link de redefinição de senha gerado para ${request.email}`);
+      } catch (resetErr) {
+        console.warn(`⚠️ Não foi possível gerar link de redefinição:`, resetErr);
+      }
+
+      // 6. Enviar e-mail de boas-vindas com link de redefinição via fila de emails
       try {
         const emailHtml = generateWelcomeEmailHtml(
           request.full_name,
           request.email,
-          request.business_name
+          request.business_name,
+          passwordResetLink
         );
 
         await adminDb.collection('email_queue').add({
@@ -214,7 +223,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({
         success: true,
         message:
-          'Solicitação aprovada! O usuário já pode fazer login com a senha que definiu no cadastro.',
+          'Solicitação aprovada! Um e-mail com o link para definir a senha foi enviado ao usuário.',
         data: {
           tenant_id,
           user_id,

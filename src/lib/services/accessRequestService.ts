@@ -35,7 +35,6 @@ export async function createAccessRequest(data: {
   document_type: DocumentType; // Tipo do documento
   full_name: string;
   email: string;
-  password: string;
 }): Promise<{ success: boolean; message: string; requestId?: string }> {
   try {
     // Limpar documento
@@ -87,13 +86,14 @@ export async function createAccessRequest(data: {
 
     // Criar solicitação
     const accessRequest: Omit<AccessRequest, 'id'> = {
+      role: data.document_type === 'cnpj' ? 'especialista' : 'especialista',
       type: data.document_type === 'cnpj' ? 'clinica' : 'autonomo',
       document_type: data.document_type,
       document_number: documentClean,
+      council_number: documentClean,
       full_name: data.full_name,
       email: data.email.toLowerCase(),
       phone: '',
-      password: '', // Senha será definida pelo usuário após aprovação
       business_name: data.full_name,
       status: 'pendente',
       created_at: serverTimestamp() as Timestamp,
