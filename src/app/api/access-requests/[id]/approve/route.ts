@@ -6,18 +6,20 @@ export const dynamic = 'force-dynamic';
  * Gera senha temporária e envia link de redefinição de senha ao usuário.
  */
 
+import crypto from 'crypto';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import type { AccessRequest, Tenant, UserRole } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
 
 /**
- * Gera uma senha temporária aleatória (usada internamente ao criar o usuário).
+ * Gera uma senha temporária usando crypto.randomBytes (CSPRNG).
  * O usuário jamais vê essa senha — ele define a própria via link de redefinição.
  */
 function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#';
-  return Array.from({ length: 24 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  // 24 bytes → 32 caracteres base64url; cryptographically secure (CSPRNG)
+  return crypto.randomBytes(24).toString('base64url');
 }
 
 /**
