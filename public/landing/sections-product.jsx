@@ -9,7 +9,7 @@ function Problem() {
       sub: "O que hoje passa despercebido na gestão da clínica",
       items: [
         ["Inventário no caderno, no fim do mês não bate.", "Estoque controlado por memória, planilha solta e foto de caixa. Validade descoberta na hora de aplicar."],
-        ["Cada aplicação é um post-it.", "Qual lote foi usado, em que sessão, com qual dose — informação fragmentada entre planilha, agenda e a memória de quem aplicou."],
+        ["Cada procedimento é um post-it.", "Qual lote foi usado, em que sessão — informação fragmentada entre planilha, agenda e a memória de quem realizou."],
         ["Quanto entrou, quanto saiu, quanto rendeu?", "Compra-se pela urgência. Não se sabe o custo por procedimento, nem o retorno por linha de produto."],
         ["Falar com o consultor é sempre por WhatsApp avulso.", "Nenhum histórico estruturado da relação. Pedidos repetem-se. Recomendações se perdem."]
       ]
@@ -103,10 +103,10 @@ const MODULES = [
   },
   {
     n: "02", id: "procedimentos",
-    name: "Aplicações & dosagem",
+    name: "Procedimentos",
     icon: "syringe",
-    title: "Cada aplicação registrada por produto, dose e área — não por paciente.",
-    desc: "Curva Mestra registra a sessão como evento operacional: tipo de aplicação, produto, lote, dose e áreas. O dado de paciente fica integralmente no seu prontuário — nunca trafega para o sistema.",
+    title: "Cada procedimento registrado por produto e lote — não por paciente.",
+    desc: "Curva Mestra registra a sessão como evento operacional: tipo de procedimento, produto e lote. O dado de paciente fica integralmente no seu prontuário — nunca trafega para o sistema.",
     bullets: [
       "Modelos por tipo (full face, mid face, contorno, lábios, glabela…)",
       "Baixa automática do lote utilizado no estoque",
@@ -165,7 +165,7 @@ function Modules() {
           num="02"
           label="O sistema"
           title={<>Cinco módulos.<br /><span className="serif-it">Uma operação.</span></>}
-          lede="Curva Mestra não substitui o prontuário, nem a agenda — completa ambos. É a camada operacional que liga produto, lote, aplicação e parceiro comercial em um único modelo de dados, sem nunca tocar em dado de paciente."
+          lede="Curva Mestra não substitui o prontuário, nem a agenda — completa ambos. É a camada operacional que liga produto, lote, procedimento e parceiro comercial em um único modelo de dados, sem nunca tocar em dado de paciente."
         />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 18 }}>

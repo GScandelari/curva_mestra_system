@@ -4,9 +4,9 @@ function ForSpecialist() {
   const isMobile = useBreakpoint();
 
   const benefits = [
-    ["Estoque que se controla sozinho", "Você registra a aplicação; o sistema dá baixa no lote — e te avisa quando vai vencer."],
+    ["Estoque que se controla sozinho", "Você registra o procedimento; o sistema dá baixa no lote — e te avisa quando vai vencer."],
     ["Tempo administrativo cortado pela metade", "Fim do controle paralelo em planilha. Tudo em um modelo de dados único, sem nunca encostar em prontuário."],
-    ["Dado de operação que era invisível, agora visível", "Cada aplicação vira dado financeiro automaticamente — custo por sessão, mix de produto, projeção de reposição. Sem trabalho extra."],
+    ["Dado de operação que era invisível, agora visível", "Cada procedimento vira dado financeiro automaticamente — custo por sessão, mix de produto, projeção de reposição. Sem trabalho extra."],
     ["Relação consultiva com o consultor Rennova", "Recomendações, pedidos e cronograma de uso em um canal — não em chat solto."]
   ];
 
@@ -50,14 +50,14 @@ function ForSpecialist() {
   );
 }
 
-// Mock do especialista: tela de registro de aplicação — apenas dado operacional
+// Mock do especialista: tela de registro de procedimento — apenas dado operacional
 function SpecialistMock() {
   return (
-    <AppChrome title="curvamestra.app / aplicações / nova" role="DRA. HELENA VIDAL" height={520}>
+    <AppChrome title="curvamestra / procedimentos / nova" role="DRA. HELENA VIDAL" height={520}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--mono)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            Nova aplicação
+            Novo procedimento
           </div>
           <div style={{ fontFamily: "var(--serif)", fontSize: 22, marginTop: 4 }}>Sessão #A-4218 · 23 mai 14:22</div>
         </div>
@@ -67,13 +67,10 @@ function SpecialistMock() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 14 }}>
-        {/* Esquerda: formulário de aplicação */}
+        {/* Esquerda: formulário de procedimento */}
         <Card padding={18}>
           <Row label="Tipo">
             <PillSelect options={["Full face", "Mid face", "Lábios", "Glabela"]} selected={1} />
-          </Row>
-          <Row label="Áreas">
-            <FaceMap />
           </Row>
           <Row label="Produto · lote">
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(243,236,224,0.04)", border: "1px solid var(--line)" }}>
@@ -82,11 +79,8 @@ function SpecialistMock() {
               <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--mono)", marginLeft: "auto" }}>HLX-2391 · val. 08/26</span>
             </div>
           </Row>
-          <Row label="Dose aplicada">
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <div style={{ fontFamily: "var(--serif)", fontSize: 30, color: "var(--gold-2)" }}>0,8</div>
-              <div style={{ fontSize: 13, color: "var(--ink-3)", fontFamily: "var(--mono)" }}>ml · resta 0,2ml no lote</div>
-            </div>
+          <Row label="Protocolo">
+            <PillSelect options={["Volumização", "Contorno", "Hidratação", "Personalizado"]} selected={0} />
           </Row>
         </Card>
 
@@ -98,15 +92,14 @@ function SpecialistMock() {
             </div>
             <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
               {[
-                ["12 mai", "Mid face · sessão #A-4198", "0,4ml"],
-                ["15 mai", "Mid face · sessão #A-4203", "0,5ml"],
-                ["19 mai", "Lábios · sessão #A-4211", "0,3ml"],
-                ["23 mai", "Mid face · sessão atual", "0,8ml", true]
-              ].map(([d, what, dose, curr], i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "54px 1fr auto", gap: 8, fontSize: 12, alignItems: "center" }}>
+                ["12 mai", "Mid face · sessão #A-4198"],
+                ["15 mai", "Mid face · sessão #A-4203"],
+                ["19 mai", "Lábios · sessão #A-4211"],
+                ["23 mai", "Mid face · sessão atual", true]
+              ].map(([d, what, curr], i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "54px 1fr", gap: 8, fontSize: 12, alignItems: "center" }}>
                   <span style={{ color: curr ? "var(--gold)" : "var(--ink-3)", fontFamily: "var(--mono)", fontSize: 11 }}>{d}</span>
                   <span style={{ color: curr ? "var(--ink)" : "var(--ink-2)" }}>{what}</span>
-                  <span style={{ color: curr ? "var(--gold-2)" : "var(--ink-3)", fontFamily: "var(--mono)", fontSize: 11 }}>{dose}</span>
                 </div>
               ))}
             </div>
@@ -116,7 +109,7 @@ function SpecialistMock() {
               Ao salvar, o sistema irá
             </div>
             <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 0", display: "flex", flexDirection: "column", gap: 8, fontSize: 12.5, color: "var(--ink-2)" }}>
-              <li style={{ display: "flex", gap: 8 }}><Icon name="check" size={13} color="var(--gold)" stroke={2}/>Baixar 0,8ml do lote HLX-2391</li>
+              <li style={{ display: "flex", gap: 8 }}><Icon name="check" size={13} color="var(--gold)" stroke={2}/>Registrar uso do lote HLX-2391</li>
               <li style={{ display: "flex", gap: 8 }}><Icon name="check" size={13} color="var(--gold)" stroke={2}/>Calcular custo direto da sessão (R$ 162)</li>
               <li style={{ display: "flex", gap: 8 }}><Icon name="check" size={13} color="var(--gold)" stroke={2}/>Atualizar projeção de reposição</li>
               <li style={{ display: "flex", gap: 8, color: "var(--ink-3)" }}><Icon name="lock" size={13} color="var(--ink-3)" stroke={1.6}/>Sem registro de dados de paciente</li>
@@ -230,7 +223,7 @@ function ConsultorMock() {
   const statusColor = { stable: "#4ade80", rising: "var(--gold-2)", warn: "#f59e0b" };
   const statusLabel = { stable: "Estável", rising: "Em ascensão", warn: "Atenção" };
   return (
-    <AppChrome title="curvamestra.app / consultor / carteira" role="CARLOS REIS · RENNOVA" height={520}>
+    <AppChrome title="curvamestra / consultor / carteira" role="CARLOS REIS · RENNOVA" height={520}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--mono)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
