@@ -239,22 +239,39 @@ export type AccessRequestStatus =
   | 'aprovada' // Aprovada e clínica criada
   | 'rejeitada'; // Recusada por admin
 
+/** Papel do solicitante no ecossistema Rennova */
+export type AccessRequestRole = 'especialista' | 'consultor';
+
+/** Mantido por compatibilidade com registros antigos */
 export type AccessRequestType = 'clinica' | 'autonomo';
 
 export interface AccessRequest {
   id: string;
-  type: AccessRequestType; // Clínica ou Autônomo
+
+  /** Papel do solicitante (novo campo) */
+  role: AccessRequestRole;
+
+  /** Legado: derivado de role (especialista → clinica, consultor → autonomo) */
+  type: AccessRequestType;
 
   // Dados do solicitante
   full_name: string; // Nome completo
   email: string;
   phone: string;
-  password: string; // Senha para criar a conta
+
+  // Número de conselho profissional ou ID Rennova
+  council_number: string; // CRM/CRO para especialistas, ID Rennova para consultores
 
   // Dados da empresa/pessoa
-  business_name: string; // Nome da clínica ou nome profissional
-  document_type: DocumentType; // cpf ou cnpj
-  document_number: string; // CPF ou CNPJ sem formatação
+  business_name: string; // Nome da clínica (especialista) ou região/carteira (consultor)
+
+  // Campos opcionais do formulário
+  consultant_reference?: string; // Consultor Rennova de referência (especialista)
+  volume?: string; // Volume de procedimentos por mês (especialista)
+
+  // Documento — opcional desde nova versão do formulário
+  document_type?: DocumentType; // cpf ou cnpj
+  document_number?: string; // CPF ou CNPJ sem formatação
 
   // Endereço
   address?: string;
