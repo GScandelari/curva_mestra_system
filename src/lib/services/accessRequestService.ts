@@ -85,9 +85,12 @@ export async function createAccessRequest(data: {
     }
 
     // Criar solicitação
+    // CNPJ → clínica → especialista HOF; CPF → autônomo → consultor Rennova (legado)
+    const derivedType = data.document_type === 'cnpj' ? 'clinica' : 'autonomo';
+    const derivedRole = data.document_type === 'cnpj' ? 'especialista' : 'consultor';
     const accessRequest: Omit<AccessRequest, 'id'> = {
-      role: data.document_type === 'cnpj' ? 'especialista' : 'especialista',
-      type: data.document_type === 'cnpj' ? 'clinica' : 'autonomo',
+      role: derivedRole,
+      type: derivedType,
       document_type: data.document_type,
       document_number: documentClean,
       council_number: documentClean,
