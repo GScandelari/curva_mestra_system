@@ -239,30 +239,17 @@ export default function SolicitacaoDetalhesPage() {
                   </>
                 )}
 
-                {/* EFETUADA → Concluir ou Cancelar */}
+                {/* EFETUADA → apenas Concluir (legado: registros anteriores à auto-conclusão) */}
                 {solicitacao.status === 'efetuada' && (
-                  <>
-                    <Button
-                      onClick={() => handleStatusUpdate('concluida', 'Procedimento concluído')}
-                      disabled={updating}
-                      variant="default"
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Concluir Procedimento
-                    </Button>
-
-                    <Button
-                      onClick={() =>
-                        handleStatusUpdate('cancelada', 'Cancelado pelo administrador')
-                      }
-                      disabled={updating}
-                      variant="outline"
-                    >
-                      <Ban className="mr-2 h-4 w-4" />
-                      Cancelar Procedimento
-                    </Button>
-                  </>
+                  <Button
+                    onClick={() => handleStatusUpdate('concluida', 'Procedimento concluído')}
+                    disabled={updating}
+                    variant="default"
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Concluir Procedimento
+                  </Button>
                 )}
 
                 {/* APROVADA → Concluir ou Cancelar */}
