@@ -2,20 +2,27 @@ export const dynamic = 'force-dynamic';
 
 /**
  * API Route: Gerenciar Solicitações de Acesso Antecipado
+ *
+ * Campos obrigatórios (novo formato):
+ *   role            — 'especialista' | 'consultor'
+ *   full_name       — Nome completo
+ *   email           — E-mail profissional
+ *   phone           — Telefone / WhatsApp
+ *   council_number  — CRM/CRO (especialista) ou ID Rennova (consultor)
+ *   business_name   — Nome da clínica (especialista) ou região/carteira (consultor)
+ *
+ * Campos opcionais:
+ *   consultant_reference — Consultor Rennova de referência
+ *   volume               — Volume mensal de procedimentos
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
-import bcrypt from 'bcryptjs';
 import {
   validateEmail,
-  validateDocument,
   validatePhone,
-  validateCEP,
-  validatePassword,
   validateFullName,
-  sanitizeString,
 } from '@/lib/validations/serverValidations';
 
 const firebaseConfig = {
@@ -31,42 +38,34 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 const db = getFirestore(app);
 
 /**
- * POST - Criar nova solicitação de acesso
+ * POST — Criar nova solicitação de acesso
  */
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
 
-    // Validações completas com mensagens específicas
-    const requiredFields = [
-      'type',
-      'full_name',
-      'email',
-      'phone',
-      'business_name',
-      'document_type',
-      'document_number',
-      'password',
-    ];
-
     // Verificar campos obrigatórios
-    for (const field of requiredFields) {
+    const requiredFields: Record<string, string> = {
+      role: 'Perfil (especialista / consultor)',
+      full_name: 'Nome completo',
+      email: 'E-mail',
+      phone: 'Telefone',
+      council_number: 'Número de conselho / ID Rennova',
+      business_name: 'Nome da clínica / região',
+    };
+
+    for (const [field, label] of Object.entries(requiredFields)) {
       if (!data[field]) {
-        const fieldNames: Record<string, string> = {
-          type: 'Tipo de conta',
-          full_name: 'Nome completo',
-          email: 'E-mail',
-          phone: 'Telefone',
-          business_name: 'Nome da empresa/profissional',
-          document_type: 'Tipo de documento',
-          document_number: 'Número do documento',
-          password: 'Senha',
-        };
-        return NextResponse.json(
-          { error: `${fieldNames[field] || field} é obrigatório` },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: `${label} é obrigatório` }, { status: 400 });
       }
+    }
+
+    // Validar role
+    if (!['especialista', 'consultor'].includes(data.role)) {
+      return NextResponse.json(
+        { error: "Perfil deve ser 'especialista' ou 'consultor'" },
+        { status: 400 }
+      );
     }
 
     // Validar nome completo
@@ -87,62 +86,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: phoneValidation.error }, { status: 400 });
     }
 
-    // Validar senha
-    const passwordValidation = validatePassword(data.password, {
-      minLength: 6,
-      requireNumber: false,
-    });
-    if (!passwordValidation.valid) {
-      return NextResponse.json({ error: passwordValidation.error }, { status: 400 });
-    }
+    // Derivar type legado a partir do role
+    const type = data.role === 'especialista' ? 'clinica' : 'autonomo';
 
-    // Validar tipo
-    if (!['clinica', 'autonomo'].includes(data.type)) {
-      return NextResponse.json({ error: "Tipo deve ser 'clinica' ou 'autonomo'" }, { status: 400 });
-    }
-
-    // Validar document_type
-    if (!['cpf', 'cnpj'].includes(data.document_type)) {
-      return NextResponse.json(
-        { error: "Tipo de documento deve ser 'cpf' ou 'cnpj'" },
-        { status: 400 }
-      );
-    }
-
-    // Validar documento (CPF ou CNPJ)
-    const documentValidation = validateDocument(data.document_number, data.document_type);
-    if (!documentValidation.valid) {
-      return NextResponse.json({ error: documentValidation.error }, { status: 400 });
-    }
-
-    // Limpar documento (remover formatação)
-    const cleanDocument = data.document_number.replace(/\D/g, '');
-
-    // Validar CEP se fornecido
-    if (data.cep) {
-      const cepValidation = validateCEP(data.cep);
-      if (!cepValidation.valid) {
-        return NextResponse.json({ error: cepValidation.error }, { status: 400 });
-      }
-    }
-
-    // Hash da senha antes de armazenar (segurança)
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    // Criar solicitação
-    const accessRequestData = {
-      type: data.type,
+    // Criar solicitação no Firestore
+    const accessRequestData: Record<string, unknown> = {
+      role: data.role,
+      type, // campo legado
       full_name: data.full_name,
-      email: data.email.toLowerCase(),
+      email: data.email.toLowerCase().trim(),
       phone: data.phone,
+      council_number: data.council_number,
       business_name: data.business_name,
-      document_type: data.document_type,
-      document_number: cleanDocument,
-      password: hashedPassword, // Senha hasheada com bcrypt (não será usada - geramos senha temporária na aprovação)
-      address: data.address || null,
-      city: data.city || null,
-      state: data.state || null,
-      cep: data.cep?.replace(/\D/g, '') || null,
+      consultant_reference: data.consultant_reference || null,
+      volume: data.volume || null,
       status: 'pendente',
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
