@@ -29,7 +29,16 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  where,
+  doc,
+  getDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { formatTimestamp } from '@/lib/utils';
 import {
@@ -104,9 +113,14 @@ export default function UsersManagementPage() {
       setLoading(true);
       const allUsers: UserWithTenant[] = [];
 
-      // Buscar todos os usuários da coleção raiz
+      // Buscar apenas usuários de clínica — consultores são gerenciados em /admin/consultants
       const usersRef = collection(db, 'users');
-      const usersQuery = query(usersRef, orderBy('created_at', 'desc'));
+      const usersQuery = query(
+        usersRef,
+        where('role', '!=', 'clinic_consultant'),
+        orderBy('role'),
+        orderBy('created_at', 'desc')
+      );
       const usersSnapshot = await getDocs(usersQuery);
 
       // Para cada usuário, buscar o nome do tenant
@@ -402,7 +416,7 @@ export default function UsersManagementPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{users.length}</div>
-              <p className="text-xs text-muted-foreground">Todos os usuários</p>
+              <p className="text-xs text-muted-foreground">Usuários de clínica</p>
             </CardContent>
           </Card>
 
@@ -519,24 +533,14 @@ export default function UsersManagementPage() {
                                 Editar
                               </Button>
                             )}
-                            {user.role === 'clinic_consultant' ? (
+                            {user.tenantId && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => router.push(`/admin/consultants`)}
+                                onClick={() => router.push(`/admin/tenants/${user.tenantId}`)}
                               >
-                                Ver Consultores
+                                Ver Clínica
                               </Button>
-                            ) : (
-                              user.tenantId && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => router.push(`/admin/tenants/${user.tenantId}`)}
-                                >
-                                  Ver Clínica
-                                </Button>
-                              )
                             )}
                           </div>
                         </TableCell>

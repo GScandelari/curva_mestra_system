@@ -5,6 +5,24 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.4.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.3.0...v1.4.0) (2026-05-29)
+
+
+### Features
+
+* **ui:** serve landing page at root via route handler — URL permanece '/' ([8bee4b6](https://github.com/GScandelari/curva_mestra_system/commit/8bee4b6207b328a0230c680d8d594e27e4705b89))
+* **ui:** serve new landing page at root via next.config rewrite + fallback redirect ([b170fec](https://github.com/GScandelari/curva_mestra_system/commit/b170fec55ac45ecf627fd296ccd875868d6c7a20))
+
+
+### Bug Fixes
+
+* **deploy:** add base href to fix JSX path resolution on /landing ([a795fde](https://github.com/GScandelari/curva_mestra_system/commit/a795fde385f5b30f83cfdef12c83035bb59ad77d))
+* **deploy:** add base href to fix JSX path resolution on /landing ([a795fde](https://github.com/GScandelari/curva_mestra_system/commit/a795fde385f5b30f83cfdef12c83035bb59ad77d))
+* **deploy:** add base href to public/landing/index.html to fix relative path resolution ([de66e54](https://github.com/GScandelari/curva_mestra_system/commit/de66e54e8f53b9883cd235194a99d740847bff4f))
+* **ui:** add section IDs, volume selector state, footer links, responsive layouts ([5810167](https://github.com/GScandelari/curva_mestra_system/commit/58101679030dae2278d2ee42a5a512a64bc910bc))
+* **ui:** correct AppSidebar margin bug, sidebar icon, and add useBreakpoint hook ([a992c0d](https://github.com/GScandelari/curva_mestra_system/commit/a992c0dabfa7f7cc3d8960b86d30c0a7eb25c9ba))
+* **ui:** replace hardcoded production URLs with relative paths ([2e62ff9](https://github.com/GScandelari/curva_mestra_system/commit/2e62ff9ac9394abdc7cbc82bf0fe542363756415))
+
 ## [1.3.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.2.0...v1.3.0) (2026-05-11)
 
 
