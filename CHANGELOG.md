@@ -5,6 +5,22 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.5.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.4.0...v1.5.0) (2026-06-12)
+
+
+### Features
+
+* **auth:** unify access request form — remove password, align /register with landing ([6402647](https://github.com/GScandelari/curva_mestra_system/commit/6402647c3210f097f6261fb1853c8698fe846583))
+
+
+### Bug Fixes
+
+* **admin:** exclude clinic_consultant from users list in admin/users page ([d65e2f3](https://github.com/GScandelari/curva_mestra_system/commit/d65e2f3bf327b7825279e51b820bd84bd9465cae))
+* **api:** resolve 500 on GET /consultants — explicit runtime and query ordering ([fb7f4af](https://github.com/GScandelari/curva_mestra_system/commit/fb7f4afe47bc0c7d592a80255a25f1ca767f747d))
+* **auth:** replace Math.random with crypto.randomBytes in generateTempPassword ([d5426ec](https://github.com/GScandelari/curva_mestra_system/commit/d5426eca12cb4ebc7d3defab51bdecc47b704c49))
+* **auth:** resolve SonarCloud S3923 — ternary branches returned same value ([950729e](https://github.com/GScandelari/curva_mestra_system/commit/950729e46ff0046a48cf0103d9f8707fe6ca13dd))
+* **firebase:** add composite indexes for consultants and users collections ([69674d0](https://github.com/GScandelari/curva_mestra_system/commit/69674d02c109db90ad96fb30804b8348aca76d92))
+
 ## [1.4.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.3.0...v1.4.0) (2026-05-29)
 
 
