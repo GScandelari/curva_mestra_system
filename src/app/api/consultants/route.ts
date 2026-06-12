@@ -1,16 +1,12 @@
 export const dynamic = 'force-dynamic';
-
-/**
- * API Route: Gestão de Consultores
- * GET - Listar consultores (system_admin)
- * POST - Criar consultor (system_admin)
- */
+export const runtime = 'nodejs';
 
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import type { UserRole, Consultant } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
+import type { Query, DocumentData } from 'firebase-admin/firestore';
 
 /**
  * Gera código único de 6 dígitos
@@ -138,12 +134,14 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
-    // Query base
-    let query = adminDb.collection('consultants').orderBy('created_at', 'desc');
+    // where antes de orderBy é requisito do Firestore para índices compostos
+    let query: Query<DocumentData> = adminDb.collection('consultants');
 
     if (status) {
-      query = query.where('status', '==', status) as any;
+      query = query.where('status', '==', status);
     }
+
+    query = query.orderBy('created_at', 'desc');
 
     const snapshot = await query.get();
     let consultants = snapshot.docs.map((doc) => ({
@@ -167,12 +165,10 @@ export async function GET(req: NextRequest) {
       success: true,
       data: consultants,
     });
-  } catch (error: any) {
-    console.error('Erro ao listar consultores:', error);
-    return NextResponse.json(
-      { error: error.message || 'Erro ao listar consultores' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro ao listar consultores';
+    console.error('[GET /api/consultants] erro:', error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -323,11 +319,9 @@ export async function POST(req: NextRequest) {
         status: 'active',
       },
     });
-  } catch (error: any) {
-    console.error('Erro ao criar consultor:', error);
-    return NextResponse.json(
-      { error: error.message || 'Erro ao criar consultor' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro ao criar consultor';
+    console.error('[POST /api/consultants] erro:', error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
