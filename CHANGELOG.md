@@ -5,6 +5,14 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.5.2](https://github.com/GScandelari/curva_mestra_system/compare/v1.5.1...v1.5.2) (2026-06-12)
+
+
+### Bug Fixes
+
+* **requests:** auto-conclude efetuado on create — status concluida set in same transaction ([054e228](https://github.com/GScandelari/curva_mestra_system/commit/054e22818feb23ef6cf55ffa07b2f506d4f9ec38))
+* **ui:** remove cancel button from efetuada status block in request detail ([42c952d](https://github.com/GScandelari/curva_mestra_system/commit/42c952d0af2519bf3c2810c3a0ec3f61a9bab11c))
+
 ## [1.5.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.5.0...v1.5.1) (2026-06-12)
 
 
