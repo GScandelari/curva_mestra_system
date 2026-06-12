@@ -5,6 +5,13 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.5.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.5.0...v1.5.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **admin:** filter clinic_consultant in memory to avoid missing Firestore index ([6aeb04c](https://github.com/GScandelari/curva_mestra_system/commit/6aeb04c5172970ddce695ef09db2c678f00cb53e))
+
 ## [1.5.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.4.0...v1.5.0) (2026-06-12)
 
 

@@ -19,12 +19,12 @@ describe('determineInitialStatus', () => {
     expect(determineInitialStatus(pastDate)).toBe('agendada');
   });
 
-  it('returns "efetuada" for tipo efetuado', () => {
+  it('returns "efetuada" (history entry) for tipo efetuado — final status is concluida', () => {
     const pastDate = new Date(2025, 0, 1);
     expect(determineInitialStatus(pastDate, 'efetuado')).toBe('efetuada');
   });
 
-  it('returns "efetuada" for tipo efetuado regardless of date', () => {
+  it('returns "efetuada" (history entry) for tipo efetuado regardless of date', () => {
     const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     expect(determineInitialStatus(futureDate, 'efetuado')).toBe('efetuada');
   });
