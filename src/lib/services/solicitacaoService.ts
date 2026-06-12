@@ -388,6 +388,9 @@ export async function createSolicitacaoEfetuada(
 
       // FASE 2: ESCRITAS
       const now = Timestamp.now();
+
+      // Procedimento efetuado auto-conclui na criação:
+      // registra 'efetuada' no histórico (auditoria do ato) e já persiste 'concluida'
       const statusHistory: StatusHistoryEntry[] = [
         {
           status: 'efetuada',
@@ -395,6 +398,13 @@ export async function createSolicitacaoEfetuada(
           changed_by_name: userName,
           changed_at: now,
           observacao: 'Procedimento registrado como já realizado',
+        },
+        {
+          status: 'concluida',
+          changed_by: userId,
+          changed_by_name: userName,
+          changed_at: now,
+          observacao: 'Conclusão automática — procedimento efetuado revisado',
         },
       ];
 
@@ -407,7 +417,7 @@ export async function createSolicitacaoEfetuada(
         descricao: input.descricao,
         dt_procedimento: Timestamp.fromDate(input.dt_procedimento),
         produtos_solicitados: produtosDetalhados,
-        status: 'efetuada',
+        status: 'concluida',
         status_history: statusHistory,
         observacoes: input.observacoes,
         protocolo_id: input.protocolo_id,
@@ -492,7 +502,7 @@ export async function updateSolicitacaoStatus(
 
       // Fluxo válido:
       // agendada  → concluida | cancelada
-      // efetuada  → concluida | cancelada
+      // efetuada  → concluida  (sem cancelar — procedimento já realizado e revisado)
       // aprovada  → concluida | cancelada  (legado)
       // concluida | cancelada | reprovada  → status final
 
@@ -502,7 +512,7 @@ export async function updateSolicitacaoStatus(
 
       const VALID_TRANSITIONS: Partial<Record<SolicitacaoStatus, SolicitacaoStatus[]>> = {
         agendada: ['concluida', 'cancelada'],
-        efetuada: ['concluida', 'cancelada'],
+        efetuada: ['concluida'], // procedimento efetuado não pode ser cancelado
         aprovada: ['concluida', 'cancelada'], // legado
         criada: ['agendada', 'cancelada'], // legado
       };
