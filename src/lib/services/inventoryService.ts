@@ -19,6 +19,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { TipoNota } from '@/types/nf';
 
 export interface InventoryItem {
   id: string;
@@ -35,6 +36,8 @@ export interface InventoryItem {
   valor_unitario: number; // sempre por UNIDADE (não por embalagem)
   nf_numero?: string;
   nf_id?: string;
+  natureza_operacao?: string;
+  tipo_nota?: TipoNota;
   active: boolean;
   created_at: Date;
   updated_at: Date;
@@ -363,6 +366,8 @@ export async function getInventoryItem(
       valor_unitario: data.valor_unitario,
       nf_numero: data.nf_numero,
       nf_id: data.nf_id,
+      natureza_operacao: data.natureza_operacao as string | undefined,
+      tipo_nota: data.tipo_nota as TipoNota | undefined,
       active: data.active,
       created_at:
         data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at),
@@ -741,6 +746,8 @@ export interface AddInventoryItemsParams {
   tenantId: string;
   nfNumero: string;
   nfId: string;
+  naturezaOperacao?: string;
+  tipoNota?: TipoNota;
   items: Array<{
     produto_id: string;
     codigo_produto: string;
@@ -759,10 +766,32 @@ export interface AddInventoryItemsParams {
 }
 
 /**
+ * Retorna o conjunto de chaves "codigo_produto::lote" já presentes no inventário
+ * para um dado nf_id — usado para reenvio idempotente de XML (completar pendências
+ * sem duplicar produtos já importados numa tentativa anterior).
+ */
+export async function getInventoryProdutoLoteKeysByNfId(
+  tenantId: string,
+  nfId: string
+): Promise<Set<string>> {
+  const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+  const q = query(inventoryRef, where('nf_id', '==', nfId));
+  const snapshot = await getDocs(q);
+
+  const keys = new Set<string>();
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    keys.add(`${data.codigo_produto}::${data.lote}`);
+  });
+
+  return keys;
+}
+
+/**
  * Grava um lote de itens no inventário do tenant usando writeBatch para atomicidade.
  */
 export async function addInventoryItems(params: AddInventoryItemsParams): Promise<void> {
-  const { tenantId, nfNumero, nfId, items } = params;
+  const { tenantId, nfNumero, nfId, naturezaOperacao, tipoNota, items } = params;
 
   if (items.length === 0) return;
 
@@ -785,6 +814,8 @@ export async function addInventoryItems(params: AddInventoryItemsParams): Promis
       valor_unitario: item.valor_unitario,
       nf_numero: nfNumero,
       nf_id: nfId,
+      natureza_operacao: naturezaOperacao ?? null,
+      tipo_nota: tipoNota ?? null,
       active: true,
       category: item.category ?? null,
       brand: item.brand ?? null,
