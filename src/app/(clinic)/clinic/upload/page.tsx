@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft,
   Upload,
@@ -16,6 +17,8 @@ import {
   FileText,
   Package,
   Loader2,
+  Gift,
+  Receipt,
 } from 'lucide-react';
 import {
   uploadNFFile,
@@ -23,6 +26,28 @@ import {
   processNFAndAddToInventory,
 } from '@/lib/services/nfImportService';
 import type { ParsedNF, XmlParseError } from '@/types/nf';
+
+function TipoNotaBadge({ parsedData }: { parsedData: ParsedNF }) {
+  if (parsedData.tipo_nota === 'bonificacao') {
+    return (
+      <Badge variant="warning" className="gap-1">
+        <Gift className="h-3 w-3" />
+        Bonificação
+      </Badge>
+    );
+  }
+  if (parsedData.tipo_nota === 'venda') {
+    return (
+      <Badge className="gap-1 border-transparent bg-green-600 text-white hover:bg-green-700">
+        <Receipt className="h-3 w-3" />
+        Venda
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="secondary">{parsedData.natureza_operacao || 'Natureza não identificada'}</Badge>
+  );
+}
 
 export default function UploadPage() {
   const { user, claims } = useAuth();
@@ -135,6 +160,9 @@ export default function UploadPage() {
         numero_nf: parsedNF.numero,
         arquivo_nome: selectedFile.name,
         arquivo_url: fileUrl,
+        natureza_operacao: parsedNF.natureza_operacao,
+        forma_pagamento: parsedNF.forma_pagamento,
+        tipo_nota: parsedNF.tipo_nota,
         created_by: userId,
       });
 
@@ -334,6 +362,16 @@ export default function UploadPage() {
                 </div>
               </div>
 
+              {/* Tipo de Nota */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <TipoNotaBadge parsedData={parsedData} />
+                {parsedData.forma_pagamento && (
+                  <span className="text-sm text-muted-foreground">
+                    Forma de pagamento: {parsedData.forma_pagamento}
+                  </span>
+                )}
+              </div>
+
               {/* Products List */}
               <div className="space-y-2">
                 <p className="text-sm font-medium">Produtos que serão adicionados ao estoque:</p>
@@ -463,6 +501,16 @@ export default function UploadPage() {
                   <p className="text-sm text-muted-foreground">Número da NF</p>
                   <p className="text-2xl font-bold">{parsedData.numero}</p>
                 </div>
+              </div>
+
+              {/* Tipo de Nota */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <TipoNotaBadge parsedData={parsedData} />
+                {parsedData.forma_pagamento && (
+                  <span className="text-sm text-muted-foreground">
+                    Forma de pagamento: {parsedData.forma_pagamento}
+                  </span>
+                )}
               </div>
 
               <div className="space-y-2">

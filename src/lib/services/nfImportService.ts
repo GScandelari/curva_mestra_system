@@ -121,6 +121,9 @@ export async function getNFImport(tenantId: string, importId: string): Promise<N
       produtos_importados: data.produtos_importados || 0,
       produtos_novos: data.produtos_novos || 0,
       error_message: data.error_message,
+      natureza_operacao: data.natureza_operacao,
+      forma_pagamento: data.forma_pagamento,
+      tipo_nota: data.tipo_nota,
       parsed_data: data.parsed_data,
       created_at:
         data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at),
@@ -161,6 +164,9 @@ export async function listNFImports(
         produtos_importados: data.produtos_importados || 0,
         produtos_novos: data.produtos_novos || 0,
         error_message: data.error_message,
+        natureza_operacao: data.natureza_operacao,
+        forma_pagamento: data.forma_pagamento,
+        tipo_nota: data.tipo_nota,
         parsed_data: data.parsed_data,
         created_at:
           data.created_at instanceof Timestamp
