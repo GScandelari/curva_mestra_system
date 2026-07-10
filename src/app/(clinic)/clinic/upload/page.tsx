@@ -45,7 +45,10 @@ function TipoNotaBadge({ parsedData }: { parsedData: ParsedNF }) {
     );
   }
   return (
-    <Badge variant="secondary">{parsedData.natureza_operacao || 'Natureza não identificada'}</Badge>
+    <Badge variant="secondary" className="gap-1">
+      <FileText className="h-3 w-3" />
+      Outro
+    </Badge>
   );
 }
 
@@ -351,7 +354,7 @@ export default function UploadPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Summary */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Produtos Encontrados</p>
                   <p className="text-2xl font-bold text-blue-600">{parsedData.produtos.length}</p>
@@ -360,17 +363,20 @@ export default function UploadPage() {
                   <p className="text-sm text-muted-foreground">Número da NF</p>
                   <p className="text-2xl font-bold">{parsedData.numero}</p>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Natureza da Operação</p>
+                  <TipoNotaBadge parsedData={parsedData} />
+                </div>
               </div>
 
-              {/* Tipo de Nota */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <TipoNotaBadge parsedData={parsedData} />
-                {parsedData.forma_pagamento && (
-                  <span className="text-sm text-muted-foreground">
-                    Forma de pagamento: {parsedData.forma_pagamento}
-                  </span>
-                )}
-              </div>
+              {(parsedData.natureza_operacao || parsedData.forma_pagamento) && (
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  {parsedData.natureza_operacao && <p>NF-e: {parsedData.natureza_operacao}</p>}
+                  {parsedData.forma_pagamento && (
+                    <p>Forma de pagamento: {parsedData.forma_pagamento}</p>
+                  )}
+                </div>
+              )}
 
               {/* Products List */}
               <div className="space-y-2">
@@ -492,7 +498,7 @@ export default function UploadPage() {
               <CardDescription>NF-e {parsedData.numero} processada com sucesso</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Produtos Importados</p>
                   <p className="text-2xl font-bold text-green-600">{parsedData.produtos.length}</p>
@@ -501,17 +507,20 @@ export default function UploadPage() {
                   <p className="text-sm text-muted-foreground">Número da NF</p>
                   <p className="text-2xl font-bold">{parsedData.numero}</p>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Natureza da Operação</p>
+                  <TipoNotaBadge parsedData={parsedData} />
+                </div>
               </div>
 
-              {/* Tipo de Nota */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <TipoNotaBadge parsedData={parsedData} />
-                {parsedData.forma_pagamento && (
-                  <span className="text-sm text-muted-foreground">
-                    Forma de pagamento: {parsedData.forma_pagamento}
-                  </span>
-                )}
-              </div>
+              {(parsedData.natureza_operacao || parsedData.forma_pagamento) && (
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  {parsedData.natureza_operacao && <p>NF-e: {parsedData.natureza_operacao}</p>}
+                  {parsedData.forma_pagamento && (
+                    <p>Forma de pagamento: {parsedData.forma_pagamento}</p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <p className="text-sm font-medium">Produtos Adicionados ao Estoque:</p>
