@@ -18,6 +18,7 @@ import {
   FileText,
   Settings,
   UserCheck,
+  PackageSearch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +57,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Produtos Rennova',
       href: '/admin/products',
       icon: Package,
+    },
+    {
+      name: 'Produtos Pendentes',
+      href: '/admin/pending-products',
+      icon: PackageSearch,
     },
     {
       name: 'Solicitações de Acesso',
