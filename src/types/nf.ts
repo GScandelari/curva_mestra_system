@@ -11,11 +11,16 @@ export interface NFProduct {
   sem_rastro?: boolean; // true quando <rastro> ausente no XML
 }
 
+export type TipoNota = 'bonificacao' | 'venda' | 'outro';
+
 export interface ParsedNF {
   numero: string;
   data_emissao?: string;
   fornecedor?: string;
   cnpj_fornecedor?: string;
+  natureza_operacao?: string; // texto bruto de <ide><natOp>
+  forma_pagamento?: string; // rótulo derivado de <pag><detPag>
+  tipo_nota: TipoNota; // classificação derivada de natureza_operacao
   produtos: NFProduct[];
 }
 
@@ -41,6 +46,9 @@ export interface NFImport {
   produtos_importados: number;
   produtos_novos: number;
   error_message?: string;
+  natureza_operacao?: string;
+  forma_pagamento?: string;
+  tipo_nota?: TipoNota;
   parsed_data?: ParsedNF;
   created_at: Date | Timestamp;
   updated_at: Date | Timestamp;
@@ -52,5 +60,8 @@ export interface NFImportCreate {
   numero_nf: string;
   arquivo_nome: string;
   arquivo_url?: string;
+  natureza_operacao?: string;
+  forma_pagamento?: string;
+  tipo_nota?: TipoNota;
   created_by: string;
 }
