@@ -149,6 +149,13 @@ export default function UploadPage() {
 
         parsedNF = parseResult.parsedNF;
         parseWarnings = parseResult.warnings ?? [];
+
+        console.warn('[NF-e Upload] Natureza da operação extraída do XML:', {
+          numero: parsedNF.numero,
+          natureza_operacao: parsedNF.natureza_operacao,
+          forma_pagamento: parsedNF.forma_pagamento,
+          tipo_nota: parsedNF.tipo_nota,
+        });
       } catch (parseError: unknown) {
         const msg =
           parseError instanceof Error ? parseError.message : 'Erro ao processar o XML da NF-e';
