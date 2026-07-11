@@ -34,6 +34,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 422 });
     }
 
+    console.warn('[parse-nf-xml] Natureza da operação extraída do XML:', {
+      numero: result.data.numero,
+      natureza_operacao: result.data.natureza_operacao,
+      forma_pagamento: result.data.forma_pagamento,
+      tipo_nota: result.data.tipo_nota,
+    });
+
     return NextResponse.json({
       parsedNF: result.data,
       warnings: result.errors as XmlParseError[],
