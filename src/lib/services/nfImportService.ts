@@ -265,6 +265,8 @@ export async function processNFAndAddToInventory(
       tenantId,
       nfNumero: parsedData.numero,
       nfId: importId,
+      naturezaOperacao: parsedData.natureza_operacao,
+      tipoNota: parsedData.tipo_nota,
       items: resolvedItems,
     });
 

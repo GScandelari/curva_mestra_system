@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { TipoNotaBadge } from '@/components/inventory/TipoNotaBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -306,9 +307,12 @@ export default function InventoryItemPage() {
               {item.nf_numero && (
                 <div className="flex items-start gap-3">
                   <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-1">
                     <p className="text-sm font-medium">Nota Fiscal</p>
-                    <p className="text-sm text-muted-foreground">NF-e {item.nf_numero}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm text-muted-foreground">NF-e {item.nf_numero}</p>
+                      {item.tipo_nota && <TipoNotaBadge tipoNota={item.tipo_nota} />}
+                    </div>
                   </div>
                 </div>
               )}

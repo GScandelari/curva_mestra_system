@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
+import { TipoNotaBadge } from '@/components/inventory/TipoNotaBadge';
 import {
   ArrowLeft,
   Upload,
@@ -17,8 +17,6 @@ import {
   FileText,
   Package,
   Loader2,
-  Gift,
-  Receipt,
 } from 'lucide-react';
 import {
   uploadNFFile,
@@ -26,31 +24,6 @@ import {
   processNFAndAddToInventory,
 } from '@/lib/services/nfImportService';
 import type { ParsedNF, XmlParseError } from '@/types/nf';
-
-function TipoNotaBadge({ parsedData }: { parsedData: ParsedNF }) {
-  if (parsedData.tipo_nota === 'bonificacao') {
-    return (
-      <Badge variant="warning" className="gap-1">
-        <Gift className="h-3 w-3" />
-        Bonificação
-      </Badge>
-    );
-  }
-  if (parsedData.tipo_nota === 'venda') {
-    return (
-      <Badge className="gap-1 border-transparent bg-green-600 text-white hover:bg-green-700">
-        <Receipt className="h-3 w-3" />
-        Venda
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="secondary" className="gap-1">
-      <FileText className="h-3 w-3" />
-      Outro
-    </Badge>
-  );
-}
 
 export default function UploadPage() {
   const { user, claims } = useAuth();
@@ -372,7 +345,7 @@ export default function UploadPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Natureza da Operação</p>
-                  <TipoNotaBadge parsedData={parsedData} />
+                  <TipoNotaBadge tipoNota={parsedData.tipo_nota} />
                 </div>
               </div>
 
@@ -516,7 +489,7 @@ export default function UploadPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Natureza da Operação</p>
-                  <TipoNotaBadge parsedData={parsedData} />
+                  <TipoNotaBadge tipoNota={parsedData.tipo_nota} />
                 </div>
               </div>
 
