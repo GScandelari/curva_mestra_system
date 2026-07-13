@@ -76,7 +76,7 @@ jobs:
       - name: Deploy Firebase Functions
         run: |
           set -o pipefail
-          firebase deploy --only functions --token "$FIREBASE_TOKEN" --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
+          firebase deploy --only functions --token "$FIREBASE_TOKEN" --force --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
