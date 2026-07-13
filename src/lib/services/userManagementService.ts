@@ -8,7 +8,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -23,12 +22,6 @@ import { User, UserRole } from '@/types';
 // ============================================================================
 // TYPES
 // ============================================================================
-
-export interface InviteUserInput {
-  email: string;
-  full_name: string;
-  role: 'clinic_admin' | 'clinic_user';
-}
 
 export interface UserWithStatus extends User {
   last_login?: Timestamp;
@@ -229,164 +222,6 @@ export async function deleteUser(userId: string): Promise<void> {
   } catch (error) {
     console.error('Erro ao deletar usuário:', error);
     throw new Error('Falha ao deletar usuário');
-  }
-}
-
-// ============================================================================
-// CONVITES (PENDING INVITATIONS)
-// ============================================================================
-
-/**
- * Cria um convite para novo usuário
- * Retorna um código de ativação que deve ser enviado por email
- */
-export async function createUserInvitation(
-  tenantId: string,
-  invitedBy: string,
-  input: InviteUserInput
-): Promise<{
-  success: boolean;
-  invitationId?: string;
-  activationCode?: string;
-  error?: string;
-}> {
-  try {
-    // 1. Verificar limite de usuários
-    const limitCheck = await canAddUser(tenantId);
-    if (!limitCheck.canAdd) {
-      return {
-        success: false,
-        error: limitCheck.error || 'Limite de usuários atingido',
-      };
-    }
-
-    // 2. Verificar se email já está cadastrado
-    const usersRef = collection(db, 'users');
-    const emailQuery = query(usersRef, where('email', '==', input.email));
-    const emailSnapshot = await getDocs(emailQuery);
-
-    if (!emailSnapshot.empty) {
-      return {
-        success: false,
-        error: 'Este email já está cadastrado no sistema',
-      };
-    }
-
-    // 3. Gerar código de ativação (8 dígitos)
-    const buf = new Uint32Array(1);
-    globalThis.crypto.getRandomValues(buf);
-    const activationCode = String(10000000 + (buf[0] % 90000000));
-
-    // 4. Criar convite na coleção de access_requests
-    const invitationRef = await addDoc(collection(db, 'access_requests'), {
-      tenant_id: tenantId,
-      full_name: input.full_name,
-      email: input.email,
-      role: input.role,
-      status: 'aprovada', // Já aprovada pois é convite interno
-      activation_code: activationCode,
-      activation_code_expires_at: Timestamp.fromDate(
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 dias
-      ),
-      invited_by: invitedBy,
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-
-    return {
-      success: true,
-      invitationId: invitationRef.id,
-      activationCode,
-    };
-  } catch (error: any) {
-    console.error('Erro ao criar convite:', error);
-    return {
-      success: false,
-      error: error.message || 'Erro ao criar convite',
-    };
-  }
-}
-
-/**
- * Lista convites pendentes de um tenant
- */
-export async function listPendingInvitations(tenantId: string): Promise<any[]> {
-  try {
-    const invitationsRef = collection(db, 'access_requests');
-    const q = query(
-      invitationsRef,
-      where('tenant_id', '==', tenantId),
-      where('status', '==', 'aprovada'),
-      orderBy('created_at', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-  } catch (error) {
-    console.error('Erro ao listar convites:', error);
-    throw new Error('Falha ao listar convites');
-  }
-}
-
-/**
- * Cancela um convite pendente
- */
-export async function cancelInvitation(invitationId: string): Promise<void> {
-  try {
-    await updateDoc(doc(db, 'access_requests', invitationId), {
-      status: 'rejeitada',
-      updated_at: serverTimestamp(),
-    });
-  } catch (error) {
-    console.error('Erro ao cancelar convite:', error);
-    throw new Error('Falha ao cancelar convite');
-  }
-}
-
-// ============================================================================
-// STATISTICS
-// ============================================================================
-
-/**
- * Obtém estatísticas de usuários do tenant
- */
-export async function getUsersStats(tenantId: string): Promise<{
-  total: number;
-  active: number;
-  inactive: number;
-  admins: number;
-  users: number;
-  pendingInvitations: number;
-  availableSlots: number;
-  maxUsers: number;
-}> {
-  try {
-    const users = await listTenantUsers(tenantId);
-    const limitCheck = await canAddUser(tenantId);
-    const invitations = await listPendingInvitations(tenantId);
-
-    const active = users.filter((u) => u.active).length;
-    const inactive = users.filter((u) => !u.active).length;
-    const admins = users.filter((u) => u.role === 'clinic_admin' && u.active).length;
-    const regularUsers = users.filter((u) => u.role === 'clinic_user' && u.active).length;
-
-    return {
-      total: users.length,
-      active,
-      inactive,
-      admins,
-      users: regularUsers,
-      pendingInvitations: invitations.length,
-      availableSlots: limitCheck.maxUsers - limitCheck.currentCount,
-      maxUsers: limitCheck.maxUsers,
-    };
-  } catch (error) {
-    console.error('Erro ao obter estatísticas de usuários:', error);
-    throw new Error('Falha ao obter estatísticas');
   }
 }
 

@@ -9,6 +9,10 @@
 
 ---
 
+> ⚠️ **Nota de divergência (adicionada em 13/07/2026 — ver `ONLY_FOR_DEVS/PO_BA_Docs/UC-02-aprovar-solicitacao-de-acesso.md`, v1.1):** Este documento descreve, nas seções 1, 6, 9.1, 9.3, 13.3 e RN-005, a criação de `licenses` (plano `early_access`) e de `tenant_onboarding` durante a aprovação de uma solicitação. Uma leitura direta do código-fonte atual (`src/app/api/access-requests/[id]/approve/route.ts`) confirmou que essas criações **não existem mais** na implementação: a rota cria apenas `tenant`, usuário no Firebase Auth (com senha temporária aleatória, sem uso da senha original da solicitação) e usuário no Firestore, além de gerar um link de redefinição de senha (`adminAuth.generatePasswordResetLink`) enviado por e-mail via fila `email_queue`. Este arquivo **não foi atualizado** nesta rodada de correção — as seções citadas permanecem desatualizadas e devem ser revisadas.
+
+---
+
 ## 1. Visão Geral
 
 Página onde o System Admin gerencia solicitações de acesso pendentes. Novos usuários que se registram no sistema ficam pendentes de aprovação. O admin pode aprovar (criando tenant + usuário + licença + onboarding automaticamente) ou rejeitar (com motivo opcional) cada solicitação. A aprovação é uma operação server-side complexa que cria 5 documentos em cadeia (tenant, usuário Auth, usuário Firestore, licença, onboarding) e envia e-mail de boas-vindas via fila.
