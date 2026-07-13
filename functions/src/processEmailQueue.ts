@@ -7,8 +7,6 @@ import * as functions from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { sendEmail } from './services/emailService';
 
-const db = admin.firestore();
-
 export const processEmailQueue = functions.firestore.onDocumentCreated(
   {
     document: 'email_queue/{emailId}',
@@ -18,6 +16,11 @@ export const processEmailQueue = functions.firestore.onDocumentCreated(
     secrets: ['SMTP_USER', 'SMTP_PASS'],
   },
   async (event) => {
+    // admin.firestore() é acessado aqui dentro (lazy), e não no topo do módulo:
+    // chamado no escopo do módulo, quebra a etapa de introspecção do
+    // `firebase deploy` (que carrega o código para gerar o manifest da função
+    // sem nenhum app Firebase inicializado nesse contexto).
+    const db = admin.firestore();
     const emailData = event.data?.data();
     const emailId = event.params.emailId;
 
