@@ -1,5 +1,52 @@
 import { XMLParser } from 'fast-xml-parser';
-import type { ParsedNF, NFProduct, XmlParseError } from '@/types/nf';
+import type { ParsedNF, NFProduct, TipoNota, XmlParseError } from '@/types/nf';
+
+const TPAG_LABELS: Record<string, string> = {
+  '01': 'Dinheiro',
+  '02': 'Cheque',
+  '03': 'Cartão de Crédito',
+  '04': 'Cartão de Débito',
+  '05': 'Crédito Loja',
+  '10': 'Vale Alimentação',
+  '11': 'Vale Refeição',
+  '12': 'Vale Presente',
+  '13': 'Vale Combustível',
+  '14': 'Duplicata Mercantil',
+  '15': 'Boleto Bancário',
+  '16': 'Depósito Bancário',
+  '17': 'Pagamento Instantâneo (PIX)',
+  '18': 'Transferência Bancária, Carteira Digital',
+  '19': 'Programa de Fidelidade, Cashback, Crédito Virtual',
+  '90': 'Sem Pagamento',
+  '99': 'Outros',
+};
+
+/**
+ * Mapeia o código oficial SEFAZ (tPag) para um rótulo legível.
+ * Quando tPag=99 (Outros), agrega o texto livre de <xPag>.
+ */
+export function mapFormaPagamento(tPag: string, xPag?: string): string {
+  const label = TPAG_LABELS[tPag] ?? 'Não Informado';
+  if (tPag === '99' && xPag) {
+    return `${label} - ${xPag}`;
+  }
+  return label;
+}
+
+/**
+ * Classifica a natureza da operação (<natOp>) em Bonificação, Venda ou Outro,
+ * por casamento de palavra-chave (acentos e caixa ignorados).
+ */
+export function inferTipoNota(natOp: string | undefined): TipoNota {
+  const normalized = (natOp ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (normalized.includes('bonific')) return 'bonificacao';
+  if (normalized.includes('venda')) return 'venda';
+  return 'outro';
+}
 
 export function convertXmlDate(isoDate: string | undefined | null): string {
   if (!isoDate) return '31/12/2099';
@@ -20,7 +67,7 @@ export function parseNfeXml(xmlContent: string): { data: ParsedNF; errors: XmlPa
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
     removeNSPrefix: true,
-    isArray: (tagName) => tagName === 'det' || tagName === 'rastro',
+    isArray: (tagName) => tagName === 'det' || tagName === 'rastro' || tagName === 'detPag',
   });
 
   const parsed = parser.parse(xmlContent) as Record<string, unknown>;
@@ -121,12 +168,42 @@ export function parseNfeXml(xmlContent: string): { data: ParsedNF; errors: XmlPa
     } satisfies XmlParseError;
   }
 
+  const naturezaOperacao = extractText((ide as Record<string, unknown>).natOp) || undefined;
+
+  const pag = (nfe as Record<string, unknown>).pag as Record<string, unknown> | undefined;
+  const detPagRaw = pag?.detPag;
+  const detPagArray: unknown[] = Array.isArray(detPagRaw)
+    ? detPagRaw
+    : detPagRaw
+      ? [detPagRaw]
+      : [];
+
+  // NF-e às vezes traz um <detPag> "fantasma" com vPag=0.00 além do pagamento real.
+  // Escolhe o de maior vPag (empate: primeiro) como pagamento primário.
+  const detPagPrimario = detPagArray.reduce<Record<string, unknown> | null>((best, cur) => {
+    const curObj = cur as Record<string, unknown>;
+    if (!best) return curObj;
+    const bestValor = parseFloat(extractText(best.vPag)) || 0;
+    const curValor = parseFloat(extractText(curObj.vPag)) || 0;
+    return curValor > bestValor ? curObj : best;
+  }, null);
+
+  const formaPagamento = detPagPrimario
+    ? mapFormaPagamento(
+        extractText(detPagPrimario.tPag),
+        extractText(detPagPrimario.xPag) || undefined
+      )
+    : undefined;
+
   return {
     data: {
       numero: extractText((ide as Record<string, unknown>).nNF),
       data_emissao: extractText((ide as Record<string, unknown>).dhEmi) || undefined,
       fornecedor: extractText((emit as Record<string, unknown>).xNome) || undefined,
       cnpj_fornecedor: extractText((emit as Record<string, unknown>).CNPJ) || undefined,
+      natureza_operacao: naturezaOperacao,
+      forma_pagamento: formaPagamento,
+      tipo_nota: inferTipoNota(naturezaOperacao),
       produtos,
     },
     errors,

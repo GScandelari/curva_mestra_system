@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { TipoNotaBadge } from '@/components/inventory/TipoNotaBadge';
 import {
   ArrowLeft,
   Upload,
@@ -21,8 +22,10 @@ import {
   uploadNFFile,
   createNFImport,
   processNFAndAddToInventory,
+  checkNumeroNFStatus,
+  updateNFImportStatus,
 } from '@/lib/services/nfImportService';
-import type { ParsedNF, XmlParseError } from '@/types/nf';
+import type { ParsedNF, XmlParseError, NFImport } from '@/types/nf';
 
 export default function UploadPage() {
   const { user, claims } = useAuth();
@@ -38,6 +41,7 @@ export default function UploadPage() {
   const [importId, setImportId] = useState('');
   const [parsedData, setParsedData] = useState<ParsedNF | null>(null);
   const [warnings, setWarnings] = useState<XmlParseError[]>([]);
+  const [existingXmlImport, setExistingXmlImport] = useState<NFImport | null>(null);
 
   const tenantId = claims?.tenant_id;
   const userId = user?.uid;
@@ -70,27 +74,10 @@ export default function UploadPage() {
     try {
       setUploading(true);
       setError('');
-      setUploadStatus('uploading');
-      setUploadProgress(0);
-
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 300);
-
-      // 1. Upload do arquivo
-      const fileUrl = await uploadNFFile(tenantId, selectedFile);
-      setUploadProgress(100);
-      clearInterval(progressInterval);
-
       setUploadStatus('processing');
 
-      // 2. Processar XML usando a API NF-e
+      // 1. Processar XML usando a API NF-e (antes do upload ao Storage, para não
+      //    gravar arquivo de uma NF que será rejeitada por duplicidade)
       let parsedNF: ParsedNF;
       let parseWarnings: XmlParseError[] = [];
 
@@ -121,6 +108,13 @@ export default function UploadPage() {
 
         parsedNF = parseResult.parsedNF;
         parseWarnings = parseResult.warnings ?? [];
+
+        console.warn('[NF-e Upload] Natureza da operação extraída do XML:', {
+          numero: parsedNF.numero,
+          natureza_operacao: parsedNF.natureza_operacao,
+          forma_pagamento: parsedNF.forma_pagamento,
+          tipo_nota: parsedNF.tipo_nota,
+        });
       } catch (parseError: unknown) {
         const msg =
           parseError instanceof Error ? parseError.message : 'Erro ao processar o XML da NF-e';
@@ -129,23 +123,67 @@ export default function UploadPage() {
         return;
       }
 
-      // 3. Criar registro de importação com número extraído do XML
-      const newImportId = await createNFImport({
-        tenant_id: tenantId,
-        numero_nf: parsedNF.numero,
-        arquivo_nome: selectedFile.name,
-        arquivo_url: fileUrl,
-        created_by: userId,
-      });
+      // 2. Verificar se este numero_nf já foi importado ou está bloqueado
+      const nfStatus = await checkNumeroNFStatus(tenantId, parsedNF.numero, 'xml');
 
-      setImportId(newImportId);
+      if (nfStatus.blocked) {
+        setError(nfStatus.reason ?? 'Esta NF-e não pode ser importada.');
+        setUploadStatus('error');
+        return;
+      }
+
+      // 3. Upload do arquivo
+      setUploadStatus('uploading');
+      setUploadProgress(0);
+
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+
+      const fileUrl = await uploadNFFile(tenantId, selectedFile);
+      setUploadProgress(100);
+      clearInterval(progressInterval);
+
+      // 4. Criar (ou reaproveitar, se for reenvio de uma NF parcialmente
+      //    importada) o registro de importação
+      let resolvedImportId: string;
+
+      if (nfStatus.xmlImport) {
+        resolvedImportId = nfStatus.xmlImport.id;
+        setExistingXmlImport(nfStatus.xmlImport);
+        await updateNFImportStatus(tenantId, resolvedImportId, 'pending', {
+          arquivo_nome: selectedFile.name,
+          arquivo_url: fileUrl,
+        });
+      } else {
+        setExistingXmlImport(null);
+        resolvedImportId = await createNFImport({
+          tenant_id: tenantId,
+          numero_nf: parsedNF.numero,
+          origem: 'xml',
+          arquivo_nome: selectedFile.name,
+          arquivo_url: fileUrl,
+          natureza_operacao: parsedNF.natureza_operacao,
+          forma_pagamento: parsedNF.forma_pagamento,
+          tipo_nota: parsedNF.tipo_nota,
+          created_by: userId,
+        });
+      }
+
+      setImportId(resolvedImportId);
       setParsedData(parsedNF);
 
       if (parseWarnings.length > 0) {
         setWarnings(parseWarnings);
       }
 
-      // 4. Mostrar preview para confirmação do usuário
+      // 5. Mostrar preview para confirmação do usuário
       setUploadStatus('preview');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao fazer upload do arquivo';
@@ -166,7 +204,12 @@ export default function UploadPage() {
       setUploadStatus('confirming');
       setError('');
 
-      const result = await processNFAndAddToInventory(tenantId, importId, parsedData);
+      const result = await processNFAndAddToInventory(
+        tenantId,
+        importId,
+        parsedData,
+        existingXmlImport ?? undefined
+      );
 
       if (result.success) {
         setUploadStatus('success');
@@ -189,6 +232,7 @@ export default function UploadPage() {
     setParsedData(null);
     setUploadProgress(0);
     setWarnings([]);
+    setExistingXmlImport(null);
   };
 
   return (
@@ -323,7 +367,7 @@ export default function UploadPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Summary */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Produtos Encontrados</p>
                   <p className="text-2xl font-bold text-blue-600">{parsedData.produtos.length}</p>
@@ -332,7 +376,20 @@ export default function UploadPage() {
                   <p className="text-sm text-muted-foreground">Número da NF</p>
                   <p className="text-2xl font-bold">{parsedData.numero}</p>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Natureza da Operação</p>
+                  <TipoNotaBadge tipoNota={parsedData.tipo_nota} />
+                </div>
               </div>
+
+              {(parsedData.natureza_operacao || parsedData.forma_pagamento) && (
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  {parsedData.natureza_operacao && <p>NF-e: {parsedData.natureza_operacao}</p>}
+                  {parsedData.forma_pagamento && (
+                    <p>Forma de pagamento: {parsedData.forma_pagamento}</p>
+                  )}
+                </div>
+              )}
 
               {/* Products List */}
               <div className="space-y-2">
@@ -454,7 +511,7 @@ export default function UploadPage() {
               <CardDescription>NF-e {parsedData.numero} processada com sucesso</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Produtos Importados</p>
                   <p className="text-2xl font-bold text-green-600">{parsedData.produtos.length}</p>
@@ -463,7 +520,20 @@ export default function UploadPage() {
                   <p className="text-sm text-muted-foreground">Número da NF</p>
                   <p className="text-2xl font-bold">{parsedData.numero}</p>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Natureza da Operação</p>
+                  <TipoNotaBadge tipoNota={parsedData.tipo_nota} />
+                </div>
               </div>
+
+              {(parsedData.natureza_operacao || parsedData.forma_pagamento) && (
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  {parsedData.natureza_operacao && <p>NF-e: {parsedData.natureza_operacao}</p>}
+                  {parsedData.forma_pagamento && (
+                    <p>Forma de pagamento: {parsedData.forma_pagamento}</p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <p className="text-sm font-medium">Produtos Adicionados ao Estoque:</p>

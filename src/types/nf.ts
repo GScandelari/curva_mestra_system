@@ -11,11 +11,16 @@ export interface NFProduct {
   sem_rastro?: boolean; // true quando <rastro> ausente no XML
 }
 
+export type TipoNota = 'bonificacao' | 'venda' | 'outro';
+
 export interface ParsedNF {
   numero: string;
   data_emissao?: string;
   fornecedor?: string;
   cnpj_fornecedor?: string;
+  natureza_operacao?: string; // texto bruto de <ide><natOp>
+  forma_pagamento?: string; // rótulo derivado de <pag><detPag>
+  tipo_nota: TipoNota; // classificação derivada de natureza_operacao
   produtos: NFProduct[];
 }
 
@@ -31,16 +36,28 @@ export interface XmlParseError {
   itemIndex?: number;
 }
 
+export type NFOrigem = 'xml' | 'manual';
+
+export interface NFProdutoPendente {
+  codigo: string;
+  nome_produto: string;
+}
+
 export interface NFImport {
   id: string;
   tenant_id: string;
   numero_nf: string;
+  origem: NFOrigem;
   arquivo_nome: string;
   arquivo_url?: string;
   status: 'pending' | 'processing' | 'success' | 'error' | 'novo_produto_pendente';
   produtos_importados: number;
   produtos_novos: number;
+  produtos_pendentes?: NFProdutoPendente[];
   error_message?: string;
+  natureza_operacao?: string;
+  forma_pagamento?: string;
+  tipo_nota?: TipoNota;
   parsed_data?: ParsedNF;
   created_at: Date | Timestamp;
   updated_at: Date | Timestamp;
@@ -50,7 +67,20 @@ export interface NFImport {
 export interface NFImportCreate {
   tenant_id: string;
   numero_nf: string;
+  origem: NFOrigem;
   arquivo_nome: string;
   arquivo_url?: string;
+  natureza_operacao?: string;
+  forma_pagamento?: string;
+  tipo_nota?: TipoNota;
   created_by: string;
+}
+
+/** Resultado da checagem de duplicidade/estado de uma NF por numero_nf. */
+export interface NFNumeroStatus {
+  exists: boolean;
+  blocked: boolean;
+  reason?: string;
+  /** Import de origem xml (travado) mais recente para este numero_nf, se houver. */
+  xmlImport?: NFImport;
 }
