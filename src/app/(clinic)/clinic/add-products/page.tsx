@@ -28,6 +28,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
 import { calcularQuantidadeInventario } from '@/lib/services/inventoryService';
+import { checkNumeroNFStatus } from '@/lib/services/nfImportService';
 import { getNomeCompletoMasterProduct } from '@/types/masterProduct';
 import { normalizeBrand } from '@/lib/brandUtils';
 
@@ -315,6 +316,20 @@ export default function ManualNFPage() {
     setIsLoading(true);
 
     try {
+      // Verificar se este numero_nf já foi importado via XML (bloqueado para manual)
+      // ou já está totalmente concluído (bloqueado para qualquer origem)
+      const nfStatus = await checkNumeroNFStatus(tenantId, numeroNF, 'manual');
+
+      if (nfStatus.blocked) {
+        toast({
+          title: 'Nota fiscal não pode ser adicionada',
+          description: nfStatus.reason ?? 'Esta NF já foi importada anteriormente.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Remover campos undefined do array de produtos antes de salvar no Firestore
       // (Firestore rejeita undefined; campos opcionais ausentes devem ser omitidos)
       const produtosSanitizados = produtos.map((p) =>
@@ -325,6 +340,7 @@ export default function ManualNFPage() {
       const nfData = {
         tenant_id: tenantId,
         numero_nf: numeroNF,
+        origem: 'manual',
         tipo: tipoNF,
         produtos: produtosSanitizados,
         status: 'success',
