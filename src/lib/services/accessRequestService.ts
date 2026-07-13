@@ -255,29 +255,6 @@ export async function rejectAccessRequest(
 }
 
 /**
- * DEPRECATED: Fluxo antigo de ativação com código
- * Ativa uma conta com código
- */
-export async function activateAccountWithCode(
-  email: string,
-  activationCode: string
-): Promise<{
-  success: boolean;
-  message: string;
-  requestData?: {
-    email: string;
-    password: string;
-    full_name: string;
-    tenant_id?: string;
-  };
-}> {
-  return {
-    success: false,
-    message: 'Esta função foi depreciada. Use o novo fluxo de aprovação automática.',
-  };
-}
-
-/**
  * Obtém limites de usuários de um tenant
  */
 export async function getTenantLimits(tenantId: string): Promise<TenantLimits> {
