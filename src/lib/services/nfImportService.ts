@@ -55,8 +55,14 @@ export async function createNFImport(data: NFImportCreate): Promise<string> {
   try {
     const nfImportRef = collection(db, 'tenants', data.tenant_id, 'nf_imports');
 
+    // Firestore rejeita addDoc() com campos explicitamente undefined
+    // (ex: natureza_operacao/forma_pagamento quando o XML não os informa).
+    const sanitizedData = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined)
+    );
+
     const docRef = await addDoc(nfImportRef, {
-      ...data,
+      ...sanitizedData,
       status: 'pending',
       produtos_importados: 0,
       produtos_novos: 0,
@@ -91,9 +97,15 @@ export async function updateNFImportStatus(
   try {
     const importRef = doc(db, 'tenants', tenantId, 'nf_imports', importId);
 
+    // Firestore rejeita updateDoc() com campos explicitamente undefined
+    // (ex: error_message: undefined quando não há erro) — filtra antes de gravar.
+    const sanitizedData = data
+      ? Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined))
+      : {};
+
     await updateDoc(importRef, {
       status,
-      ...data,
+      ...sanitizedData,
       updated_at: serverTimestamp(),
     });
   } catch (error) {
