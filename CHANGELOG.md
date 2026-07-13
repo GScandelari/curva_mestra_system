@@ -5,6 +5,30 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.6.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.5.2...v1.6.0) (2026-07-13)
+
+
+### Features
+
+* **admin:** registra produtos pendentes de cadastro no catalogo master ([4d7c9e7](https://github.com/GScandelari/curva_mestra_system/commit/4d7c9e7abb2f9b97b9eec4dcb01b9da06b1a0fe1))
+* **admin:** tela de produtos pendentes para system_admin ([ced35c1](https://github.com/GScandelari/curva_mestra_system/commit/ced35c11f4d84b50a659399233f3ee6b9d30867a))
+* **inventory:** bloqueia duplicidade de NF e suporta import parcial ([16911ec](https://github.com/GScandelari/curva_mestra_system/commit/16911ec418bd6454eb57d14b681ed7c8c31efbc9))
+* **inventory:** denormaliza tipo_nota no item de inventario ([6238dba](https://github.com/GScandelari/curva_mestra_system/commit/6238dbac78a13faa1fda851360fc9ba548da4f1e))
+* **inventory:** exibe tipo de nota no detalhe do item de inventario ([21d0a3c](https://github.com/GScandelari/curva_mestra_system/commit/21d0a3cf13acf0fed947b9f095691c1434aca0c9))
+* **inventory:** extract natureza da operacao e forma de pagamento do XML da NF-e ([c8a2c1e](https://github.com/GScandelari/curva_mestra_system/commit/c8a2c1e2afd2adcebe03f9a86a75495be6266821))
+* **inventory:** persist tipo de nota no registro de importacao ([9dddf67](https://github.com/GScandelari/curva_mestra_system/commit/9dddf6713c1efb9515138f5416707d71b6100351))
+* **inventory:** valida numero_nf antes de importar XML ou salvar manualmente ([96ee026](https://github.com/GScandelari/curva_mestra_system/commit/96ee02613ea70d417ad4118043d6ce9fde974277))
+* **types:** add natureza_operacao, forma_pagamento e tipo_nota ([b74bbef](https://github.com/GScandelari/curva_mestra_system/commit/b74bbef15d767d4eed7b63ccb4cbc08e0806b25c))
+* **types:** add origem e produtos_pendentes ao NFImport ([3d5ec27](https://github.com/GScandelari/curva_mestra_system/commit/3d5ec27baf95644894650e352683004dc4ec1a50))
+* **ui:** destacar natureza da operacao na confirmacao de importacao ([f577e6f](https://github.com/GScandelari/curva_mestra_system/commit/f577e6fc08b98d8b5dd1c1586211a5394134e425))
+* **ui:** exibir tipo de nota (Bonificacao/Venda) na tela de upload de NF-e ([e62d3ff](https://github.com/GScandelari/curva_mestra_system/commit/e62d3ff339c7405d4ee465cb2311878caad66d9f))
+
+
+### Bug Fixes
+
+* **deploy:** corrige mismatch de engine do npm e mascaramento de erro no deploy ([8aa7e79](https://github.com/GScandelari/curva_mestra_system/commit/8aa7e790c87de4fa4c716e80470d021b626c3ad8))
+* **inventory:** remove campos undefined antes de gravar nf_imports ([c843059](https://github.com/GScandelari/curva_mestra_system/commit/c843059ec4232f2ab665873270cdfc2821b59a0c))
+
 ## [1.5.2](https://github.com/GScandelari/curva_mestra_system/compare/v1.5.1...v1.5.2) (2026-06-12)
 
 
