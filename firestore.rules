@@ -127,6 +127,16 @@ service cloud.firestore {
       allow write: if isSystemAdmin();
     }
 
+    // Coleção de produtos pendentes de cadastro no catálogo master
+    // (originados de importação de NF-e com código não encontrado em produtos_master)
+    match /pending_master_products/{docId} {
+      // System admins têm acesso total (leitura da fila e resolução/exclusão)
+      allow read, update, delete: if isSystemAdmin();
+
+      // Usuários do tenant podem registrar uma pendência do seu próprio tenant
+      allow create: if belongsToTenant(request.resource.data.tenant_id);
+    }
+
     // Coleção de fila de e-mails (apenas para uso interno das Cloud Functions)
     match /email_queue/{emailId} {
       // Apenas system_admin pode ler a fila de e-mails

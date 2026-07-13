@@ -766,6 +766,28 @@ export interface AddInventoryItemsParams {
 }
 
 /**
+ * Retorna o conjunto de chaves "codigo_produto::lote" já presentes no inventário
+ * para um dado nf_id — usado para reenvio idempotente de XML (completar pendências
+ * sem duplicar produtos já importados numa tentativa anterior).
+ */
+export async function getInventoryProdutoLoteKeysByNfId(
+  tenantId: string,
+  nfId: string
+): Promise<Set<string>> {
+  const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+  const q = query(inventoryRef, where('nf_id', '==', nfId));
+  const snapshot = await getDocs(q);
+
+  const keys = new Set<string>();
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    keys.add(`${data.codigo_produto}::${data.lote}`);
+  });
+
+  return keys;
+}
+
+/**
  * Grava um lote de itens no inventário do tenant usando writeBatch para atomicidade.
  */
 export async function addInventoryItems(params: AddInventoryItemsParams): Promise<void> {
