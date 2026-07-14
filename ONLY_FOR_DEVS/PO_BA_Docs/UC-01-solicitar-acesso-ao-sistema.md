@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação / Aquisição de Clientes
-**Versão:** 1.1
+**Versão:** 1.1.1
 
 > Um visitante (futura clínica ou profissional autônomo) preenche o formulário de registro para solicitar acesso à plataforma Curva Mestra. A solicitação fica pendente até ser analisada por um System Admin (ver UC-02 e UC-03) — não há auto-aprovação.
 
@@ -168,8 +168,6 @@ Ocasional — ocorre a cada novo interessado (clínica ou profissional autônomo
 ## 14. Perguntas em Aberto / Decisões Pendentes
 Nenhuma pendência aberta no momento quanto ao escopo deste UC. O usuário confirmou que os tipos de conta (Clínica/Autônomo) devem ser tratados como variação de dado dentro deste mesmo UC, sem fluxo alternativo dedicado.
 
-O fluxo de ativação de conta por código de 8 dígitos (`/activate`) foi **removido definitivamente do código-fonte** — `src/app/(auth)/activate/page.tsx`, `src/app/api/users/activate/route.ts`, `activateAccountWithCode()` em `accessRequestService.ts`, e as funções de convite (`createUserInvitation()`, `listPendingInvitations()`, `cancelInvitation()`, `getUsersStats()`) em `userManagementService.ts` foram deletados/removidos (PR #178, branch `chore/remove-obsolete-activate-flow`, para `develop`). Não se trata mais de um item "fora de escopo" deste documento — é um fluxo que **não existe mais** no sistema. O único caminho de onboarding válido hoje é: solicitação de acesso (este UC) → aprovação pelo System Admin (UC-02) → definição de senha pelo usuário via link recebido por e-mail → login em `/login`.
-
 ---
 
 ## 15. Histórico de Versões
@@ -177,4 +175,5 @@ O fluxo de ativação de conta por código de 8 dígitos (`/activate`) foi **rem
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial, mapeada a partir do código atual e de `project_doc/auth/register-page-documentation.md` |
-| 1.1 | 13/07/2026 | Guilherme Scandelari | Atualizada a seção 14 para refletir a remoção definitiva do fluxo `/activate` (código de 8 dígitos) do código-fonte (PR #178) — deixou de ser "fora de escopo" e passou a ser "não existe mais"; documentado o único caminho de onboarding válido hoje. Corrigida a RN-04: confirmado, por leitura do código (`approve/route.ts`), que a senha da solicitação não é usada para criar o usuário Auth em UC-02 (mecanismo real: senha temporária + link de redefinição). |
+| 1.1 | 13/07/2026 | Guilherme Scandelari | Registrada a remoção definitiva do fluxo `/activate` (código de 8 dígitos) do código-fonte (PR #178, branch `chore/remove-obsolete-activate-flow`) — deixou de ser "fora de escopo" e passou a ser "não existe mais"; documentado o único caminho de onboarding válido hoje (registro → aprovação em UC-02 → definição de senha via link → login). Corrigida a RN-04: confirmado, por leitura do código (`approve/route.ts`), que a senha da solicitação não é usada para criar o usuário Auth em UC-02 (mecanismo real: senha temporária + link de redefinição). |
+| 1.1.1 | 13/07/2026 | Guilherme Scandelari | Correção estrutural: removida da seção 14 a menção detalhada à remoção do fluxo `/activate` — não se tratava de uma pergunta em aberto nem de uma decisão pendente, e sim de um fato já consumado (PR #178 mergeado), incompatível com o propósito da seção 14. O registro do fato permanece de forma enxuta apenas no Histórico de Versões (linha v1.1, acima). Nenhum conteúdo factual novo foi adicionado nesta revisão. |
