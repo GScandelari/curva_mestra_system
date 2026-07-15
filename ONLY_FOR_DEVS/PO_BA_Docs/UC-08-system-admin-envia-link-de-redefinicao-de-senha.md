@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Administração do Sistema
-**Versão:** 1.0
+**Versão:** 1.2
 
 > Um System Admin, a partir da tela de gestão de usuários ou de consultores, aciona o envio de um e-mail com um link seguro de redefinição de senha para outra pessoa — usando um sistema de token **customizado e próprio do Curva Mestra** (não o mecanismo nativo do Firebase usado em UC-02/UC-07), com expiração de 30 minutos e uso único. É a terceira forma que um System Admin tem de ajudar alguém a recuperar acesso, ao lado de "Definir Senha Manualmente" (UC-06, sem e-mail, senha definida imediatamente).
 
@@ -181,6 +181,10 @@ Ocasional — usado pelo System Admin como alternativa a "Definir Senha Manualme
 ## 12. Casos de Uso Relacionados
 - **UC-06 (Trocar Senha Obrigatória no Primeiro Acesso)** documenta o mecanismo irmão "Definir Senha Manualmente" (sem e-mail, senha definida imediatamente, com `requirePasswordChange` opcional) — as duas ações ficam lado a lado na mesma tela `admin/users`, como duas formas distintas de o System Admin ajudar alguém com a senha. Convergem em RN-06 (ambas limpam `requirePasswordChange`, quando aplicável).
 - **UC-02 (Aprovar Solicitação de Acesso)** e **UC-07 (Recuperar Senha Esquecida)** usam o mecanismo nativo do Firebase Auth para redefinição de senha — genuinamente diferente do token customizado deste UC (RN-07).
+- **UC-29 (Editar, Suspender e Reativar Consultor)** documenta a mesma tela onde a variante para consultores deste mecanismo vive (`admin/consultants/[id]/page.tsx`, seção "Gerenciamento de Senha" → "Redefinir Senha"). A funcionalidade "Redefinir Senha via Link" dessa tela é integralmente coberta por este UC-08 (rota `api/consultants/[id]/reset-password`, passos 1-19 acima) — por decisão confirmada, não recebeu um UC dedicado (UC-30), para evitar duplicar este conteúdo.
+- **UC-30 (Definir Senha do Consultor Manualmente)** — mecanismo irmão específico de consultores, na mesma tela de UC-29, equivalente ao papel que UC-06 exerce para usuários (`clinic_admin`/`clinic_user`).
+- **UC-36 (Editar Usuário e Alterar Status Cross-Tenant)** documenta a mesma tela onde a variante para usuários deste mecanismo vive (`admin/users/page.tsx`, diálogo "Editar Usuário", seção "Redefinir Senha"). A funcionalidade "Redefinir Senha via Link" dessa tela é integralmente coberta por este UC-08 (rota `api/users/{id}/reset-password`, já citada desde a v1.0 deste documento) — mesma decisão de não duplicar conteúdo já aplicada a UC-29.
+- **UC-37 (Definir Senha do Usuário Manualmente)** — mecanismo irmão específico de usuários, na mesma tela de UC-36, equivalente ao papel que UC-30 exerce para consultores.
 
 ---
 
@@ -211,3 +215,5 @@ Nenhuma pendência bloqueante identificada — ao contrário de UC-05, este meca
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial. Documenta o mecanismo de token customizado completo (geração, expiração, consumo) acionado pelo System Admin via `admin/users` e `admin/consultants/[id]`, incluindo a segunda metade do fluxo (usuário-alvo completando a redefinição via `/reset-password/[token]`). Confirmado, por leitura completa de `passwordResetService.ts` e `firestore.rules`, que este mecanismo é genuinamente diferente do link nativo do Firebase usado em UC-02 e UC-07 (RN-07), e que converge com UC-06 apenas no ponto de limpar `requirePasswordChange` (RN-06). |
+| 1.1 | 14/07/2026 | Guilherme Scandelari | Seção 12 atualizada com referências cruzadas ao módulo "Admin — Gestão de Consultores": adicionada menção a UC-29 (mesma tela `admin/consultants/[id]`, confirmando que este UC-08 já cobre integralmente a funcionalidade "Redefinir Senha via Link" da variante de consultores, sem necessidade de UC-30 dedicado) e a UC-30 (mecanismo irmão de definição manual de senha, específico de consultores). |
+| 1.2 | 15/07/2026 | Guilherme Scandelari | Seção 12 atualizada com referências cruzadas ao módulo "Admin — Gestão de Usuários": adicionada menção a UC-36 (mesma tela `admin/users`, confirmando que este UC-08 já cobre integralmente a funcionalidade "Redefinir Senha via Link" da variante de usuários, rota `api/users/{id}/reset-password`, sem necessidade de UC dedicado) e a UC-37 (mecanismo irmão de definição manual de senha, específico de usuários). |
