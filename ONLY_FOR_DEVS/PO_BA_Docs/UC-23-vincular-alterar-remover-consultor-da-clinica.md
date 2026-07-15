@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Administração do Sistema (Gestão de Clínicas)
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Um System Admin busca um Consultor Rennova (por nome, código de 6 dígitos, telefone ou e-mail) e o vincula a uma clínica, na mesma tela do UC-21/UC-22 (`admin/tenants/[id]/page.tsx`). A mesma ação serve tanto para o primeiro vínculo quanto para trocar o consultor de uma clínica que já tem um — não há um fluxo de "transferência" com aviso especial sobre o consultor anterior. A remoção do vínculo não apaga nenhum dado histórico, pois nenhuma coleção de procedimentos/relatórios armazena referência ao consultor — o vínculo existe apenas nos documentos `tenants/{id}` e `consultants/{id}`.
 
@@ -167,7 +167,7 @@ Ocasional — vínculo/troca/remoção de consultor não é uma operação do di
 
 ## 12. Casos de Uso Relacionados
 - **UC-21 (Cadastrar Nova Clínica)** e **UC-22 (Editar, Desativar e Reativar Clínica)** — mesma tela (`admin/tenants/[id]/page.tsx`); este é o terceiro e último UC mapeado desta tela, completando o módulo Admin/Gestão de Clínicas.
-- **[Não mapeado, fora de escopo]** "Clínica vincula seu próprio consultor via código" (`src/app/(clinic)/clinic/consultant/transfer/page.tsx`) — usa o mesmo endpoint `POST /api/tenants/[id]/consultant`, mas a página redireciona `clinic_admin` para longe, sugerindo que se destina a outro papel de clínica (`clinic_user` ou `clinic_consultant`); como a API só aceita `system_admin` ou um consultor autônomo (`is_consultant` + `authorized_tenants`), nenhum desses dois papéis passaria na checagem de permissão da API tal como está hoje — **possível gap de funcionalidade, não investigado a fundo por estar fora do escopo deste UC**.
+- **UC-46 (Visualizar Consultor Vinculado à Clínica)** — investigação aprofundada confirmou o que este UC já suspeitava: `clinic/consultant/transfer/page.tsx` está **de fato quebrada** (sempre 403 para qualquer usuário de clínica) — não era apenas uma suspeita, é um bug confirmado (UC-46/RN-03).
 - **[Não mapeado, fora de escopo]** Fluxo de "Solicitação de Transferência" com aprovação (`consultant_claims`, `ConsultantTransferRequest`, rotas `api/consultants/transfer-requests/*` e `api/consultants/claims/*`) — mecanismo paralelo e independente, não investigado (RN-07).
 - **[Não mapeado, fora de escopo]** Cadastro/gestão de consultores em si (criação, suspensão, edição) — via `consultantService.ts` (`createConsultant`, `toggleConsultantStatus`, `updateConsultant`) e prováveis rotas `api/consultants/*` — não mapeado.
 
@@ -188,7 +188,7 @@ Ocasional — vínculo/troca/remoção de consultor não é uma operação do di
 
 1. **[RN-03]** A atualização de custom claims fora da transação atômica do Firestore pode gerar inconsistência entre dados e claims em caso de falha parcial — não há mecanismo de retry ou de reconciliação automática confirmado no código.
 2. **[RN-06]** As funções client-side `transferConsultant`/`removeConsultant`/`searchConsultants` em `consultantService.ts` são código morto (nunca chamadas) — decisão de produto pendente: remover ou eventualmente usar em algum outro fluxo futuro.
-3. **[Relacionado, fora de escopo]** `clinic/consultant/transfer/page.tsx` parece direcionada a um papel de clínica que a API atual não autoriza a chamar o endpoint (nem `clinic_user` nem `clinic_consultant` atendem à checagem de permissão de `POST/DELETE /api/tenants/[id]/consultant`) — recomenda-se investigar esse fluxo especificamente em um UC futuro dedicado ao lado da clínica.
+3. **[Resolvido em UC-46]** `clinic/consultant/transfer/page.tsx` — confirmado como funcionalidade quebrada (sempre 403), com um gate de role invertido adicional (bloqueia `clinic_admin`, permite `clinic_user` acessar o formulário inútil). Ver UC-46/RN-03/RN-04 para os detalhes completos e a decisão de produto pendente (remover ou corrigir).
 4. **[RN-07]** O mecanismo de "solicitação de transferência com aprovação" não foi investigado a fundo — se for relevante ao produto, merece seu próprio UC.
 
 ---
@@ -198,3 +198,4 @@ Ocasional — vínculo/troca/remoção de consultor não é uma operação do di
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero. Confirmado que a busca de consultor usa autocomplete por nome/código/telefone/e-mail via `GET /api/consultants/search` (RN-04); que vincular e trocar consultor são a mesma ação, sem fluxo de "transferência" distinto ou aviso especial (RN-01); que a remoção não tem efeito colateral em dados históricos por não haver denormalização do consultor em nenhuma coleção de procedimentos/relatórios (RN-05); que a validação de Bearer token está correta nas três rotas (RNF-01); e identificados dois achados adicionais não solicitados: janela de inconsistência entre o batch do Firestore e a sincronização de custom claims (RN-03), e duplicação de código morto em `consultantService.ts` (RN-06). Módulo Admin — Gestão de Clínicas (UC-21, UC-22, UC-23) concluído. |
+| 1.1 | 15/07/2026 | Guilherme Scandelari | Cross-reference: a suspeita registrada na v1.0 sobre `clinic/consultant/transfer/page.tsx` foi investigada a fundo e confirmada como bug real em UC-46 (Visualizar Consultor Vinculado à Clínica) — seções 12 e 14 atualizadas de "não mapeado, fora de escopo" para referência direta a UC-46/RN-03/RN-04. |
