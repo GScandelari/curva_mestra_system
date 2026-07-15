@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.1
+**Versão:** 1.3
 
 > Um usuário autenticado — seja um usuário existente notificado de um novo termo obrigatório publicado (`/accept-terms`), seja um usuário em onboarding de uma nova clínica aceitando termos pela primeira vez (`/clinic/setup/terms`) — deve aceitar todos os documentos legais ativos e obrigatórios antes de continuar usando o sistema. Um componente global (`TermsInterceptor`) decide, em toda navegação, se há termos pendentes e redireciona automaticamente para a variante correta.
 
@@ -182,6 +182,8 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 - **UC-33 (Cadastrar Documento Legal)** — System Admin cria os documentos consumidos aqui.
 - **UC-34 (Editar, Publicar/Despublicar e Excluir Documento Legal)** — System Admin altera status/versão/obrigatoriedade dos documentos (podendo reabrir pendência de aceite, RN-05 daquele UC) ou excluí-los permanentemente (Fluxo de Exceção 8f, RN-05 deste UC).
 - **UC-02 (Aprovar Solicitação de Acesso)** é pré-condição indireta da Variante B — só existe um `clinic_admin` em onboarding depois que UC-02 cria o tenant e o usuário.
+- **UC-41 (Editar Perfil e Trocar Senha do Usuário de Clínica)** exibe, em `clinic/profile/page.tsx`, o histórico somente-leitura dos registros de `user_document_acceptances` criados por este UC — formaliza o escopo que a seção 13 deste UC já citava como "fora do escopo deste UC".
+- **UC-45 (Completar Configuração Inicial da Clínica)** — destino do redirecionamento ao final da Variante B (passo 11, `router.push('/clinic/setup')`); relação sequencial, não `<<include>>`/`<<extend>>` formal.
 
 ---
 
@@ -191,7 +193,7 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 - `src/components/auth/TermsInterceptor.tsx`
 - `src/hooks/usePendingTerms.ts`
 - `src/components/admin/LegalDocumentForm.tsx` (confirma que "editar" reutiliza o mesmo ID do documento e permite alterar `version` livremente, sem versionamento automático — ver UC-34)
-- `src/app/(clinic)/clinic/profile/page.tsx` (exibição somente-leitura do histórico de aceites do próprio usuário — fora do escopo deste UC)
+- `src/app/(clinic)/clinic/profile/page.tsx` (exibição somente-leitura do histórico de aceites do próprio usuário — formalizado em UC-41)
 - `src/types/index.ts` (`LegalDocument`, `UserDocumentAcceptance`)
 - `firestore.rules` (regras de `legal_documents` e `user_document_acceptances`)
 
@@ -212,3 +214,5 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial. Documenta as duas variantes do mesmo UC (usuário existente via `/accept-terms`; onboarding via `/clinic/setup/terms`), o mecanismo de decisão global (`TermsInterceptor` + `usePendingTerms`), e dois bugs confirmados de divergência de critério entre esse mecanismo e as páginas de aceite, que juntos podem causar um loop de redirecionamento em cenários de revisão de documento (RN-02, RN-03). |
 | 1.1 | 15/07/2026 | Guilherme Scandelari | Atualização de referências cruzadas: o módulo "Gerenciar Documentos Legais" (System Admin), antes citado como "ainda não mapeado", foi mapeado como UC-33 (Cadastrar Documento Legal) e UC-34 (Editar, Publicar/Despublicar e Excluir Documento Legal). Diagrama, seções 2.2, 12 e 13 atualizados com as referências. Adicionado Fluxo de Exceção 8f e nota em RN-05 sobre o achado crítico de UC-34 (exclusão permanente de documento legal já aceito, sem checagem de `user_document_acceptances`), e item correspondente na seção 14. |
+| 1.2 | 15/07/2026 | Guilherme Scandelari | Atualização de referência cruzada: a exibição somente-leitura do histórico de aceites em `clinic/profile/page.tsx`, antes citada na seção 13 como "fora do escopo deste UC", foi formalmente mapeada como UC-41 (Editar Perfil e Trocar Senha do Usuário de Clínica). Seções 12 e 13 atualizadas com a referência. |
+| 1.3 | 15/07/2026 | Guilherme Scandelari | Cross-reference: adicionada referência a UC-45 (Completar Configuração Inicial da Clínica), destino do redirecionamento ao final da Variante B de onboarding. |

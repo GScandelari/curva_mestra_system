@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Inventário
-**Versão:** 1.0
+**Versão:** 1.0.1
 
 > Um Clinic Admin define, produto a produto (por código, agregando todos os lotes), a partir de qual quantidade total disponível o produto passa a ser considerado "Estoque Baixo". O limite fica salvo por tenant + código de produto. Ele é consumido em dois lugares com lógicas ligeiramente diferentes: o badge de status na UI (fallback simples: limite `?? 10`) e o gatilho de notificação automática de estoque baixo (fallback em 3 níveis: limite do produto → limite global do tenant → 10) — e este último só roda quando um Clinic Admin aciona manualmente a verificação de alertas (não há nenhum agendamento/cron automático encontrado no código).
 
@@ -133,8 +133,8 @@ Ocasional — configurado uma vez por produto (ou ajustado esporadicamente), nã
 ---
 
 ## 12. Casos de Uso Relacionados
-- Um eventual **"Executar Verificações de Alertas Manualmente" (Clinic Admin, aba Alertas, UC ainda não mapeado)** é o consumidor real do limite configurado aqui, via `checkLowStock` — sem essa ação manual, o limite configurado neste UC não gera nenhuma notificação (RN-05).
-- Um eventual **"Configurar Preferências de Notificação" (Clinic Admin, `/clinic/settings`, UC ainda não mapeado)** é onde `enable_low_stock_alerts` e o limite global `low_stock_threshold` são configurados — ambos usados como fallback por `checkLowStock` (RN-03/RN-04).
+- **UC-42 (Executar Verificações de Alertas Manualmente, Clinic Admin, `/clinic/alerts`)** é o consumidor real do limite configurado aqui, via `checkLowStock` — sem essa ação manual, o limite configurado neste UC não gera nenhuma notificação (RN-05).
+- **UC-43 (Configurar Preferências de Notificação, Clinic Admin, `/clinic/settings`)** é onde `enable_low_stock_alerts` e o limite global `low_stock_threshold` são configurados — ambos usados como fallback por `checkLowStock` (RN-03/RN-04), com o limite deste UC (por produto) tendo prioridade sobre o `low_stock_threshold` global de UC-43.
 - **UC-13 (Desativar Item de Estoque com Verificação de Reservas Ativas)** é referenciado em RN-08 — a redistribuição forçada pode deixar `quantidade_disponivel` residual em itens inativos, que o `checkLowStock` deste UC soma incorretamente ao total do produto.
 
 ---
@@ -158,7 +158,7 @@ Ocasional — configurado uma vez por produto (ou ajustado esporadicamente), nã
 3. **[Inconsistência cross-UC confirmada]** RN-08 — `checkLowStock` não filtra por `active: true`, podendo somar quantidade residual de lotes desativados por UC-13.
 4. **[Observação]** RN-06 — ausência de feedback de erro ao usuário (validação e falha de gravação silenciosas).
 5. **[Observação, mesmo padrão de UC-11/UC-14, porém mais brando]** RN-07 — Firestore não tem regra dedicada para `stock_limits`; restrição de role é só na UI (embora aqui, diferente de UC-11/14, a UI pelo menos esconda a aba corretamente).
-6. **[Nota de rastreabilidade]** "Executar Verificações de Alertas Manualmente" e "Configurar Preferências de Notificação" ainda não foram mapeados como UCs formais.
+6. **[Nota de rastreabilidade — resolvida]** "Executar Verificações de Alertas Manualmente" e "Configurar Preferências de Notificação" foram mapeados como UC-42 e UC-43, respectivamente (ver seção 12).
 
 ---
 
@@ -167,3 +167,4 @@ Ocasional — configurado uma vez por produto (ou ajustado esporadicamente), nã
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero por leitura completa de `StockLimitsTab.tsx`, `inventoryService.ts` (`getStockLimitsMap`/`updateStockLimit`/`listInventory`), `inventoryUtils.ts` (`getStatusEstoque`), `alertTriggers.ts` (`checkLowStock`/`runAllChecks`) e `AlertsTab.tsx`, além de busca em todo `src/` e `functions/` para confirmar ausência de agendamento automático. Respondidas as quatro perguntas do levantamento: o limite é armazenado por tenant + código de produto, agregando todos os lotes (RN-01); é de fato consumido por `checkLowStock`, mas com um fallback em 3 níveis diferente do usado na exibição da UI (RN-03); o valor padrão quando não configurado é 10, aplicado só no frontend (RN-02); e a restrição de role, embora corretamente aplicada na renderização da aba (diferente de UC-11/14), não tem uma regra dedicada no Firestore (RN-07). Identificados também, fora do escopo das perguntas originais: ausência de qualquer agendamento automático das verificações de alerta (RN-05) e uma inconsistência cross-UC entre `checkLowStock` e a desativação forçada de UC-13 (RN-08). |
+| 1.0.1 | 15/07/2026 | Guilherme Scandelari | Correção pontual: seção 12 e item 6 da seção 14 atualizados para referenciar UC-42 (Executar Verificações de Alertas Manualmente) e UC-43 (Configurar Preferências de Notificação), agora mapeados — resolvendo a nota de rastreabilidade que antes apontava para "UCs ainda não mapeados". Sem alteração de escopo, fluxos ou regras de negócio deste UC. |

@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Em Revisão
 **Módulo/Contexto:** Administração do Sistema (Gestão de Usuários)
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Um System Admin, na seção "Usuários da Clínica" da tela `admin/tenants/[id]/page.tsx` (mesma tela de UC-21/UC-22/UC-23), cria diretamente um novo usuário (`clinic_admin` ou `clinic_user`) para uma clínica específica, escolhendo o e-mail e a senha no próprio formulário — sem que exista nenhuma solicitação de acesso prévia. É o caminho equivalente, do lado do System Admin, ao que o próprio `clinic_admin` faz em `clinic/users/page.tsx` (ainda não mapeado como UC formal, citado em UC-05): ambos chamam exatamente a mesma rota `POST /api/users/create`, diferenciados apenas pelo parâmetro `tenant_id_override`, exclusivo deste fluxo.
 
@@ -175,7 +175,8 @@ Ocasional — usado quando o `clinic_admin` de uma clínica não consegue ou nã
 ## 12. Casos de Uso Relacionados
 - **UC-21 (Cadastrar Nova Clínica)**, **UC-22 (Editar, Desativar e Reativar Clínica)** e **UC-23 (Vincular, Alterar e Remover Consultor de uma Clínica)** — mesma tela (`admin/tenants/[id]/page.tsx`); este UC-39 fecha a última ação de negócio pendente daquela tela, resolvendo a pendência registrada em UC-22 (seção 14, item 3).
 - **UC-02 (Aprovar Solicitação de Acesso)** é o mecanismo alternativo de criação de usuário — sempre cria um tenant novo, sempre gera senha aleatória + link de redefinição, sempre a partir de uma solicitação pendente (UC-01). Este UC-39, ao contrário, sempre usa um tenant já existente, sempre usa a senha escolhida pelo admin, e nunca depende de uma solicitação prévia.
-- **UC-05 ("Aprovar Solicitação de Acesso" pela Própria Clínica)** já citava a rota `POST /api/users/create`, usada pelo próprio `clinic_admin` (`clinic/users/page.tsx`), como o mecanismo real e válido para adicionar usuários à própria clínica — ainda sem UC formal dedicado. Este UC-39 mapeia formalmente a variante da **mesma rota**, acionada pelo System Admin com `tenant_id_override` (RN-07), distinta por não depender de o chamador pertencer à clínica-alvo.
+- **UC-05 ("Aprovar Solicitação de Acesso" pela Própria Clínica)** já citava a rota `POST /api/users/create`, usada pelo próprio `clinic_admin` (`clinic/users/page.tsx`), como o mecanismo real e válido para adicionar usuários à própria clínica. Este UC-39 mapeia formalmente a variante da **mesma rota**, acionada pelo System Admin com `tenant_id_override` (RN-07), distinta por não depender de o chamador pertencer à clínica-alvo.
+- **UC-40 (Criar Usuário para a Própria Clínica)** — agora mapeado — é o equivalente exato deste mecanismo do lado do `clinic_admin`, sem `tenant_id_override`, restrito ao próprio tenant do chamador (RN-07 daquele UC). UC-40 confirma um achado adicional que não se aplica a este UC-39: do lado da clínica, não existe nenhuma forma de editar, desativar/reativar ou redefinir senha de um usuário já existente — apenas criar e listar.
 - **UC-06 (Trocar Senha Obrigatória no Primeiro Acesso)** não é acionado por este fluxo (RN-03) — diferente de UC-28 (criação de consultor), que sempre aciona UC-06 no primeiro login.
 - **UC-28 (Cadastrar Consultor)** é o UC comparável mais próximo em estrutura (criação de conta por um admin, com senha temporária) — mas com um comportamento de segurança mais completo (`requirePasswordChange: true` sempre, e-mail com senha temporária), que este UC-39 não replica (RN-03).
 - **UC-36 (Editar Usuário e Alterar Status Cross-Tenant)** é o UC irmão de "Gestão de Usuários" que cobre a edição de usuários já existentes — este UC-39 cobre exclusivamente a criação.
@@ -198,7 +199,7 @@ Ocasional — usado quando o `clinic_admin` de uma clínica não consegue ou nã
 2. **[RN-03]** Não confirmado pelo usuário se este fluxo deveria também forçar troca de senha no primeiro acesso (`requirePasswordChange: true`), como ocorre com consultores (UC-28) — hoje não ocorre.
 3. **[RN-05]** Não confirmado pelo usuário se a API deveria bloquear a criação de usuários em clínicas desativadas.
 4. **[RN-01]** Ausência de validação client-side no diálogo (nenhum campo obrigatório/comprimento mínimo) — avaliação de necessidade de correção não solicitada até o momento.
-5. **[Nota de rastreabilidade]** O caminho equivalente usado pelo próprio `clinic_admin` (`clinic/users/page.tsx`, mesma rota, sem `tenant_id_override`) permanece sem UC formal dedicado — fora do escopo desta sessão (módulo Admin), já citado como pendência em UC-05.
+5. **[Nota de rastreabilidade — resolvida]** O caminho equivalente usado pelo próprio `clinic_admin` (`clinic/users/page.tsx`, mesma rota, sem `tenant_id_override`) foi mapeado como **UC-40 (Criar Usuário para a Própria Clínica)**.
 
 ---
 
@@ -207,3 +208,4 @@ Ocasional — usado quando o `clinic_admin` de uma clínica não consegue ou nã
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero a partir de `admin/tenants/[id]/page.tsx` (`handleCreateUser`, diálogo "Adicionar Novo Usuário") e `api/users/create/route.ts`. Resolve a pendência registrada em UC-22 (seção 14, item 3). Documenta o mecanismo de criação direta de usuário pelo System Admin para qualquer clínica, via `tenant_id_override` — mesma rota de backend usada pelo `clinic_admin` em seu próprio fluxo de auto-cadastro (ainda não mapeado, UC-05). Achados críticos: o texto da UI promete envio de credenciais por e-mail que não ocorre de fato — o e-mail disparado pelo trigger `onUserCreated` é genérico e nunca inclui a senha (RN-02); o usuário criado nunca recebe a claim `requirePasswordChange`, diferente de UC-02/UC-28 (RN-03); a API não verifica se o tenant está ativo antes de permitir a criação (RN-05); e nenhuma validação client-side existe no diálogo (RN-01). Confirmado que a checagem de limite de usuários usa a fonte de dado correta (coleção raiz `users`, RN-04), sem o bug de UC-05 (`getTenantLimits`). |
+| 1.1 | 15/07/2026 | Guilherme Scandelari | Correção pontual: resolvida a nota de rastreabilidade pendente (item 5, seção 14) — o caminho equivalente do lado do `clinic_admin` foi mapeado como **UC-40 (Criar Usuário para a Própria Clínica)**. Seção 12 e seção 14 atualizadas com a referência cruzada. |
