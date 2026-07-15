@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.1
+**Versão:** 1.4
 
 > Um usuário (`clinic_admin`, `clinic_user` ou `clinic_consultant`) cuja senha foi definida por um terceiro — um System Admin redefinindo manualmente, ou o próprio sistema ao criar um novo consultor — é obrigado a trocá-la antes de acessar qualquer área do sistema, através da custom claim `requirePasswordChange`.
 
@@ -35,11 +35,11 @@ flowchart LR
 ## 2. Atores
 
 ### 2.1 Ator Primário
-**Usuário** com `role` igual a `clinic_admin`, `clinic_user` ou `clinic_consultant`, cuja custom claim `requirePasswordChange` está `true`. `system_admin` nunca passa por este fluxo (ver RN-06).
+**Usuário** com `role` igual a `clinic_admin`, `clinic_user` ou `clinic_consultant`, cuja custom claim `requirePasswordChange` está `true`. `system_admin` nunca passa por este fluxo (ver RN-06) — o mecanismo equivalente para o próprio System Admin trocar a senha, por vontade própria e a qualquer momento (nunca forçado por claim), é o autoatendimento documentado em UC-38.
 
 ### 2.2 Atores Secundários / Sistemas Externos
 - **Firebase Auth:** reautenticação (`reauthenticateWithCredential`) e atualização de senha (`updatePassword`), ambas client-side.
-- **System Admin** não é ator direto deste UC — é quem origina a pré-condição (`requirePasswordChange: true`) em outro contexto, ainda não mapeado como UC formal (ver seção 12).
+- **System Admin** não é ator direto deste UC — é quem origina a pré-condição (`requirePasswordChange: true`) em outro contexto (ver seção 12).
 
 ---
 
@@ -140,8 +140,8 @@ Login bem-sucedido (UC-04) com `claims.requirePasswordChange === true` — ou ac
 | RN-02 | A validação de força da nova senha nesta tela (função local, mínimo 6 caracteres) é mais simples que a `validatePassword` compartilhada em `serverValidations.ts` (que também exige pelo menos uma letra) — esta tela não usa a função compartilhada, tem sua própria validação inline, mais permissiva. | Divergência confirmada por leitura do código — mesmo padrão de inconsistência de validação já documentado em UC-01 (RN-04 a RN-06). |
 | RN-03 | A troca de senha exige reautenticação (`reauthenticateWithCredential`) com a senha atual antes de chamar `updatePassword` — ambas operações client-side via Firebase SDK, sem endpoint de backend dedicado para a troca da senha em si (o backend só é usado para limpar a flag, passo 8-9). | Exigência do próprio Firebase Auth para operações sensíveis (alterar senha) — a sessão precisa estar "recente". |
 | RN-04 | Quando um consultor é criado (`POST /api/consultants`), ele nasce com `requirePasswordChange: true` e recebe a senha temporária **em texto plano** por e-mail (fila `email_queue`), gerada por uma função local `generateTempPassword()` — 12 caracteres de um alfabeto sem caracteres ambíguos (sem `0`/`O`/`1`/`l`/`I`). | Mecanismo de onboarding específico para consultores — diferente do mecanismo de aprovação de UC-02 (que usa link de redefinição de senha do Firebase, nunca expõe a senha em texto). |
-| RN-05 | Quando um System Admin redefine manualmente a senha de um usuário/consultor existente (`/api/users/{id}/set-password` ou `/api/consultants/{id}/set-password`) com "Solicitar troca de senha no próximo login" marcada, **nenhum e-mail é enviado automaticamente** — a própria tela de origem (`admin/users`) indica que esse recurso é "para suporte quando o sistema de email falhar". O admin precisa comunicar a nova senha ao usuário por fora do sistema. Alternativamente, o admin pode usar UC-08 (enviar link de redefinição por e-mail), que não define a senha diretamente nem depende de `requirePasswordChange`. | Confirmado por leitura do código (a rota não enfileira e-mail) e do texto de ajuda da própria UI administrativa. |
-| RN-06 | `system_admin` nunca passa por este fluxo — a rota `/api/users/{id}/set-password` recusa explicitamente (403) redefinir a senha de um usuário com `role: "system_admin"`. | Restrição de segurança confirmada no código: administradores globais não têm sua senha redefinida por outro admin através deste mecanismo. |
+| RN-05 | Quando um System Admin redefine manualmente a senha de um usuário/consultor existente (`/api/users/{id}/set-password` ou `/api/consultants/{id}/set-password`) com "Solicitar troca de senha no próximo login" marcada, **nenhum e-mail é enviado automaticamente** — a própria tela de origem (`admin/users`/`admin/consultants/[id]`) indica que esse recurso é "para suporte quando o sistema de email falhar". O admin precisa comunicar a nova senha ao usuário por fora do sistema. Alternativamente, o admin pode usar UC-08 (enviar link de redefinição por e-mail), que não define a senha diretamente nem depende de `requirePasswordChange`. | Confirmado por leitura do código (a rota não enfileira e-mail) e do texto de ajuda da própria UI administrativa. |
+| RN-06 | `system_admin` nunca passa por este fluxo — a rota `/api/users/{id}/set-password` recusa explicitamente (403) redefinir a senha de um usuário com `role: "system_admin"`. O mecanismo real e equivalente para o próprio System Admin trocar sua senha é o autoatendimento de UC-38 (`admin/profile/page.tsx`) — inteiramente self-service, nunca forçado por uma claim, com um mínimo de senha diferente (8 caracteres) e sem gravar `passwordChangedAt` no Firestore. | Restrição de segurança confirmada no código: administradores globais não têm sua senha redefinida por outro admin através deste mecanismo. |
 
 ---
 
@@ -163,7 +163,10 @@ Ocasional — ocorre a cada vez que um System Admin define/redefine manualmente 
 - **UC-04 (Fazer Login com Redirecionamento por Papel)** é o gatilho principal deste UC — a checagem de `requirePasswordChange` em UC-04 (Fluxo de Exceção 8c) redireciona para cá.
 - **UC-02 (Aprovar Solicitação de Acesso)** usa um mecanismo de definição de senha inicial **diferente** (link de redefinição de senha do Firebase, gerado por `generatePasswordResetLink`) — não aciona este UC-06.
 - **UC-08 (System Admin Envia Link de Redefinição de Senha)** é o mecanismo irmão: mesma origem (System Admin, na mesma tela `admin/users`/`admin/consultants`), mas usando um link por e-mail com token customizado em vez de definir a senha diretamente. Os dois convergem apenas no ponto em que UC-08, ao ser concluído pelo usuário-alvo, também remove `requirePasswordChange` se estiver presente (ver UC-08, RN-06).
-- **"Definir Senha Manualmente" (System Admin)** e **"Criar Consultor"** continuam sendo os dois UCs ainda não mapeados formalmente que originam a pré-condição deste UC (`requirePasswordChange: true`) — "Definir Senha Manualmente" é a mesma tela/ação de origem de UC-08, só que pelo caminho de senha direta em vez de link por e-mail.
+- **UC-30 (Definir Senha do Consultor Manualmente)** é a variante para consultores de "Definir Senha Manualmente", mapeada formalmente como UC próprio (rota `api/consultants/[id]/set-password`, mesma tela de UC-29) — uma das duas origens confirmadas da pré-condição deste UC-06 para consultores.
+- **UC-37 (Definir Senha do Usuário Manualmente)** é a variante equivalente para usuários (`clinic_admin`/`clinic_user`, rota `api/users/[id]/set-password`, mesma tela de UC-36) — agora também mapeada formalmente, fechando a lacuna citada na v1.2 deste documento.
+- **UC-28 (Cadastrar Consultor)** é a outra origem confirmada da pré-condição deste UC-06 (consultor recém-criado nasce com `requirePasswordChange: true`, RN-04).
+- **UC-38 (Editar Perfil e Trocar Senha do System Admin)** é o mecanismo equivalente de autoatendimento, exclusivo para `system_admin` — o único role que nunca passa por este UC-06 (RN-06).
 
 ---
 
@@ -186,6 +189,10 @@ Ocasional — ocorre a cada vez que um System Admin define/redefine manualmente 
 
 3. **[Resolvido em v1.1]** O "mecanismo totalmente separado de redefinição de senha por token customizado", mencionado na v1.0 apenas para não confundir, foi investigado e mapeado como dois UCs distintos: **UC-07 (Recuperar Senha Esquecida)** — self-service, usa `sendPasswordResetEmail` nativo do Firebase, não tem nenhuma relação com `requirePasswordChange` nem com o token customizado — e **UC-08 (System Admin Envia Link de Redefinição de Senha)** — mecanismo de token customizado (`password_reset_tokens`), acionado pelo System Admin, que converge com este UC-06 apenas no ponto de também limpar `requirePasswordChange` ao ser concluído (UC-08, RN-06).
 
+4. **[Resolvido em v1.3]** A variante de "Definir Senha Manualmente" para consultores foi mapeada como UC-30, e a variante equivalente para usuários (`clinic_admin`/`clinic_user`, rota `api/users/[id]/set-password`) foi mapeada como UC-37, no módulo "Admin — Gestão de Usuários".
+
+5. **[Resolvido em v1.4]** O mecanismo equivalente de autoatendimento, exclusivo para `system_admin` (o único role que nunca passa por este UC-06), foi mapeado como UC-38.
+
 ---
 
 ## 15. Histórico de Versões
@@ -194,3 +201,6 @@ Ocasional — ocorre a cada vez que um System Admin define/redefine manualmente 
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial, mapeada a partir da leitura direta de `change-password/page.tsx`, `clear-password-change-flag/route.ts`, `users/[id]/set-password/route.ts`, `consultants/[id]/set-password/route.ts` e `consultants/route.ts` (origem do `requirePasswordChange` para consultores recém-criados). |
 | 1.1 | 13/07/2026 | Guilherme Scandelari | Adicionada referência cruzada a UC-08 (System Admin Envia Link de Redefinição de Senha), mapeado nesta sessão como o mecanismo irmão de "Definir Senha Manualmente" — ambos acionados pelo System Admin na mesma tela, um definindo a senha diretamente (este UC), outro enviando um link por e-mail com token próprio (UC-08). Atualizada a pendência 3 da seção 14 de "fora do escopo" para "resolvido" (UC-07 e UC-08 já mapeados), e RN-05 ganhou uma nota mencionando UC-08 como alternativa. |
+| 1.2 | 14/07/2026 | Guilherme Scandelari | Seção 12 atualizada: a bullet que citava "'Definir Senha Manualmente' (System Admin)" como UC ainda não mapeado formalmente foi substituída pela referência ao UC-30 (Definir Senha do Consultor Manualmente), recém-mapeado para a variante de consultores. Adicionada nota explícita de que a variante equivalente para usuários (`clinic_admin`/`clinic_user`) permanece sem UC formal. Adicionada referência a UC-28 como a outra origem confirmada da pré-condição deste UC. Nova pendência (item 4) registrada na seção 14 refletindo esse mapeamento parcial. |
+| 1.3 | 15/07/2026 | Guilherme Scandelari | Seção 12 atualizada com a referência ao UC-37 (Definir Senha do Usuário Manualmente), recém-mapeado para a variante de usuários (`clinic_admin`/`clinic_user`) — fecha a pendência 4 registrada em v1.2. |
+| 1.4 | 15/07/2026 | Guilherme Scandelari | Adicionada referência cruzada a UC-38 (Editar Perfil e Trocar Senha do System Admin), recém-mapeado — mecanismo equivalente de autoatendimento para o único role que nunca passa por este UC-06 (RN-06 atualizada, seção 2.1 e seção 12 atualizadas, pendência 5 registrada como resolvida). |

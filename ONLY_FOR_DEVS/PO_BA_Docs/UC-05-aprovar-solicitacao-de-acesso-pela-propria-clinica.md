@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Em Revisão
 **Módulo/Contexto:** Administração da Clínica
-**Versão:** 2.0
+**Versão:** 2.1
 
 > ⚠️ **Reclassificação (v2.0):** este documento deixou de tratar UC-05 como "um design pretendido que está quebrado na implementação". O usuário esclareceu que **o `clinic_admin` não precisa aprovar nenhuma solicitação de acesso para a própria clínica** — o mecanismo real e válido para adicionar usuários a uma clínica existente é a **criação direta de usuário pelo `clinic_admin`** (fluxo "Criar Usuário da Clínica", telas `clinic/users/page.tsx` + `POST /api/users/create` — ainda não mapeado como UC formal nesta documentação). A tela `clinic/access-requests/page.tsx` e seu botão "Aprovar" são, portanto, **candidatos a serem conceitualmente desnecessários/equivocados**, não apenas uma implementação com bugs — no mesmo espírito do que foi encontrado com o antigo fluxo `/activate` (UC-01, histórico de versões). Este documento mantém a estrutura do template, mas com o propósito de registrar evidências técnicas dessa hipótese e levar a decisão de descontinuação (ou não) ao produto, na seção 14 — **a decisão em si não foi tomada aqui.**
 
@@ -19,11 +19,13 @@ flowchart LR
 
     subgraph Sistema["Curva Mestra"]
         UC05(("UC-05\n\"Aprovar Solicitação\"\npela Própria Clínica\n⚠️ candidato à descontinuação"))
-        UCCriarUsuario(("UC não mapeado\nCriar Usuário\nda Clínica"))
+        UCCriarUsuario(("UC não mapeado\nCriar Usuário\nda Clínica (clinic_admin)"))
+        UC39(("UC-39\nCriar Usuário Diretamente\npara Clínica (System Admin)"))
     end
 
     ClinicAdmin -.->|botão existe na tela, mas evidências indicam que\nprovavelmente nunca funcionou nem foi usado| UC05
     ClinicAdmin -->|caminho real e válido para adicionar usuários hoje| UCCriarUsuario
+    UCCriarUsuario -.->|mesma rota POST /api/users/create,\nsem tenant_id_override| UC39
 ```
 
 ---
@@ -106,7 +108,7 @@ O Clinic Admin clica em "Aprovar" na linha de uma solicitação pendente, na tel
 
 | ID | Regra | Justificativa |
 |----|-------|----------------|
-| RN-01 | O mecanismo real e válido, hoje, para um `clinic_admin` adicionar um usuário à própria clínica é a criação direta de usuário (`POST /api/users/create`, a partir de `clinic/users/page.tsx`) — que **corretamente** conta usuários na coleção raiz `users` filtrada por `tenant_id` e bloqueia a criação ao atingir `max_users`. Este mecanismo **não passa** por `access_requests` em nenhum momento. | Confirmado por leitura direta de `api/users/create/route.ts` — esclarecido pelo usuário como o caminho de produto correto, tornando o fluxo de "aprovar solicitação" (este UC) desnecessário para esse objetivo. |
+| RN-01 | O mecanismo real e válido, hoje, para um `clinic_admin` adicionar um usuário à própria clínica é a criação direta de usuário (`POST /api/users/create`, a partir de `clinic/users/page.tsx`) — que **corretamente** conta usuários na coleção raiz `users` filtrada por `tenant_id` e bloqueia a criação ao atingir `max_users`. Este mecanismo **não passa** por `access_requests` em nenhum momento. Esta é exatamente a mesma rota de backend usada pelo System Admin em **UC-39**, distinguida apenas pela ausência do parâmetro `tenant_id_override` (o `clinic_admin` só consegue criar usuários para o próprio `tenant_id`, obtido do seu token). | Confirmado por leitura direta de `api/users/create/route.ts` — esclarecido pelo usuário como o caminho de produto correto, tornando o fluxo de "aprovar solicitação" (este UC) desnecessário para esse objetivo. |
 | RN-02 | `approveAccessRequest()` (chamada por esta tela) está marcada `DEPRECATED` no código-fonte e sempre retorna `success: false` — nenhuma lógica de aprovação real é executada quando o `clinic_admin` clica em "Aprovar". | Bug confirmado por leitura direta do código — evidência de que este caminho nunca foi finalizado/mantido. |
 | RN-03 | Não existe hoje nenhum mecanismo ativo na UI que crie uma `access_request` pendente já vinculada ao `tenant_id` de uma clínica existente — a função que faria essa correspondência por CNPJ/documento (`accessRequestService.createAccessRequest()`) é código morto. | Reforça a hipótese de que este fluxo nunca foi (ou deixou de ser) o caminho real de produto — mesma causa-raiz documentada em UC-03 (seção 14). |
 | RN-04 | `getTenantLimits()` calcula `current_users` a partir de uma consulta à subcoleção `tenants/{tenantId}/users`, nunca escrita por nenhum fluxo do sistema. Por isso, `current_users` é sempre `0` e `available_slots` é sempre igual a `max_users` nesta tela. | Bug confirmado por leitura direta do código — não é uma regra de negócio pretendida, é um defeito de implementação (consulta ao caminho errado no Firestore), e mais uma evidência de abandono deste fluxo. |
@@ -130,7 +132,8 @@ Provavelmente **zero historicamente**, não apenas "zero hoje" — a combinaçã
 ## 12. Casos de Uso Relacionados
 - **UC-02 (Aprovar Solicitação de Acesso, System Admin)** é o caso de uso do qual este UC-05 parecia, à primeira vista, ser uma variante — mas o esclarecimento do usuário indica que essa simetria não corresponde à intenção real de produto.
 - **UC-03 (Rejeitar Solicitação de Acesso)** já documenta `clinic_admin` como ator secundário na mesma tela (`/clinic/access-requests`) — a rejeição funciona corretamente ali (não depende de tenant/documento), diferente desta aprovação.
-- **"Criar Usuário da Clínica" (UC ainda não mapeado)** — `clinic/users/page.tsx` + `POST /api/users/create` — é, segundo esclarecimento do usuário, o mecanismo real e válido para o objetivo que esta tela aparentemente tentava cobrir. Candidato a ser o próximo UC mapeado do módulo de Administração da Clínica.
+- **"Criar Usuário da Clínica" (UC ainda não mapeado)** — `clinic/users/page.tsx` + `POST /api/users/create` — é, segundo esclarecimento do usuário, o mecanismo real e válido para o objetivo que esta tela aparentemente tentava cobrir. Candidato a um próximo UC do módulo de Administração da Clínica (fora do Portal Admin, portanto fora do escopo da varredura que produziu UC-38/UC-39).
+- **UC-39 (Criar Usuário Diretamente para uma Clínica via Painel Admin)** — agora mapeado — é o equivalente exato deste mecanismo ("Criar Usuário da Clínica"), mas acionado pelo **System Admin** a partir de `admin/tenants/[id]/page.tsx`, com `tenant_id_override`, para qualquer clínica do sistema. Ambos compartilham a mesma rota de backend (`POST /api/users/create`), reforçando ainda mais a conclusão deste documento de que a criação direta de usuário — não a "aprovação de solicitação" — é o mecanismo real de produto, seja pelo `clinic_admin` da própria clínica, seja pelo System Admin em nome de qualquer clínica.
 
 ---
 
@@ -138,7 +141,7 @@ Provavelmente **zero historicamente**, não apenas "zero hoje" — a combinaçã
 - `src/app/(clinic)/clinic/access-requests/page.tsx`
 - `src/lib/services/accessRequestService.ts` (`approveAccessRequest` — depreciada; `getTenantLimits` — bug confirmado; `createAccessRequest` — código morto)
 - `src/app/api/access-requests/[id]/approve/route.ts` (UC-02 — mecanismo diferente, sempre cria tenant novo)
-- `src/app/(clinic)/clinic/users/page.tsx` e `src/app/api/users/create/route.ts` — **mecanismo real e válido**, segundo esclarecimento do usuário, para adicionar usuários à própria clínica
+- `src/app/(clinic)/clinic/users/page.tsx` e `src/app/api/users/create/route.ts` — **mecanismo real e válido**, segundo esclarecimento do usuário, para adicionar usuários à própria clínica; mesma rota documentada, do lado do System Admin, em UC-39
 - `src/lib/services/clinicUserService.ts` (confirma onde usuários reais são armazenados: coleção raiz `users`, filtrada por `tenant_id`)
 - `src/types/index.ts` (interfaces `AccessRequest`, `TenantLimits`)
 
@@ -155,7 +158,7 @@ Este documento não assume nenhuma das duas — apenas reúne a evidência técn
 
 **[Pendência secundária, caso a opção (b) seja escolhida]** Se o mecanismo vier a ser implementado, o `role` atribuído ao novo usuário (`clinic_user`, presumivelmente) e a rota/lógica exata de aprovação precisariam ser definidos — nada disso está especificado hoje em lugar nenhum do código.
 
-**[Nota de rastreabilidade]** O fluxo real "Criar Usuário da Clínica" (`clinic/users/page.tsx` + `POST /api/users/create`) ainda não foi mapeado como UC formal nesta documentação — candidato natural ao próximo UC do módulo de Administração da Clínica.
+**[Nota de rastreabilidade — parcialmente resolvida em v2.1]** O fluxo real "Criar Usuário da Clínica" (`clinic/users/page.tsx` + `POST /api/users/create`) ainda não foi mapeado como UC formal nesta documentação, para o lado do `clinic_admin` — continua sendo candidato natural a um próximo UC do módulo de Administração da Clínica. O equivalente exato do lado do **System Admin** (mesma rota, com `tenant_id_override`, a partir de `admin/tenants/[id]/page.tsx`) foi mapeado nesta sessão como **UC-39**.
 
 ---
 
@@ -165,3 +168,4 @@ Este documento não assume nenhuma das duas — apenas reúne a evidência técn
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial. Documentou o Fluxo Principal como o comportamento **pretendido/projetado** (simétrico a UC-02, mas adicionando o usuário à clínica já existente em vez de criar um tenant novo), com três problemas confirmados por leitura direta do código destacados em Fluxos de Exceção e Regras de Negócio. |
 | 2.0 | 13/07/2026 | Guilherme Scandelari | **Reclassificação major**, motivada por esclarecimento do usuário: este UC não representa um design pretendido e quebrado, e sim um **candidato a mecanismo conceitualmente desnecessário/equivocado** — o caminho real para o `clinic_admin` adicionar usuários à própria clínica é a criação direta de usuário (`clinic/users/page.tsx` + `POST /api/users/create`, confirmado como funcional e correto, inclusive na contagem de usuários por `tenant_id`), não a aprovação de uma "solicitação de acesso". Documento reestruturado: título e blockquote reclassificam o UC; Fluxo Principal e Pós-condições deixaram de descrever um "comportamento pretendido" e passaram a descrever o que o código tenta fazer, sem recomendá-lo; seção 8 (Fluxos de Exceção) reorganizada como "evidências técnicas" de que o botão provavelmente nunca funcionou nem foi usado; Regras de Negócio reescritas (nova RN-01 aponta o mecanismo real); seção 14 registra a decisão de produto pendente (remover vs. implementar), sem assumir nenhuma das duas; adicionada referência ao UC ainda não mapeado "Criar Usuário da Clínica". |
+| 2.1 | 15/07/2026 | Guilherme Scandelari | Adicionada referência cruzada a **UC-39 (Criar Usuário Diretamente para uma Clínica via Painel Admin)**, recém-mapeado — equivalente exato de "Criar Usuário da Clínica" do lado do System Admin, compartilhando a mesma rota `POST /api/users/create` (RN-01 atualizada, seção 12 e seção 14 atualizadas). A pendência sobre o lado do `clinic_admin` (`clinic/users/page.tsx`) permanece em aberto, fora do escopo desta sessão (limitada ao Portal Admin). |

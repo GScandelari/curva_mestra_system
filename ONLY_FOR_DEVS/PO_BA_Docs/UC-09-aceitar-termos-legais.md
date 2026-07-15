@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Um usuário autenticado — seja um usuário existente notificado de um novo termo obrigatório publicado (`/accept-terms`), seja um usuário em onboarding de uma nova clínica aceitando termos pela primeira vez (`/clinic/setup/terms`) — deve aceitar todos os documentos legais ativos e obrigatórios antes de continuar usando o sistema. Um componente global (`TermsInterceptor`) decide, em toda navegação, se há termos pendentes e redireciona automaticamente para a variante correta.
 
@@ -16,13 +16,18 @@
 ```mermaid
 flowchart LR
     Usuario([👤 Usuário autenticado\nexistente ou em onboarding])
-    SystemAdmin([👤 System Admin\npublica/atualiza documentos\nUC ainda não mapeado])
+    SystemAdmin([👤 System Admin])
 
     subgraph Sistema["Curva Mestra"]
+        UC33(("UC-33\nCadastrar Documento\nLegal"))
+        UC34(("UC-34\nEditar/Publicar/Despublicar\ne Excluir Documento Legal"))
         UC09(("UC-09\nAceitar Termos Legais"))
     end
 
-    SystemAdmin -.->|gerencia legal_documents| UC09
+    SystemAdmin --> UC33
+    SystemAdmin --> UC34
+    UC33 -.->|gera documento em\nlegal_documents| UC09
+    UC34 -.->|pode reabrir pendência\n(nova versão) ou apagar\ndocumento já aceito| UC09
     Usuario --> UC09
 ```
 
@@ -34,7 +39,7 @@ flowchart LR
 **Usuário autenticado** (qualquer role) com pelo menos um documento legal ativo e obrigatório ainda não aceito, ou aceito em uma versão desatualizada.
 
 ### 2.2 Atores Secundários / Sistemas Externos
-**System Admin** — publica/atualiza documentos na coleção `legal_documents` através de `admin/legal-documents/*` (candidato a UC próprio — "Gerenciar Documentos Legais" — ainda não mapeado formalmente nesta documentação).
+**System Admin** — publica/atualiza/exclui documentos na coleção `legal_documents` através de `admin/legal-documents/*`, mapeado formalmente em **UC-33 (Cadastrar Documento Legal)** e **UC-34 (Editar, Publicar/Despublicar e Excluir Documento Legal)**.
 
 ---
 
@@ -110,7 +115,7 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 ### 8a. [Bug confirmado] Loop de redirecionamento por divergência de critério de versão (a partir do passo 4 de qualquer variante)
 1. `usePendingTerms` (que alimenta o `TermsInterceptor`) considera um documento pendente comparando **versão**: `acceptedVersion !== doc.version`.
 2. As páginas `/accept-terms` e `/clinic/setup/terms`, ao carregar, usam um critério **diferente e mais simples**: apenas verificam se existe **qualquer** registro de aceite para aquele `document_id`, independentemente da versão aceita (`acceptedDocs.has(doc.id)`).
-3. Cenário confirmado: um System Admin edita um documento "ativo" já aceito por um usuário (`LegalDocumentForm`, modo "edit", usa `updateDoc` sobre o **mesmo ID** do Firestore e permite alterar o campo `version` livremente, sem nenhum versionamento automático), mantendo `required_for_existing_users: true`. O usuário já possui um registro de aceite para aquele `document_id` (da versão antiga).
+3. Cenário confirmado: um System Admin edita um documento "ativo" já aceito por um usuário (`LegalDocumentForm`, modo "edit", usa `updateDoc` sobre o **mesmo ID** do Firestore e permite alterar o campo `version` livremente, sem nenhum versionamento automático — ver UC-34, RN-05), mantendo `required_for_existing_users: true`. O usuário já possui um registro de aceite para aquele `document_id` (da versão antiga).
 4. `TermsInterceptor` detecta a pendência (versão divergente) e redireciona para `/accept-terms`.
 5. `/accept-terms` carrega, encontra o `document_id` já presente no seu `Set` de aceites (independente da versão) e considera `pendingDocs` vazio.
 6. A página redireciona para `/` — o `TermsInterceptor` roda novamente, ainda detecta a mesma pendência (a versão continua divergente) e redireciona de volta para `/accept-terms`.
@@ -137,6 +142,11 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 2. Sistema exibe um toast destructive com a mensagem crua do Firestore (`error.message`), sem tradução — ver RNF-03.
 3. Caso de uso retorna à etapa anterior (carregamento) ou permanece no formulário (gravação).
 
+### 8f. [Achado — UC-34] Documento excluído permanentemente pelo System Admin
+1. Um System Admin exclui um documento (UC-34, hard delete, sem checagem de aceites existentes) que já havia sido aceito por um ou mais usuários.
+2. O documento deixa de existir em `legal_documents` e para de aparecer em qualquer consulta futura (inclusive nas queries deste UC) — deixa de contar como pendência, mesmo que ainda existam registros históricos em `user_document_acceptances` referenciando o `document_id` agora inexistente.
+3. Nenhum novo aceite pode ser solicitado para esse documento; o histórico de quem aceitou permanece, mas sem o conteúdo original correspondente (ver UC-34, RN-03).
+
 ---
 
 ## 9. Regras de Negócio Relacionadas
@@ -147,7 +157,7 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 | RN-02 | **[Bug confirmado]** As duas páginas de aceite (`/accept-terms`, `/clinic/setup/terms`) usam um critério mais simples e incorreto: qualquer aceite pré-existente para o mesmo `document_id` (independente da versão) já é suficiente para considerar o documento "não pendente". Isso diverge do critério de RN-01 e gera um loop de redirecionamento confirmado (Fluxo de Exceção 8a). | Bug confirmado por leitura e comparação direta de `usePendingTerms.ts`, `accept-terms/page.tsx` e `clinic/setup/terms/page.tsx` — não corrigido nesta rodada, apenas documentado. |
 | RN-03 | **[Bug confirmado]** `usePendingTerms` considera um documento pendente se `required_for_registration` **ou** `required_for_existing_users` for `true`; já `/accept-terms` filtra apenas por `required_for_existing_users` e `/clinic/setup/terms` filtra apenas por `required_for_registration`. Um documento pendente por um critério, mas buscado pela página "errada" para o contexto do usuário, nunca aparece na lista. | Bug confirmado por comparação direta das três queries — mesmo efeito de loop do RN-02 (Fluxo de Exceção 8b); não corrigido nesta rodada. |
 | RN-04 | O aceite é tudo-ou-nada por tela: o botão de confirmação só é habilitado quando todos os documentos pendentes exibidos estão marcados; não é possível aceitar parcialmente. | Confirmado pelo `disabled={... || !documents.every((doc) => acceptances[doc.id])}`, presente em ambas as páginas. |
-| RN-05 | Registros em `user_document_acceptances` são imutáveis por regra do Firestore (`allow update, delete: if false`) — cada aceite é permanente; um novo aceite (nova versão) sempre cria um novo documento, nunca sobrescreve o anterior. | Confirmado em `firestore.rules` — trilha de auditoria legal (rastreabilidade de quem aceitou qual versão e quando). |
+| RN-05 | Registros em `user_document_acceptances` são imutáveis por regra do Firestore (`allow update, delete: if false`) — cada aceite é permanente; um novo aceite (nova versão) sempre cria um novo documento, nunca sobrescreve o anterior. Essa imutabilidade, no entanto, não impede que o **documento legal original** referenciado por esses aceites seja excluído permanentemente (ver UC-34, RN-03) — a trilha de auditoria sobrevive, mas sem o conteúdo aceito. | Confirmado em `firestore.rules` — trilha de auditoria legal (rastreabilidade de quem aceitou qual versão e quando); risco de órfãos detalhado em UC-34. |
 | RN-06 | A Variante B exige clicar em "Ler {título} Completo" para ver o documento por inteiro (o conteúdo inline é truncado em 500 caracteres), mas não impede marcar o checkbox e aceitar sem nunca ter aberto esse Dialog — não há nenhuma trava técnica que force a leitura completa. A Variante A já exibe o conteúdo completo inline (com scroll, sem truncamento). | Confirmado por leitura de ambos os componentes — diferença real de UX entre as duas variantes, sem exigência técnica de leitura integral em nenhuma delas. |
 | RN-07 | O campo `ip_address` é sempre gravado como `null` nos dois pontos de entrada (comentário no próprio código: "Pode ser capturado via API") — o endereço IP de quem aceitou nunca é registrado, apesar do campo existir no schema. | Confirmado por leitura direta — campo presente mas nunca preenchido, em ambas as páginas. |
 
@@ -169,7 +179,8 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 ---
 
 ## 12. Casos de Uso Relacionados
-- **"Gerenciar Documentos Legais" (System Admin, `admin/legal-documents/*`)** é o UC ainda não mapeado que cria/edita os documentos consumidos aqui — candidato ao módulo de Administração do Sistema.
+- **UC-33 (Cadastrar Documento Legal)** — System Admin cria os documentos consumidos aqui.
+- **UC-34 (Editar, Publicar/Despublicar e Excluir Documento Legal)** — System Admin altera status/versão/obrigatoriedade dos documentos (podendo reabrir pendência de aceite, RN-05 daquele UC) ou excluí-los permanentemente (Fluxo de Exceção 8f, RN-05 deste UC).
 - **UC-02 (Aprovar Solicitação de Acesso)** é pré-condição indireta da Variante B — só existe um `clinic_admin` em onboarding depois que UC-02 cria o tenant e o usuário.
 
 ---
@@ -179,7 +190,7 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 - `src/app/(clinic)/clinic/setup/terms/page.tsx`
 - `src/components/auth/TermsInterceptor.tsx`
 - `src/hooks/usePendingTerms.ts`
-- `src/components/admin/LegalDocumentForm.tsx` (confirma que "editar" reutiliza o mesmo ID do documento e permite alterar `version` livremente, sem versionamento automático)
+- `src/components/admin/LegalDocumentForm.tsx` (confirma que "editar" reutiliza o mesmo ID do documento e permite alterar `version` livremente, sem versionamento automático — ver UC-34)
 - `src/app/(clinic)/clinic/profile/page.tsx` (exibição somente-leitura do histórico de aceites do próprio usuário — fora do escopo deste UC)
 - `src/types/index.ts` (`LegalDocument`, `UserDocumentAcceptance`)
 - `firestore.rules` (regras de `legal_documents` e `user_document_acceptances`)
@@ -191,7 +202,7 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 1. **[Bug confirmado — sugerido como prioridade alta]** RN-02/Fluxo 8a — loop de redirecionamento quando um documento "ativo" já aceito tem sua versão alterada por um System Admin. Não confirmado pelo usuário como escopo de correção.
 2. **[Bug confirmado]** RN-03/Fluxo 8b — divergência de filtro `required_for_registration`/`required_for_existing_users` entre `usePendingTerms` e as páginas de aceite, com o mesmo efeito de loop.
 3. **[Observação]** RN-07 — `ip_address` nunca é de fato capturado, apesar de existir no schema; pode ser relevante dependendo do requisito legal/de compliance real por trás desse campo.
-4. **[Nota de rastreabilidade]** "Gerenciar Documentos Legais" (System Admin) ainda não foi mapeado como UC formal nesta documentação.
+4. **[Achado — UC-34]** RN-05/Fluxo 8f — exclusão permanente de documentos legais já aceitos (sem checagem de dependências) é um risco de compliance identificado durante o mapeamento de UC-34; decisão de produto pendente naquele UC.
 
 ---
 
@@ -200,3 +211,4 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial. Documenta as duas variantes do mesmo UC (usuário existente via `/accept-terms`; onboarding via `/clinic/setup/terms`), o mecanismo de decisão global (`TermsInterceptor` + `usePendingTerms`), e dois bugs confirmados de divergência de critério entre esse mecanismo e as páginas de aceite, que juntos podem causar um loop de redirecionamento em cenários de revisão de documento (RN-02, RN-03). |
+| 1.1 | 15/07/2026 | Guilherme Scandelari | Atualização de referências cruzadas: o módulo "Gerenciar Documentos Legais" (System Admin), antes citado como "ainda não mapeado", foi mapeado como UC-33 (Cadastrar Documento Legal) e UC-34 (Editar, Publicar/Despublicar e Excluir Documento Legal). Diagrama, seções 2.2, 12 e 13 atualizados com as referências. Adicionado Fluxo de Exceção 8f e nota em RN-05 sobre o achado crítico de UC-34 (exclusão permanente de documento legal já aceito, sem checagem de `user_document_acceptances`), e item correspondente na seção 14. |

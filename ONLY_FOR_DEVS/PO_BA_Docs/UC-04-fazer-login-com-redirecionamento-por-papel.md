@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.1
+**Versão:** 1.1.1
 
 > Um usuário já cadastrado e aprovado (system_admin, clinic_admin, clinic_user ou clinic_consultant) autentica-se com email e senha e é redirecionado automaticamente para a área correta do sistema, passando antes por checagens de aprovação/ativação, troca de senha obrigatória e status da clínica.
 
@@ -47,7 +47,7 @@ flowchart LR
 - O usuário possui uma conta já criada no Firebase Auth, com custom claims definidas (via UC-02 — aprovação de solicitação — ou por outro fluxo administrativo, ex.: cadastro de consultor).
 - O usuário conhece seu e-mail e sua senha atual (definitiva ou temporária).
 - Para `clinic_consultant`, o `tenant_id` da claim é tipicamente `null` (atuação multi-tenant via `authorized_tenants`), o que o exclui, na prática, da checagem de clínica ativa do passo 8.
-- (Contextual) O usuário pode chegar a `/login` após um timeout de sessão por inatividade de 15 minutos, mecanismo externo (`useSessionTimeout`, não mapeado como UC nesta documentação).
+- (Contextual) O usuário pode chegar a `/login` após um timeout de sessão por inatividade de 15 minutos, mecanismo externo (`useSessionTimeout`, não mapeado como UC nesta documentação). Esse valor de 15 minutos é fixo (hardcoded) no próprio `useSessionTimeout.ts` — não é lido de nenhuma configuração administrativa (ver RN-07).
 
 ---
 
@@ -145,6 +145,7 @@ O usuário acessa `/login` e submete o formulário com email e senha. (Variaçõ
 | RN-04 | O tratamento de clínica inativa é diferenciado por role: `clinic_user` é desconectado e bloqueado com mensagem informativa (sem acesso a nenhuma tela do sistema); `clinic_admin` é redirecionado para `/clinic/my-clinic`, mantendo acesso a uma tela específica. | Permite que o responsável pela clínica (`clinic_admin`) tenha visibilidade/ação sobre a própria suspensão, enquanto usuários comuns ficam bloqueados. |
 | RN-05 | `requirePasswordChange` é uma custom claim distinta do link de redefinição de senha gerado na aprovação inicial (UC-02, RN-03). Ela é setada manualmente por um System Admin ao redefinir a senha de um usuário ou consultor já existente (`/api/users/{id}/set-password`, `/api/consultants/{id}/set-password`), não pelo fluxo de aprovação em si. | São dois mecanismos distintos de "senha temporária", com origens e telas de destino diferentes (link de redefinição do Firebase vs. tela própria `/change-password`) — importante não confundir os dois. |
 | RN-06 | Mensagens de erro de autenticação são traduzidas para português a partir do código de erro do Firebase Auth (ver Fluxo de Exceção 8a), com fallback para a mensagem original do Firebase (ou uma mensagem genérica) quando o código não é reconhecido. | Usabilidade — evita expor mensagens técnicas em inglês ao usuário final. |
+| RN-07 | **[Achado crítico, confirmado em UC-35]** O timeout de sessão por inatividade citado nas Pré-condições (`useSessionTimeout.ts`, 15 minutos) usa uma constante fixa (`hardcoded`) no próprio código — não lê o campo `session_timeout_minutes` do documento `system_settings/global` (tela "Configurações do Sistema", UC-35). Alterar esse valor naquela tela administrativa não tem, hoje, nenhum efeito sobre o tempo real de expiração de sessão de nenhum usuário. | Confirmado por leitura completa de `src/hooks/useSessionTimeout.ts` (`const sessionTimeoutMinutes = 15;`, sem leitura de Firestore) e por busca exaustiva no código-fonte, documentada em UC-35 (RN-06). |
 
 ---
 
@@ -165,6 +166,7 @@ Muito alta — ocorre a cada sessão de uso do sistema, por qualquer usuário, p
 
 ## 12. Casos de Uso Relacionados
 - **UC-02 (Aprovar Solicitação de Acesso)** é pré-condição indireta: só é possível fazer login com sucesso e liberar o acesso após a aprovação criar o usuário no Firebase Auth com claims válidas (`role`, `active`).
+- **UC-35 (Editar Configurações Globais do Sistema)** — a tela administrativa daquele UC expõe um campo "Tempo de sessão (minutos)" (`session_timeout_minutes`) que, por sua descrição, sugere controlar o timeout de inatividade citado nas Pré-condições deste UC-04. **Não há, hoje, uma relação funcional real entre os dois**: `useSessionTimeout.ts` usa um valor fixo de 15 minutos, ignorando o que é configurado naquela tela (RN-07) — a relação existe apenas como intenção de produto ainda não implementada.
 - Não há relação formal `<<include>>`/`<<extend>>` com um eventual UC de "Trocar Senha Obrigatória" ou "Expirar Sessão por Inatividade" — esses fluxos existem no código (`/change-password`, `useSessionTimeout`), mas ainda não foram mapeados como casos de uso formais nesta documentação (ver seção 14).
 
 ---
@@ -190,6 +192,8 @@ Muito alta — ocorre a cada sessão de uso do sistema, por qualquer usuário, p
 
 **[Gap confirmado de segurança/consistência]** Investigado `src/components/auth/ProtectedRoute.tsx` — componente que protege todas as rotas internas do app (fora de `/login`). Seu `useEffect` faz apenas estas checagens: (1) `!user` → `/login`; (2) `user && !claims` → `/waiting-approval`; (3) `claims.active === false` → `/waiting-approval`; (4) role fora de `allowedRoles` → `redirectToDashboard(role)`. **Ele não verifica `claims.requirePasswordChange` em nenhum momento, e não verifica o status da clínica (`tenants/{tenant_id}`) em nenhum momento.** Ou seja, as checagens de senha temporária pendente (passo 7 / RN-02) e de clínica suspensa (passo 8 / RN-03, RN-04) existem **apenas** no fluxo de submissão do formulário em `/login` (Fluxo Principal) — um usuário com uma sessão Firebase já ativa (token válido, sessão restaurada pelo app) que navegue diretamente para qualquer página protegida, sem passar pelo formulário de login, **não é bloqueado** por senha temporária pendente nem por clínica suspensa. Este é um gap real de segurança/consistência, confirmado por leitura direta do código (não mais uma hipótese não investigada). Não foi confirmado pelo usuário como escopo de correção nesta rodada de documentação; registrado aqui para avaliação e priorização futura.
 
+**[RN-07, decisão de produto pendente]** O campo `session_timeout_minutes` (tela de Configurações do Sistema, UC-35) não é lido por `useSessionTimeout.ts` — decisão pendente sobre se essa leitura deveria ser implementada (tornando o timeout de sessão configurável de fato), ou se o campo deveria ser removido da tela de configurações caso o valor fixo de 15 minutos seja a decisão de produto definitiva.
+
 ---
 
 ## 15. Histórico de Versões
@@ -198,3 +202,4 @@ Muito alta — ocorre a cada sessão de uso do sistema, por qualquer usuário, p
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial, mapeada a partir da leitura direta de `login/page.tsx`, `useAuth.ts`, `change-password/page.tsx`, `waiting-approval/page.tsx`, `dashboard/page.tsx` e `useSessionTimeout.ts`. Corrigidas duas suposições do levantamento inicial que não se confirmaram no código: (1) não existem rotas `/suspended/admin` ou `/suspended/user` — documentado o comportamento real (mensagem inline + `signOut` para `clinic_user`; redirecionamento para `/clinic/my-clinic` para `clinic_admin`); (2) o redirecionamento de `clinic_consultant` não é direto — passa por `/dashboard` antes de chegar a `/consultant/dashboard` (sinalizado como possível gap na seção 14). |
 | 1.1 | 13/07/2026 | Guilherme Scandelari | Investigado `src/components/auth/ProtectedRoute.tsx` (adicionado às Referências) para fechar a pendência sobre a assimetria de checagens entre o fluxo de submissão do login e o acesso direto a páginas protegidas. Confirmado: a pendência deixou de ser uma "observação de risco não investigado" e passou a ser um **gap real confirmado** — `ProtectedRoute.tsx` não verifica `requirePasswordChange` nem o status da clínica em nenhuma rota interna do app. Confirmado também que `ProtectedRoute.tsx` já possui um branch direto para `clinic_consultant` em `redirectToDashboard()` (diferente de `redirectByRole` do `/login`, que não tem esse branch) — mencionado na pendência sobre o salto duplo do consultor como uma inconsistência entre os dois pontos de redirecionamento do sistema. |
+| 1.1.1 | 15/07/2026 | Guilherme Scandelari | Correção pontual: adicionada RN-07 e nota em "Casos de Uso Relacionados" documentando o achado crítico confirmado em UC-35 (Editar Configurações Globais do Sistema) — o campo `session_timeout_minutes` daquela tela administrativa não é lido por `useSessionTimeout.ts`, que usa um valor fixo de 15 minutos hardcoded. Atualizada também a nota contextual das Pré-condições. Nenhuma mudança de escopo ou reestruturação; apenas referência cruzada a um achado já investigado e documentado em UC-35. |

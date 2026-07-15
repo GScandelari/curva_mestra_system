@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação / Aquisição de Clientes
-**Versão:** 2.0
+**Versão:** 2.0.1
 
 > Um visitante (especialista HOF que opera uma clínica, ou consultor comercial Rennova) preenche o formulário de registro para solicitar acesso à plataforma Curva Mestra, informando seu perfil, dados de contato e domínio de atuação — sem definir senha nesta etapa. A solicitação fica pendente até ser analisada por um System Admin (ver UC-02 e UC-03); a senha de acesso só é definida depois da aprovação, via link de redefinição enviado por e-mail (UC-02).
 
@@ -137,6 +137,7 @@ O visitante acessa a rota pública `/register` com a intenção de solicitar ace
 | RN-07 | `council_number` (CRM/CRO ou ID Rennova) e `business_name` (nome da clínica ou região/carteira) são obrigatórios, mas o backend só verifica a presença desses campos — nenhuma validação de formato ou tamanho mínimo além da checagem de 3 caracteres feita no frontend. | Não há regra de negócio de formato definida no código atual para esses dois campos (ex.: nenhum padrão de CRM/CRO é validado). |
 | RN-08 | `consultant_reference` e `volume` só são exibidos e enviados quando `role === "especialista"`; ambos são opcionais e não têm nenhuma validação no backend — inclusive `volume` não é validado contra a lista de opções fixas exibidas na tela (a API aceita qualquer string nesse campo). | Dados complementares de qualificação comercial, exclusivos do perfil especialista; sem validação de backend implementada atualmente. |
 | RN-09 | Não há checagem de duplicidade de solicitação pendente para o mesmo e-mail nesta versão da API (`POST /api/access-requests`) — um mesmo e-mail pode gerar múltiplas solicitações pendentes simultâneas. | Comportamento atual (as-is). Uma verificação equivalente existe apenas em uma função de serviço (`accessRequestService.createAccessRequest`) que não é chamada por nenhuma tela hoje — código morto (ver seção 14). |
+| RN-10 | **[Achado crítico, confirmado em UC-35]** O formulário `/register` e a API `POST /api/access-requests` não verificam, em nenhum momento, o campo `registration_enabled` do documento `system_settings/global` (tela "Configurações do Sistema", UC-35). Ou seja, desligar "Permitir novos registros" naquela tela administrativa não impede, hoje, nenhum visitante de acessar `/register` nem de submeter uma solicitação de acesso — apesar da própria tela de configurações descrever esse campo como controle de bloqueio de novos registros. | Confirmado por leitura completa de `register/page.tsx` e `api/access-requests/route.ts` (nenhuma referência a `registration_enabled` ou a `system_settings`) e por busca exaustiva no código-fonte, documentada em UC-35 (RN-05). |
 
 ---
 
@@ -157,6 +158,7 @@ Ocasional — ocorre a cada novo interessado (especialista HOF ou consultor Renn
 
 ## 12. Casos de Uso Relacionados
 - **UC-02 (Aprovar Solicitação de Acesso)** e **UC-03 (Rejeitar Solicitação de Acesso)** dependem de uma solicitação criada por este caso de uso. Não há relação formal `<<include>>`/`<<extend>>` — trata-se de uma dependência sequencial: a solicitação pendente criada aqui é pré-condição de UC-02 e UC-03. O `role` definido neste UC alimenta diretamente a regra de limite de usuários aplicada em UC-02 (RN-02).
+- **UC-35 (Editar Configurações Globais do Sistema)** — a tela administrativa daquele UC expõe um switch "Permitir novos registros" (`registration_enabled`) que, por sua descrição, sugere controlar o acesso a este UC-01. **Não há, hoje, uma relação funcional real entre os dois**: este fluxo não verifica `registration_enabled` em nenhum momento (RN-10) — a relação existe apenas como intenção de produto ainda não implementada.
 
 ---
 
@@ -177,6 +179,8 @@ Ocasional — ocorre a cada novo interessado (especialista HOF ou consultor Renn
 
 **[Registrado para conhecimento — relevante para UC-05, pausado]** A função `accessRequestService.createAccessRequest()` (que faria correspondência por CPF/CNPJ com um tenant existente, checaria vagas disponíveis e duplicidade de solicitação pendente) é código morto — não é chamada por nenhuma página hoje. Isso é relevante para o UC-05 (Aprovar Solicitação de Acesso pela Própria Clínica), atualmente pausado até esta revisão de UC-01 ser concluída.
 
+**[RN-10, decisão de produto pendente]** `registration_enabled` (tela de Configurações do Sistema, UC-35) não bloqueia, hoje, o acesso a este fluxo — decisão pendente sobre se essa checagem deveria ser implementada em `register/page.tsx`/`POST /api/access-requests`, ou se o campo deveria ser removido da tela de configurações caso a intenção de bloqueio seja descartada.
+
 Nenhuma pendência aberta quanto à modelagem dos dois perfis em si: o usuário confirmou que "especialista" e "consultor" devem ser tratados como variação de dado dentro deste mesmo UC, sem fluxo alternativo dedicado — mesmo padrão adotado na versão anterior deste documento para os antigos tipos de conta (CNPJ/CPF).
 
 ---
@@ -189,3 +193,4 @@ Nenhuma pendência aberta quanto à modelagem dos dois perfis em si: o usuário 
 | 1.1 | 13/07/2026 | Guilherme Scandelari | Registrada a remoção definitiva do fluxo `/activate` (código de 8 dígitos) do código-fonte (PR #178, branch `chore/remove-obsolete-activate-flow`) — deixou de ser "fora de escopo" e passou a ser "não existe mais"; documentado o único caminho de onboarding válido hoje (registro → aprovação em UC-02 → definição de senha via link → login). Corrigida a RN-04: confirmado, por leitura do código (`approve/route.ts`), que a senha da solicitação não é usada para criar o usuário Auth em UC-02 (mecanismo real: senha temporária + link de redefinição). |
 | 1.1.1 | 13/07/2026 | Guilherme Scandelari | Correção estrutural: removida da seção 14 a menção detalhada à remoção do fluxo `/activate` — não se tratava de uma pergunta em aberto nem de uma decisão pendente, e sim de um fato já consumado (PR #178 mergeado), incompatível com o propósito da seção 14. O registro do fato permanece de forma enxuta apenas no Histórico de Versões (linha v1.1, acima). Nenhum conteúdo factual novo foi adicionado nesta revisão. |
 | 2.0 | 13/07/2026 | Guilherme Scandelari | **Reescrita completa** do documento após confirmar, por leitura direta de `register/page.tsx` e `api/access-requests/route.ts`, que o formulário real mudou radicalmente desde a versão anterior — commit `6402647` ("unify access request form — remove password, align /register with landing", 29/05/2026), anterior à própria data de criação registrada deste UC. O formulário não coleta mais CPF/CNPJ nem senha; passou a coletar um `role` ("especialista"/"consultor"), `full_name`, `council_number`, `email`, `phone`, `business_name` e, opcionalmente para especialistas, `consultant_reference`/`volume`. Todas as seções foram reescritas: Atores (perfil ao invés de tipo de documento), Pré/Pós-condições, Fluxo Principal, Fluxos Alternativos/Exceção, e Regras de Negócio (RN-01 a RN-09, incluindo divergências reais confirmadas entre validação de frontend e de backend). Registradas em Perguntas em Aberto as pendências de revisão de UC-02 (uso de `document_type`/`address` que hoje vêm sempre em fallback/vazio) e do UC-05 (pausado até esta correção). |
+| 2.0.1 | 15/07/2026 | Guilherme Scandelari | Correção pontual: adicionada RN-10 e nota em "Casos de Uso Relacionados" documentando o achado crítico confirmado em UC-35 (Editar Configurações Globais do Sistema) — o campo `registration_enabled` daquela tela administrativa não é verificado por este fluxo, apesar de sua descrição sugerir esse controle. Nenhuma mudança de escopo ou reestruturação; apenas referência cruzada a um achado já investigado e documentado em UC-35. |

@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Administração do Sistema (Gestão de Consultores)
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Um System Admin edita os dados de um consultor (`admin/consultants/[id]/page.tsx`) e/ou alterna seu status entre "Ativo" e "Suspenso" na listagem (`admin/consultants/page.tsx`) — ambas as ações usam o mesmo endpoint, `PUT /api/consultants/[id]`, mesmo padrão de mesclagem já usado no UC-22. **Achado crítico confirmado:** "Suspender" um consultor, como implementado hoje, **não bloqueia login nem revoga acesso a nenhuma clínica** — é uma alteração puramente cosmética no documento Firestore, sem qualquer efeito sobre a conta no Firebase Auth, os custom claims (`active`, `authorized_tenants`), ou a regra de acesso do Firestore. Existe uma rota (`DELETE`) que faz a desativação "de verdade" (desabilita a conta no Auth e zera `active` nos claims) — mas ela é código morto, nunca chamada por nenhuma tela.
 
@@ -155,7 +155,8 @@ Ocasional — edição/suspensão de consultores não é uma operação do dia a
 - **UC-28 (Cadastrar Consultor)** — pré-condição.
 - **UC-22 (Editar, Desativar e Reativar Clínica)** — mesmo padrão de mesclagem de edição+status em um único UC, e achado estruturalmente similar (mecanismo "fraco" é o realmente usado; o mecanismo "forte"/correto está implementado, mas órfão).
 - **UC-23/UC-24 a UC-27** — a filtragem por `status === 'active'` usada na busca de consultores (RN-01) afeta diretamente esses fluxos: um consultor "suspenso" por este UC deixa de ser encontrável para **novos** vínculos, mesmo mantendo os vínculos já existentes intactos.
-- **[Não mapeado, fora de escopo]** "Redefinir Senha do Consultor via Link" e "Definir Senha do Consultor Manualmente" — ambos presentes na mesma tela de detalhe (`admin/consultants/[id]/page.tsx`, seção "Gerenciamento de Senha"), usando rotas próprias (`api/consultants/[id]/reset-password`, `api/consultants/[id]/set-password`) — candidatos a UCs futuros.
+- **UC-08 (System Admin Envia Link de Redefinição de Senha)** — cobre integralmente a funcionalidade "Redefinir Senha via Link" da mesma tela de detalhe (`admin/consultants/[id]/page.tsx`, seção "Gerenciamento de Senha"), incluindo a rota `api/consultants/[id]/reset-password`. Não recebeu UC dedicado (decisão confirmada: criar um UC exclusivo para consultores duplicaria o conteúdo já coberto ali, já que UC-08 documenta o mecanismo genericamente para usuários e consultores).
+- **UC-30 (Definir Senha do Consultor Manualmente)** — cobre a segunda ação da mesma seção "Gerenciamento de Senha" (`api/consultants/[id]/set-password`): define uma nova senha diretamente, sem e-mail.
 
 ---
 
@@ -182,3 +183,4 @@ Ocasional — edição/suspensão de consultores não é uma operação do dia a
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero. Confirmado 1 UC (mesmo padrão do UC-22), mesclando Editar (tela de detalhe) e Suspender/Reativar (tela de listagem), ambos usando `PUT /api/consultants/[id]`. Achado crítico: a suspensão real do consultor (`status: 'suspended'`) não bloqueia login nem revoga acesso a clínicas — não toca em Firebase Auth, custom claims nem `authorized_tenants` (RN-01); a rota `DELETE`, que implementaria a desativação real, está confirmadamente órfã (RN-02). Confirmado também que editar o e-mail não quebra vínculos existentes, mas não envia nenhuma notificação ao consultor (RN-03). Validação de Bearer token confirmada correta nas três rotas (RN-04), sem exceção ao padrão observado desde o UC-21. |
+| 1.1 | 14/07/2026 | Guilherme Scandelari | Seção 12 atualizada: removida a referência genérica "[Não mapeado, fora de escopo]" para "Redefinir Senha via Link" e "Definir Senha Manualmente" — a primeira passou a apontar para UC-08 (decisão confirmada de não criar um UC-30 dedicado, por duplicar conteúdo já coberto ali), e a segunda passou a apontar para o novo UC-30, recém-mapeado. |
