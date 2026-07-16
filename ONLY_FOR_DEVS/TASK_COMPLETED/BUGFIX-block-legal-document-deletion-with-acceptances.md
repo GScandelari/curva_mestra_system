@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 15/07/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Scandelari
+**Data de Conclusão:** 16/07/2026
 **Tipo:** Bugfix
 **Branch sugerida:** `bugfix/block-legal-document-deletion-with-acceptances`
 **Prioridade:** Alta
-**Versão:** 1.0
+**Versão:** 1.1
 
 > `handleDelete` (`admin/legal-documents/page.tsx`) executa `deleteDoc` sobre `legal_documents/{id}` sem nenhuma checagem prévia de registros em `user_document_acceptances` referenciando aquele `document_id`. Como esses registros são imutáveis (`allow update, delete: if false`) e nunca são removidos em cascata, excluir um documento já aceito deixa um histórico de auditoria órfão — o aceite continua existindo, mas o conteúdo aceito desaparece. Correção: consultar `user_document_acceptances` por `document_id` (`limit(1)`) antes do `deleteDoc` e bloquear a exclusão, com mensagem explicativa, se houver qualquer aceite.
 
@@ -383,3 +385,4 @@ N/A — não há API route envolvida; toda a leitura/escrita é feita client-sid
 | Versão | Data | Autor | O que mudou |
 |---|---|---|---|
 | 1.0 | 15/07/2026 | Doc Writer (Claude) | Versão inicial. Spec gerada a partir do item `UC-34-RN-03` do mapa de bugs (decisão do PO já tomada: bloquear exclusão quando houver aceites, opção (a) da Seção 14 do UC-34), com leitura completa de `admin/legal-documents/page.tsx`, `UC-34`, `UC-09` (RN-05), `types/index.ts` e `firestore.rules`/`firestore.indexes.json`. Confirmado que a consulta de checagem (`where('document_id', '==', ...)`, `limit(1)`) não exige novo índice composto, por comparação com query equivalente já existente em `accept-terms/page.tsx`. |
+| 1.1 | 16/07/2026 | Guilherme Scandelari | Task concluída — movida para TASK_COMPLETED |
