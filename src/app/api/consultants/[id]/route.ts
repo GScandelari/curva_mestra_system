@@ -181,8 +181,11 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
 
     // Desativar custom claims do usuário
     if (consultantData?.user_id) {
+      const userRecord = await adminAuth.getUser(consultantData.user_id);
+      const currentClaims = userRecord.customClaims || {};
+
       await adminAuth.setCustomUserClaims(consultantData.user_id, {
-        ...consultantData,
+        ...currentClaims,
         active: false,
       });
 
