@@ -3,7 +3,7 @@
 **Projeto:** Curva Mestra System  
 **Stack:** TypeScript · Next.js 15 · Firebase · SaaS Multi-Tenant  
 **Repositório:** `GScandelari/curva_mestra_system`  
-**Atualizado em:** Abril/2026  
+**Atualizado em:** Julho/2026  
 **Idioma:** Português (pt-BR)
 
 > **Este documento é a fonte única de verdade (_single source of truth_) para todos os desenvolvedores que colaboram no projeto.** Siga as práticas aqui descritas sem exceções. Dúvidas? Abra uma issue com a label `documentation`.
@@ -26,10 +26,11 @@
 12. [Instruções de Setup do Ambiente de Desenvolvimento](#12-instruções-de-setup-do-ambiente-de-desenvolvimento)
 13. [Monitoramento e Métricas (Badges e Dashboards)](#13-monitoramento-e-métricas-badges-e-dashboards)
 14. [Melhores Práticas de Configuração do Repositório](#14-melhores-práticas-de-configuração-do-repositório)
-15. [Checklist de Implementação](#checklist-de-implementação)
-16. [Referência Rápida](#referência-rápida)
-17. [Troubleshooting](#troubleshooting)
-18. [Recursos Externos](#recursos-externos)
+15. [Pipeline de Agentes de IA (Planejamento, Documentação e Rastreamento de Bugs)](#15-pipeline-de-agentes-de-ia-planejamento-documentação-e-rastreamento-de-bugs)
+16. [Checklist de Implementação](#checklist-de-implementação)
+17. [Referência Rápida](#referência-rápida)
+18. [Troubleshooting](#troubleshooting)
+19. [Recursos Externos](#recursos-externos)
 
 ---
 
@@ -84,6 +85,8 @@ fix-bug                     # sem tipo prefixado
 
 ### 1.3 Fluxo de Trabalho Diário
 
+> **Passo 0 — antes de tudo:** consulte o mapa de pendências (`ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md`, mantido pelo agente `uc-issues-tracker`) para decidir a próxima task com base no que já está mapeado e priorizado. Ver seção 15 para o pipeline completo de agentes de IA.
+
 ```bash
 # 1. Sincronize o develop local
 git checkout develop
@@ -110,6 +113,9 @@ git push -u origin feature/nome-da-feature
 # 7. Após validação no Firebase pessoal, abra PR da branch pessoal para develop
 #    gh pr create --base develop --head gscandelari_setup
 #    → Este é o PR que entra em code review e passa pelo CI obrigatório
+#    → Se a task corrige um bug/achado já registrado num UC, acione o uml-use-case-writer
+#      para atualizar o UC e o uc-issues-tracker (Modo B) para marcar o item como corrigido
+#      (ver seção 15) — o PR só fecha o ciclo quando a documentação acompanha o código.
 
 # 8. Mantenha sua branch atualizada com o develop durante o desenvolvimento
 git fetch origin develop
@@ -979,6 +985,7 @@ Closes #<!-- número da issue -->
 - [ ] Commits seguem o padrão Conventional Commits
 - [ ] CHANGELOG ou doc atualizado (se necessário)
 - [ ] README atualizado (se necessário)
+- [ ] Se esta task corrige um bug/achado documentado: UC afetado atualizado pelo `uml-use-case-writer`, ou pendência registrada em `_MAPA-DE-BUGS-E-MELHORIAS.md` (ver seção 15)
 
 ## 📸 Screenshots / Evidências
 
@@ -1915,6 +1922,51 @@ Configure em `Settings → Secrets and variables → Actions`:
 firebase login:ci
 # Cole o token gerado em Settings → Secrets → FIREBASE_TOKEN
 ```
+
+---
+
+## 15. Pipeline de Agentes de IA (Planejamento, Documentação e Rastreamento de Bugs)
+
+Além do pipeline de Git/CI descrito nas seções 1-14, o projeto usa quatro agentes de IA (`.claude/agents/*.md`) para manter a documentação de produto (`ONLY_FOR_DEVS/PO_BA_Docs/`) e o planejamento de tasks (`ONLY_FOR_DEVS/TO_DO/`) sincronizados com o código real. Eles não substituem o fluxo de Git Flow — encaixam-se **antes** dele (planejamento) e **no fechamento do PR** (sincronização de documentação).
+
+### 15.1 Os quatro agentes
+
+| Agente | Papel | Entrada | Saída |
+|---|---|---|---|
+| `uml-use-case-writer` | Mapeia e mantém os Casos de Uso UML (fully-dressed, estilo Cockburn) — a fonte de verdade do comportamento **"as-is"** do sistema, investigada diretamente no código. | Pedido de mapear/revisar um UC | `ONLY_FOR_DEVS/PO_BA_Docs/UC-NN-*.md` |
+| `uc-issues-tracker` | Lê todos os UCs e consolida os achados (bugs, achados de segurança, código morto, decisões de produto pendentes) num backlog único e rastreável. Também atualiza o status desses itens conforme correções acontecem. | Todos os `UC-*.md` existentes | `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` |
+| `doc-writer` | Transforma um item do backlog (ou uma nova demanda de produto) numa especificação técnica completa, pronta para implementação. | Item do mapa de bugs, ou descrição de feature/CR/ADR | `ONLY_FOR_DEVS/TO_DO/[PREFIXO]-*.md` |
+| `dev-task-manager` | Prepara o ambiente (branch a partir do `develop`, seção 1 deste guia) e o plano de implementação a partir do spec; ao final, registra a conclusão movendo o spec para `TASK_COMPLETED/`. | Spec em `TO_DO/` | Branch de task + `ONLY_FOR_DEVS/TASK_COMPLETED/*.md` |
+
+### 15.2 Fluxo completo
+
+```
+uc-issues-tracker (consulta)   →  o que está pendente? qual o próximo item a atacar?
+        ↓
+doc-writer                     →  transforma o item escolhido em spec formal em TO_DO/
+        ↓
+dev-task-manager               →  prepara branch + plano (seção 1.3 deste guia); dev implementa
+        ↓
+   PR aberto → develop  (Passo 7 da seção 1.3)
+        ↓
+uml-use-case-writer             →  atualiza o UC afetado para refletir o novo comportamento "as-is"
+uc-issues-tracker (Modo B)       →  marca o item correspondente como corrigido no mapa
+```
+
+### 15.3 Quando acionar cada agente
+
+| Momento no fluxo diário (seção 1.3) | Agente a acionar | Por quê |
+|---|---|---|
+| Antes do Passo 1 (escolher a próxima task) | `uc-issues-tracker` (consulta) | Decidir a próxima task com base no que já está mapeado, em vez de descobrir bugs de forma ad-hoc. |
+| Ao formalizar a task escolhida | `doc-writer` | Gerar o spec completo em `TO_DO/`, referenciando o UC/RN de origem quando a task vier do mapa de bugs. |
+| Ao iniciar a implementação | `dev-task-manager` (Modo A) | Preparar branch e plano a partir do spec, como já documentado no próprio agente. |
+| No Passo 7 (PR → `develop`) | `uml-use-case-writer` + `uc-issues-tracker` (Modo B) | Atualizar o UC afetado e marcar o item como corrigido — fecha o ciclo entre código e documentação. |
+| Ao concluir a task | `dev-task-manager` (Modo B) | Mover o spec de `TO_DO/` para `TASK_COMPLETED/`. |
+| Ao mapear uma funcionalidade nova/nunca documentada | `uml-use-case-writer` | Criar o UC do zero antes de qualquer spec de implementação, se o comportamento atual ainda não estiver documentado. |
+
+> **Regra de Ouro:** nenhuma correção de bug ou decisão de produto listada no mapa é considerada fechada só porque o código mudou — ela só fecha quando o UC de origem reflete o novo comportamento. Um PR que resolve um item do `_MAPA-DE-BUGS-E-MELHORIAS.md` sem atualizar a documentação deixa o sistema mais correto e a documentação mais errada — o que é pior do que não ter documentação nenhuma, porque agora ela mente com autoridade.
+
+Subagentes não podem acionar outros subagentes diretamente nesta configuração — a passagem de um agente para o outro (ex: `uc-issues-tracker` sinalizando que um UC precisa de revisão) é sempre mediada pelo desenvolvedor ou pelo assistente principal, nunca automática.
 
 ---
 

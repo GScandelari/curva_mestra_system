@@ -93,10 +93,10 @@ const MODULES = [
     name: "Inventário inteligente",
     icon: "box",
     title: "Cada caixa, cada lote, cada validade.",
-    desc: "Entrada por nota, saída por procedimento. Alertas automáticos de vencimento. Rastreabilidade total do produto Rennova dentro da operação clínica.",
+    desc: "Entrada por nota, saída por procedimento. Alertas de vencimento configuráveis. Rastreabilidade total do produto Rennova dentro da operação clínica.",
     bullets: [
       "Entrada de lote por leitura de NF-e (XML)",
-      "Validade com alertas de 60/30/15 dias",
+      "Validade com alertas configuráveis por antecedência",
       "Custo médio por linha e por unidade",
       "Posição de estoque por sala e por subestoque"
     ]
