@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 15/07/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Scandelari
+**Data de Conclusão:** 16/07/2026
 **Tipo:** Bugfix
 **Branch sugerida:** `bugfix/notification-settings-setdoc`
 **Prioridade:** Alta
-**Versão:** 1.0
+**Versão:** 1.1
 
 > `initializeNotificationSettings` e o fallback de `saveNotificationSettings` (`notificationService.ts`) usam `updateDoc` para criar o documento `tenants/{tenantId}/settings/notifications`, mas `updateDoc` do Firestore Web SDK nunca cria documentos — só atualiza os já existentes. Para qualquer tenant cujo documento de configurações nunca foi criado por outro caminho (todo tenant novo), a tela `/clinic/settings` falha permanentemente com erro "not-found" e nunca renderiza o formulário. Correção: trocar `updateDoc` por `setDoc` nos dois pontos afetados.
 
@@ -390,3 +392,4 @@ N/A — não há API route envolvida; toda a leitura/escrita é feita client-sid
 | Versão | Data | Autor | O que mudou |
 |---|---|---|---|
 | 1.0 | 15/07/2026 | Doc Writer (Claude) | Versão inicial. Spec gerada a partir do item `UC-43-RN-01/02` do mapa de bugs (decisão do PO já tomada: corrigir apenas `updateDoc`→`setDoc`), com leitura completa de `notificationService.ts`, `ClinicSettingsPage`, `notification.ts` e das regras de `firestore.rules` relevantes. |
+| 1.1 | 16/07/2026 | Guilherme Scandelari | Task concluída — movida para TASK_COMPLETED |
