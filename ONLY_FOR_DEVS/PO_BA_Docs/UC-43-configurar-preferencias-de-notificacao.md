@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Rascunho
 **Módulo/Contexto:** Notificações e Alertas
-**Versão:** 1.2
+**Versão:** 1.2.1
 
 > Um Clinic Admin define, em `/clinic/settings`, as preferências gerais de notificação do tenant: habilitar/desabilitar alertas de vencimento, estoque baixo e solicitações, os dias de antecedência para alerta de vencimento e o limite global (padrão) de estoque baixo. Essas preferências são o fallback usado pelas verificações automáticas de alerta (UC-42) quando não há um limite específico por produto (UC-15).
 
@@ -42,7 +42,7 @@ Nenhum ator humano direto; indiretamente, as funções de verificação de alert
 
 ## 3. Pré-condições
 - Usuário autenticado com role `clinic_admin` e `tenant_id` definido.
-- **Não há pré-condição de dado**: a própria tela tenta criar o documento de configurações se ele não existir (passo de inicialização), mas essa criação está quebrada (ver RN-01/RN-02 — bug confirmado).
+- **Não há pré-condição de dado**: a própria tela cria o documento de configurações com valores padrão se ele ainda não existir (passo de inicialização, ver fluxo 7a). Essa criação usa `setDoc` e tem sucesso mesmo para tenants novos (ver RN-01/RN-02 — corrigido em `a38e581`).
 
 ---
 
@@ -80,9 +80,9 @@ Clinic Admin navega para `/clinic/settings` e altera um ou mais switches/campos 
 
 ### 7a. Primeira configuração de um tenant sem documento existente (a partir do passo 2)
 1. `getNotificationSettings` retorna `null` (documento `settings/notifications` ainda não existe para o tenant).
-2. Sistema chama `initializeNotificationSettings(tenantId, user.uid)`, que tenta gravar `DEFAULT_NOTIFICATION_SETTINGS` (`enable_expiry_alerts: true`, `expiry_warning_days: 30`, `enable_low_stock_alerts: true`, `low_stock_threshold: 10`, `enable_request_alerts: true`, `notification_sound: true`, `email_notifications: false`) usando `updateDoc`.
-3. **[Bug confirmado — ver RN-01]** `updateDoc` falha com erro `not-found`, pois o documento não existe e `updateDoc` nunca cria documentos (deveria ser `setDoc`). A exceção é capturada pelo `try/catch` de `loadSettings`, que exibe `setError('Erro ao carregar configurações')`.
-4. A página nunca renderiza o formulário para este tenant — apenas o bloco de erro. Esse comportamento se repete em toda visita futura, pois `settings/notifications` continua inexistente.
+2. Sistema chama `initializeNotificationSettings(tenantId, user.uid)`, que grava `DEFAULT_NOTIFICATION_SETTINGS` (`enable_expiry_alerts: true`, `expiry_warning_days: 30`, `enable_low_stock_alerts: true`, `low_stock_threshold: 10`, `enable_request_alerts: true`, `notification_sound: true`, `email_notifications: false`) usando `setDoc`, criando o documento com sucesso mesmo que ele nunca tenha existido antes.
+3. A página renderiza o formulário normalmente, já preenchido com os valores padrão, permitindo que o Clinic Admin siga o fluxo principal a partir do passo 4.
+4. **[Nota histórica — bug corrigido]** Até o commit `a38e581` (branch `bugfix/notification-settings-setdoc`), `initializeNotificationSettings` usava `updateDoc` em vez de `setDoc`. Como `updateDoc` exige que o documento já exista, a chamada falhava com erro `not-found` para qualquer tenant novo, era capturada pelo `try/catch` de `loadSettings`, que exibia `setError('Erro ao carregar configurações')`, e a página nunca chegava a renderizar o formulário — comportamento que se repetia em toda visita futura enquanto o documento não existisse. Ver RN-01.
 
 ### 7b. Switch desligado oculta o campo dependente (a partir do passo 4)
 1. Clinic Admin desliga "Ativar alertas de vencimento" (ou "Ativar alertas de estoque baixo").
@@ -96,10 +96,11 @@ Clinic Admin navega para `/clinic/settings` e altera um ou mais switches/campos 
 1. `claims.role !== 'clinic_admin'`.
 2. Sistema renderiza apenas o `Alert` "Apenas administradores podem acessar as configurações." — nenhum formulário é exibido, mesmo para leitura.
 
-### 8b. Falha ao salvar em tenant já inicializado (a partir do passo 6)
-1. `updateDoc` lança uma exceção diferente de `not-found` (rede, permissão, etc.) — ou até `not-found`, caso o documento nunca tenha sido criado com sucesso (ver 7a).
+### 8b. Falha ao salvar (a partir do passo 6)
+1. `updateDoc` lança uma exceção diferente de `not-found` (rede, permissão, etc.).
 2. O `catch` de `handleSave` define `setError('Erro ao salvar configurações')` e exibe o toast destrutivo "Erro ao salvar".
-3. **[Bug confirmado — ver RN-02]** Se o erro for `not-found`, o próprio `catch` interno de `saveNotificationSettings` tenta o fallback "criar com valores padrão" chamando `updateDoc` novamente (em vez de `setDoc`) — que falha pelo mesmo motivo, propagando a exceção normalmente para o `catch` de `handleSave` descrito acima.
+3. **Caso especial (não é mais falha) — documento inexistente no momento do save:** se `updateDoc` falhar com `error.code === 'not-found'` (ex.: documento removido externamente entre o carregamento e o salvamento, ou qualquer cenário em que o passo 2 do fluxo principal não tenha sido precedido pela inicialização de 7a), o `catch` interno de `saveNotificationSettings` executa o fallback `setDoc`, criando o documento com `DEFAULT_NOTIFICATION_SETTINGS` combinado com os valores do formulário — o salvamento é concluído com sucesso e o fluxo segue para o passo 7 do fluxo principal, sem exibir o toast de erro.
+4. **[Nota histórica — bug corrigido]** Até o commit `a38e581`, o fallback de `saveNotificationSettings` para `error.code === 'not-found'` também usava `updateDoc` em vez de `setDoc`, repetindo o mesmo erro e propagando a exceção para o `catch` de `handleSave` (passos 1-2 acima) em vez de recuperar com sucesso. Ver RN-02.
 
 ---
 
@@ -107,8 +108,8 @@ Clinic Admin navega para `/clinic/settings` e altera um ou mais switches/campos 
 
 | ID | Regra | Justificativa |
 |----|-------|----------------|
-| RN-01 | **[Bug confirmado, potencialmente bloqueante]** `initializeNotificationSettings` usa `updateDoc` para criar o documento `tenants/{tenantId}/settings/notifications` quando ele não existe. `updateDoc` do Firestore Web SDK **exige que o documento já exista** — nunca cria um documento novo. Para um tenant cujo documento de configurações nunca foi criado por nenhum outro caminho do sistema (confirmado: não há nenhuma escrita desse documento fora de `notificationService.ts`, nem durante o cadastro de clínica em UC-21), a primeira visita a `/clinic/settings` falha permanentemente com erro "not-found", e a página nunca chega a exibir o formulário. | Confirmado por leitura literal de `initializeNotificationSettings` (usa `updateDoc`, não `setDoc`) e por busca em toda a base de código por outras escritas em `settings/notifications` — nenhuma encontrada fora deste arquivo. |
-| RN-02 | **[Bug confirmado, mesma causa raiz de RN-01]** O fallback de `saveNotificationSettings` para o caso `error.code === 'not-found'` também usa `updateDoc` (em vez de `setDoc`) para tentar criar o documento — repetindo o mesmo erro e propagando a exceção sem sucesso. | Confirmado por leitura literal de `saveNotificationSettings` — o bloco `catch` que trata `not-found` chama `updateDoc` novamente. |
+| RN-01 | `initializeNotificationSettings` usa `setDoc` para criar o documento `tenants/{tenantId}/settings/notifications` quando ele ainda não existe, garantindo que a primeira visita a `/clinic/settings` sempre resulte na criação bem-sucedida do documento de configurações com os valores padrão, mesmo para tenants novos cujo documento nunca foi criado por nenhum outro caminho do sistema. **[Histórico]** Até o commit `a38e581` (branch `bugfix/notification-settings-setdoc`), esta função usava `updateDoc`, que exige que o documento já exista e nunca cria um documento novo — a primeira visita de qualquer tenant novo falhava permanentemente com erro `not-found`, e a página nunca chegava a exibir o formulário. Corrigido substituindo `updateDoc` por `setDoc`. | Confirmado por leitura literal de `initializeNotificationSettings` em `notificationService.ts` (linha 103, `setDoc`) na branch `bugfix/notification-settings-setdoc`, commit `a38e581`. |
+| RN-02 | O fallback de `saveNotificationSettings` para o caso `error.code === 'not-found'` também usa `setDoc` (não mais `updateDoc`) para criar o documento combinando `DEFAULT_NOTIFICATION_SETTINGS` com os valores enviados pelo formulário — o salvamento é concluído com sucesso mesmo se o documento não existir no momento do save (ex.: documento removido externamente entre o carregamento e o salvamento). **[Histórico]** Mesma causa raiz de RN-01: até `a38e581`, este fallback também usava `updateDoc` e repetia o mesmo erro, propagando a exceção sem sucesso para quem chamou `saveNotificationSettings`. | Confirmado por leitura literal de `saveNotificationSettings` em `notificationService.ts` (linha 79, `setDoc` dentro do bloco `catch` que trata `not-found`). |
 | RN-03 | O limite `low_stock_threshold` configurado aqui é o **segundo nível** do fallback de 3 níveis usado por `checkLowStock` (UC-42): limite específico do produto (`stock_limits`, UC-15) → `low_stock_threshold` (este UC) → 10 fixo. Ele **não** é usado pela UI de exibição de status de estoque (`getStatusEstoque`, badge — UC-13/UC-15), que usa um `?? 10` simples e nunca lê esta configuração. | Confirmado por leitura de `checkLowStock` (`stockLimitsMap.get(codigoProduto) ?? settings.low_stock_threshold ?? 10`) e de `inventoryUtils.getStatusEstoque` (não referencia `NotificationSettings`). |
 | RN-04 | Salvar as preferências aqui **não** dispara nenhuma verificação, recálculo ou notificação imediata — os novos valores só têm efeito na próxima vez que UC-42 for executado manualmente. | Confirmado pela ausência de qualquer chamada a `alertTriggers.ts` dentro de `ClinicSettingsPage`/`notificationService.ts`. |
 | RN-05 | O switch "Notificações por e-mail" é renderizado sempre desabilitado (`disabled`) com a legenda "em breve" — é um campo do tipo `NotificationSettings` (`email_notifications`) já persistido, mas sem nenhum efeito funcional confirmado em nenhuma outra parte do código (nenhum envio de e-mail de notificação foi encontrado consumindo esse campo). | Confirmado por leitura de `ClinicSettingsPage` (`disabled` no `Switch`) e por ausência de referências a `email_notifications` fora de `notification.ts`/`notificationService.ts`/`ClinicSettingsPage`. |
@@ -129,7 +130,7 @@ Clinic Admin navega para `/clinic/settings` e altera um ou mais switches/campos 
 ---
 
 ## 11. Frequência de Uso
-Não determinável com confiança a partir do código — além de ser uma tela de configuração tipicamente ajustada com pouca frequência, o bug de RN-01 pode impedir que tenants novos sequer consigam usá-la na prática (ver seção 14).
+Não determinável com confiança a partir do código — é uma tela de configuração tipicamente ajustada com pouca frequência, agora que a criação do documento de configurações (RN-01/RN-02) funciona corretamente para tenants novos.
 
 ---
 
@@ -148,6 +149,7 @@ Não determinável com confiança a partir do código — além de ser uma tela 
 - `src/lib/services/alertTriggers.ts` (consumidor real das configurações — UC-42)
 - `firestore.rules` (linhas 77-86 — regra dedicada de `settings/notifications`)
 - `src/components/clinic/ClinicLayout.tsx` (`navLinks` — ausência de link para `/clinic/settings`)
+- Commit `a38e581` (`fix(notifications): use setDoc to create tenant notification settings`, branch `bugfix/notification-settings-setdoc`) — correção de RN-01/RN-02
 
 ---
 
@@ -155,7 +157,7 @@ Não determinável com confiança a partir do código — além de ser uma tela 
 
 ⚠️ Os itens abaixo são achados confirmados por leitura de código que representam decisões de produto/bugs pendentes de confirmação — não foram decididos unilateralmente por este documento.
 
-1. **[Bug confirmado, potencialmente bloqueante — requer decisão de prioridade]** RN-01/RN-02 — tanto `initializeNotificationSettings` quanto o fallback de `saveNotificationSettings` usam `updateDoc` em vez de `setDoc` para criar o documento de configurações. Para qualquer tenant cujo documento `settings/notifications` nunca foi criado por outro caminho, a tela `/clinic/settings` pode estar permanentemente quebrada (sempre cai em "Erro ao carregar configurações"). Isso deveria ser corrigido? Se sim, é prioritário, já que também bloqueia indiretamente UC-42 (fluxo 8b) para esses tenants.
+1. **[RESOLVIDO — corrigido em `a38e581`]** RN-01/RN-02 — tanto `initializeNotificationSettings` quanto o fallback de `saveNotificationSettings` usavam `updateDoc` em vez de `setDoc` para criar o documento de configurações, o que quebrava permanentemente `/clinic/settings` para qualquer tenant novo. Ambos os pontos foram corrigidos para usar `setDoc` no commit `a38e581` (branch `bugfix/notification-settings-setdoc`), confirmado por leitura direta de `notificationService.ts`. Não requer mais decisão.
 2. **[Achado não solicitado, requer decisão]** RN-06 — assim como `/clinic/alerts` (UC-42), esta rota não é acessível por nenhum link da aplicação. É intencional ou um item de navegação esquecido?
 3. **[Observação]** RN-05 — o campo "Notificações por e-mail" já é persistido no Firestore mas está sempre desabilitado na UI e sem nenhum consumidor funcional encontrado no código; é um recurso futuro conhecido (conforme o próprio texto "em breve" na tela) ou algo a ser removido/revisado?
 4. **[Confirmado, sem impacto neste UC]** `session_timeout_minutes` e as demais configurações globais do sistema (UC-35, editadas por `system_admin` em `/admin/settings`) não têm nenhuma relação com este UC — são documentos e rotas completamente distintos (`admin/settings` vs. `clinic/settings`), confirmando a suposição do levantamento original.
@@ -170,3 +172,4 @@ Não determinável com confiança a partir do código — além de ser uma tela 
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada por leitura completa de `ClinicSettingsPage`, `notificationService.ts` (`getNotificationSettings`/`saveNotificationSettings`/`initializeNotificationSettings`), `notification.ts`, `firestore.rules` e busca em toda a base de código por outras escritas em `settings/notifications` e por links de navegação para `/clinic/settings`. Identificado bug confirmado e potencialmente bloqueante: tanto a inicialização quanto o fallback de salvamento usam `updateDoc` (que exige documento pré-existente) em vez de `setDoc`, o que pode impedir tenants novos de usar esta tela. Confirmado que `session_timeout_minutes`/UC-35 não têm nenhuma relação com este módulo. |
 | 1.1 | 15/07/2026 | Guilherme Scandelari | Cross-reference: adicionada referência a UC-44 (Consultar e Gerenciar Notificações Recebidas) na seção 12, documentando que `notification_sound` não controla o som real do `NotificationBell`. |
 | 1.2 | 15/07/2026 | Guilherme Scandelari | Adicionada RN-08 documentando divergência confirmada entre a promessa da landing page (`sections-product.jsx`, módulo "Inventário inteligente", linhas 96 e 99 — "alertas automáticos de vencimento" e "60/30/15 dias") e o comportamento real (único limiar configurável `expiry_warning_days`, sem automação — RN-04), com referência cruzada a UC-42/RN-08. Adicionado item 5 na seção 14 registrando as duas opções de decisão de produto (evoluir a feature vs. ajustar a landing page), sem decidir entre elas. |
+| 1.2.1 | 16/07/2026 | Guilherme Scandelari | Correção pontual: confirmado por leitura de `notificationService.ts` que o bug de RN-01/RN-02 (`updateDoc` em vez de `setDoc` na criação do documento de configurações) foi corrigido no commit `a38e581` (branch `bugfix/notification-settings-setdoc`) — ambos os pontos agora usam `setDoc`. Reescritas RN-01/RN-02 (seção 9) para descrever o comportamento correto atual, preservando o histórico do bug corrigido. Ajustados o fluxo alternativo 7a e o fluxo de exceção 8b (seção 8) para refletir que a inicialização e o fallback de salvamento agora têm sucesso em vez de falhar permanentemente; a nota sobre o bug antigo foi movida para observações históricas dentro desses próprios fluxos. Item 1 da seção 14 marcado como resolvido. Seção 11 (Frequência de Uso) ajustada para remover a ressalva de que o bug poderia impedir o uso da tela por tenants novos. Nenhuma alteração feita em UC-42 ou nas decisões de navegação/automação já registradas (fora do escopo desta correção). |
