@@ -66,13 +66,42 @@ export default function ConsultantsListPage() {
     }
   };
 
-  const handleToggleStatus = async (consultant: Consultant) => {
+  const handleSuspend = async (consultant: Consultant) => {
     if (!user) return;
 
-    const newStatus = consultant.status === 'active' ? 'suspended' : 'active';
-    const action = newStatus === 'suspended' ? 'suspender' : 'reativar';
+    if (
+      !confirm(
+        `Tem certeza que deseja suspender o consultor "${consultant.name}"? O acesso dele ao sistema será bloqueado imediatamente.`
+      )
+    ) {
+      return;
+    }
 
-    if (!confirm(`Tem certeza que deseja ${action} o consultor "${consultant.name}"?`)) {
+    try {
+      const token = await user.getIdToken();
+
+      const response = await fetch(`/api/consultants/${consultant.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao suspender consultor');
+      }
+
+      toast({ title: 'Consultor suspenso com sucesso' });
+      loadConsultants();
+    } catch (err: any) {
+      toast({ title: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleReactivate = async (consultant: Consultant) => {
+    if (!user) return;
+
+    if (!confirm(`Tem certeza que deseja reativar o consultor "${consultant.name}"?`)) {
       return;
     }
 
@@ -85,18 +114,16 @@ export default function ConsultantsListPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: 'active' }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || `Erro ao ${action} consultor`);
+        throw new Error(data.error || 'Erro ao reativar consultor');
       }
 
-      toast({
-        title: `Consultor ${newStatus === 'active' ? 'reativado' : 'suspenso'} com sucesso`,
-      });
+      toast({ title: 'Consultor reativado com sucesso' });
       loadConsultants();
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' });
@@ -284,7 +311,7 @@ export default function ConsultantsListPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleToggleStatus(consultant)}
+                                onClick={() => handleSuspend(consultant)}
                                 title="Suspender"
                               >
                                 <Ban className="h-4 w-4 text-destructive" />
@@ -293,7 +320,7 @@ export default function ConsultantsListPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleToggleStatus(consultant)}
+                                onClick={() => handleReactivate(consultant)}
                                 title="Reativar"
                               >
                                 <CheckCircle className="h-4 w-4 text-green-600" />
