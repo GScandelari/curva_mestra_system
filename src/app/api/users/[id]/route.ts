@@ -24,7 +24,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const body = await request.json();
-    const { displayName, role, active } = body;
+    const { displayName, role, active, confirmLastAdmin } = body;
 
     if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
       return NextResponse.json({ error: 'Nome completo é obrigatório' }, { status: 400 });
@@ -63,6 +63,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         { error: 'Consultores devem ser editados em /admin/consultants' },
         { status: 403 }
       );
+    }
+
+    const tenantId = userData?.tenant_id;
+    const wasActiveClinicAdmin = userData?.role === 'clinic_admin' && userData?.active === true;
+    const willLoseAdminStatus =
+      wasActiveClinicAdmin && (role !== 'clinic_admin' || active === false);
+
+    if (willLoseAdminStatus && tenantId) {
+      const otherAdminsSnapshot = await adminDb
+        .collection('users')
+        .where('tenant_id', '==', tenantId)
+        .where('role', '==', 'clinic_admin')
+        .get();
+
+      const otherActiveAdmins = otherAdminsSnapshot.docs.filter(
+        (doc) => doc.id !== userId && doc.data().active === true
+      );
+
+      if (otherActiveAdmins.length === 0 && confirmLastAdmin !== true) {
+        return NextResponse.json(
+          {
+            error:
+              'Este usuário é o único administrador ativo desta clínica. Se prosseguir, a clínica ficará sem nenhum admin local. Deseja continuar mesmo assim?',
+            code: 'LAST_ADMIN_CONFIRMATION_REQUIRED',
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Padrão correto de custom claims — nunca espalhar o documento Firestore
