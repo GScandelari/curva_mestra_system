@@ -15,7 +15,6 @@ Sistema SaaS Multi-Tenant para Clínicas de Harmonização Facial e Corporal.
 | `master`                  | Produção — protegida, exige CI + 1 aprovação                 |
 | `develop`                 | Integração — protegida, exige CI + 1 aprovação               |
 | `gscandelari_setup`       | Branch pessoal de validação (Guilherme) — exige CI           |
-| `lhuan_setup`             | Branch pessoal de validação (Lhuan) — exige CI               |
 | `feat/`, `fix/`, `chore/` | Branches de tarefa — efêmeras, criadas a partir de `develop` |
 
 ### Ciclo de uma tarefa
@@ -26,7 +25,7 @@ develop → task branch → PR → dev branch → validar → PR → develop →
 
 1. Criar branch a partir de `develop`: `git checkout -b feat/nome-da-tarefa`
 2. Desenvolver e commitar seguindo Conventional Commits
-3. Abrir PR da task branch para a **branch pessoal** (`gscandelari_setup` ou `lhuan_setup`)
+3. Abrir PR da task branch para a **branch pessoal** (`gscandelari_setup`)
 4. CI roda automaticamente — validar no ambiente de preview
 5. Abrir PR da branch pessoal para `develop`
 6. CI + aprovação obrigatória — auto-merge habilitado após aprovação

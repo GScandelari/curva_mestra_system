@@ -8,11 +8,10 @@ Este documento descreve todos os GitHub Actions workflows configurados em `.gith
 
 | Workflow               | Arquivo                      | Gatilho                                                                 | Destino                           |
 | ---------------------- | ---------------------------- | ----------------------------------------------------------------------- | --------------------------------- |
-| CI Pipeline            | `ci.yml`                     | Push em `master`, `develop`, `release/**`; PR para `master`, `develop`, `gscandelari_setup`, `lhuan_setup` | — (validação) |
+| CI Pipeline            | `ci.yml`                     | Push em `master`, `develop`, `release/**`; PR para `master`, `develop`, `gscandelari_setup` | — (validação) |
 | Deploy Produção        | `deploy-firebase.yml`        | Push em `master`; `workflow_dispatch`                                   | `curva-mestra.web.app` (produção) |
 | Deploy Dev — Guilherme | `deploy-gscandelari-dev.yml` | Push em `gscandelari_setup`; `workflow_dispatch`                        | `dev-gscandelari.web.app`         |
-| Deploy Dev — Lhuan     | `deploy-lhuan-dev.yml`       | Push em `lhuan_setup`; `workflow_dispatch`                              | `lhuancassio-dev.web.app`         |
-| Security & Quality     | `security.yml`               | Push em `master`/`develop`; PR para `master`, `develop`, `gscandelari_setup`, `lhuan_setup` | — (validação) |
+| Security & Quality     | `security.yml`               | Push em `master`/`develop`; PR para `master`, `develop`, `gscandelari_setup` | — (validação) |
 | Release                | `release.yml`                | Push em `master`                                                        | GitHub Releases                   |
 | Dependabot Auto-merge  | `dependabot-auto-merge.yml`  | PR de `dependabot[bot]` para `develop`                                  | — (merge automático patch/minor)  |
 
@@ -25,7 +24,7 @@ Este documento descreve todos os GitHub Actions workflows configurados em `.gith
 ### Quando dispara
 
 - Push em `master`, `develop` ou `release/**`
-- Pull Request aberto ou atualizado com base em `master`, `develop`, `gscandelari_setup` ou `lhuan_setup`
+- Pull Request aberto ou atualizado com base em `master`, `develop` ou `gscandelari_setup`
 
 ### Jobs em paralelo
 
@@ -92,7 +91,7 @@ Este documento descreve todos os GitHub Actions workflows configurados em `.gith
 | Passo                    | O que acontece                                          |
 | ------------------------ | ------------------------------------------------------- |
 | Checkout                 | Clona o repositório                                     |
-| Setup Node 20            | Configura Node.js com cache npm                         |
+| Setup Node 20             | Configura Node.js com cache npm                         |
 | `npm ci`                 | Instala dependências                                    |
 | `npm run build`          | Build de produção Next.js                               |
 | Install Firebase CLI     | Instala `firebase-tools`                                |
@@ -108,42 +107,14 @@ Este documento descreve todos os GitHub Actions workflows configurados em `.gith
 
 ---
 
-## 4. Deploy Dev — Lhuan Cassio
-
-**Arquivo:** [.github/workflows/deploy-lhuan-dev.yml](../.github/workflows/deploy-lhuan-dev.yml)
-
-**Destino:** `https://lhuancassio-dev.web.app` (ambiente pessoal de dev)
-
-### Quando dispara
-
-- Push na branch `lhuan_setup`
-- Disparo manual via `workflow_dispatch`
-
-### O que faz, passo a passo
-
-Idêntico ao workflow do Guilherme, com duas diferenças:
-
-| Diferença               | Valor                             |
-| ----------------------- | --------------------------------- |
-| Branch gatilho          | `lhuan_setup`                     |
-| Firebase Hosting target | `lhuancassio-dev`                 |
-| URL final               | `https://lhuancassio-dev.web.app` |
-
-### Pontos importantes
-
-- **Só faz deploy de Hosting** — nenhuma Function é tocada
-- **Fluxo correto:** abrir PR da task branch (`feature/*`, `bugfix/*`, `chore/*`) para `lhuan_setup`. Após o merge e validação em `lhuancassio-dev.web.app`, abrir PR de `lhuan_setup` para `develop`
-
----
-
-## 5. Security & Quality Check
+## 4. Security & Quality Check
 
 **Arquivo:** [.github/workflows/security.yml](../.github/workflows/security.yml)
 
 ### Quando dispara
 
 - Push em `master` ou `develop`
-- Pull Request para `master`, `develop`, `gscandelari_setup` ou `lhuan_setup`
+- Pull Request para `master`, `develop` ou `gscandelari_setup`
 
 ### Jobs
 
@@ -154,7 +125,7 @@ Idêntico ao workflow do Guilherme, com duas diferenças:
 
 ---
 
-## 6. Release
+## 5. Release
 
 **Arquivo:** [.github/workflows/release.yml](../.github/workflows/release.yml)
 
@@ -170,7 +141,7 @@ Idêntico ao workflow do Guilherme, com duas diferenças:
 
 ---
 
-## 7. Dependabot Auto-merge
+## 6. Dependabot Auto-merge
 
 **Arquivo:** [.github/workflows/dependabot-auto-merge.yml](../.github/workflows/dependabot-auto-merge.yml)
 
@@ -193,7 +164,6 @@ feature/* / bugfix/* / chore/*
     │  PR (task branch → branch pessoal)
     ▼
 gscandelari_setup ──→ deploy-gscandelari-dev.yml ──→ dev-gscandelari.web.app  (validação)
-lhuan_setup       ──→ deploy-lhuan-dev.yml       ──→ lhuancassio-dev.web.app (validação)
     │
     │  PR (branch pessoal → develop) — após validação no Firebase
     ▼
@@ -215,9 +185,9 @@ master            ──→ deploy-firebase.yml        ──→ curva-mestra.we
 | Secret                           | Usado em                          | Finalidade                                                |
 | -------------------------------- | --------------------------------- | --------------------------------------------------------- |
 | `FIREBASE_TOKEN`                 | `deploy-firebase.yml`             | Autenticação do Firebase CLI para produção                |
-| `FIREBASE_TOKEN_DEV`             | `deploy-gscandelari-dev.yml`, `deploy-lhuan-dev.yml` | Autenticação do Firebase CLI para dev   |
+| `FIREBASE_TOKEN_DEV`             | `deploy-gscandelari-dev.yml`      | Autenticação do Firebase CLI para dev   |
 | `FIREBASE_ADMIN_CREDENTIALS`     | `deploy-firebase.yml`, `release.yml` | Service account — projeto produção (`curva-mestra`)    |
-| `FIREBASE_ADMIN_CREDENTIALS_DEV` | `deploy-gscandelari-dev.yml`, `deploy-lhuan-dev.yml` | Service account — projeto dev (`curva-mestra-dev`) |
+| `FIREBASE_ADMIN_CREDENTIALS_DEV` | `deploy-gscandelari-dev.yml`      | Service account — projeto dev (`curva-mestra-dev`) |
 | `SONAR_TOKEN`                    | `security.yml`                    | Autenticação SonarCloud                                   |
 | `RELEASE_PLEASE_TOKEN`           | `release.yml`                     | Token para o Release Please criar PRs e releases          |
 

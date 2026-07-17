@@ -11,8 +11,7 @@
     },
     "curva-mestra-dev": {
       "hosting": {
-        "dev-gscandelari": ["dev-gscandelari"],
-        "dev-lhuancassio": ["dev-lhuancassio"]
+        "dev-gscandelari": ["dev-gscandelari"]
       }
     }
   }

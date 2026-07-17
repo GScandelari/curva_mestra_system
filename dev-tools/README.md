@@ -15,7 +15,7 @@ Este guia explica como configurar custom claims e gerenciar usuários durante o 
 
 ## 0. Setup do Ambiente Firebase Real (curva-mestra-dev)
 
-Este fluxo é para o ambiente Firebase de desenvolvimento real, acessível em `dev-gscandelari.web.app` ou `dev-lhuancassio.web.app`. É diferente dos emuladores locais.
+Este fluxo é para o ambiente Firebase de desenvolvimento real, acessível em `dev-gscandelari.web.app`. É diferente dos emuladores locais.
 
 ### Pré-requisitos
 
