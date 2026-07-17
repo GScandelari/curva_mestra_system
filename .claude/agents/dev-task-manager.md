@@ -69,7 +69,6 @@ Mapeie para a branch pessoal correspondente:
 | Git user.email / user.name        | Branch pessoal      | Domínio Firebase          |
 | --------------------------------- | ------------------- | ------------------------- |
 | `stanke399@gmail.com` / Guilherme | `gscandelari_setup` | `gscandelari-dev.web.app` |
-| Lhuan (qualquer email)            | `lhuan_setup`       | `lhuancassio-dev.web.app` |
 
 Se o dev não for reconhecido, pergunte antes de continuar.
 
@@ -79,7 +78,7 @@ Execute e analise:
 
 ```bash
 git status
-git branch -a | grep -E "develop|master|gscandelari_setup|lhuan_setup"
+git branch -a | grep -E "develop|master|gscandelari_setup"
 git log --oneline origin/master -3
 ```
 
@@ -205,7 +204,7 @@ Exiba o resultado estruturado:
 ⚠️  Antes de abrir a PR:
     1. Execute o Modo B para mover o doc da task de TO_DO → TASK_COMPLETED (commit na task branch)
     2. Merge a task branch na branch pessoal para validar no Firebase
-       (gscandelari-dev.web.app ou lhuancassio-dev.web.app)
+       (gscandelari-dev.web.app)
 ```
 
 Aguarde confirmação do usuário antes de iniciar qualquer implementação.
@@ -233,7 +232,6 @@ Mapeie para o nome completo do dev:
 | Git user.email / user.name        | Nome completo        |
 | --------------------------------- | -------------------- |
 | `stanke399@gmail.com` / Guilherme | Guilherme Scandelari |
-| Lhuan (qualquer email)            | Lhuan Cassio         |
 
 Se o dev não for reconhecido, pergunte o nome antes de continuar.
 
