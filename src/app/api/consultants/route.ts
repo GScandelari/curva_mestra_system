@@ -137,7 +137,12 @@ export async function GET(req: NextRequest) {
     // where antes de orderBy é requisito do Firestore para índices compostos
     let query: Query<DocumentData> = adminDb.collection('consultants');
 
-    if (status) {
+    if (status === 'suspended') {
+      // 'inactive' é o valor gravado pela desativação real (DELETE); 'suspended' é o valor
+      // legado gravado pelo antigo fluxo cosmético (PUT), antes da correção de UC-29-RN-01/02.
+      // A aba "Suspensos" da listagem deve continuar encontrando ambos.
+      query = query.where('status', 'in', ['suspended', 'inactive']);
+    } else if (status) {
       query = query.where('status', '==', status);
     }
 
