@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.3
+**Versão:** 1.3.1
 
 > Um usuário autenticado — seja um usuário existente notificado de um novo termo obrigatório publicado (`/accept-terms`), seja um usuário em onboarding de uma nova clínica aceitando termos pela primeira vez (`/clinic/setup/terms`) — deve aceitar todos os documentos legais ativos e obrigatórios antes de continuar usando o sistema. Um componente global (`TermsInterceptor`) decide, em toda navegação, se há termos pendentes e redireciona automaticamente para a variante correta.
 
@@ -27,7 +27,7 @@ flowchart LR
     SystemAdmin --> UC33
     SystemAdmin --> UC34
     UC33 -.->|gera documento em\nlegal_documents| UC09
-    UC34 -.->|pode reabrir pendência\n(nova versão) ou apagar\ndocumento já aceito| UC09
+    UC34 -.->|pode reabrir pendência\n(nova versão); exclusão de doc.\njá aceito agora é bloqueada| UC09
     Usuario --> UC09
 ```
 
@@ -142,10 +142,11 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 2. Sistema exibe um toast destructive com a mensagem crua do Firestore (`error.message`), sem tradução — ver RNF-03.
 3. Caso de uso retorna à etapa anterior (carregamento) ou permanece no formulário (gravação).
 
-### 8f. [Achado — UC-34] Documento excluído permanentemente pelo System Admin
-1. Um System Admin exclui um documento (UC-34, hard delete, sem checagem de aceites existentes) que já havia sido aceito por um ou mais usuários.
-2. O documento deixa de existir em `legal_documents` e para de aparecer em qualquer consulta futura (inclusive nas queries deste UC) — deixa de contar como pendência, mesmo que ainda existam registros históricos em `user_document_acceptances` referenciando o `document_id` agora inexistente.
-3. Nenhum novo aceite pode ser solicitado para esse documento; o histórico de quem aceitou permanece, mas sem o conteúdo original correspondente (ver UC-34, RN-03).
+### 8f. [Corrigido — UC-34] Documento excluído permanentemente pelo System Admin (apenas se nunca aceito)
+1. Um System Admin exclui um documento (UC-34) na listagem `/admin/legal-documents`.
+2. Desde a correção de UC-34/RN-03 (commit `4561a2a`), a exclusão só é permitida se não existir nenhum registro em `user_document_acceptances` referenciando o `document_id`; caso exista ao menos um aceite, a exclusão é bloqueada pelo próprio UC-34, e este fluxo não se aplica.
+3. Quando a exclusão realmente ocorre (documento nunca aceito), ele deixa de existir em `legal_documents` e para de aparecer em qualquer consulta futura (inclusive nas queries deste UC) — deixa de contar como pendência.
+4. Como a exclusão só é possível para documentos sem nenhum aceite prévio, este cenário não gera histórico "órfão" em `user_document_acceptances` (ver UC-34, RN-03).
 
 ---
 
@@ -157,7 +158,7 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 | RN-02 | **[Bug confirmado]** As duas páginas de aceite (`/accept-terms`, `/clinic/setup/terms`) usam um critério mais simples e incorreto: qualquer aceite pré-existente para o mesmo `document_id` (independente da versão) já é suficiente para considerar o documento "não pendente". Isso diverge do critério de RN-01 e gera um loop de redirecionamento confirmado (Fluxo de Exceção 8a). | Bug confirmado por leitura e comparação direta de `usePendingTerms.ts`, `accept-terms/page.tsx` e `clinic/setup/terms/page.tsx` — não corrigido nesta rodada, apenas documentado. |
 | RN-03 | **[Bug confirmado]** `usePendingTerms` considera um documento pendente se `required_for_registration` **ou** `required_for_existing_users` for `true`; já `/accept-terms` filtra apenas por `required_for_existing_users` e `/clinic/setup/terms` filtra apenas por `required_for_registration`. Um documento pendente por um critério, mas buscado pela página "errada" para o contexto do usuário, nunca aparece na lista. | Bug confirmado por comparação direta das três queries — mesmo efeito de loop do RN-02 (Fluxo de Exceção 8b); não corrigido nesta rodada. |
 | RN-04 | O aceite é tudo-ou-nada por tela: o botão de confirmação só é habilitado quando todos os documentos pendentes exibidos estão marcados; não é possível aceitar parcialmente. | Confirmado pelo `disabled={... || !documents.every((doc) => acceptances[doc.id])}`, presente em ambas as páginas. |
-| RN-05 | Registros em `user_document_acceptances` são imutáveis por regra do Firestore (`allow update, delete: if false`) — cada aceite é permanente; um novo aceite (nova versão) sempre cria um novo documento, nunca sobrescreve o anterior. Essa imutabilidade, no entanto, não impede que o **documento legal original** referenciado por esses aceites seja excluído permanentemente (ver UC-34, RN-03) — a trilha de auditoria sobrevive, mas sem o conteúdo aceito. | Confirmado em `firestore.rules` — trilha de auditoria legal (rastreabilidade de quem aceitou qual versão e quando); risco de órfãos detalhado em UC-34. |
+| RN-05 | Registros em `user_document_acceptances` são imutáveis por regra do Firestore (`allow update, delete: if false`) — cada aceite é permanente; um novo aceite (nova versão) sempre cria um novo documento, nunca sobrescreve o anterior. **[Corrigido — UC-34]** Essa imutabilidade é agora reforçada pela verificação implementada em UC-34 (RN-03, corrigido no commit `4561a2a`): a exclusão do documento legal original é bloqueada quando existem registros em `user_document_acceptances` referenciando-o, garantindo que a trilha de auditoria sempre preserve também o conteúdo do documento aceito. Antes dessa correção, a imutabilidade dos registros de aceite não impedia que o documento legal original fosse excluído permanentemente, deixando o histórico "órfão" (auditoria sem o conteúdo aceito). | Confirmado em `firestore.rules` — trilha de auditoria legal (rastreabilidade de quem aceitou qual versão e quando); risco de órfãos, hoje mitigado, detalhado em UC-34 (RN-03). |
 | RN-06 | A Variante B exige clicar em "Ler {título} Completo" para ver o documento por inteiro (o conteúdo inline é truncado em 500 caracteres), mas não impede marcar o checkbox e aceitar sem nunca ter aberto esse Dialog — não há nenhuma trava técnica que force a leitura completa. A Variante A já exibe o conteúdo completo inline (com scroll, sem truncamento). | Confirmado por leitura de ambos os componentes — diferença real de UX entre as duas variantes, sem exigência técnica de leitura integral em nenhuma delas. |
 | RN-07 | O campo `ip_address` é sempre gravado como `null` nos dois pontos de entrada (comentário no próprio código: "Pode ser capturado via API") — o endereço IP de quem aceitou nunca é registrado, apesar do campo existir no schema. | Confirmado por leitura direta — campo presente mas nunca preenchido, em ambas as páginas. |
 
@@ -180,7 +181,7 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 
 ## 12. Casos de Uso Relacionados
 - **UC-33 (Cadastrar Documento Legal)** — System Admin cria os documentos consumidos aqui.
-- **UC-34 (Editar, Publicar/Despublicar e Excluir Documento Legal)** — System Admin altera status/versão/obrigatoriedade dos documentos (podendo reabrir pendência de aceite, RN-05 daquele UC) ou excluí-los permanentemente (Fluxo de Exceção 8f, RN-05 deste UC).
+- **UC-34 (Editar, Publicar/Despublicar e Excluir Documento Legal)** — System Admin altera status/versão/obrigatoriedade dos documentos (podendo reabrir pendência de aceite, RN-05 daquele UC) ou excluí-los permanentemente quando nunca aceitos (a exclusão é bloqueada quando existem aceites registrados, ver UC-34 RN-03, corrigido no commit `4561a2a`) (Fluxo de Exceção 8f, RN-05 deste UC).
 - **UC-02 (Aprovar Solicitação de Acesso)** é pré-condição indireta da Variante B — só existe um `clinic_admin` em onboarding depois que UC-02 cria o tenant e o usuário.
 - **UC-41 (Editar Perfil e Trocar Senha do Usuário de Clínica)** exibe, em `clinic/profile/page.tsx`, o histórico somente-leitura dos registros de `user_document_acceptances` criados por este UC — formaliza o escopo que a seção 13 deste UC já citava como "fora do escopo deste UC".
 - **UC-45 (Completar Configuração Inicial da Clínica)** — destino do redirecionamento ao final da Variante B (passo 11, `router.push('/clinic/setup')`); relação sequencial, não `<<include>>`/`<<extend>>` formal.
@@ -204,7 +205,7 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 1. **[Bug confirmado — sugerido como prioridade alta]** RN-02/Fluxo 8a — loop de redirecionamento quando um documento "ativo" já aceito tem sua versão alterada por um System Admin. Não confirmado pelo usuário como escopo de correção.
 2. **[Bug confirmado]** RN-03/Fluxo 8b — divergência de filtro `required_for_registration`/`required_for_existing_users` entre `usePendingTerms` e as páginas de aceite, com o mesmo efeito de loop.
 3. **[Observação]** RN-07 — `ip_address` nunca é de fato capturado, apesar de existir no schema; pode ser relevante dependendo do requisito legal/de compliance real por trás desse campo.
-4. **[Achado — UC-34]** RN-05/Fluxo 8f — exclusão permanente de documentos legais já aceitos (sem checagem de dependências) é um risco de compliance identificado durante o mapeamento de UC-34; decisão de produto pendente naquele UC.
+4. **[Resolvido — UC-34]** RN-05/Fluxo 8f — exclusão permanente de documentos legais já aceitos (sem checagem de dependências) era um risco de compliance identificado durante o mapeamento de UC-34; corrigido em UC-34 (RN-03, commit `4561a2a`): a exclusão passou a ser bloqueada sempre que existirem aceites registrados.
 
 ---
 
@@ -216,3 +217,4 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 | 1.1 | 15/07/2026 | Guilherme Scandelari | Atualização de referências cruzadas: o módulo "Gerenciar Documentos Legais" (System Admin), antes citado como "ainda não mapeado", foi mapeado como UC-33 (Cadastrar Documento Legal) e UC-34 (Editar, Publicar/Despublicar e Excluir Documento Legal). Diagrama, seções 2.2, 12 e 13 atualizados com as referências. Adicionado Fluxo de Exceção 8f e nota em RN-05 sobre o achado crítico de UC-34 (exclusão permanente de documento legal já aceito, sem checagem de `user_document_acceptances`), e item correspondente na seção 14. |
 | 1.2 | 15/07/2026 | Guilherme Scandelari | Atualização de referência cruzada: a exibição somente-leitura do histórico de aceites em `clinic/profile/page.tsx`, antes citada na seção 13 como "fora do escopo deste UC", foi formalmente mapeada como UC-41 (Editar Perfil e Trocar Senha do Usuário de Clínica). Seções 12 e 13 atualizadas com a referência. |
 | 1.3 | 15/07/2026 | Guilherme Scandelari | Cross-reference: adicionada referência a UC-45 (Completar Configuração Inicial da Clínica), destino do redirecionamento ao final da Variante B de onboarding. |
+| 1.3.1 | 16/07/2026 | Guilherme Scandelari | Cross-reference: o bug de exclusão órfã documentado em UC-34 (RN-03) foi corrigido no commit `4561a2a` (bloqueio de exclusão quando existem aceites registrados). Atualizado o diagrama (seção 1), Fluxo de Exceção 8f, RN-05 e seção 12 para refletir que a exclusão permanente de documento legal só ocorre quando ele nunca foi aceito; item 4 da seção 14 marcado como resolvido. Nenhum outro conteúdo deste UC foi alterado. |

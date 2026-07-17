@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 16/07/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Scandelari
+**Data de Conclusão:** 17/07/2026
 **Tipo:** Bugfix
 **Branch sugerida:** `bugfix/sync-user-claims-on-edit`
 **Prioridade:** Alta
-**Versão:** 1.0
+**Versão:** 1.1
 
 > No diálogo "Editar Usuário" (`admin/users/page.tsx`), trocar "Função" ou "Status" de um usuário de clínica hoje faz apenas `updateDoc` direto no Firestore — sem nenhum efeito sobre os custom claims do Firebase Auth, que são a fonte de verdade real de acesso (`ProtectedRoute`, regras do Firestore de outras coleções). Diferente do UC-29 (consultores), aqui **não existe nenhuma rota alternativa já implementada** para reaproveitar — é preciso construir `PUT /api/users/[id]` do zero. Decisão do PO já registrada em `_MAPA-DE-BUGS-E-MELHORIAS.md` (Seção 6, `UC-36-RN-02, UC-36-RN-03, UC-36-RN-07`): a nova rota sincroniza claims (`role`, `active`) e desabilita a conta no Firebase Auth quando "Status" vira "Inativo", **empacotado** com uma checagem de "último `clinic_admin` ativo do tenant" que exige confirmação explícita do System Admin antes de rebaixar ou desativar o único admin local de uma clínica.
 
@@ -623,3 +625,4 @@ Cobertas integralmente na Seção 6.2 — rota nova `PUT /api/users/[id]`.
 | Versão | Data | Autor | O que mudou |
 |---|---|---|---|
 | 1.0 | 16/07/2026 | Doc Writer (Claude) | Versão inicial. Spec gerada a partir do item `UC-36-RN-02, UC-36-RN-03, UC-36-RN-07` do mapa de bugs (decisão do PO já registrada: construir `PUT /api/users/[id]` do zero, empacotando a sincronização de claims/status real com a checagem de "último admin"). Diferente dos bugfixes anteriores desta sequência (UC-43, UC-34, UC-29), aqui não existe rota alternativa pré-existente — a rota é inteiramente nova (Seção 6.2), já nascendo com o padrão correto de custom claims (`adminAuth.getUser(...).customClaims`), evitando repetir o bug encontrado em `DELETE /api/consultants/[id]` (UC-29). O mecanismo de confirmação de "último admin" (RN-07) foi desenhado como round-trip `409` + `confirm()` nativo + reenvio com `confirmLastAdmin: true` (Seção 4.1), decisão justificada pela ausência de dados de contagem de admins na listagem cross-tenant atual — não deixada como decisão em aberto, por ser a abordagem mais simples e consistente com o padrão de `confirm()` já usado no restante do projeto. |
+| 1.1 | 17/07/2026 | Guilherme Scandelari | Task concluída — os 3 STEPs de código (rota `PUT /api/users/[id]`, checagem de "último admin", migração de `handleSaveUser`) foram implementados e commitados na branch `bugfix/sync-user-claims-on-edit`. Documento movido para TASK_COMPLETED. |

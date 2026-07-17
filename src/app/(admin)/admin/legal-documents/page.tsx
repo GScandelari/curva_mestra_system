@@ -6,7 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  orderBy,
+  where,
+  limit,
+  getDocs,
+  deleteDoc,
+  doc,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FileText, Plus, Edit, Trash2, Loader2, Eye } from 'lucide-react';
 import { LegalDocument, DocumentStatus } from '@/types';
@@ -58,6 +67,23 @@ export default function LegalDocumentsPage() {
     if (!documentToDelete) return;
 
     try {
+      const acceptancesQuery = query(
+        collection(db, 'user_document_acceptances'),
+        where('document_id', '==', documentToDelete.id),
+        limit(1)
+      );
+      const acceptancesSnap = await getDocs(acceptancesQuery);
+
+      if (!acceptancesSnap.empty) {
+        toast({
+          title: 'Não é possível excluir',
+          description:
+            'Este documento já foi aceito por usuários e não pode ser excluído. Use "Editar" e defina o status como "Inativo" em vez de excluir.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       await deleteDoc(doc(db, 'legal_documents', documentToDelete.id));
       toast({
         title: 'Sucesso',

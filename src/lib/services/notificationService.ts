@@ -14,6 +14,7 @@ import {
   getDoc,
   addDoc,
   updateDoc,
+  setDoc,
   deleteDoc,
   writeBatch,
   Timestamp,
@@ -75,7 +76,7 @@ export async function saveNotificationSettings(
     // Se documento não existe, criar com valores padrão
     if (error.code === 'not-found') {
       const settingsRef = doc(db, `tenants/${tenantId}/settings/notifications`);
-      await updateDoc(settingsRef, {
+      await setDoc(settingsRef, {
         ...DEFAULT_NOTIFICATION_SETTINGS,
         ...settings,
         tenant_id: tenantId,
@@ -99,7 +100,7 @@ export async function initializeNotificationSettings(
   try {
     const settingsRef = doc(db, `tenants/${tenantId}/settings/notifications`);
 
-    await updateDoc(settingsRef, {
+    await setDoc(settingsRef, {
       ...DEFAULT_NOTIFICATION_SETTINGS,
       tenant_id: tenantId,
       updated_at: Timestamp.now(),

@@ -273,7 +273,7 @@ export default function UsersManagementPage() {
     }
   };
 
-  const handleSaveUser = async () => {
+  const handleSaveUser = async (confirmLastAdmin = false) => {
     if (!editingUser) return;
 
     try {
@@ -281,29 +281,20 @@ export default function UsersManagementPage() {
 
       const isConsultant = editingUser.role === 'clinic_consultant';
 
-      // Dados base para atualização
-      const updateData: Record<string, any> = {
-        displayName: editDisplayName,
-        full_name: editDisplayName,
-        active: editActive,
-        updated_at: new Date(),
-      };
-
-      // Para consultores, incluir telefone e email, mas não alterar role
       if (isConsultant) {
-        updateData.phone = editPhone;
-        updateData.email = editEmail.toLowerCase();
-      } else {
-        // Para outros usuários, permitir alterar role
-        updateData.role = editRole;
-      }
+        // Ramo morto — consultores nunca alcançam este diálogo (RN-04 do UC-36), mantido sem alteração
+        const updateData: Record<string, any> = {
+          displayName: editDisplayName,
+          full_name: editDisplayName,
+          active: editActive,
+          phone: editPhone,
+          email: editEmail.toLowerCase(),
+          updated_at: new Date(),
+        };
 
-      // Atualizar no Firestore
-      const userRef = doc(db, 'users', editingUser.uid);
-      await updateDoc(userRef, updateData);
+        const userRef = doc(db, 'users', editingUser.uid);
+        await updateDoc(userRef, updateData);
 
-      // Se for consultor, atualizar também na collection consultants
-      if (isConsultant) {
         try {
           const consultantsRef = collection(db, 'consultants');
           const consultantQuery = query(consultantsRef);
@@ -323,6 +314,38 @@ export default function UsersManagementPage() {
           }
         } catch (err) {
           console.error('Erro ao atualizar consultor:', err);
+        }
+      } else {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          alert('Você precisa estar autenticado para realizar esta ação');
+          return;
+        }
+
+        const token = await currentUser.getIdToken();
+
+        const response = await fetch(`/api/users/${editingUser.uid}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            displayName: editDisplayName,
+            role: editRole,
+            active: editActive,
+            confirmLastAdmin,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (response.status === 409 && data.code === 'LAST_ADMIN_CONFIRMATION_REQUIRED') {
+            setUpdating(false);
+            if (confirm(data.error)) {
+              await handleSaveUser(true);
+            }
+            return;
+          }
+          throw new Error(data.error || 'Erro ao atualizar usuário');
         }
       }
 
@@ -789,7 +812,7 @@ export default function UsersManagementPage() {
               >
                 Cancelar
               </Button>
-              <Button onClick={handleSaveUser} disabled={updating}>
+              <Button onClick={() => handleSaveUser()} disabled={updating}>
                 {updating ? 'Salvando...' : 'Salvar'}
               </Button>
             </DialogFooter>
