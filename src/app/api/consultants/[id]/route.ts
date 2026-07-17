@@ -128,6 +128,22 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       }
     }
 
+    // Se reativando (status volta a 'active' vindo de outro valor), restaurar acesso real
+    if (status === 'active' && consultantDoc.data()?.status !== 'active') {
+      const consultantData = consultantDoc.data();
+      if (consultantData?.user_id) {
+        const userRecord = await adminAuth.getUser(consultantData.user_id);
+        const currentClaims = userRecord.customClaims || {};
+
+        await adminAuth.setCustomUserClaims(consultantData.user_id, {
+          ...currentClaims,
+          active: true,
+        });
+
+        await adminAuth.updateUser(consultantData.user_id, { disabled: false });
+      }
+    }
+
     await adminDb.collection('consultants').doc(consultantId).update(updateData);
 
     return NextResponse.json({
@@ -181,8 +197,11 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
 
     // Desativar custom claims do usuário
     if (consultantData?.user_id) {
+      const userRecord = await adminAuth.getUser(consultantData.user_id);
+      const currentClaims = userRecord.customClaims || {};
+
       await adminAuth.setCustomUserClaims(consultantData.user_id, {
-        ...consultantData,
+        ...currentClaims,
         active: false,
       });
 
