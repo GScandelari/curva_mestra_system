@@ -21,6 +21,16 @@ import {
   CheckCircle2,
   Mail,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatTimestamp } from '@/lib/utils';
@@ -47,6 +57,7 @@ export default function ConsultantDetailPage() {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetEmailAddress, setResetEmailAddress] = useState<string | null>(null);
+  const [resetPasswordConfirmOpen, setResetPasswordConfirmOpen] = useState(false);
 
   // Definir senha manualmente
   const [newPassword, setNewPassword] = useState('');
@@ -150,16 +161,14 @@ export default function ConsultantDetailPage() {
     }
   };
 
-  const handleResetPassword = async () => {
+  const handleResetPassword = () => {
     if (!user || !consultant) return;
+    setResetPasswordConfirmOpen(true);
+  };
 
-    if (
-      !confirm(
-        `Tem certeza que deseja redefinir a senha de ${consultant.email}?\n\nUm email será enviado com um link seguro para o consultor definir uma nova senha.`
-      )
-    ) {
-      return;
-    }
+  const confirmResetPassword = async () => {
+    if (!user || !consultant) return;
+    setResetPasswordConfirmOpen(false);
 
     try {
       setResettingPassword(true);
@@ -574,6 +583,22 @@ export default function ConsultantDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        <AlertDialog open={resetPasswordConfirmOpen} onOpenChange={setResetPasswordConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja redefinir a senha de {consultant.email}? Um email será
+                enviado com um link seguro para o consultor definir uma nova senha.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmResetPassword}>Confirmar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

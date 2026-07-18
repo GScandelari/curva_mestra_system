@@ -40,6 +40,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -82,6 +92,7 @@ export default function UsersManagementPage() {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetEmailAddress, setResetEmailAddress] = useState<string | null>(null);
+  const [resetPasswordConfirmOpen, setResetPasswordConfirmOpen] = useState(false);
 
   // Set password states
   const [newPassword, setNewPassword] = useState('');
@@ -360,16 +371,14 @@ export default function UsersManagementPage() {
     }
   };
 
-  const handleResetPassword = async () => {
+  const handleResetPassword = () => {
     if (!editingUser) return;
+    setResetPasswordConfirmOpen(true);
+  };
 
-    if (
-      !confirm(
-        `Tem certeza que deseja redefinir a senha de ${editingUser.email}?\n\nUm email será enviado com um link seguro para o usuário definir uma nova senha.`
-      )
-    ) {
-      return;
-    }
+  const confirmResetPassword = async () => {
+    if (!editingUser) return;
+    setResetPasswordConfirmOpen(false);
 
     try {
       setResettingPassword(true);
@@ -818,6 +827,22 @@ export default function UsersManagementPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={resetPasswordConfirmOpen} onOpenChange={setResetPasswordConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja redefinir a senha de {editingUser?.email}? Um email será
+                enviado com um link seguro para o usuário definir uma nova senha.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmResetPassword}>Confirmar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
