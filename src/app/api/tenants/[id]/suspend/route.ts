@@ -109,6 +109,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         active: false, // Desativar usuário
       });
 
+      // Bloquear login/refresh de token no Firebase Auth
+      await adminAuth.updateUser(userId, { disabled: true });
+
       // Atualizar documento do usuário
       await adminDb.collection('users').doc(userId).update({
         active: false,
@@ -194,6 +197,9 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
         ...currentClaims,
         active: true, // Reativar usuário
       });
+
+      // Restaurar login/refresh de token no Firebase Auth
+      await adminAuth.updateUser(userId, { disabled: false });
 
       // Atualizar documento do usuário
       await adminDb.collection('users').doc(userId).update({

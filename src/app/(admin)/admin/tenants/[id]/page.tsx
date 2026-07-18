@@ -66,7 +66,6 @@ export default function EditTenantPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [active, setActive] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -122,7 +121,6 @@ export default function EditTenantPage() {
       // Converter address de objeto para string se necessário
       const addressStr = formatAddress(tenantData.address);
       setAddress(addressStr === 'Não informado' ? '' : addressStr);
-      setActive(tenantData.active);
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar clínica');
       console.error('Erro ao carregar tenant:', err);
@@ -170,7 +168,6 @@ export default function EditTenantPage() {
         email: email.trim(),
         phone: phone.trim(),
         address: address.trim(),
-        active,
       });
 
       setSuccess('Clínica atualizada com sucesso!');
@@ -644,32 +641,6 @@ export default function EditTenantPage() {
                   placeholder="Rua, número, bairro, cidade - UF"
                   disabled={loading}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="active">Status</Label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant={active ? 'default' : 'outline'}
-                    onClick={() => setActive(true)}
-                    disabled={loading}
-                    className="flex-1"
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Ativo
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={!active ? 'destructive' : 'outline'}
-                    onClick={() => setActive(false)}
-                    disabled={loading}
-                    className="flex-1"
-                  >
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Inativo
-                  </Button>
-                </div>
               </div>
 
               {error && (
