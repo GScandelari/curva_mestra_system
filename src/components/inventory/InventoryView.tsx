@@ -114,7 +114,10 @@ function applyFilter(
       limite_estoque_baixo: limitsMap.get(item.codigo_produto),
     });
 
-  if (filter === 'expiring') {
+  if (filter === 'expired') {
+    const now = new Date();
+    filtered = filtered.filter((item) => item.dt_validade < now && item.quantidade_disponivel > 0);
+  } else if (filter === 'expiring') {
     const now = new Date();
     const in30Days = new Date();
     in30Days.setDate(now.getDate() + 30);
@@ -413,18 +416,21 @@ export function InventoryView({
                 </SelectContent>
               </Select>
               <div className="flex gap-2 flex-wrap">
-                {(['all', 'expiring', 'low_stock', 'out_of_stock'] as const).map((f) => (
+                {(['all', 'expired', 'expiring', 'low_stock', 'out_of_stock'] as const).map((f) => (
                   <Button
                     key={f}
                     variant={filterBy === f ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setFilterBy(f)}
                   >
-                    {f === 'expiring' && <AlertTriangle className="mr-2 h-4 w-4" />}
+                    {(f === 'expired' || f === 'expiring') && (
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                    )}
                     {f === 'low_stock' && <TrendingDown className="mr-2 h-4 w-4" />}
                     {
                       {
                         all: 'Todos',
+                        expired: 'Vencidos',
                         expiring: 'Vencendo',
                         low_stock: 'Estoque Baixo',
                         out_of_stock: 'Esgotado',
