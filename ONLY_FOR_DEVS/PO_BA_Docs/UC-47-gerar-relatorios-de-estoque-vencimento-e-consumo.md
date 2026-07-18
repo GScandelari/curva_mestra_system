@@ -6,7 +6,7 @@
 **Status:** Rascunho
 **Módulo/Contexto:** Relatórios
 
-**Versão:** 1.0
+**Versão:** 1.0.1
 
 > Um usuário de clínica (`clinic_admin` ou `clinic_user`) gera, sob demanda em `/clinic/reports`, um de três relatórios independentes — Valor do Estoque, Produtos Vencendo (com antecedência configurável) e Consumo por Período — cada um calculado em tempo real no client a partir de `tenants/{tenantId}/inventory` e `tenants/{tenantId}/solicitacoes`, exibido em preview na tela e exportável para Excel (.xlsx). É a única funcionalidade de relatórios realmente implementada no sistema hoje — o componente `ReportsView` foi construído com props (`readOnly`, `backUrl`) pensadas para reuso no Portal Consultor, mas essa tela (`/consultant/reports`) ainda é um placeholder "Em Desenvolvimento", sem nenhuma chamada real a este serviço.
 
@@ -55,7 +55,7 @@ Nenhum sistema externo além do próprio Firestore (leitura client-side) e da bi
 - Se o usuário clicar em "Exportar Excel": um arquivo `.xlsx` é baixado pelo navegador, nomeado `{relatorio}_{AAAA-MM-DD}.xlsx`, com os mesmos dados exibidos no preview (recalculados a partir do estado em memória, não uma nova consulta).
 
 ### 4.2 Falha (Garantias Mínimas)
-- Se a geração do relatório falhar (erro de rede/permissão no Firestore): um `alert()` nativo do navegador exibe "Erro ao gerar relatório"; nenhum preview é exibido; o erro completo é apenas registrado via `console.error`.
+- Se a geração do relatório falhar (erro de rede/permissão no Firestore): um `toast` destrutivo (`useToast`) exibe "Erro ao gerar relatório" / "Não foi possível gerar o relatório. Tente novamente." — corrigido no commit `53df743` (RNF-01); nenhum preview é exibido; o erro completo continua sendo registrado via `console.error`.
 
 ---
 
@@ -86,7 +86,7 @@ Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`
 ### 7b. Relatório de Consumo por Período (variação do gatilho)
 1. Sistema pré-preenche "Data Início" (um mês atrás) e "Data Fim" (hoje) ao carregar a página.
 2. Usuário ajusta o período (opcional) e clica em "Gerar Relatório" no card "Consumo".
-3. Sistema valida que ambas as datas estão preenchidas (senão, `alert('Selecione o período')`) e chama `generateConsumptionReport(tenantId, dataInicio, dataFim)`: busca `tenants/{tenantId}/solicitacoes` com `status == 'concluida'` e `dt_procedimento` dentro do intervalo, somando `quantidade`/`valor_unitario` de cada produto em `produtos_solicitados` de cada solicitação.
+3. Sistema valida que ambas as datas estão preenchidas (senão, exibe um `toast` destrutivo "Selecione o período" / "Informe a data inicial e final para gerar o relatório de consumo." — corrigido no commit `53df743`, RNF-01) e chama `generateConsumptionReport(tenantId, dataInicio, dataFim)`: busca `tenants/{tenantId}/solicitacoes` com `status == 'concluida'` e `dt_procedimento` dentro do intervalo, somando `quantidade`/`valor_unitario` de cada produto em `produtos_solicitados` de cada solicitação.
 4. Sistema exibe cards de "Total Procedimentos", "Produtos Consumidos" e "Valor Total", e uma tabela por produto (quantidade consumida, número de procedimentos em que apareceu, valor total).
 5. Usuário pode exportar ou fechar, como no fluxo principal.
 
@@ -100,7 +100,7 @@ Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`
 
 ### 8a. Falha ao gerar qualquer um dos três relatórios (a partir dos passos 3 de qualquer fluxo)
 1. A consulta ao Firestore lança exceção (rede, permissão).
-2. Sistema exibe `alert('Erro ao gerar relatório')` (bloqueante, nativo do navegador — diferente do padrão de toast usado no restante do sistema) e registra o erro completo apenas em `console.error`.
+2. Sistema exibe um `toast` destrutivo (`useToast`, `@/hooks/use-toast`) com título "Erro ao gerar relatório" e descrição "Não foi possível gerar o relatório. Tente novamente.", e registra o erro completo em `console.error` — **[Corrigido no commit `53df743` — UC-47-RNF-01]**; até então, o feedback era um `alert()` bloqueante nativo do navegador, inconsistente com o padrão de toast usado no restante do sistema.
 
 ### 8b. Data de validade em formato não reconhecido (Relatório de Vencimento, a partir do passo 2 do fluxo 7a)
 1. `dt_validade` do item de inventário não é `Timestamp`, `Date`, nem string em formato `DD/MM/YYYY` ou `YYYY-MM-DD`.
@@ -126,7 +126,7 @@ Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`
 
 | ID | Descrição | Categoria |
 |----|-----------|-----------|
-| RNF-01 | Feedback de erro via `alert()` nativo do navegador (RN/8a) — inconsistente com o padrão de toast (`useToast`) usado no restante do sistema, incluindo outras telas do próprio módulo Clinic. | Usabilidade / Consistência |
+| RNF-01 | **[Corrigido no commit `53df743` — UC-47-RNF-01]** O feedback de erro passou a usar o padrão de toast (`useToast`, `@/hooks/use-toast`) do restante do sistema, em substituição às 4 chamadas de `alert()` nativo do navegador anteriormente existentes em `ReportsView.tsx`: as 3 chamadas nos handlers de geração de relatório (`handleGenerateStockReport`, `handleGenerateExpirationReport`, `handleGenerateConsumptionReport`, ver Fluxo de Exceção 8a) e a chamada de validação de período vazio no relatório de Consumo (ver Fluxo Alternativo 7b, passo 3). **Nota histórica:** até esta correção, todo o feedback de erro desta tela era feito via `alert()` bloqueante, inconsistente com o padrão de toast usado no restante do sistema, incluindo outras telas do próprio módulo Clinic. | Usabilidade / Consistência |
 | RNF-02 | Sem paginação/limite: os três relatórios carregam a coleção inteira relevante (`inventory` ou `solicitacoes`) de uma vez — pode se tornar lento para tenants com grande volume histórico de solicitações. | Escalabilidade |
 | RNF-03 | Multi-tenant garantido apenas pela regra genérica do Firestore, sem revalidação server-side (RN-06). | Multi-tenant / Segurança |
 
@@ -147,11 +147,13 @@ Provavelmente frequente/recorrente — é a única tela de relatórios totalment
 
 ## 13. Referências
 - `src/app/(clinic)/clinic/reports/page.tsx` (`ReportsPage`)
-- `src/components/reports/ReportsView.tsx` (`ReportsView`)
+- `src/components/reports/ReportsView.tsx` (`ReportsView`, `useToast` — ver RNF-01)
 - `src/lib/services/reportService.ts` (`generateStockValueReport`, `generateExpirationReport`, `generateConsumptionReport`, `exportToExcel`, `exportToCSV` — código morto)
+- `src/hooks/use-toast.ts` (`useToast`, padrão adotado na correção do RNF-01)
 - `src/components/clinic/ClinicLayout.tsx` (`navLinks` — inclui "Relatórios")
 - `firestore.rules` (linhas 53-62 — regra genérica de subcoleções do tenant)
 - `src/app/(consultant)/consultant/reports/page.tsx` (placeholder "Em Desenvolvimento", fora do escopo deste UC — RN-07)
+- Commit da correção: `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`) — troca `alert()` nativo por `toast()` padrão do sistema (RNF-01)
 
 ---
 
@@ -164,6 +166,8 @@ Provavelmente frequente/recorrente — é a única tela de relatórios totalment
 3. **[Observação]** RN-05 — `exportToCSV` é código morto. Remover, ou manter como alternativa futura de exportação?
 4. **[Observação, não bloqueante]** RN-07 — `/consultant/reports` é um placeholder sem lógica real; não foi mapeado como UC nesta rodada por não representar comportamento de negócio implementado. Deve ser tratado como pendência de roadmap, não como lacuna de documentação.
 
+Nenhuma pendência bloqueante remanescente sobre RNF-01 — o feedback de erro desta tela já segue o padrão de toast do sistema, corrigido no commit `53df743`.
+
 ---
 
 ## 15. Histórico de Versões
@@ -171,3 +175,4 @@ Provavelmente frequente/recorrente — é a única tela de relatórios totalment
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada por leitura completa de `ReportsPage`, `ReportsView`, `reportService.ts` (as três funções de geração + utilitários de exportação), `ClinicLayout.tsx` e `firestore.rules`. Confirmado que este é o único módulo de relatórios do módulo Clinic totalmente funcional, e que a tela equivalente do Portal Consultor (`/consultant/reports`) é apenas um placeholder "Em Desenvolvimento", sem nenhuma lógica real — por isso não foi mapeada como UC separado nesta rodada (RN-07). Identificados achados: o Relatório de "Produtos Vencendo" também inclui produtos já vencidos (RN-01); itens com data de validade em formato inválido são omitidos silenciosamente (RN-02); apenas um relatório é exibido por vez, mesmo com múltiplos calculados em memória (RN-04); e `exportToCSV` é código morto (RN-05). |
+| 1.0.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-47-RNF-01): as 4 chamadas de `alert()` nativo em `ReportsView.tsx` (3 nos handlers de erro de geração de relatório, 1 na validação de período vazio do relatório de Consumo) foram substituídas por `toast()` do hook `useToast` (`@/hooks/use-toast`), corrigido no commit `53df743`. Atualizados Pós-condição 4.2, Fluxo Alternativo 7b (passo 3), Fluxo de Exceção 8a, RNF-01 (marcado `[Corrigido]`) e referências (Seção 13). Nenhum item da Seção 14 estava associado a RNF-01; nenhuma alteração feita nessa seção além de uma nota final confirmando a ausência de pendência remanescente sobre o achado corrigido. |

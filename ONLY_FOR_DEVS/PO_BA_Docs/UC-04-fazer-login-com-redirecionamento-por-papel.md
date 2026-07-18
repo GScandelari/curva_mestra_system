@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.1.1
+**Versão:** 1.1.2
 
 > Um usuário já cadastrado e aprovado (system_admin, clinic_admin, clinic_user ou clinic_consultant) autentica-se com email e senha e é redirecionado automaticamente para a área correta do sistema, passando antes por checagens de aprovação/ativação, troca de senha obrigatória e status da clínica.
 
@@ -55,7 +55,7 @@ flowchart LR
 
 ### 4.1 Sucesso (Garantias de Sucesso)
 - Existe uma sessão Firebase Auth ativa para o usuário, com o ID token forçado a refresh (`getIdToken(true)`) para refletir custom claims atualizadas.
-- O usuário é redirecionado para exatamente um destino, de acordo com o estado de suas claims e do tenant: `/waiting-approval`, `/change-password`, a própria tela `/login` (com mensagem inline e sessão encerrada), `/clinic/my-clinic`, `/admin/dashboard`, `/clinic/dashboard`, ou `/dashboard` (com um salto adicional para `/consultant/dashboard` quando aplicável — ver Fluxo Alternativo 7b).
+- O usuário é redirecionado para exatamente um destino, de acordo com o estado de suas claims e do tenant: `/waiting-approval`, `/change-password`, a própria tela `/login` (com mensagem inline e sessão encerrada), `/clinic/my-clinic`, `/admin/dashboard`, `/clinic/dashboard`, `/consultant/dashboard` (diretamente, para `clinic_consultant` — corrigido no commit `53df743`, RN-08) ou `/dashboard` (destino residual, hoje sem nenhum role mapeado do sistema que efetivamente o alcance — ver Fluxo Alternativo 7b, nota histórica).
 
 ### 4.2 Falha (Garantias Mínimas)
 - Nenhuma sessão útil é estabelecida; o usuário permanece na tela `/login`.
@@ -78,7 +78,7 @@ O usuário acessa `/login` e submete o formulário com email e senha. (Variaçõ
 6. Sistema verifica `claims.role` e `claims.active` — ambos presentes e verdadeiros (fluxo feliz).
 7. Sistema verifica `claims.requirePasswordChange` — ausente ou `false` (fluxo feliz).
 8. Sistema verifica se o usuário não é `system_admin` e possui `tenant_id`; nesse caso, lê o documento `tenants/{tenant_id}` no Firestore e confirma que `active !== false` (clínica ativa).
-9. Sistema redireciona por role: `is_system_admin` → `/admin/dashboard`; `role === "clinic_admin"` ou `role === "clinic_user"` → `/clinic/dashboard`; qualquer outro role (inclui `clinic_consultant`) → `/dashboard` (ver Fluxo Alternativo 7b para o caso de `clinic_consultant`).
+9. Sistema redireciona por role, via `redirectByRole` (`src/app/(auth)/login/page.tsx`, linhas 87-97): `is_system_admin` → `/admin/dashboard`; `role === "clinic_admin"` ou `role === "clinic_user"` → `/clinic/dashboard`; `role === "clinic_consultant"` → `/consultant/dashboard`, diretamente (corrigido no commit `53df743` — ver RN-08 e nota histórica no Fluxo Alternativo 7b); qualquer outro caso (fallback residual, sem role mapeado do sistema que o alcance hoje) → `/dashboard`.
 10. Caso de uso é concluído com sucesso.
 
 ---
@@ -91,11 +91,10 @@ O usuário acessa `/login` e submete o formulário com email e senha. (Variaçõ
 3. Caso contrário, sistema redireciona diretamente por role (mesma lógica do passo 9), **sem repetir** as checagens de `role`/`active` (passo 6) nem a de clínica suspensa (passo 8) — ver gap confirmado na seção 14.
 4. Caso de uso é encerrado.
 
-### 7b. Redirecionamento em dois saltos para clinic_consultant (a partir do passo 9)
-1. Usuário com role `clinic_consultant` chega a `/dashboard` — uma página originalmente de depuração/debug, não uma tela de destino final.
-2. A página `/dashboard`, ao montar, verifica novamente `isAuthenticated` e `claims` via `useAuth()`.
-3. Sistema detecta `claims.role === "clinic_consultant"` e redireciona para `/consultant/dashboard`.
-4. Caso de uso é concluído com sucesso, com um salto adicional em relação aos demais roles (ver nota de gap na seção 14).
+### 7b. [Nota histórica — corrigido no commit `53df743`] Redirecionamento de `clinic_consultant`
+1. **Até a correção**, o usuário com role `clinic_consultant` chegava primeiro a `/dashboard` — uma página originalmente de depuração/debug, não uma tela de destino final —, pois `redirectByRole` não possuía nenhum branch dedicado a esse role e o enviava para o `else` genérico. A página `/dashboard`, ao montar, verificava novamente `isAuthenticated` e `claims` via `useAuth()` e só então detectava `claims.role === "clinic_consultant"` e redirecionava para `/consultant/dashboard` — um salto duplo desnecessário, diferente do salto único aplicado aos demais roles.
+2. **Corrigido:** `redirectByRole` (`src/app/(auth)/login/page.tsx`, linhas 87-97) passou a incluir um branch direto — `else if (claims.role === 'clinic_consultant') { router.push('/consultant/dashboard'); }`, inserido antes do `else` genérico — eliminando o salto via `/dashboard`. Desde então, o passo 9 do Fluxo Principal já entrega o `clinic_consultant` diretamente em `/consultant/dashboard`, no mesmo padrão de salto único usado pelos demais roles (ver RN-08).
+3. Caso de uso é concluído com sucesso, sem mais nenhum salto adicional em relação aos demais roles.
 
 ### 7c. Alerta de sessão expirada por timeout (a partir do passo 1)
 1. Usuário chega a `/login?timeout=true`, redirecionado por um mecanismo externo de timeout de inatividade (15 minutos, `useSessionTimeout`, que já efetuou `signOut` antes do redirecionamento — não mapeado como UC nesta documentação).
@@ -146,6 +145,7 @@ O usuário acessa `/login` e submete o formulário com email e senha. (Variaçõ
 | RN-05 | `requirePasswordChange` é uma custom claim distinta do link de redefinição de senha gerado na aprovação inicial (UC-02, RN-03). Ela é setada manualmente por um System Admin ao redefinir a senha de um usuário ou consultor já existente (`/api/users/{id}/set-password`, `/api/consultants/{id}/set-password`), não pelo fluxo de aprovação em si. | São dois mecanismos distintos de "senha temporária", com origens e telas de destino diferentes (link de redefinição do Firebase vs. tela própria `/change-password`) — importante não confundir os dois. |
 | RN-06 | Mensagens de erro de autenticação são traduzidas para português a partir do código de erro do Firebase Auth (ver Fluxo de Exceção 8a), com fallback para a mensagem original do Firebase (ou uma mensagem genérica) quando o código não é reconhecido. | Usabilidade — evita expor mensagens técnicas em inglês ao usuário final. |
 | RN-07 | **[Achado crítico, confirmado em UC-35]** O timeout de sessão por inatividade citado nas Pré-condições (`useSessionTimeout.ts`, 15 minutos) usa uma constante fixa (`hardcoded`) no próprio código — não lê o campo `session_timeout_minutes` do documento `system_settings/global` (tela "Configurações do Sistema", UC-35). Alterar esse valor naquela tela administrativa não tem, hoje, nenhum efeito sobre o tempo real de expiração de sessão de nenhum usuário. | Confirmado por leitura completa de `src/hooks/useSessionTimeout.ts` (`const sessionTimeoutMinutes = 15;`, sem leitura de Firestore) e por busca exaustiva no código-fonte, documentada em UC-35 (RN-06). |
+| RN-08 | **[Corrigido no commit `53df743` — UC-04-Q1]** `redirectByRole` (`src/app/(auth)/login/page.tsx`, linhas 87-97) passou a incluir um branch direto para `clinic_consultant` — `else if (claims.role === 'clinic_consultant') { router.push('/consultant/dashboard'); }`, inserido antes do `else` genérico — eliminando o salto duplo via `/dashboard` que existia antes (ver nota histórica no Fluxo Alternativo 7b). A lógica correta já existia em outro ponto do sistema (`ProtectedRoute.tsx`, função `redirectToDashboard()`, já com um branch direto `clinic_consultant` → `/consultant/dashboard` desde a v1.1 deste documento) — a correção apenas replicou esse mesmo branch em `redirectByRole`, eliminando a inconsistência entre os dois pontos de redirecionamento do sistema. | Confirmado por leitura literal de `redirectByRole` (`src/app/(auth)/login/page.tsx`, linhas 87-97) — novo branch `clinic_consultant` presente antes do `else` genérico. |
 
 ---
 
@@ -172,7 +172,7 @@ Muito alta — ocorre a cada sessão de uso do sistema, por qualquer usuário, p
 ---
 
 ## 13. Referências
-- `src/app/(auth)/login/page.tsx`
+- `src/app/(auth)/login/page.tsx` (`redirectByRole`, linhas 87-97 — ver RN-08)
 - `src/hooks/useAuth.ts`
 - `src/app/(auth)/change-password/page.tsx`
 - `src/app/(auth)/waiting-approval/page.tsx`
@@ -181,12 +181,13 @@ Muito alta — ocorre a cada sessão de uso do sistema, por qualquer usuário, p
 - `src/components/auth/ProtectedRoute.tsx`
 - `src/types/index.ts` (interfaces `CustomClaims`, `UserRole`, `Tenant`, `SuspensionInfo`)
 - `src/app/api/users/[id]/set-password/route.ts`, `src/app/api/consultants/[id]/set-password/route.ts` (origem da claim `requirePasswordChange`)
+- Commit da correção: `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`) — adiciona o branch direto `clinic_consultant` → `/consultant/dashboard` em `redirectByRole` (RN-08)
 
 ---
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
-**[Gap confirmado — não confirmado como escopo de correção]** O redirecionamento por role em `/login` (`redirectByRole`) não possui um branch direto para `clinic_consultant`; esse role cai no `else` genérico e é enviado para `/dashboard` (uma página originalmente de depuração/debug), que só então o redireciona para `/consultant/dashboard`. Isso gera um salto duplo desnecessário especificamente para este role, diferente do salto único de `system_admin` e `clinic_admin`/`clinic_user`. **Achado adicional, confirmado por leitura de `src/components/auth/ProtectedRoute.tsx`:** a função `redirectToDashboard()` desse componente **já possui** um branch direto `clinic_consultant` → `/consultant/dashboard` — ou seja, a lógica correta de redirecionamento direto já existe em outro ponto do sistema, mas não foi replicada em `redirectByRole` no `/login`. Isso confirma que o salto duplo é uma inconsistência entre dois trechos de código que fazem a mesma coisa de forma diferente, não uma limitação técnica. Não confirmado pelo usuário como item a corrigir nesta rodada; registrado aqui como observação (documentado como está no Fluxo Alternativo 7b).
+~~**[Gap confirmado — não confirmado como escopo de correção]** O redirecionamento por role em `/login` (`redirectByRole`) não possui um branch direto para `clinic_consultant`; esse role cai no `else` genérico e é enviado para `/dashboard` (uma página originalmente de depuração/debug), que só então o redireciona para `/consultant/dashboard`. Isso gera um salto duplo desnecessário especificamente para este role, diferente do salto único de `system_admin` e `clinic_admin`/`clinic_user`. **Achado adicional, confirmado por leitura de `src/components/auth/ProtectedRoute.tsx`:** a função `redirectToDashboard()` desse componente **já possui** um branch direto `clinic_consultant` → `/consultant/dashboard` — ou seja, a lógica correta de redirecionamento direto já existe em outro ponto do sistema, mas não foi replicada em `redirectByRole` no `/login`.~~ **[RESOLVIDO no commit `53df743` — UC-04-Q1]** `redirectByRole` passou a incluir o mesmo branch direto `clinic_consultant` → `/consultant/dashboard` (linhas 87-97), eliminando o salto duplo via `/dashboard`. Ver RN-08 e nota histórica no Fluxo Alternativo 7b.
 
 **[As-is, sem proposta de correção]** A tela `/waiting-approval` é reaproveitada tanto para o cenário de "aguardando primeira aprovação" (pós-UC-01) quanto para "conta desativada posteriormente por um admin" — ambos exibem a mesma mensagem, que não reflete literalmente a segunda situação. Documentado como comportamento atual (Fluxo de Exceção 8b).
 
@@ -203,3 +204,4 @@ Muito alta — ocorre a cada sessão de uso do sistema, por qualquer usuário, p
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial, mapeada a partir da leitura direta de `login/page.tsx`, `useAuth.ts`, `change-password/page.tsx`, `waiting-approval/page.tsx`, `dashboard/page.tsx` e `useSessionTimeout.ts`. Corrigidas duas suposições do levantamento inicial que não se confirmaram no código: (1) não existem rotas `/suspended/admin` ou `/suspended/user` — documentado o comportamento real (mensagem inline + `signOut` para `clinic_user`; redirecionamento para `/clinic/my-clinic` para `clinic_admin`); (2) o redirecionamento de `clinic_consultant` não é direto — passa por `/dashboard` antes de chegar a `/consultant/dashboard` (sinalizado como possível gap na seção 14). |
 | 1.1 | 13/07/2026 | Guilherme Scandelari | Investigado `src/components/auth/ProtectedRoute.tsx` (adicionado às Referências) para fechar a pendência sobre a assimetria de checagens entre o fluxo de submissão do login e o acesso direto a páginas protegidas. Confirmado: a pendência deixou de ser uma "observação de risco não investigado" e passou a ser um **gap real confirmado** — `ProtectedRoute.tsx` não verifica `requirePasswordChange` nem o status da clínica em nenhuma rota interna do app. Confirmado também que `ProtectedRoute.tsx` já possui um branch direto para `clinic_consultant` em `redirectToDashboard()` (diferente de `redirectByRole` do `/login`, que não tem esse branch) — mencionado na pendência sobre o salto duplo do consultor como uma inconsistência entre os dois pontos de redirecionamento do sistema. |
 | 1.1.1 | 15/07/2026 | Guilherme Scandelari | Correção pontual: adicionada RN-07 e nota em "Casos de Uso Relacionados" documentando o achado crítico confirmado em UC-35 (Editar Configurações Globais do Sistema) — o campo `session_timeout_minutes` daquela tela administrativa não é lido por `useSessionTimeout.ts`, que usa um valor fixo de 15 minutos hardcoded. Atualizada também a nota contextual das Pré-condições. Nenhuma mudança de escopo ou reestruturação; apenas referência cruzada a um achado já investigado e documentado em UC-35. |
+| 1.1.2 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-04-Q1): o gap confirmado na v1.0/v1.1 — `redirectByRole` sem branch direto para `clinic_consultant`, causando um salto duplo via `/dashboard` — foi corrigido no commit `53df743`, que adicionou `else if (claims.role === 'clinic_consultant') { router.push('/consultant/dashboard'); }` antes do `else` genérico em `src/app/(auth)/login/page.tsx` (linhas 87-97). Adicionada RN-08 (Seção 9, marcada `[Corrigido]`), reescritos Pós-condição 4.1, passo 9 do Fluxo Principal e o Fluxo Alternativo 7b (agora nota histórica do bug corrigido), referência ao commit na Seção 13, e o primeiro item da Seção 14 marcado como `[RESOLVIDO]`. Demais gaps registrados na Seção 14 (ausência de checagens em `ProtectedRoute.tsx`, `session_timeout_minutes` não lido) permanecem inalterados, fora do escopo desta correção. |

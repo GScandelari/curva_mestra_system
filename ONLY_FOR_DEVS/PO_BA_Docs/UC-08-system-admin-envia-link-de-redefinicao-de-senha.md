@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Administração do Sistema
-**Versão:** 1.2
+**Versão:** 1.2.1
 
 > Um System Admin, a partir da tela de gestão de usuários ou de consultores, aciona o envio de um e-mail com um link seguro de redefinição de senha para outra pessoa — usando um sistema de token **customizado e próprio do Curva Mestra** (não o mecanismo nativo do Firebase usado em UC-02/UC-07), com expiração de 30 minutos e uso único. É a terceira forma que um System Admin tem de ajudar alguém a recuperar acesso, ao lado de "Definir Senha Manualmente" (UC-06, sem e-mail, senha definida imediatamente).
 
@@ -79,9 +79,9 @@ O System Admin clica no botão de redefinir senha na tela de edição de um usu�
 ## 6. Fluxo Principal (Basic Flow)
 
 1. System Admin acessa a tela de edição de um usuário (`/admin/users`) ou de um consultor (`/admin/consultants/{id}`).
-2. Admin clica no botão de redefinir senha (distinto do botão "Definir Senha Manualmente" de UC-06).
-3. Sistema exibe um `confirm()` nativo do navegador: "Tem certeza que deseja redefinir a senha de {email}? Um email será enviado com um link seguro para o usuário definir uma nova senha."
-4. Admin confirma.
+2. Admin clica no botão de redefinir senha (distinto do botão "Definir Senha Manualmente" de UC-06). Sistema chama `handleResetPassword()`, que apenas abre o diálogo de confirmação (`setResetPasswordConfirmOpen(true)`).
+3. Sistema exibe um `AlertDialog` padrão do sistema (`@/components/ui/alert-dialog`, componentes `AlertDialog`/`AlertDialogContent`/`AlertDialogHeader`/`AlertDialogTitle`/`AlertDialogDescription`/`AlertDialogFooter`/`AlertDialogCancel`/`AlertDialogAction`) com o título "Redefinir senha" e a descrição: "Tem certeza que deseja redefinir a senha de {email}? Um email será enviado com um link seguro para o usuário definir uma nova senha." — corrigido no commit `53df743` (RNF-02); até então, essa confirmação era feita com um `confirm()` nativo do navegador.
+4. Admin clica em "Confirmar" (`AlertDialogAction`), que fecha o diálogo e executa `confirmResetPassword()`.
 5. Sistema chama `POST /api/users/{id}/reset-password` (ou `/api/consultants/{id}/reset-password`) com Bearer token do admin.
 6. API verifica `is_system_admin`; para usuários (não consultores), verifica também que o alvo não é `system_admin` (RN-05).
 7. API busca o usuário/consultor-alvo no Firestore e no Firebase Auth, obtendo o e-mail.
@@ -102,10 +102,10 @@ O System Admin clica no botão de redefinir senha na tela de edição de um usu�
 
 ## 7. Fluxos Alternativos
 
-### 7a. Admin cancela o confirm() nativo (a partir do passo 3)
-1. Admin clica em "Cancelar" no diálogo nativo do navegador.
-2. Nenhuma chamada é feita à API.
-3. Caso de uso é encerrado sem efeito.
+### 7a. Admin cancela a confirmação (a partir do passo 3)
+1. Admin clica em "Cancelar" (`AlertDialogCancel`) ou fecha o diálogo de outra forma.
+2. Nenhuma chamada é feita à API; o diálogo se fecha (`resetPasswordConfirmOpen` volta a `false`).
+3. Caso de uso é encerrado sem efeito. **Nota histórica:** até o commit `53df743`, este mesmo passo usava o `confirm()` nativo do navegador (clicar em "Cancelar" no diálogo do sistema operacional) — efeito funcional idêntico, apenas o componente de UI mudou (ver RNF-02).
 
 ### 7b. Usuário-alvo acessa o link após já tê-lo usado (a partir do passo 13)
 1. `validate-reset-token` detecta `used_at` preenchido.
@@ -168,7 +168,7 @@ O System Admin clica no botão de redefinir senha na tela de edição de um usu�
 | ID | Descrição | Categoria |
 |----|-----------|-----------|
 | RNF-01 | O e-mail mascarado (ex.: `j***o@dominio.com`) é exibido em `/reset-password/{token}` antes da senha ser definida, para o usuário confirmar que o link é destinado a ele, sem expor o e-mail completo a quem eventualmente interceptasse a URL. | Segurança / Usabilidade |
-| RNF-02 | O diálogo de confirmação do admin (passo 3) usa `confirm()` nativo do navegador, não um componente de UI próprio (Dialog) como o restante do sistema. | Consistência de UI |
+| RNF-02 | **[Corrigido no commit `53df743` — UC-08-RNF-02]** O diálogo de confirmação do admin (passo 3) passou a usar o componente `AlertDialog` padrão do sistema (`@/components/ui/alert-dialog`), o mesmo já usado em `admin/legal-documents/page.tsx` — `handleResetPassword` (abre o diálogo, controlado por um novo estado `resetPasswordConfirmOpen`) foi separado de `confirmResetPassword` (executa a lógica antes protegida pelo `confirm()`). Aplicado nas duas variantes desta tela: `admin/users/page.tsx` e `admin/consultants/[id]/page.tsx`. **Nota histórica:** até esta correção, o diálogo usava `confirm()` nativo do navegador, inconsistente com o padrão `Dialog`/`AlertDialog` do restante do sistema. | Consistência de UI |
 | RNF-03 | Auditoria: `passwordResetRequestedAt`/`passwordResetRequestedBy` são gravados no documento do usuário/consultor-alvo a cada solicitação — mas não há um histórico completo de todas as solicitações (o campo é sobrescrito a cada nova solicitação, mantendo só a mais recente). | Auditoria |
 
 ---
@@ -189,7 +189,7 @@ Ocasional — usado pelo System Admin como alternativa a "Definir Senha Manualme
 ---
 
 ## 13. Referências
-- `src/app/(admin)/admin/users/page.tsx` (`handleResetPassword`)
+- `src/app/(admin)/admin/users/page.tsx` (`handleResetPassword`, `confirmResetPassword`, `resetPasswordConfirmOpen`, `AlertDialog`)
 - `src/app/(admin)/admin/consultants/[id]/page.tsx` (equivalente para consultores)
 - `src/app/api/users/[id]/reset-password/route.ts`
 - `src/app/api/consultants/[id]/reset-password/route.ts`
@@ -198,13 +198,15 @@ Ocasional — usado pelo System Admin como alternativa a "Definir Senha Manualme
 - `src/lib/services/passwordResetService.ts`
 - `src/app/(auth)/reset-password/[token]/page.tsx`
 - `firestore.rules` (regra de `password_reset_tokens`)
+- `src/components/ui/alert-dialog.tsx` (componente padrão usado na correção do RNF-02)
+- Commit da correção: `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`) — troca `confirm()` nativo por `AlertDialog` em ambas as variantes (RNF-02)
 
 ---
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
 1. **[Observação, sem correção proposta]** Não há histórico auditável de múltiplas solicitações de reset — apenas a mais recente é registrada (RNF-03).
-2. **[Observação]** O uso de `confirm()` nativo do navegador (RNF-02) é uma inconsistência de UI menor frente ao padrão `Dialog` do restante do sistema.
+2. ~~**[Observação]** O uso de `confirm()` nativo do navegador (RNF-02) é uma inconsistência de UI menor frente ao padrão `Dialog` do restante do sistema.~~ **[RESOLVIDO no commit `53df743` — UC-08-RNF-02]** O diálogo de confirmação (ambas as variantes, usuários e consultores) passou a usar `AlertDialog` padrão do sistema, em vez de `confirm()` nativo.
 
 Nenhuma pendência bloqueante identificada — ao contrário de UC-05, este mecanismo parece coerente, funcional e ativamente utilizável hoje.
 
@@ -217,3 +219,4 @@ Nenhuma pendência bloqueante identificada — ao contrário de UC-05, este meca
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial. Documenta o mecanismo de token customizado completo (geração, expiração, consumo) acionado pelo System Admin via `admin/users` e `admin/consultants/[id]`, incluindo a segunda metade do fluxo (usuário-alvo completando a redefinição via `/reset-password/[token]`). Confirmado, por leitura completa de `passwordResetService.ts` e `firestore.rules`, que este mecanismo é genuinamente diferente do link nativo do Firebase usado em UC-02 e UC-07 (RN-07), e que converge com UC-06 apenas no ponto de limpar `requirePasswordChange` (RN-06). |
 | 1.1 | 14/07/2026 | Guilherme Scandelari | Seção 12 atualizada com referências cruzadas ao módulo "Admin — Gestão de Consultores": adicionada menção a UC-29 (mesma tela `admin/consultants/[id]`, confirmando que este UC-08 já cobre integralmente a funcionalidade "Redefinir Senha via Link" da variante de consultores, sem necessidade de UC-30 dedicado) e a UC-30 (mecanismo irmão de definição manual de senha, específico de consultores). |
 | 1.2 | 15/07/2026 | Guilherme Scandelari | Seção 12 atualizada com referências cruzadas ao módulo "Admin — Gestão de Usuários": adicionada menção a UC-36 (mesma tela `admin/users`, confirmando que este UC-08 já cobre integralmente a funcionalidade "Redefinir Senha via Link" da variante de usuários, rota `api/users/{id}/reset-password`, sem necessidade de UC dedicado) e a UC-37 (mecanismo irmão de definição manual de senha, específico de usuários). |
+| 1.2.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-08-RNF-02): o diálogo de confirmação do admin (passo 3 do Fluxo Principal), que usava `confirm()` nativo do navegador, foi substituído por um `AlertDialog` padrão do sistema (`@/components/ui/alert-dialog`) no commit `53df743` — em ambas as variantes (`admin/users/page.tsx` e `admin/consultants/[id]/page.tsx`), `handleResetPassword` (abre o diálogo) foi separado de `confirmResetPassword` (executa a chamada à API), mesmo padrão já usado em `admin/legal-documents/page.tsx`. Atualizados Fluxo Principal (passos 2-4), Fluxo Alternativo 7a (nota histórica), RNF-02 (marcado `[Corrigido]`), referências (Seção 13) e item 2 da Seção 14 (marcado `[RESOLVIDO]`). |
