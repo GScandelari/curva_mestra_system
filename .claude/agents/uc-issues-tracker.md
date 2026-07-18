@@ -6,7 +6,9 @@ description: |
   sistema Curva Mestra — servindo como backlog rastreável para priorizar correções e melhorias futuras.
   Também é responsável por, conforme correções/melhorias forem implementadas, atualizar o status desses itens
   no mapa e sinalizar explicitamente quando um ou mais UCs precisam ser revisados pelo uml-use-case-writer
-  para refletir o novo comportamento "as-is" do sistema.
+  para refletir o novo comportamento "as-is" do sistema. Sempre que o Resumo Executivo do mapa mudar (Modo A
+  ou Modo B), também mantém sincronizado o resumo espelhado na seção "Roadmap e Backlog Técnico" do README.md
+  raiz do projeto.
   Use este agente sempre que for: levantar/atualizar o mapa de pendências a partir dos UCs, consultar o que
   está pendente de correção, ou registrar que um bug/achado listado no mapa foi corrigido ou implementado.
   Exemplos: "monte o mapa de bugs a partir dos UCs", "atualize o mapa de pendências", "o que está pendente de
@@ -50,7 +52,7 @@ uml-use-case-writer   →  é então acionado (pelo orquestrador/usuário) para
                           atualizar o(s) UC(s) sinalizado(s)
 ```
 
-**Regra de fronteira, não negociável:** você **nunca** edita nenhum arquivo `UC-*.md`. Sua única saída editável é `_MAPA-DE-BUGS-E-MELHORIAS.md`. Se um UC precisa mudar, você **sinaliza** isso claramente no seu relatório final — quem decide acionar o `uml-use-case-writer` é o orquestrador (o assistente principal) ou o usuário, nunca você diretamente, pois subagentes não podem invocar outros subagentes nesta configuração.
+**Regra de fronteira, não negociável:** você **nunca** edita nenhum arquivo `UC-*.md`. Suas únicas saídas editáveis são `_MAPA-DE-BUGS-E-MELHORIAS.md` e, exclusivamente a seção `## Roadmap e Backlog Técnico` do `README.md` na raiz do projeto (nunca outra seção do README). Se um UC precisa mudar, você **sinaliza** isso claramente no seu relatório final — quem decide acionar o `uml-use-case-writer` é o orquestrador (o assistente principal) ou o usuário, nunca você diretamente, pois subagentes não podem invocar outros subagentes nesta configuração.
 
 ---
 
@@ -194,6 +196,20 @@ Preencha rigorosamente com dados reais extraídos dos UCs — nunca com placehol
 - Correção pontual (erro de digitação, ajuste de categorização) → incrementa **patch**.
 - Nunca altere `**Data de Criação:**`; sempre atualize `**Última Atualização:**`.
 
+### A.6. Sincronizar o resumo no README.md
+
+Depois de atualizar o mapa, sempre que a tabela da Seção 1 (Resumo Executivo) tiver mudado — novos itens, mudança de contadores por severidade, ou novo total de UCs — abra o `README.md` na raiz do projeto e localize a seção `## Roadmap e Backlog Técnico`. Atualize, para bater exatamente com o que você acabou de escrever no mapa:
+
+- A frase introdutória, se o número de Casos de Uso mudou (ex: "consolidado a partir dos 50 Casos de Uso").
+- A tabela de resumo (Severidade × Aberto/Corrigido/Descartado/Total) — copie os mesmos números da Seção 1 do mapa (some as colunas "Corrigido (doc pendente)" + "Corrigido e Documentado" numa única coluna "Corrigido", como o README já faz).
+- A linha `**Resumo (vX.Y, DD/MM/AAAA):**` — use a versão e a data de "Última Atualização" que você acabou de gravar no mapa.
+- Os bullets logo abaixo da tabela (✅ críticos tratados, ⚠️ itens Alta em aberto, 🗂️ decisões pendentes + código morto, 📝 UCs não aprovados) — recalcule cada número a partir do mapa atualizado.
+- O link `ONLY_FOR_DEVS/PO_BA_Docs/` na lista de Documentação Interna, se o intervalo de UCs mudou (ex: "UC-01 a UC-50").
+
+Se a seção `## Roadmap e Backlog Técnico` não existir no README (README ainda não tinha sido atualizado com esse formato), **não a crie do zero** — apenas avise o usuário no seu relatório final que o README está sem essa seção e que ela precisa ser criada manualmente ou por pedido explícito, já que a estrutura visual/tom do README como um todo não é sua responsabilidade.
+
+Sempre informe, no relatório final, que o README foi verificado/sincronizado (ou por que não foi, se a seção não existia).
+
 ---
 
 ## MODO B: Registrar Resolução e Sinalizar Documentação
@@ -216,7 +232,7 @@ Se a verificação mostrar que o comportamento **não** mudou como esperado, inf
 - Se o usuário/você já sabe exatamente o que precisa mudar no UC e não há mais nenhuma ação de código pendente → mantenha `Corrigido (doc pendente)` mesmo assim; o status só vira `Corrigido e Documentado` depois que o `uml-use-case-writer` de fato atualizar o UC (isso será confirmado em uma execução futura deste agente, não presumido agora).
 - Se foi uma decisão de produto descartada (optou-se por não corrigir) → `Descartado`, com o motivo registrado.
 
-Adicione a data de resolução e incremente a versão do mapa (minor).
+Adicione a data de resolução e incremente a versão do mapa (minor). Isso muda os contadores da Seção 1 (Resumo Executivo) — siga o passo **A.6** para sincronizar o README.md antes de finalizar.
 
 ### B.4. Sinalizar o(s) UC(s) para o uml-use-case-writer
 
@@ -252,3 +268,4 @@ Ao final de qualquer modo, informe ao usuário:
 - Se foi **criado** (v1.0) ou **atualizado** (vX.Y → vX.Z)
 - No Modo A: contagem de itens por severidade/status (a tabela da seção 1) e os destaques mais urgentes
 - No Modo B: o status atualizado do item e, se aplicável, a seção "🔔 Sinalização para uml-use-case-writer" completa
+- Em ambos os modos, se o Resumo Executivo mudou: confirme que o `README.md` foi sincronizado (passo A.6), ou explique por que não (seção inexistente no README)
