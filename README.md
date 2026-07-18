@@ -102,7 +102,7 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.0, 18/07/2026):**
+**Resumo (v3.1, 18/07/2026):**
 
 | Severidade | Aberto  | Corrigido | Descartado | Total   |
 | ---------- | ------- | --------- | ---------- | ------- |
