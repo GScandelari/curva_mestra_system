@@ -89,6 +89,8 @@ function LoginForm() {
       router.push('/admin/dashboard');
     } else if (claims.role === 'clinic_admin' || claims.role === 'clinic_user') {
       router.push('/clinic/dashboard');
+    } else if (claims.role === 'clinic_consultant') {
+      router.push('/consultant/dashboard');
     } else {
       router.push('/dashboard');
     }

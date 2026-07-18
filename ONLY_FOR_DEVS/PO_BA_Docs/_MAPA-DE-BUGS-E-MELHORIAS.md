@@ -2,10 +2,10 @@
 
 **Projeto:** Curva Mestra
 **Data de Criação:** 15/07/2026
-**Última Atualização:** 17/07/2026
+**Última Atualização:** 18/07/2026
 **Autor:** uc-issues-tracker (via Claude)
 **Fonte:** Casos de Uso UML em `ONLY_FOR_DEVS/PO_BA_Docs/UC-01` a `UC-50` (+ 1 item de processo/infraestrutura não originado de UC, ver Seção 4)
-**Versão:** 2.6
+**Versão:** 2.7
 
 > Backlog técnico consolidado a partir dos achados registrados em cada Caso de Uso mapeado. Serve como mapa de rastreamento para priorizar correções e melhorias — não substitui os UCs individuais, que continuam sendo a fonte de verdade detalhada de cada achado.
 
@@ -18,8 +18,8 @@
 | Crítica | 0 | 0 | 0 | 5 | 1 | 6 |
 | Alta | 23 | 0 | 0 | 0 | 1 | 24 |
 | Média | 37 | 0 | 0 | 1 | 1 | 39 |
-| Baixa | 82 | 0 | 0 | 0 | 1 | 83 |
-| **Total** | **142** | **0** | **0** | **6** | **4** | **152** |
+| Baixa | 77 | 0 | 0 | 5 | 1 | 83 |
+| **Total** | **137** | **0** | **0** | **11** | **4** | **152** |
 
 Além dos 152 itens classificados por severidade, este levantamento também consolida **14 decisões de produto pendentes** (Seção 4 — 13 originadas de UCs + 1 item de processo/infraestrutura, `ADR-QA-AUTOMATION`, sinalizado a ser revisado antes de qualquer nova implementação) e **16 itens de código morto/rotas órfãs** (Seção 5), sem severidade atribuída.
 
@@ -87,11 +87,11 @@ Agrupados por módulo/portal.
 | UC-01-RN-09 | [UC-01](UC-01-solicitar-acesso-ao-sistema.md) | Débito técnico | Baixa | Sem checagem de duplicidade de solicitação pendente para o mesmo e-mail em `POST /api/access-requests`. | Aberto |
 | UC-01-RN-04-05-06 | [UC-01](UC-01-solicitar-acesso-ao-sistema.md) | Débito técnico | Baixa | Validação de frontend mais permissiva que a de backend (nome, e-mail, telefone) — gera erro de submissão só percebido no servidor. | Aberto |
 | UC-03-Q1 | [UC-03](UC-03-rejeitar-solicitacao-de-acesso.md) | Achado de UX | Baixa | Placeholder do campo "Motivo da rejeição" cita CPF/CNPJ, schema desatualizado desde UC-01 v2.0 (cosmético). | Aberto |
-| UC-04-Q1 | [UC-04](UC-04-fazer-login-com-redirecionamento-por-papel.md) | Débito técnico | Baixa | Redirecionamento de `clinic_consultant` no login faz um salto duplo (`/dashboard` → `/consultant/dashboard`), inconsistente com a lógica já correta de `ProtectedRoute`. | Aberto |
+| UC-04-Q1 | [UC-04](UC-04-fazer-login-com-redirecionamento-por-papel.md) | Débito técnico | Baixa | Redirecionamento de `clinic_consultant` no login faz um salto duplo (`/dashboard` → `/consultant/dashboard`), inconsistente com a lógica já correta de `ProtectedRoute`. | Corrigido e Documentado (18/07/2026) |
 | UC-04-Q2 | [UC-04](UC-04-fazer-login-com-redirecionamento-por-papel.md) | Achado de UX | Baixa | Tela `/waiting-approval` reutilizada tanto para "aguardando aprovação" quanto para "conta desativada", com a mesma mensagem em ambos os casos. | Aberto |
 | UC-06-RN-02 | [UC-06](UC-06-trocar-senha-obrigatoria-no-primeiro-acesso.md) | Débito técnico | Baixa | Validação de força de senha nesta tela é mais fraca (só comprimento) que a `validatePassword` compartilhada. | Aberto |
 | UC-07-RN-04 | [UC-07](UC-07-recuperar-senha-esquecida.md) | Achado de UX | Baixa | `/forgot-password` não verifica se o usuário já está autenticado, diferente de `/login`/`/register`. | Aberto |
-| UC-08-RNF-02 | [UC-08](UC-08-system-admin-envia-link-de-redefinicao-de-senha.md) | Achado de UX | Baixa | Diálogo de confirmação do admin usa `confirm()` nativo em vez do padrão `Dialog` do sistema. | Aberto |
+| UC-08-RNF-02 | [UC-08](UC-08-system-admin-envia-link-de-redefinicao-de-senha.md) | Achado de UX | Baixa | Diálogo de confirmação do admin usa `confirm()` nativo em vez do padrão `Dialog` do sistema. | Corrigido e Documentado (18/07/2026) |
 | UC-08-RNF-03 | [UC-08](UC-08-system-admin-envia-link-de-redefinicao-de-senha.md) | Débito técnico | Baixa | Apenas a solicitação de redefinição mais recente é registrada — sem histórico completo de reenvios. | Aberto |
 | UC-09-RN-07 | [UC-09](UC-09-aceitar-termos-legais.md) | Débito técnico | Baixa | `ip_address` nunca é de fato capturado nos registros de aceite, apesar de existir no schema. | Aberto |
 | UC-09-RNF-03 | [UC-09](UC-09-aceitar-termos-legais.md) | Achado de UX | Baixa | Mensagens de erro do Firestore exibidas cruas ao usuário, sem tradução. | Aberto |
@@ -160,7 +160,7 @@ Agrupados por módulo/portal.
 | UC-28-RN-02 | [UC-28](UC-28-cadastrar-consultor.md) | Débito técnico | Baixa | Janela de corrida teórica na geração do código único de 6 dígitos do consultor (checagem e escrita não atômicas). | Aberto |
 | UC-29-RN-05 | [UC-29](UC-29-editar-suspender-e-reativar-consultor.md) | Débito técnico | Baixa | Formulário de edição do consultor sempre reenvia o e-mail, disparando chamada desnecessária ao Firebase Auth a cada salvamento. | Aberto |
 | UC-30-RN-03 | [UC-30](UC-30-definir-senha-consultor-manualmente.md) | Achado de UX | Baixa | UI ignora a mensagem de sucesso diferenciada retornada pela API ao definir senha do consultor. | Aberto |
-| UC-30-RN-06 | [UC-30](UC-30-definir-senha-consultor-manualmente.md) | Achado de segurança | Baixa | `error.message` bruto do Firebase Admin SDK exposto em respostas de erro 500. | Aberto |
+| UC-30-RN-06 | [UC-30](UC-30-definir-senha-consultor-manualmente.md) | Achado de segurança | Baixa | `error.message` bruto do Firebase Admin SDK exposto em respostas de erro 500. | Corrigido e Documentado (18/07/2026) |
 | UC-30-RN-07 | [UC-30](UC-30-definir-senha-consultor-manualmente.md) | Débito técnico | Baixa | Campos de auditoria gravados (`passwordSetByAdminAt` etc.) não estão declarados na interface `Consultant`. | Aberto |
 | UC-30-RN-08 | [UC-30](UC-30-definir-senha-consultor-manualmente.md) | Débito técnico | Baixa | Sem histórico auditável de definições manuais de senha de consultor — apenas a mais recente é registrada. | Aberto |
 
@@ -192,7 +192,7 @@ Agrupados por módulo/portal.
 | UC-36-RN-09 | [UC-36](UC-36-editar-usuario-e-alterar-status-cross-tenant.md) | Achado de UX | Baixa | Sem confirmação dedicada para mudança de status de usuário (diferente do padrão de UC-22/UC-29). | Aberto |
 | UC-36-RNF-02 | [UC-36](UC-36-editar-usuario-e-alterar-status-cross-tenant.md) | Débito técnico | Baixa | Nenhuma auditoria de quem editou o quê em um usuário (só `updated_at` é gravado). | Aberto |
 | UC-37-RN-03 | [UC-37](UC-37-definir-senha-usuario-manualmente.md) | Achado de UX | Baixa | UI ignora a mensagem de sucesso diferenciada retornada pela API ao definir senha de usuário. | Aberto |
-| UC-37-RN-06 | [UC-37](UC-37-definir-senha-usuario-manualmente.md) | Achado de segurança | Baixa | `error.message` bruto do SDK exposto em erros 500 (mesmo padrão de UC-30). | Aberto |
+| UC-37-RN-06 | [UC-37](UC-37-definir-senha-usuario-manualmente.md) | Achado de segurança | Baixa | `error.message` bruto do SDK exposto em erros 500 (mesmo padrão de UC-30). | Corrigido e Documentado (18/07/2026) |
 | UC-37-RN-07 | [UC-37](UC-37-definir-senha-usuario-manualmente.md) | Achado de UX | Baixa | Checkbox "Solicitar troca de senha" vem desmarcada por padrão aqui, mas marcada por padrão no equivalente de consultores (UC-30) — divergência não explicada. | Aberto |
 | UC-37-RN-08 | [UC-37](UC-37-definir-senha-usuario-manualmente.md) | Débito técnico | Baixa | Campos de auditoria gravados não estão declarados na interface `User`. | Aberto |
 | UC-37-RN-09 | [UC-37](UC-37-definir-senha-usuario-manualmente.md) | Débito técnico | Baixa | Sem histórico auditável de definições manuais de senha de usuário — apenas a mais recente é registrada. | Aberto |
@@ -249,7 +249,7 @@ Agrupados por módulo/portal.
 |---|---|---|---|---|---|
 | UC-47-RN-02 | [UC-47](UC-47-gerar-relatorios-de-estoque-vencimento-e-consumo.md) | Bug funcional | Média | Itens de inventário com data de validade em formato não reconhecido são silenciosamente excluídos do Relatório de Vencimento, subestimando o "Valor em Risco". | Aberto |
 | UC-47-RN-01 | [UC-47](UC-47-gerar-relatorios-de-estoque-vencimento-e-consumo.md) | Achado de UX | Baixa | Relatório "Produtos Vencendo" também inclui produtos já vencidos — nome pode confundir o usuário. | Aberto |
-| UC-47-RNF-01 | [UC-47](UC-47-gerar-relatorios-de-estoque-vencimento-e-consumo.md) | Achado de UX | Baixa | Feedback de erro via `alert()` nativo, inconsistente com o padrão de toast do resto do sistema. | Aberto |
+| UC-47-RNF-01 | [UC-47](UC-47-gerar-relatorios-de-estoque-vencimento-e-consumo.md) | Achado de UX | Baixa | Feedback de erro via `alert()` nativo, inconsistente com o padrão de toast do resto do sistema. | Corrigido e Documentado (18/07/2026) |
 
 ### Portal do Consultor
 
@@ -341,6 +341,17 @@ Candidatos a limpeza (`chore:`), não a "correção" propriamente dita — confi
 
 ✅ **Concluído:** `ONLY_FOR_DEVS/new_landing_page/sections-product.jsx` (linhas 96 e 99) editado nesta sessão. UC-42/UC-43 permanecem com a RN-08 documentando o histórico da divergência (não removida — registra que a promessa existiu e foi corrigida).
 
+| UC-04-Q1, UC-08-RNF-02, UC-30-RN-06, UC-37-RN-06, UC-47-RNF-01 | [UC-04](UC-04-fazer-login-com-redirecionamento-por-papel.md) / [UC-08](UC-08-system-admin-envia-link-de-redefinicao-de-senha.md) / [UC-30](UC-30-definir-senha-consultor-manualmente.md) / [UC-37](UC-37-definir-senha-usuario-manualmente.md) / [UC-47](UC-47-gerar-relatorios-de-estoque-vencimento-e-consumo.md) | Corrigido e Documentado | 18/07/2026 | Lote de 5 correções de severidade Baixa, todas no commit único `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`). |
+
+✅ **Concluído (18/07/2026):** correções verificadas nesta execução por leitura direta do código-fonte e dos UCs de origem já atualizados pelo `uml-use-case-writer`:
+- **UC-04-Q1** — `redirectByRole` (`src/app/(auth)/login/page.tsx`, linhas 87-97) passou a incluir um branch direto `else if (claims.role === 'clinic_consultant') { router.push('/consultant/dashboard'); }`, eliminando o salto duplo via `/dashboard`. UC-04 atualizado para **v1.1.2** (nova RN-08 documentando a correção).
+- **UC-08-RNF-02** — diálogo de confirmação do admin (`src/app/(admin)/admin/users/page.tsx`, `confirmResetPassword`) migrado de `confirm()` nativo para `AlertDialog` padrão do sistema (`src/components/ui/alert-dialog.tsx`), aplicado nas duas variantes (usuários e consultores). UC-08 atualizado para **v1.2.1**.
+- **UC-30-RN-06** — `src/app/api/consultants/[id]/set-password/route.ts` (bloco `catch`, linhas 78-80) não propaga mais `error.message` bruto do Firebase Admin SDK; retorna sempre a mensagem genérica "Erro ao definir senha. Tente novamente.", com o erro real preservado apenas em log de servidor. UC-30 atualizado para **v1.1.1**.
+- **UC-37-RN-06** — mesma correção aplicada à rota irmã de usuários de clínica, `src/app/api/users/[id]/set-password/route.ts` (linhas 79-81), no mesmo commit. UC-37 atualizado para **v1.0.1**.
+- **UC-47-RNF-01** — `ReportsView` (`src/components/reports/ReportsView.tsx`) passou a usar `useToast` (`src/hooks/use-toast.ts`) em vez de `alert()` nativo para o feedback de erro ao gerar relatório, alinhando ao padrão de toast do restante do sistema. UC-47 atualizado para **v1.0.1**.
+
+Todos os 5 UCs de origem já foram atualizados pelo `uml-use-case-writer` para as versões acima, com o achado correspondente marcado como resolvido na seção 9 (e, quando aplicável, seção 14) de cada um — não há sinalização de documentação pendente para este lote.
+
 ---
 
 ## 7. Histórico de Versões
@@ -365,3 +376,4 @@ Candidatos a limpeza (`chore:`), não a "correção" propriamente dita — confi
 | 2.4 | 17/07/2026 | uc-issues-tracker | Registrado novo item na Seção 4, `ADR-QA-AUTOMATION` — não originado de nenhum UC, mas de uma proposta de processo/infraestrutura discutida diretamente com o usuário durante a revisão dos 4 bugfixes críticos (item anterior, v2.3). ADR em `ONLY_FOR_DEVS/TO_DO/ADR-automacao-qa-playwright-firebase-emulator.md` (v1.0, "Planejamento — PAUSADO deliberadamente") propõe um "Agente de QA" (Playwright + Firebase Emulator Suite) para substituir a justificativa de "mock frágil do Admin SDK" usada para pular testes automatizados; 7 perguntas em aberto na Seção 10.1 do ADR, nenhuma decisão tomada. Pedido explícito do usuário: revisar este item **antes de iniciar qualquer nova implementação** — sinalizado com destaque visual na Seção 4 ("Passo 0"). Sem alteração de status de nenhum item já existente; contagem de decisões de produto pendentes ajustada de 12 para 13 (nota do cabeçalho da Seção 1 e cabeçalho do documento). |
 | 2.5 | 17/07/2026 | uc-issues-tracker | Novo achado registrado (Seção 3, Autenticação/Acesso), descoberto durante validação manual pós-fix de UC-29/UC-36, ainda não documentado em nenhum UC de origem: a tela de login não trata o código `auth/user-disabled` do Firebase Auth (`src/hooks/useAuth.ts:75-82` repassa `error.message` bruto em vez de `error.code`; `translateFirebaseError` em `login/page.tsx:136-153` não tem `case` para `user-disabled`, caindo no `default` e exibindo a mensagem crua em inglês do SDK). Achado só se tornou relevante em produção depois que UC-29 (suspensão de consultor) e UC-36 (status de usuário de clínica) passaram a desabilitar a conta de fato (`disabled: true`) no Firebase Auth — antes das correções desses dois UCs, esse code path era praticamente inatingível. Classificado como Achado de UX / Média (bloqueio de acesso funciona corretamente; a lacuna é só a mensagem exibida). ID provisório `UC-29-RN-09 / UC-36-RN-10` — numeração final de RN cabe ao `uml-use-case-writer` quando os UCs forem atualizados (ver sinalização ao final desta execução). Nenhuma correção implementada ainda — apenas mapeado. Resumo Executivo (Seção 1) ajustado: Média — Aberto 33→34, Total 35→36; Total geral — Aberto 136→137, Total 146→147. |
 | 2.6 | 17/07/2026 | uc-issues-tracker | Consolidado o novo UC-50 (Consultar Inventário e Detalhe do Item de Estoque, v1.0, Rascunho) — primeiro UC dedicado às telas `/clinic/inventory` e `/clinic/inventory/[id]`. 6 achados extraídos das Seções 9/14 do UC-50: `UC-50-RN-03` (Bug funcional, Alta — Dashboard/`NotificationBell` navegam com `?filter=expired`/`?filter=low-stock`, mas `InventoryView.applyFilter` só reconhece `expiring`/`low_stock`/`out_of_stock`; o filtro pretendido nunca é aplicado, silenciosamente); `UC-50-RN-01`, `UC-50-RN-02` e `UC-50-RN-07` (Divergência texto/UI vs lógica, Média — rótulos "Total de Produtos" e "Valor Total em Estoque", e o badge de status de estoque, com semântica/cálculo diferente entre a lista, o detalhe e a tela de Relatórios/UC-47); `UC-50-RN-04` (Achado de UX, Baixa — texto de estado vazio da lista ainda referencia upload de DANFE em PDF, fluxo removido do sistema); `UC-50-RN-05` (Decisão de produto pendente, Seção 4 — item desativado nunca aparece na lista, mas seu detalhe continua acessível por URL direta, sem filtro de `active`). `UC-50-RN-06` e `UC-50-RN-08` não geraram item no mapa — são confirmações de comportamento (combinação de filtros por E lógico; coincidência do limite padrão "10" com outros mecanismos), sem achado correspondente na Seção 14 do UC. Todos os itens novos classificados no Módulo Inventário. Resumo Executivo ajustado: Alta — Aberto 22→23, Total 23→24; Média — Aberto 34→37, Total 36→39; Baixa — Aberto 81→82, Total 82→83; Total geral — Aberto 137→142, Total 147→152. Decisões de produto pendentes 13→14. Nota de Status dos UCs de origem atualizada (11/49 → 12/50, incluindo UC-50 em Rascunho). |
+| 2.7 | 18/07/2026 | uc-issues-tracker (Modo B) | Lote de 5 correções de severidade Baixa verificadas em código e documentação, todas do commit único `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`), com os UCs de origem já atualizados pelo `uml-use-case-writer`: `UC-04-Q1` (salto duplo de redirecionamento do `clinic_consultant` — UC-04 v1.1.2), `UC-08-RNF-02` (`confirm()` nativo → `AlertDialog` — UC-08 v1.2.1), `UC-30-RN-06` (`error.message` bruto do SDK em erro 500 — UC-30 v1.1.1), `UC-37-RN-06` (mesmo achado de UC-30, rota de usuários de clínica — UC-37 v1.0.1) e `UC-47-RNF-01` (`alert()` nativo → `toast` padrão — UC-47 v1.0.1). Todos os 5 movidos de "Aberto" para "Corrigido e Documentado" diretamente (não passaram por "Em Correção"/"Corrigido — doc pendente" neste ciclo, pois a documentação já havia sido atualizada antes desta execução). Resumo Executivo (Seção 1) ajustado: Baixa — Aberto 82→77, Corrigido e Documentado 0→5 (Total 83, inalterado); Total geral — Aberto 142→137, Corrigido e Documentado 6→11 (Total 152, inalterado). Itens atualizados nas Seções 3 e 6. |
