@@ -11,12 +11,6 @@
       "source": ".",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "frameworksBackend": {}
-    },
-    {
-      "target": "dev-lhuancassio",
-      "source": ".",
-      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-      "frameworksBackend": {}
     }
   ],
   "functions": [

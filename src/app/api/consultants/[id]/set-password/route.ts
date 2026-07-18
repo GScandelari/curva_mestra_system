@@ -77,9 +77,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
   } catch (error: any) {
     console.error('Erro ao definir senha do consultor:', error);
-    return NextResponse.json(
-      { error: error.message || 'Erro ao definir senha. Tente novamente.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Erro ao definir senha. Tente novamente.' }, { status: 500 });
   }
 }

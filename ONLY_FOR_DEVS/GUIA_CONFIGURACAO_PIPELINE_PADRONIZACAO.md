@@ -47,7 +47,7 @@ develop ────────────────────────
     ↑
 feature/* ── bugfix/* ── hotfix/* ── chore/* ── Tasks diárias (criadas a partir do develop)
     ↓ merge para testar
-gscandelari_setup ── lhuan_setup ────────────── Ambientes pessoais de dev (deploy automático)
+gscandelari_setup ──────────────────────────── Ambiente pessoal de dev (deploy automático)
 ```
 
 | Branch              | Propósito                           | Merge para                          | Proteção                   |
@@ -60,7 +60,6 @@ gscandelari_setup ── lhuan_setup ────────────── 
 | `hotfix/*`          | Correção crítica em produção        | `master` e `develop`                | ❌ Sem proteção            |
 | `chore/*`           | Manutenção/infra                    | branch pessoal → depois `develop`   | ❌ Sem proteção            |
 | `gscandelari_setup` | Ambiente dev — Guilherme Scandelari | `develop` (após validação Firebase) | ❌ Sem proteção            |
-| `lhuan_setup`       | Ambiente dev — Lhuan Cassio         | `develop` (após validação Firebase) | ❌ Sem proteção            |
 
 ### 1.2 Convenções de Nomenclatura de Branches
 
@@ -103,12 +102,12 @@ git commit -m "feat(inventory): add expiration date validation"
 git push -u origin feature/nome-da-feature
 
 # 5. Para testar no seu ambiente Firebase pessoal:
-#    → abra PR da task branch para a SUA branch pessoal (gscandelari_setup ou lhuan_setup)
+#    → abra PR da task branch para a SUA branch pessoal (gscandelari_setup)
 #    → após o merge, o deploy é disparado automaticamente para o seu domínio Firebase
 #    Exemplo via GitHub CLI:
 #    gh pr create --base gscandelari_setup --head feature/nome-da-feature
 
-# 6. Valide a feature no seu ambiente pessoal (gscandelari-dev.web.app ou lhuancassio-dev.web.app)
+# 6. Valide a feature no seu ambiente pessoal (gscandelari-dev.web.app)
 
 # 7. Após validação no Firebase pessoal, abra PR da branch pessoal para develop
 #    gh pr create --base develop --head gscandelari_setup
@@ -123,7 +122,7 @@ git rebase origin/develop   # prefira rebase a merge para histórico limpo
 ```
 
 > **Resumo do fluxo de PRs:**
-> `feature/* (ou bugfix/*, chore/*)` → PR → `gscandelari_setup` (ou `lhuan_setup`) → validação Firebase → PR → `develop` → PR → `master`
+> `feature/* (ou bugfix/*, chore/*)` → PR → `gscandelari_setup` → validação Firebase → PR → `develop` → PR → `master`
 
 ### 1.4 Branches Pessoais de Desenvolvimento
 
@@ -132,14 +131,13 @@ Cada dev possui uma branch pessoal permanente vinculada a um domínio Firebase e
 | Dev                  | Branch              | Domínio Firebase          | Workflow                     |
 | -------------------- | ------------------- | ------------------------- | ---------------------------- |
 | Guilherme Scandelari | `gscandelari_setup` | `gscandelari-dev.web.app` | `deploy-gscandelari-dev.yml` |
-| Lhuan Cassio         | `lhuan_setup`       | `lhuancassio-dev.web.app` | `deploy-lhuan-dev.yml`       |
 
 **Regras das branches pessoais:**
 
 1. **Sempre sincronizadas com `master`** — antes de iniciar qualquer task, traga as atualizações de produção:
 
    ```bash
-   git checkout gscandelari_setup   # ou lhuan_setup
+   git checkout gscandelari_setup
    git fetch origin master
    git merge origin/master
    git push origin gscandelari_setup
@@ -159,7 +157,7 @@ Cada dev possui uma branch pessoal permanente vinculada a um domínio Firebase e
    gh pr create --base develop --head gscandelari_setup
    ```
 
-4. **Todo commit (ou merge) na branch pessoal dispara deploy automático** para o respectivo domínio Firebase (`gscandelari-dev.web.app` ou `lhuancassio-dev.web.app`).
+4. **Todo commit (ou merge) na branch pessoal dispara deploy automático** para o respectivo domínio Firebase (`gscandelari-dev.web.app`).
 
 ### 1.5 Regra de Ouro: Branch por Feature
 
@@ -1475,10 +1473,9 @@ Antes de abrir o PR para `develop`, valide a feature no Firebase:
 ```bash
 # Abra PR da task branch para a sua branch pessoal
 gh pr create --base gscandelari_setup --head feature/nome-da-feature
-# (ou lhuan_setup se for o Lhuan)
 
 # Após o merge, o deploy é automático — acesse seu domínio:
-# gscandelari-dev.web.app  ou  lhuancassio-dev.web.app
+# gscandelari-dev.web.app
 ```
 
 ### 5. Antes de abrir o PR para develop
@@ -1492,7 +1489,7 @@ npm run build         # Build sem erros
 
 ### 6. Abra o Pull Request para develop
 
-- O PR parte **da branch pessoal** (`gscandelari_setup` ou `lhuan_setup`) para `develop`
+- O PR parte **da branch pessoal** (`gscandelari_setup`) para `develop`
 - Preencha o template de PR completamente
 - Linke à issue com "Closes #N"
 - Adicione screenshots para mudanças de UI
@@ -1934,7 +1931,7 @@ Além do pipeline de Git/CI descrito nas seções 1-14, o projeto usa quatro age
 | Agente | Papel | Entrada | Saída |
 |---|---|---|---|
 | `uml-use-case-writer` | Mapeia e mantém os Casos de Uso UML (fully-dressed, estilo Cockburn) — a fonte de verdade do comportamento **"as-is"** do sistema, investigada diretamente no código. | Pedido de mapear/revisar um UC | `ONLY_FOR_DEVS/PO_BA_Docs/UC-NN-*.md` |
-| `uc-issues-tracker` | Lê todos os UCs e consolida os achados (bugs, achados de segurança, código morto, decisões de produto pendentes) num backlog único e rastreável. Também atualiza o status desses itens conforme correções acontecem. | Todos os `UC-*.md` existentes | `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` |
+| `uc-issues-tracker` | Lê todos os UCs e consolida os achados (bugs, achados de segurança, código morto, decisões de produto pendentes) num backlog único e rastreável. Também atualiza o status desses itens conforme correções acontecem, e mantém o resumo do README.md ("Roadmap e Backlog Técnico") sincronizado com o mapa. | Todos os `UC-*.md` existentes | `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` + seção "Roadmap e Backlog Técnico" do `README.md` |
 | `doc-writer` | Transforma um item do backlog (ou uma nova demanda de produto) numa especificação técnica completa, pronta para implementação. | Item do mapa de bugs, ou descrição de feature/CR/ADR | `ONLY_FOR_DEVS/TO_DO/[PREFIXO]-*.md` |
 | `dev-task-manager` | Prepara o ambiente (branch a partir do `develop`, seção 1 deste guia) e o plano de implementação a partir do spec; ao final, registra a conclusão movendo o spec para `TASK_COMPLETED/`. | Spec em `TO_DO/` | Branch de task + `ONLY_FOR_DEVS/TASK_COMPLETED/*.md` |
 
@@ -1965,6 +1962,8 @@ uc-issues-tracker (Modo B)       →  marca o item correspondente como corrigido
 | Ao mapear uma funcionalidade nova/nunca documentada | `uml-use-case-writer` | Criar o UC do zero antes de qualquer spec de implementação, se o comportamento atual ainda não estiver documentado. |
 
 > **Regra de Ouro:** nenhuma correção de bug ou decisão de produto listada no mapa é considerada fechada só porque o código mudou — ela só fecha quando o UC de origem reflete o novo comportamento. Um PR que resolve um item do `_MAPA-DE-BUGS-E-MELHORIAS.md` sem atualizar a documentação deixa o sistema mais correto e a documentação mais errada — o que é pior do que não ter documentação nenhuma, porque agora ela mente com autoridade.
+
+> **Regra do README:** toda vez que o `uc-issues-tracker` atualizar o Resumo Executivo do mapa (Modo A ou Modo B), ele também sincroniza a seção "Roadmap e Backlog Técnico" do `README.md` — o README nunca deve exibir uma versão/contadores do mapa mais antigos que os do próprio mapa.
 
 Subagentes não podem acionar outros subagentes diretamente nesta configuração — a passagem de um agente para o outro (ex: `uc-issues-tracker` sinalizando que um UC precisa de revisão) é sempre mediada pelo desenvolvedor ou pelo assistente principal, nunca automática.
 

@@ -42,8 +42,13 @@ service cloud.firestore {
       // System admins têm acesso total
       allow read, write: if isSystemAdmin();
 
-      // Usuários do tenant podem ler e atualizar seu próprio tenant
-      allow read, update: if belongsToTenant(tenantId);
+      // Usuários do tenant podem ler e atualizar dados cadastrais do próprio tenant,
+      // mas nunca os campos de ativação/suspensão — esses só mudam via API do system_admin
+      // (POST/DELETE /api/tenants/[id]/suspend), que também desativa os usuários em cascata.
+      allow read: if belongsToTenant(tenantId);
+      allow update: if belongsToTenant(tenantId)
+        && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['active', 'suspension', 'reactivated_at', 'reactivated_by']);
 
       // Consultores podem ler dados do tenant (read-only)
       allow read: if consultantHasAccess(tenantId);
