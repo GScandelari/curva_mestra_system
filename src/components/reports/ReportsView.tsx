@@ -16,6 +16,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
+import { useToast } from '@/hooks/use-toast';
 import {
   generateStockValueReport,
   generateExpirationReport,
@@ -36,6 +37,7 @@ interface ReportsViewProps {
 
 export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeReport, setActiveReport] = useState<string | null>(null);
 
@@ -64,7 +66,11 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
       setStockReport(report);
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
-      alert('Erro ao gerar relatório');
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o relatório. Tente novamente.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -78,7 +84,11 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
       setExpirationReport(report);
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
-      alert('Erro ao gerar relatório');
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o relatório. Tente novamente.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -86,7 +96,11 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
 
   async function handleGenerateConsumptionReport() {
     if (!consumptionStartDate || !consumptionEndDate) {
-      alert('Selecione o período');
+      toast({
+        title: 'Selecione o período',
+        description: 'Informe a data inicial e final para gerar o relatório de consumo.',
+        variant: 'destructive',
+      });
       return;
     }
     try {
@@ -100,7 +114,11 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
       setConsumptionReport(report);
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
-      alert('Erro ao gerar relatório');
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o relatório. Tente novamente.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }

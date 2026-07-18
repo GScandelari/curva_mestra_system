@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Administração do Sistema (Gestão de Usuários)
-**Versão:** 1.0
+**Versão:** 1.0.1
 
 > Um System Admin, no mesmo diálogo "Editar Usuário" (`admin/users/page.tsx`, seção "Definir Senha Manualmente"), define uma nova senha diretamente para um usuário (`clinic_admin`/`clinic_user`) de qualquer clínica — sem envio de e-mail, sem exigir reautenticação, aplicada imediatamente via Firebase Admin SDK. É o mecanismo "de suporte" da tela, para quando o sistema de e-mail falha, ao lado de "Redefinir Senha via Link" (coberto por UC-08). Equivalente exato, para usuários de clínica, do UC-30 (consultores).
 
@@ -63,7 +63,7 @@ flowchart LR
 ### 4.2 Falha (Garantias Mínimas)
 - Se a validação de senha (client ou server) falhar: nenhuma alteração é feita.
 - Se o usuário-alvo tiver `role === 'system_admin'`: nenhuma alteração é feita (bloqueio explícito).
-- Se `adminAuth.updateUser` falhar: nenhuma alteração é feita — a atualização da senha no Auth ocorre antes da atualização dos claims e do documento `users`, sem risco de estado parcialmente aplicado entre essas duas últimas etapas e uma senha não atualizada.
+- Se `adminAuth.updateUser` falhar: nenhuma alteração é feita — a atualização da senha no Auth ocorre antes da atualização dos claims e do documento `users`, sem risco de estado parcialmente aplicado entre essas duas últimas etapas e uma senha não atualizada. O cliente recebe uma mensagem genérica de erro (RN-06, corrigido); o erro real é registrado apenas no log do servidor.
 
 ---
 
@@ -124,8 +124,8 @@ Nenhum identificado — as duas variações possíveis (com ou sem exigência de
 
 ### 8f. Falha do Firebase Admin SDK ao atualizar a senha (a partir do passo 11)
 1. `adminAuth.updateUser` lança uma exceção (ex.: UID inválido, senha rejeitada pelo Auth, erro interno do Firebase).
-2. API captura no bloco `catch` e retorna 500 com `error.message` bruto do SDK (fallback apenas se vazio: "Erro ao definir senha. Tente novamente.") — mesmo achado de exposição de erro bruto documentado em UC-30 (RN-06).
-3. Sistema exibe `alert()` com a mensagem recebida; nenhuma alteração é confirmada como feita.
+2. API captura no bloco `catch`, registra o erro real via `console.error('Erro ao definir senha:', error)` e retorna 500 com a mensagem genérica fixa `"Erro ao definir senha. Tente novamente."` — **[Corrigido no commit `53df743` — UC-37-RN-06]**, mesma correção aplicada à rota irmã de consultores em UC-30 (RN-06), no mesmo commit.
+3. Sistema exibe `alert()` com a mensagem genérica recebida; nenhuma alteração é confirmada como feita.
 
 ---
 
@@ -138,7 +138,7 @@ Nenhum identificado — as duas variações possíveis (com ou sem exigência de
 | RN-03 | **[Achado de UX, mesmo padrão do UC-30]** A API retorna uma mensagem de sucesso diferenciada conforme `requirePasswordChange` (avisando explicitamente, no caso `true`, que "o usuário deverá alterá-la no próximo login"), mas a tela (`UsersManagementPage`) ignora completamente o campo `message` da resposta — sempre exibe o texto estático "Senha definida com sucesso!", independentemente da opção marcada. | Confirmado por leitura de `handleSetPassword` — `data.message` nunca é lido nem exibido; apenas `setSetPasswordSuccess(true)` (texto fixo no JSX). |
 | RN-04 | Esta ação não dispara nenhum e-mail nem qualquer outra notificação ao usuário — mesmo padrão já documentado para a rota irmã de consultores em UC-30 (RN-04) e mencionado em UC-06 (RN-05): o texto de ajuda da própria tela orienta usar este recurso "para suporte quando o sistema de email falhar". O admin precisa comunicar a nova senha ao usuário por fora do sistema. | Confirmado por leitura completa do handler — nenhuma escrita em `email_queue`; confirmado também pelo texto de ajuda na UI. |
 | RN-05 | Diferente do fluxo self-service de troca de senha (UC-06), que roda inteiramente no client e exige reautenticação recente (`reauthenticateWithCredential`) antes de `updatePassword`, este mecanismo é executado inteiramente no server via Firebase Admin SDK (`adminAuth.updateUser`), sem qualquer prova de posse da senha atual — por design, já que é uma ação administrativa. | Confirmado por leitura comparada de `change-password/page.tsx` (UC-06) e `api/users/[id]/set-password/route.ts`. |
-| RN-06 | **[Achado]** Em caso de erro inesperado no bloco `catch`, a rota retorna `error.message` bruto do backend ao cliente — mesmo achado já documentado em UC-30 (RN-06) para a rota irmã de consultores; ambas as rotas compartilham exatamente o mesmo padrão de tratamento de erro (menos cauteloso que o restante do módulo administrativo). | Confirmado por leitura literal do bloco `catch` da rota. |
+| RN-06 | **[Corrigido no commit `53df743` — UC-37-RN-06]** Em caso de erro inesperado no bloco `catch`, a rota agora retorna sempre a mensagem genérica fixa `"Erro ao definir senha. Tente novamente."` ao cliente — o erro real segue apenas para o log do servidor (`console.error('Erro ao definir senha:', error)`). Mesma correção aplicada à rota irmã de consultores em UC-30 (RN-06), no mesmo commit. **Nota histórica:** até esta correção, a rota retornava `error.message` bruto do backend ao cliente — mesmo achado então documentado em UC-30 (RN-06) para a rota irmã de consultores; ambas as rotas compartilhavam exatamente o mesmo padrão de tratamento de erro, menos cauteloso que o restante do módulo administrativo. | Confirmado por leitura literal do bloco `catch` da rota (`src/app/api/users/[id]/set-password/route.ts`, linhas 79-81) — `return NextResponse.json({ error: 'Erro ao definir senha. Tente novamente.' }, { status: 500 })`, sem interpolação de `error.message`. |
 | RN-07 | **[Divergência confirmada frente ao UC-30]** A checkbox "Solicitar troca de senha no próximo login" vem **desmarcada por padrão** nesta tela (`forcePasswordChange = false`, setado em `handleEditUser`), enquanto o equivalente em `admin/consultants/[id]/page.tsx` (UC-30) vem **marcada por padrão** (`true`). Não há justificativa de negócio documentada no código para essa diferença de comportamento padrão entre os dois formulários equivalentes. | Confirmado por leitura comparada de `handleEditUser` (`admin/users/page.tsx`) e da inicialização do estado equivalente em `admin/consultants/[id]/page.tsx`. |
 | RN-08 | Os campos `passwordSetByAdminAt` e `passwordSetByAdmin`, gravados ativamente no documento `users/{uid}` por esta rota, **não estão declarados** na interface `User` em `src/types/index.ts` (que define `passwordResetAt` e `passwordChangedAt`, mas não os dois campos acima) — mesma divergência tipo/persistência já documentada em UC-30 (RN-07) para a interface `Consultant`. | Confirmado por leitura completa da interface `User` frente aos campos realmente escritos pelo handler. |
 | RN-09 | Assim como em UC-08 (RNF-03) e UC-30 (RN-08), apenas a solicitação mais recente de definição manual de senha é registrada (`passwordSetByAdminAt`/`passwordSetByAdmin` são sobrescritos a cada nova chamada) — não há histórico auditável de todas as vezes que a senha de um usuário foi definida manualmente. | Confirmado por leitura do handler — `update()` simples, sem acréscimo a nenhuma subcoleção/array de histórico. |
@@ -150,7 +150,7 @@ Nenhum identificado — as duas variações possíveis (com ou sem exigência de
 | ID | Descrição | Categoria |
 |----|-----------|-----------|
 | RNF-01 | Ausência de notificação ao usuário quando sua senha é definida manualmente pelo admin (RN-04) — mesmo risco de suporte já sinalizado para a rota irmã de consultores em UC-30. | UX / Suporte |
-| RNF-02 | Exposição de `error.message` bruto do Firebase Admin SDK em respostas 500 (RN-06) — risco leve de vazamento de detalhes internos em mensagens de erro exibidas ao admin. | Segurança |
+| RNF-02 | **[Resolvido no commit `53df743` — RN-06]** A exposição de `error.message` bruto do Firebase Admin SDK em respostas 500 foi eliminada — a rota agora sempre retorna uma mensagem genérica ao cliente, com o erro real preservado apenas no log do servidor. Mesma correção aplicada em UC-30 (RNF-02), no mesmo commit. | Segurança |
 | RNF-03 | Divergência entre a interface `User` (TypeScript) e os campos realmente gravados no Firestore por esta rota (RN-08) — risco de manutenção/type-safety. | Manutenibilidade |
 | RNF-04 | Todas as mensagens de erro/sucesso desta tela usam `alert()` nativo do navegador, sem componente de toast/notificação dedicado — mesma observação de UC-36 (RNF-03). | Consistência de UI |
 
@@ -165,22 +165,23 @@ Ocasional — usado pelo System Admin como alternativa a "Redefinir Senha via Li
 - **UC-36 (Editar Usuário e Alterar Status Cross-Tenant)** — mesmo diálogo "Editar Usuário" (`admin/users/page.tsx`); ação independente, na mesma tela.
 - **UC-08 (System Admin Envia Link de Redefinição de Senha)** — mecanismo irmão, na mesma seção da tela: em vez de definir a senha diretamente, envia um e-mail com link seguro (rota `api/users/{id}/reset-password`, já coberta por UC-08). Os dois cobrem juntos toda a área de gerenciamento de senha do diálogo.
 - **UC-06 (Trocar Senha Obrigatória no Primeiro Acesso)** — mecanismo acionado quando a opção "Solicitar troca de senha no próximo login" é marcada (passo 13); UC-06 já apontava esta ação (rota `api/users/[id]/set-password`) como uma pendência de mapeamento futuro (v1.2, seção 14, item 4) — agora fechada por este UC-37.
-- **UC-30 (Definir Senha do Consultor Manualmente)** — equivalente exato deste UC, para consultores em vez de usuários de clínica; mesma estrutura de API, com uma divergência de comportamento padrão confirmada (RN-07).
+- **UC-30 (Definir Senha do Consultor Manualmente)** — equivalente exato deste UC, para consultores em vez de usuários de clínica; mesma estrutura de API, com uma divergência de comportamento padrão confirmada (RN-07). Recebeu a correção equivalente de RN-06 (`error.message` bruto) no mesmo commit `53df743` (UC-30-RN-06).
 
 ---
 
 ## 13. Referências
 - `src/app/(admin)/admin/users/page.tsx` (seção "Definir Senha Manualmente", `handleSetPassword`)
-- `src/app/api/users/[id]/set-password/route.ts`
+- `src/app/api/users/[id]/set-password/route.ts` (bloco `catch`, linhas 79-81 — ver RN-06)
 - `src/types/index.ts` (`User` — RN-08)
 - `firestore.rules` (`users/{userId}`)
+- Commit da correção: `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`) — remove `error.message` bruto da resposta 500 (RN-06)
 
 ---
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
 1. **[RN-03]** A UI ignora a mensagem diferenciada retornada pela API quando `requirePasswordChange` é marcado — decisão de produto pendente sobre exibir uma confirmação distinta nesse caso, mesma pendência já registrada em UC-30.
-2. **[RN-06]** Exposição de `error.message` bruto do Firebase Admin SDK em erros 500 — decisão pendente sobre padronizar para uma mensagem genérica.
+2. ~~**[RN-06]** Exposição de `error.message` bruto do Firebase Admin SDK em erros 500 — decisão pendente sobre padronizar para uma mensagem genérica.~~ **[RESOLVIDO no commit `53df743` — UC-37-RN-06]** A rota passou a retornar sempre a mensagem genérica fixa "Erro ao definir senha. Tente novamente.", com o erro real preservado apenas no log do servidor. Mesma correção aplicada em UC-30, no mesmo commit.
 3. **[RN-07]** Divergência de comportamento padrão da checkbox "Solicitar troca de senha no próximo login" entre esta tela (desmarcada por padrão) e a equivalente de consultores/UC-30 (marcada por padrão) — não confirmado pelo usuário se essa diferença é intencional ou um descuido de implementação.
 4. **[RN-08]** Divergência entre a interface `User` e os campos realmente persistidos (`passwordSetByAdminAt`, `passwordSetByAdmin`) — decisão pendente sobre atualizar o tipo TypeScript.
 5. **[RN-09]** Ausência de histórico auditável de definições manuais de senha (apenas a mais recente é registrada) — mesma lacuna já observada em UC-08/UC-30; avaliação de necessidade de correção não solicitada até o momento.
@@ -192,3 +193,4 @@ Ocasional — usado pelo System Admin como alternativa a "Redefinir Senha via Li
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero a partir de `api/users/[id]/set-password/route.ts` e da seção "Definir Senha Manualmente" em `admin/users/page.tsx`. Documenta o mecanismo de definição direta de senha para usuários de clínica, equivalente exato do UC-30 (consultores), com a mesma estrutura de API (bloqueio de alvo `system_admin`, RN-02; atualização de claims e Firestore; ausência de notificação, RN-04). Achados: a UI ignora a mensagem diferenciada de sucesso retornada pela API (RN-03, igual UC-30); erros 500 expõem `error.message` bruto do SDK (RN-06, igual UC-30); a interface `User` não declara os campos de auditoria realmente gravados por esta rota (RN-08, mesmo padrão de UC-30 RN-07); divergência confirmada de comportamento padrão da checkbox de troca obrigatória frente ao equivalente de consultores (RN-07, achado específico deste UC, não presente em UC-30). Fecha, junto com UC-36, o módulo "Admin — Gestão de Usuários" e o Portal Admin (`system_admin`) como um todo. |
+| 1.0.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-37-RN-06): o bloco `catch` da rota `POST /api/users/{id}/set-password` deixou de retornar `error.message` bruto do Firebase Admin SDK e passou a retornar sempre a mensagem genérica fixa "Erro ao definir senha. Tente novamente." — corrigido no commit `53df743`, mesmo commit que aplicou a correção idêntica em UC-30 (RN-06); o erro real continua sendo registrado via `console.error`, apenas no log do servidor. Atualizados Pós-condição 4.2, Fluxo de Exceção 8f, RN-06 (marcado `[Corrigido]`), RNF-02 (marcado `[Resolvido]`), referências (Seção 13), cross-reference a UC-30 na Seção 12, e item 2 da Seção 14 (marcado `[RESOLVIDO]`). |
