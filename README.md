@@ -1,8 +1,30 @@
 # Curva Mestra
 
-Sistema SaaS Multi-Tenant para Clínicas de Harmonização Facial e Corporal.
+Sistema SaaS Multi-Tenant para Clínicas de Harmonização Facial e Corporal — gestão inteligente de estoque Rennova via importação de XML de NF-e, com controle de lotes, validades, licenças e consumo por paciente.
 
 **Responsável:** Guilherme Stanke Scandelari ([@GScandelari](https://github.com/GScandelari))
+
+---
+
+## Stack
+
+100% Firebase (Google Cloud) — Next.js 15 (App Router) + TypeScript + Tailwind CSS + Shadcn/ui, Firebase Functions, Firestore, Auth, Storage. Detalhes completos de arquitetura e convenções em [`CLAUDE.md`](./CLAUDE.md).
+
+## Rodando localmente
+
+```bash
+npm install
+
+# Com emuladores Firebase (recomendado para desenvolvimento)
+firebase emulators:start
+npm run dev
+
+# Outros comandos úteis
+npm run lint          # ESLint
+npm run type-check    # TypeScript sem erros
+npm run test          # Jest
+npm run format        # Prettier
+```
 
 ---
 
@@ -74,10 +96,37 @@ docs:   documentação
 
 ---
 
+## Roadmap e Backlog Técnico
+
+O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnicos e decisões de produto pendentes, consolidado a partir dos 50 Casos de Uso documentados em [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/). É a fonte de verdade para priorização de próximas correções e melhorias.
+
+📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
+
+**Resumo (v2.6, 17/07/2026):**
+
+| Severidade | Aberto  | Corrigido | Descartado | Total   |
+| ---------- | ------- | --------- | ---------- | ------- |
+| Crítica    | 0       | 5         | 1          | 6       |
+| Alta       | 23      | 0         | 1          | 24      |
+| Média      | 37      | 1         | 1          | 39      |
+| Baixa      | 82      | 0         | 1          | 83      |
+| **Total**  | **142** | **6**     | **4**      | **152** |
+
+- ✅ Todos os 6 achados **críticos** já foram tratados (5 corrigidos e documentados, 1 descartado por decisão de produto)
+- ⚠️ **23 itens de severidade Alta** seguem em aberto — próximo alvo natural de priorização
+- 🗂️ **14 decisões de produto pendentes** e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
+- 📝 12 dos 50 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
+
+> Este resumo é um retrato do mapa no momento da última atualização deste README. Para o estado atual item a item, sempre consulte o arquivo do mapa diretamente — ele é atualizado a cada correção ou novo achado.
+
+---
+
 ## Documentação Interna
 
 - [`CLAUDE.md`](./CLAUDE.md) — instruções de arquitetura e convenções para desenvolvimento com IA
 - [`ONLY_FOR_DEVS/`](./ONLY_FOR_DEVS/) — guias, tasks pendentes e decisões técnicas
+- [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/) — Casos de Uso UML (UC-01 a UC-50) e mapa de bugs/melhorias
+- [`ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md`](./ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md) — guia completo do pipeline de desenvolvimento e dos agentes de IA do projeto
 - [`CHANGELOG.md`](./CHANGELOG.md) — histórico de versões (gerado automaticamente)
 
 ---
