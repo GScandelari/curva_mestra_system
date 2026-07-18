@@ -53,11 +53,13 @@ export default function TenantsListPage() {
       return;
     }
 
+    setError('');
+
     try {
       await deactivateTenant(tenantId);
       await loadTenants();
     } catch (err: any) {
-      alert(err.message || 'Erro ao desativar clínica');
+      setError(err.message || 'Erro ao desativar clínica');
       console.error('Erro ao desativar tenant:', err);
     }
   };

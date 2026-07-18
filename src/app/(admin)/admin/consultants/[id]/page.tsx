@@ -66,6 +66,7 @@ export default function ConsultantDetailPage() {
   const [forcePasswordChange, setForcePasswordChange] = useState(true);
   const [settingPassword, setSettingPassword] = useState(false);
   const [setPasswordSuccess, setSetPasswordSuccess] = useState(false);
+  const [setPasswordSuccessMessage, setSetPasswordSuccessMessage] = useState('');
 
   useEffect(() => {
     loadConsultant();
@@ -235,6 +236,7 @@ export default function ConsultantDetailPage() {
       }
 
       setSetPasswordSuccess(true);
+      setSetPasswordSuccessMessage(data.message || 'Senha definida com sucesso!');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
@@ -470,7 +472,7 @@ export default function ConsultantDetailPage() {
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                      Senha definida com sucesso!
+                      {setPasswordSuccessMessage || 'Senha definida com sucesso!'}
                     </span>
                   </div>
                 </div>
