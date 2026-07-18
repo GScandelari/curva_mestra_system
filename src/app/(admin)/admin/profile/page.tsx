@@ -88,7 +88,7 @@ export default function AdminProfilePage() {
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
-      if (error.code === 'auth/wrong-password') {
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setPasswordError('Senha atual incorreta');
       } else if (error.code === 'auth/too-many-requests') {
         setPasswordError('Muitas tentativas. Tente novamente mais tarde');
