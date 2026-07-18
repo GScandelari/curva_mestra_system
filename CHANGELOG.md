@@ -5,6 +5,16 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.6.2](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.1...v1.6.2) (2026-07-18)
+
+
+### Bug Fixes
+
+* fecha as duas lacunas remanescentes do UC-22 apontadas na revisao ([529adc3](https://github.com/GScandelari/curva_mestra_system/commit/529adc349f64316ea91d94ad6225982da08c66e6))
+* lote de correcoes de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47) ([53df743](https://github.com/GScandelari/curva_mestra_system/commit/53df74318c66bb60b6cd67f6742371e81b45b9b8))
+* reconecta mecanismo completo de suspensao de clinica (UC-22) ([90b8a6f](https://github.com/GScandelari/curva_mestra_system/commit/90b8a6f7b3ea3897177222aa2b0e068de746c47e))
+* segundo lote de correcoes de baixa severidade (UC-22, UC-30, UC-37, UC-38, UC-41) ([ec31c27](https://github.com/GScandelari/curva_mestra_system/commit/ec31c277a824fb8354b4091f42488d914d25c95e))
+
 ## [1.6.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.0...v1.6.1) (2026-07-17)
 
 
