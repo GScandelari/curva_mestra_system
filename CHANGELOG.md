@@ -5,6 +5,21 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.6.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.0...v1.6.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* **admin:** add PUT /api/users/[id] to sync auth claims and disabled status ([2c7b023](https://github.com/GScandelari/curva_mestra_system/commit/2c7b0237e4827c582e1b1f86a7a72464bb7275a6))
+* **admin:** include inactive consultants under the Suspensos filter ([3ab00b6](https://github.com/GScandelari/curva_mestra_system/commit/3ab00b64270c092012d82792c215dd22f5b8a616))
+* **admin:** migrate user edit dialog to sync claims via api route ([69bc944](https://github.com/GScandelari/curva_mestra_system/commit/69bc9445dfcee4250bf19fca6504f8b8816e6392))
+* **admin:** preserve real auth claims when deactivating consultant ([b08fdeb](https://github.com/GScandelari/curva_mestra_system/commit/b08fdeb863b25bc9ac7673e063373fdfd8ebb8ec))
+* **admin:** require confirmation before removing a clinic's last active admin ([e0f0e74](https://github.com/GScandelari/curva_mestra_system/commit/e0f0e74e63f161e78a7373a9524e9590eceba6a1))
+* **admin:** restore auth access and claims on consultant reactivation ([d167883](https://github.com/GScandelari/curva_mestra_system/commit/d1678836a4a1868d68a85a755cfb67b174c2f33a))
+* **admin:** route consultant suspension through the real deactivation endpoint ([dbf128f](https://github.com/GScandelari/curva_mestra_system/commit/dbf128fa3171a03198788c3925b70c5a477b399b))
+* **legal-documents:** block deletion of documents with existing acceptances ([4561a2a](https://github.com/GScandelari/curva_mestra_system/commit/4561a2a82fa7f9e7ea8a2ef1ca18aa64a5d34e67))
+* **notifications:** use setDoc to create tenant notification settings ([a38e581](https://github.com/GScandelari/curva_mestra_system/commit/a38e5818ffc016a939be401c916a5ccdec3e0103))
+
 ## [1.6.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.5.2...v1.6.0) (2026-07-13)
 
 
