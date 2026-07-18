@@ -54,7 +54,7 @@ export interface CreateMasterProductData {
 export interface UpdateMasterProductData {
   code?: string;
   name?: string;
-  category?: MasterProductCategory;
+  category?: MasterProductCategory | null; // null limpa o campo explicitamente
   active?: boolean;
   fragmentavel?: boolean;
   unidades_por_embalagem?: number;
