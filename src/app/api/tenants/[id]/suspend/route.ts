@@ -99,13 +99,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // Atualizar custom claims de todos os usuários para desativá-los
     const updatePromises = usersSnapshot.docs.map(async (userDoc) => {
       const userId = userDoc.id;
-      const userData = userDoc.data();
 
-      // Atualizar custom claims
+      // Padrão correto de custom claims — nunca reconstruir do zero, sempre preservar
+      const userRecord = await adminAuth.getUser(userId);
+      const currentClaims = userRecord.customClaims || {};
+
       await adminAuth.setCustomUserClaims(userId, {
-        tenant_id: tenantId,
-        role: userData.role,
-        is_system_admin: false,
+        ...currentClaims,
         active: false, // Desativar usuário
       });
 
@@ -171,6 +171,8 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     await adminDb.collection('tenants').doc(tenantId).update({
       active: true,
       suspension: FieldValue.delete(), // Remove o campo suspension
+      reactivated_at: FieldValue.serverTimestamp(),
+      reactivated_by: decodedToken.uid,
       updated_at: FieldValue.serverTimestamp(),
     });
 
@@ -183,13 +185,13 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     // Reativar custom claims de todos os usuários
     const updatePromises = usersSnapshot.docs.map(async (userDoc) => {
       const userId = userDoc.id;
-      const userData = userDoc.data();
 
-      // Atualizar custom claims
+      // Padrão correto de custom claims — nunca reconstruir do zero, sempre preservar
+      const userRecord = await adminAuth.getUser(userId);
+      const currentClaims = userRecord.customClaims || {};
+
       await adminAuth.setCustomUserClaims(userId, {
-        tenant_id: tenantId,
-        role: userData.role,
-        is_system_admin: userData.role === 'system_admin',
+        ...currentClaims,
         active: true, // Reativar usuário
       });
 

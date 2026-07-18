@@ -24,12 +24,11 @@ import {
   Loader2,
   X,
 } from 'lucide-react';
+import { getTenant, updateTenant } from '@/lib/services/tenantServiceDirect';
 import {
-  getTenant,
-  updateTenant,
-  deactivateTenant,
-  reactivateTenant,
-} from '@/lib/services/tenantServiceDirect';
+  SuspendTenantDialog,
+  ReactivateTenantDialog,
+} from '@/components/admin/SuspendTenantDialog';
 import { listClinicUsers, ClinicUser } from '@/lib/services/clinicUserService';
 import { Tenant, DocumentType, Consultant } from '@/types';
 import { formatAddress, formatCNPJ } from '@/lib/utils';
@@ -183,42 +182,6 @@ export default function EditTenantPage() {
       console.error('Erro ao atualizar tenant:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDeactivate = async () => {
-    if (!confirm(`Tem certeza que deseja desativar "${tenant?.name}"?`)) {
-      return;
-    }
-
-    try {
-      await deactivateTenant(tenantId);
-      setSuccess('Clínica desativada com sucesso!');
-      setTimeout(() => {
-        router.push('/admin/tenants');
-      }, 1500);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao desativar clínica');
-      console.error('Erro ao desativar tenant:', err);
-    }
-  };
-
-  const handleReactivate = async () => {
-    if (!confirm(`Tem certeza que deseja reativar "${tenant?.name}"?`)) {
-      return;
-    }
-
-    try {
-      await reactivateTenant(tenantId);
-      setSuccess('Clínica reativada com sucesso!');
-      // Atualizar estado local
-      setActive(true);
-      if (tenant) {
-        setTenant({ ...tenant, active: true });
-      }
-    } catch (err: any) {
-      setError(err.message || 'Erro ao reativar clínica');
-      console.error('Erro ao reativar tenant:', err);
     }
   };
 
@@ -748,10 +711,12 @@ export default function EditTenantPage() {
               <CardDescription>Ações irreversíveis que afetam o tenant</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="destructive" onClick={handleDeactivate} disabled={loading}>
-                <XCircle className="mr-2 h-4 w-4" />
-                Desativar Clínica
-              </Button>
+              <SuspendTenantDialog tenant={tenant} onSuccess={loadTenant}>
+                <Button variant="destructive" disabled={loading}>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Desativar Clínica
+                </Button>
+              </SuspendTenantDialog>
               <p className="text-sm text-muted-foreground mt-2">
                 Desativar irá suspender todos os usuários desta clínica
               </p>
@@ -767,15 +732,16 @@ export default function EditTenantPage() {
               <CardDescription>Esta clínica está desativada no momento</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                variant="default"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={handleReactivate}
-                disabled={loading}
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Reativar Clínica
-              </Button>
+              <ReactivateTenantDialog tenant={tenant} onSuccess={loadTenant}>
+                <Button
+                  variant="default"
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={loading}
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Reativar Clínica
+                </Button>
+              </ReactivateTenantDialog>
               <p className="text-sm text-muted-foreground mt-2">
                 Reativar permitirá que os usuários desta clínica voltem a acessar o sistema
               </p>

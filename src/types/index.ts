@@ -77,6 +77,8 @@ export interface Tenant {
   max_users: number; // Limite de usuários: 1 para CPF (autônomo), 5 para CNPJ (clínica)
   active: boolean;
   suspension?: SuspensionInfo; // NOVO: Informações de suspensão
+  reactivated_at?: Timestamp; // Data da última reativação
+  reactivated_by?: string; // uid do system_admin que reativou
   consultant_id?: string; // ID do consultor atual
   consultant_code?: string; // Código 6 dígitos (desnormalizado)
   consultant_name?: string; // Nome do consultor (desnormalizado)

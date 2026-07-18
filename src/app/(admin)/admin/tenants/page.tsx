@@ -17,8 +17,22 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Building2, Mail, Phone, FileText, Edit, XCircle } from 'lucide-react';
-import { listTenants, deactivateTenant } from '@/lib/services/tenantServiceDirect';
+import {
+  Plus,
+  Search,
+  Building2,
+  Mail,
+  Phone,
+  FileText,
+  Edit,
+  XCircle,
+  CheckCircle,
+} from 'lucide-react';
+import { listTenants } from '@/lib/services/tenantServiceDirect';
+import {
+  SuspendTenantDialog,
+  ReactivateTenantDialog,
+} from '@/components/admin/SuspendTenantDialog';
 import { Tenant } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
 
@@ -45,20 +59,6 @@ export default function TenantsListPage() {
       console.error('Erro ao carregar tenants:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDeactivate = async (tenantId: string, tenantName: string) => {
-    if (!confirm(`Tem certeza que deseja desativar "${tenantName}"?`)) {
-      return;
-    }
-
-    try {
-      await deactivateTenant(tenantId);
-      await loadTenants();
-    } catch (err: any) {
-      alert(err.message || 'Erro ao desativar clínica');
-      console.error('Erro ao desativar tenant:', err);
     }
   };
 
@@ -203,14 +203,18 @@ export default function TenantsListPage() {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            {tenant.active && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeactivate(tenant.id, tenant.name)}
-                              >
-                                <XCircle className="h-4 w-4 text-destructive" />
-                              </Button>
+                            {tenant.active ? (
+                              <SuspendTenantDialog tenant={tenant} onSuccess={loadTenants}>
+                                <Button variant="ghost" size="sm">
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </SuspendTenantDialog>
+                            ) : (
+                              <ReactivateTenantDialog tenant={tenant} onSuccess={loadTenants}>
+                                <Button variant="ghost" size="sm">
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                </Button>
+                              </ReactivateTenantDialog>
                             )}
                           </div>
                         </TableCell>
