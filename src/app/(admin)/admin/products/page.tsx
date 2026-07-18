@@ -42,7 +42,9 @@ export default function ProductsPage() {
   const [filteredProducts, setFilteredProducts] = useState<MasterProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInactive, setShowInactive] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<MasterProductCategory | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<MasterProductCategory | 'all' | 'none'>(
+    'all'
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -85,7 +87,9 @@ export default function ProductsPage() {
       filtered = filtered.filter((p) => p.active);
     }
 
-    if (categoryFilter !== 'all') {
+    if (categoryFilter === 'none') {
+      filtered = filtered.filter((p) => !p.category);
+    } else if (categoryFilter !== 'all') {
       filtered = filtered.filter((p) => p.category === categoryFilter);
     }
 
@@ -144,13 +148,16 @@ export default function ProductsPage() {
 
               <Select
                 value={categoryFilter}
-                onValueChange={(v) => setCategoryFilter(v as MasterProductCategory | 'all')}
+                onValueChange={(v) =>
+                  setCategoryFilter(v as MasterProductCategory | 'all' | 'none')
+                }
               >
                 <SelectTrigger className="w-full md:w-56">
                   <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as categorias</SelectItem>
+                  <SelectItem value="none">Sem categoria</SelectItem>
                   {MASTER_PRODUCT_CATEGORIES.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
