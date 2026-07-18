@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Clínica (Autoatendimento)
-**Versão:** 1.0
+**Versão:** 1.0.1
 
 > Um usuário de clínica (`clinic_admin` ou `clinic_user`), na tela `clinic/profile/page.tsx` (link "Meu Perfil" no menu do Portal da Clínica), atualiza o próprio nome de exibição e/ou troca a própria senha — duas ações independentes, ambas executadas inteiramente client-side via Firebase Auth SDK, sem nenhuma API route de backend envolvida. A mesma tela também exibe, em modo somente-leitura, o histórico de aceites de termos legais do próprio usuário (`user_document_acceptances`) — escopo já citado como "fora do escopo" em UC-09 e formalmente coberto aqui. É estruturalmente análogo a UC-38 (mesmo padrão para System Admin), mas sem nenhuma distinção de comportamento entre `clinic_admin` e `clinic_user`.
 
@@ -124,9 +124,9 @@ Usuário de clínica clica em "Meu Perfil" no menu do Portal da Clínica (`Clini
 2. Fluxo retorna ao preenchimento do formulário de senha.
 
 ### 8d. Senha atual incorreta (a partir do passo 4 de 7a)
-1. Firebase Auth retorna `auth/wrong-password`.
+1. Firebase Auth retorna `auth/wrong-password` **ou** `auth/invalid-credential`.
 2. Sistema exibe "Senha atual incorreta".
-3. **Achado:** assim como em UC-38 (RN-04), este formulário só trata explicitamente `auth/wrong-password` no código-fonte — se o Firebase Auth retornar `auth/invalid-credential` para o mesmo cenário de senha incorreta, o usuário veria a mensagem genérica de erro (8f) em vez de "Senha atual incorreta".
+3. **[Corrigido no commit `ec31c27` — UC-41-RN-04]** A condição em `handleUpdatePassword` passou a tratar `error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential'` — mesma correção aplicada em UC-38 (RN-04), no mesmo commit; antes só reconhecia explicitamente `auth/wrong-password`.
 
 ### 8e. Muitas tentativas (a partir do passo 4 de 7a)
 1. Firebase Auth retorna `auth/too-many-requests`.
@@ -150,7 +150,7 @@ Usuário de clínica clica em "Meu Perfil" no menu do Portal da Clínica (`Clini
 | RN-01 | A senha mínima exigida nesta tela é de **6 caracteres**, tanto para `clinic_admin` quanto para `clinic_user` — mesmo padrão do restante do sistema (UC-06, UC-08, UC-30, UC-37), e **diferente** da exceção de 8 caracteres documentada em UC-38 (exclusiva de `system_admin`). | Confirmado por leitura literal de `handleUpdatePassword` (`newPassword.length < 6`) e do texto de ajuda na UI ("Mínimo de 6 caracteres") e do atributo `minLength={6}` do input. |
 | RN-02 | A validação de senha nesta tela é uma checagem local simples (apenas comprimento e confirmação) — não usa a função compartilhada `validatePassword` de `serverValidations.ts`, nem qualquer validação de complexidade (letra, número, etc.). Mesmo padrão ad-hoc já documentado em UC-06 (RN-02) e UC-38 (RN-02). | Confirmado por leitura de `handleUpdatePassword` — nenhuma importação de `serverValidations`. |
 | RN-03 | **[Achado]** Assim como UC-38 (RN-03), este formulário não bloqueia a nova senha sendo igual à senha atual — o usuário pode "trocar" a senha para o mesmo valor atual sem nenhum aviso ou bloqueio. | Confirmado por leitura completa de `handleUpdatePassword` — apenas duas validações client-side (comprimento e confirmação), nenhuma comparação com `currentPassword`. |
-| RN-04 | **[Achado]** O tratamento de erro da troca de senha só reconhece explicitamente o código `auth/wrong-password` para exibir "Senha atual incorreta" — não trata `auth/invalid-credential`. Mesmo achado de UC-38 (RN-04). | Confirmado por leitura literal do bloco `catch` de `handleUpdatePassword`. |
+| RN-04 | **[Corrigido no commit `ec31c27` — UC-41-RN-04]** O tratamento de erro da troca de senha agora reconhece tanto `auth/wrong-password` quanto `auth/invalid-credential` para exibir "Senha atual incorreta" — condição alterada de `if (error.code === 'auth/wrong-password')` para `if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential')` em `src/app/(clinic)/clinic/profile/page.tsx`. Mesma correção aplicada em UC-38 (RN-04), no mesmo commit. **Nota histórica:** até esta correção, só `auth/wrong-password` era reconhecido explicitamente. | Confirmado por leitura literal do bloco `catch` de `handleUpdatePassword` (`src/app/(clinic)/clinic/profile/page.tsx`) — condição agora idêntica ao bloco equivalente em UC-38/UC-06. |
 | RN-05 | **[Achado]** A atualização do nome (`displayName`) só é gravada no Firebase Auth (client-side) — nenhum documento Firestore é escrito por esta tela (não existe, no código desta página, nenhuma chamada a `updateDoc`/`setDoc`). Mesmo achado de UC-38 (RN-05). | Confirmado por leitura completa de `clinic/profile/page.tsx` — os únicos usos de `firebase/firestore` no arquivo são de **leitura** (`getDoc`, `getDocs`) para o histórico de aceites; nenhuma escrita. |
 | RN-06 | O campo "Email" é exibido apenas como texto informativo (`disabled`), com a nota explícita "O email não pode ser alterado" — não há, nesta tela, nenhum mecanismo de troca de e-mail para o próprio usuário de clínica. | Confirmado pela renderização do campo com atributo `disabled` e texto de ajuda fixo. |
 | RN-07 | **[Achado]** Nenhum campo de auditoria (equivalente a `passwordChangedAt` em UC-06, ou `passwordSetByAdminAt` em UC-37) é gravado quando o usuário de clínica troca a própria senha por esta tela — a troca ocorre inteiramente no Firebase Auth (client SDK). Mesmo achado de UC-38 (RN-07). | Confirmado por leitura completa de `handleUpdatePassword` — nenhuma chamada a `fetch`/API route após `updatePassword`. |
@@ -177,7 +177,7 @@ Rara — atualização de nome e troca de senha do próprio usuário de clínica
 ---
 
 ## 12. Casos de Uso Relacionados
-- **UC-38 (Editar Perfil e Trocar Senha do System Admin)** — mesmo padrão estrutural de autoatendimento (nome + senha, ambos client-side via Firebase Auth), aplicado aqui a `clinic_admin`/`clinic_user`. Principais diferenças: senha mínima de 6 caracteres (não 8, RN-01) e presença de uma terceira seção somente-leitura de histórico de aceites de termos (RN-09), inexistente em UC-38.
+- **UC-38 (Editar Perfil e Trocar Senha do System Admin)** — mesmo padrão estrutural de autoatendimento (nome + senha, ambos client-side via Firebase Auth), aplicado aqui a `clinic_admin`/`clinic_user`. Principais diferenças: senha mínima de 6 caracteres (não 8, RN-01) e presença de uma terceira seção somente-leitura de histórico de aceites de termos (RN-09), inexistente em UC-38. Recebeu a correção equivalente de RN-04 (`auth/invalid-credential`) no mesmo commit `ec31c27` (UC-38-RN-04).
 - **UC-09 (Aceitar Termos Legais)** já citava, em sua seção 13 (Referências), que `clinic/profile/page.tsx` exibe "somente-leitura o histórico de aceites do próprio usuário — fora do escopo daquele UC". Este UC-41 formaliza esse escopo (Fluxo Alternativo 7b, RN-09).
 - **UC-05 (Aprovar Solicitação de Acesso pela Própria Clínica)** e **UC-16 a UC-19 (Registrar/Editar/Concluir Procedimento)** são afetados indiretamente por este UC: todos leem `user.displayName` (que este UC-41 pode alterar) para preencher campos de auditoria (RN-08).
 - **UC-06 (Trocar Senha Obrigatória no Primeiro Acesso)** é o fluxo forçado de troca de senha (aplicável a `clinic_admin`/`clinic_user` no primeiro acesso); este UC-41 é o mecanismo de autoatendimento voluntário, a qualquer momento.
@@ -192,12 +192,13 @@ Rara — atualização de nome e troca de senha do próprio usuário de clínica
 - `src/app/(admin)/admin/profile/page.tsx` (UC-38 — comparação direta de padrão, RN-01 a RN-07)
 - `src/app/(clinic)/clinic/access-requests/page.tsx`, `src/app/(clinic)/clinic/requests/new/page.tsx`, `src/app/(clinic)/clinic/requests/[id]/page.tsx` (uso de `user.displayName` — RN-08)
 - `src/app/(auth)/accept-terms/page.tsx`, `src/app/(clinic)/clinic/setup/terms/page.tsx` (UC-09 — origem dos registros em `user_document_acceptances` exibidos somente-leitura aqui)
+- Commit da correção: `ec31c27` (`fix: segundo lote de correções de baixa severidade (UC-22, UC-30, UC-37, UC-38, UC-41)`) — condição de `handleUpdatePassword` passa a tratar também `auth/invalid-credential` (RN-04)
 
 ---
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
-1. **[RN-04]** Não confirmado se `auth/invalid-credential` de fato ocorre em produção para reautenticação com senha incorreta nesta versão do Firebase SDK usada pelo projeto — mesmo ponto em aberto já registrado em UC-38.
+1. ~~**[RN-04]** Não confirmado se `auth/invalid-credential` de fato ocorre em produção para reautenticação com senha incorreta nesta versão do Firebase SDK usada pelo projeto — mesmo ponto em aberto já registrado em UC-38.~~ **[RESOLVIDO no commit `ec31c27` — UC-41-RN-04]** Independentemente de confirmação em runtime, o tratamento de erro passou a cobrir também `auth/invalid-credential`, mesma correção aplicada em UC-38, no mesmo commit.
 2. **[RN-03]** Ausência de bloqueio para "nova senha igual à atual" — não confirmado pelo usuário se deve ser corrigido para alinhar com UC-06.
 3. **[RN-07]** Ausência de qualquer auditoria de troca de senha do próprio usuário de clínica — avaliação de necessidade de correção não solicitada até o momento.
 4. **[RNF-04]** Falha silenciosa (apenas `console.error`, sem toast) ao carregar o histórico de aceites de termos — não confirmado pelo usuário se é um comportamento intencional (a lista é apenas informativa/secundária) ou uma lacuna a corrigir.
@@ -210,3 +211,4 @@ Rara — atualização de nome e troca de senha do próprio usuário de clínica
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero a partir de `clinic/profile/page.tsx`, usando UC-38 (System Admin) como padrão estrutural de referência. Documenta as três seções independentes da tela: editar nome (perfil), trocar senha, e visualizar (somente leitura) o histórico de aceites de termos legais — este último formalizando o escopo que UC-09 já citava como "fora do escopo daquele UC". Confirmado RN-10: nenhuma diferenciação de comportamento entre `clinic_admin` e `clinic_user` nesta tela. Achados equivalentes aos de UC-38 (mesma ausência de auditoria de troca de senha e de bloqueio de "senha igual à atual", mesmo tratamento incompleto de `auth/invalid-credential`), com uma divergência real: a senha mínima aqui é de 6 caracteres (padrão do resto do sistema), não 8 (exceção exclusiva de `system_admin` em UC-38). Registrada pendência sobre a ausência de um fluxo de edição de perfil/senha de um usuário por **outro** usuário da mesma clínica (seção 14, item 5). |
+| 1.0.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-41-RN-04): a condição de tratamento de erro em `handleUpdatePassword` (`src/app/(clinic)/clinic/profile/page.tsx`) foi alterada de `if (error.code === 'auth/wrong-password')` para `if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential')` — corrigido no commit `ec31c27`, mesmo commit que aplicou a correção idêntica em UC-38 (RN-04). Atualizados Fluxo de Exceção 8d, RN-04 (marcado `[Corrigido]`), cross-reference a UC-38 na Seção 12, referências (Seção 13) e item 1 da Seção 14 (marcado `[RESOLVIDO]`). |
