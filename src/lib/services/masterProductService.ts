@@ -18,6 +18,7 @@ import {
   Timestamp,
   serverTimestamp,
   collectionGroup,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -248,7 +249,9 @@ export async function updateMasterProduct(productId: string, data: UpdateMasterP
 
     if (data.name !== undefined) firestoreData.name = data.name.trim().toUpperCase();
     if (data.active !== undefined) firestoreData.active = data.active;
-    if (data.category !== undefined) firestoreData.category = data.category;
+    if (data.category !== undefined) {
+      firestoreData.category = data.category === null ? deleteField() : data.category;
+    }
     if (data.fragmentavel !== undefined) firestoreData.fragmentavel = data.fragmentavel;
     if (data.unidades_por_embalagem !== undefined) {
       firestoreData.unidades_por_embalagem = data.unidades_por_embalagem;

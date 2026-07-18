@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Rascunho
 **Módulo/Contexto:** Notificações e Alertas
-**Versão:** 1.0
+**Versão:** 1.0.1
 
 > Um usuário da clínica (Clinic Admin ou Clinic User) consulta, em tempo real, as notificações recebidas através do sino (`NotificationBell`) no cabeçalho do layout de clínica: visualiza a lista das 50 mais recentes, marca uma ou todas como lidas, exclui uma notificação individual, limpa as já lidas em lote, e é redirecionado ao item relacionado (inventário ou solicitação) ao clicar. É este componente — não a tela `/clinic/alerts` (UC-42) — que efetivamente exibe e gerencia as notificações geradas pelo sistema (UC-42 e outros pontos do código, ver seção 9).
 
@@ -52,7 +52,7 @@ flowchart LR
 
 ### 4.1 Sucesso (Garantias de Sucesso)
 - **Marcar como lida** (clique na notificação ou em "Marcar todas como lidas"): o(s) documento(s) em `tenants/{tenantId}/notifications` recebem `read: true` e `read_at: Timestamp.now()`. O contador do badge (`unreadCount`) é recalculado automaticamente pelo listener em tempo real.
-- **Excluir uma notificação** (ícone de lixeira em cada item): o documento é removido (`deleteDoc`) — ação irreversível, sem confirmação.
+- **Excluir uma notificação** (ícone de lixeira em cada item): após confirmação via `confirm()` nativo do navegador ("Deseja realmente excluir esta notificação?" — adicionado no commit `2ddebd6`, RN-07), o documento é removido (`deleteDoc`) — ação irreversível. Mesmo padrão de confirmação nativa já usado por "Limpar notificações lidas".
 - **Limpar notificações lidas** ("Limpar notificações lidas", só visível se `notifications.length > 0`): após confirmação via `confirm()` nativo do navegador, todos os documentos com `read == true` do tenant são excluídos em lote (`writeBatch`).
 - **Clique em uma notificação com `inventory_id` ou `request_id`**: navega para `/clinic/inventory/{inventory_id}` ou `/clinic/requests/{request_id}`, respectivamente, e marca a notificação como lida antes de navegar (se ainda não estava lida).
 
@@ -73,7 +73,7 @@ Usuário clica no ícone de sino no cabeçalho de qualquer página do Portal Cli
 2. Usuário clica no sino; o `DropdownMenuContent` abre, exibindo o cabeçalho "Notificações" e, se houver não lidas, o botão "Marcar todas como lidas".
 3. Sistema lista as notificações em ordem decrescente de criação, cada uma com: ícone por tipo (`Clock` para vencimento, `Package` para estoque baixo, `Check`/`X`/`FileText` para solicitações, `AlertCircle` como padrão), título, mensagem (truncada a 2 linhas), tempo relativo (`formatDistanceToNow`, locale pt-BR) e badge "Novo" se não lida. O fundo da notificação varia por prioridade (`urgent`→vermelho, `high`→laranja, `medium`→amarelo, `low`→azul) ou azul fixo se não lida, independente da prioridade.
 4. Usuário clica em uma notificação: se não lida, é marcada como lida (`markAsRead`); em seguida, se a notificação tiver `inventory_id` ou `request_id`, o sistema navega para a tela correspondente e fecha o dropdown.
-5. Alternativamente, usuário clica no ícone de lixeira de uma notificação específica (sem abrir/navegar): a notificação é excluída (`deleteNotification`), sem confirmação.
+5. Alternativamente, usuário clica no ícone de lixeira de uma notificação específica (sem abrir/navegar): sistema exibe uma confirmação nativa do navegador ("Deseja realmente excluir esta notificação?" — adicionada no commit `2ddebd6`, RN-07); se confirmado, a notificação é excluída (`deleteNotification`).
 6. Alternativamente, usuário clica em "Marcar todas como lidas": todas as notificações não lidas do tenant são marcadas como lidas em lote (`markAllAsRead` → `writeBatch`).
 7. Alternativamente, usuário clica em "Limpar notificações lidas" (rodapé do dropdown, só exibido se `notifications.length > 0`): após confirmar em um `confirm()` nativo do navegador, todas as notificações já lidas do tenant são excluídas em lote (`clearRead` → `deleteReadNotifications`).
 8. Caso de uso é concluído a qualquer momento em que o usuário fecha o dropdown (clique fora, ou após navegação no passo 4).
@@ -122,7 +122,7 @@ Usuário clica no ícone de sino no cabeçalho de qualquer página do Portal Cli
 | RN-04 | O som de notificação (`playSound`) é passado como `true` fixo pelo `ClinicLayout` (`<NotificationBell playSound={true} />`) — não há nenhuma opção na interface para o usuário desabilitá-lo por conta própria; o campo `notification_sound` de `NotificationSettings` (UC-43) existe no tipo e no formulário de preferências, mas **não é lido em nenhum lugar por `NotificationBell`/`useNotifications`** para controlar o som. | Confirmado por leitura de `ClinicLayout.tsx` (linha 81, prop fixa) e por busca por `notification_sound` em todo `src/` — só aparece em `notification.ts` (tipo) e `ClinicSettingsPage` (formulário de UC-43), nunca lido por `useNotifications`. |
 | RN-05 | O listener sempre busca as 50 notificações mais recentes (`limit(50)`), sem paginação — notificações além desse limite nunca aparecem no sino, mesmo que não lidas. | Confirmado por leitura literal de `subscribeToNotifications` (`query(notificationsRef, orderBy('created_at', 'desc'), limit(50))`). |
 | RN-06 | Multi-tenant: toda consulta, escuta e escrita de notificações é escopada por `tenants/{tenantId}/notifications`, tanto no client (`tenantId` vindo de `claims.tenant_id`) quanto na regra dedicada do Firestore (`belongsToTenant(tenantId)`). Um usuário nunca vê notificações de outro tenant. | Confirmado por leitura de `useNotifications.ts`, `notificationService.ts` e `firestore.rules` (linhas 65-74). |
-| RN-07 | A exclusão de uma notificação individual (passo 5) não exige confirmação (`confirm()` ou modal), diferente de "Limpar notificações lidas" (passo 7), que exige confirmação nativa do navegador antes de excluir em lote. | Confirmado por leitura de `handleDelete` (chama `deleteNotification` diretamente) vs. `handleClearAll` (envolve a chamada em `if (confirm(...))`). |
+| RN-07 | **[Corrigido no commit `2ddebd6` — UC-44-RN-07]** A exclusão de uma notificação individual agora exige confirmação antes de excluir — `handleDelete` (`src/components/notifications/NotificationBell.tsx`) passou a envolver `await deleteNotification(notificationId)` em `if (confirm('Deseja realmente excluir esta notificação?')) { ... }`, mesmo padrão nativo (`confirm()`) já usado por `handleClearAll` no mesmo componente para a limpeza em lote. Não foi adotado um `AlertDialog`/toast neste ciclo — manteve-se consistência com o padrão nativo já existente nesse componente específico. | Confirmado por leitura literal de `handleDelete` — a chamada a `deleteNotification` agora está dentro do bloco condicional de confirmação, idêntico em estrutura ao de `handleClearAll`. |
 
 ---
 
@@ -150,12 +150,13 @@ Alta — o sino é visível em todas as páginas do Portal Clinic e é o único 
 ---
 
 ## 13. Referências
-- `src/components/notifications/NotificationBell.tsx`
+- `src/components/notifications/NotificationBell.tsx` (`handleDelete` — confirmação nativa adicionada, RN-07)
 - `src/hooks/useNotifications.ts`
 - `src/lib/services/notificationService.ts` (`subscribeToNotifications`, `markAsRead`, `markAllAsRead`, `deleteNotification`, `deleteReadNotifications`, `getNotificationStats`)
 - `src/types/notification.ts` (`Notification`, `NotificationType`, `NotificationPriority`)
 - `src/components/clinic/ClinicLayout.tsx` (montagem do componente, linha 81)
 - `firestore.rules` (linhas 65-74 — regra dedicada de `tenants/{tenantId}/notifications`)
+- Commit da correção: `2ddebd6` (`fix: terceiro lote de correções de baixa severidade (UC-32, UC-38, UC-41, UC-44)`) — `handleDelete` passa a exigir confirmação nativa antes de excluir uma notificação individual (RN-07)
 
 ---
 
@@ -176,3 +177,4 @@ Alta — o sino é visível em todas as páginas do Portal Clinic e é o único 
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada por leitura completa de `NotificationBell.tsx`, `useNotifications.ts`, `notificationService.ts` (funções de leitura/escrita de notificações), `notification.ts`, `ClinicLayout.tsx` e `firestore.rules` (regra de `tenants/{tenantId}/notifications`). Mapeia o componente que, segundo achado registrado em UC-42/UC-43, é a real "central de alertas" do sistema (não `/clinic/alerts`). Identificados dois bugs confirmados: falhas de permissão/listener são inteiramente silenciosas para o usuário (RN-01), e a regra do Firestore restringe exclusão a `clinic_admin` enquanto a UI expõe os botões de exclusão identicamente para `clinic_user` (RN-02). Também confirmado que `createRequestApprovedNotification`/`createRequestRejectedNotification` são código morto (RN-03) e que `notification_sound` (UC-43) não controla o som real tocado aqui (RN-04). |
+| 1.0.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-44-RN-07): `handleDelete` (`src/components/notifications/NotificationBell.tsx`) passou a envolver `await deleteNotification(notificationId)` em `if (confirm('Deseja realmente excluir esta notificação?')) { ... }` — corrigido no commit `2ddebd6`, alinhando a exclusão individual ao mesmo padrão de confirmação nativa já usado por "Limpar notificações lidas" (`handleClearAll`). Atualizados Pós-condição 4.1, Fluxo Principal (passo 5), RN-07 (marcado `[Corrigido]`) e referências (Seção 13). |

@@ -109,7 +109,9 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
 
   const handleDelete = async (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation();
-    await deleteNotification(notificationId);
+    if (confirm('Deseja realmente excluir esta notificação?')) {
+      await deleteNotification(notificationId);
+    }
   };
 
   const formatRelativeTime = (timestamp: any) => {

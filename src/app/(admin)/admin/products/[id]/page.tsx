@@ -122,7 +122,7 @@ export default function EditProductPage() {
         code: code.trim(),
         name: normalizeProductName(name),
         active,
-        category: category || undefined,
+        category: category || null,
         fragmentavel,
         unidades_por_embalagem: fragmentavel ? Number(unidadesPorEmbalagem) : undefined,
       });
@@ -217,14 +217,17 @@ export default function EditProductPage() {
               <div className="space-y-2">
                 <Label htmlFor="category">Categoria</Label>
                 <Select
-                  value={category}
-                  onValueChange={(v) => setCategory(v as MasterProductCategory)}
+                  value={category || 'none'}
+                  onValueChange={(v) =>
+                    setCategory(v === 'none' ? '' : (v as MasterProductCategory))
+                  }
                   disabled={saving}
                 >
                   <SelectTrigger id="category">
                     <SelectValue placeholder="Selecione uma categoria" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">Sem categoria</SelectItem>
                     {MASTER_PRODUCT_CATEGORIES.map((cat) => (
                       <SelectItem key={cat} value={cat}>
                         {cat}
