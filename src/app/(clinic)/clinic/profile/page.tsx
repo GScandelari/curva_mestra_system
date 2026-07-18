@@ -128,6 +128,11 @@ export default function ProfilePage() {
       return;
     }
 
+    if (newPassword === currentPassword) {
+      setPasswordError('A nova senha deve ser diferente da senha atual');
+      return;
+    }
+
     setPasswordLoading(true);
 
     try {
