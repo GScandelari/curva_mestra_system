@@ -101,6 +101,7 @@ export default function UsersManagementPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [settingPassword, setSettingPassword] = useState(false);
   const [setPasswordSuccess, setSetPasswordSuccess] = useState(false);
+  const [setPasswordSuccessMessage, setSetPasswordSuccessMessage] = useState('');
 
   useEffect(() => {
     loadAllUsers();
@@ -275,6 +276,7 @@ export default function UsersManagementPage() {
       }
 
       setSetPasswordSuccess(true);
+      setSetPasswordSuccessMessage(data.message || 'Senha definida com sucesso!');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
@@ -737,7 +739,7 @@ export default function UsersManagementPage() {
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                      Senha definida com sucesso!
+                      {setPasswordSuccessMessage || 'Senha definida com sucesso!'}
                     </span>
                   </div>
                 </div>

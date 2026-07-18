@@ -102,15 +102,15 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v2.7, 18/07/2026):**
+**Resumo (v2.8, 18/07/2026):**
 
 | Severidade | Aberto  | Corrigido | Descartado | Total   |
 | ---------- | ------- | --------- | ---------- | ------- |
 | Crítica    | 0       | 5         | 1          | 6       |
 | Alta       | 23      | 0         | 1          | 24      |
 | Média      | 37      | 1         | 1          | 39      |
-| Baixa      | 77      | 5         | 1          | 83      |
-| **Total**  | **137** | **11**    | **4**      | **152** |
+| Baixa      | 73      | 9         | 1          | 83      |
+| **Total**  | **133** | **15**    | **4**      | **152** |
 
 - ✅ Todos os 6 achados **críticos** já foram tratados (5 corrigidos e documentados, 1 descartado por decisão de produto)
 - ⚠️ **23 itens de severidade Alta** seguem em aberto — próximo alvo natural de priorização
