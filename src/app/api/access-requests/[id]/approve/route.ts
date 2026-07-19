@@ -85,13 +85,27 @@ function generateWelcomeEmailHtml(
  */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    // Verificar autenticação
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await adminAuth.verifyIdToken(token);
+
+    if (!decodedToken.is_system_admin) {
+      return NextResponse.json(
+        { error: 'Apenas administradores do sistema podem aprovar solicitações' },
+        { status: 403 }
+      );
+    }
+
+    const approved_by_uid = decodedToken.uid;
+    const approved_by_name = decodedToken.name || decodedToken.email || 'System Admin';
+
     const params = await context.params;
     const requestId = params.id;
-    const { approved_by_uid, approved_by_name } = await req.json();
-
-    if (!approved_by_uid || !approved_by_name) {
-      return NextResponse.json({ error: 'Dados do aprovador são obrigatórios' }, { status: 400 });
-    }
 
     // 1. Buscar solicitação
     const requestDoc = await adminDb.collection('access_requests').doc(requestId).get();
