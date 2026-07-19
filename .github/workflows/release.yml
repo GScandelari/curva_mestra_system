@@ -33,3 +33,28 @@ jobs:
           release-type: node
           package-name: curva-mestra-system
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+  sync-develop:
+    needs: release
+    runs-on: ubuntu-latest
+    name: Sync develop with master
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - name: Merge master into develop
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin master
+          if git merge-base --is-ancestor origin/master HEAD; then
+            echo "develop já contém master — nada para sincronizar"
+            exit 0
+          fi
+          git merge origin/master --no-edit -m "chore: sincroniza develop com master apos release"
+          git push origin develop
