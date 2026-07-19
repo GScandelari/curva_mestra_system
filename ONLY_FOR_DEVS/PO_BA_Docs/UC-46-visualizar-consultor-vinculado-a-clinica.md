@@ -6,9 +6,9 @@
 **Status:** Rascunho
 **Módulo/Contexto:** Gestão de Clínica / Consultores
 
-**Versão:** 1.0
+**Versão:** 1.1
 
-> Um usuário de clínica (`clinic_admin` ou `clinic_user`) consulta, em modo somente-leitura, os dados do consultor atualmente vinculado à sua clínica (código, nome, e-mail, telefone, status). Essa consulta existe em **dois lugares com implementação duplicada e independente**: a aba "Consultor" dentro de `/clinic/my-clinic` (o único caminho acessível por navegação) e a página standalone `/clinic/consultant` (órfã — sem link em nenhum menu). Existe ainda uma terceira página, `/clinic/consultant/transfer`, que pretende permitir à própria clínica buscar e vincular um consultor por código — mas essa ação está **confirmadamente quebrada**: a API que ela chama rejeita qualquer usuário de clínica (só aceita `system_admin` ou o próprio consultor autenticado).
+> Um usuário de clínica (`clinic_admin` ou `clinic_user`) consulta, em modo somente-leitura, os dados do consultor atualmente vinculado à sua clínica (código, nome, e-mail, telefone, status). Essa consulta existe em **dois lugares com implementação duplicada e independente**: a aba "Consultor" dentro de `/clinic/my-clinic` (o único caminho acessível por navegação) e a página standalone `/clinic/consultant` (órfã — sem link em nenhum menu). Existe ainda uma terceira página, `/clinic/consultant/transfer`, que pretende permitir à própria clínica buscar e vincular um consultor por código — mas essa ação está **confirmadamente quebrada**: a API que ela chama rejeita qualquer usuário de clínica (só aceita `system_admin` ou o próprio consultor autenticado). **Decisão de produto já tomada** para essa terceira página (v1.1): remover e substituir por um fluxo novo de convite/transferência com aprovação — ver Seção 14, item 1.
 
 ---
 
@@ -28,7 +28,7 @@ flowchart LR
     ClinicAdmin --> UC46
     ClinicUser --> UC46
     UC46 -.->|GET, somente leitura| API[["/api/tenants/{id}/consultant"]]
-    UC46 -.->|"Vincular Consultor"\n(/clinic/consultant/transfer)\nquebrado — sempre 403| API
+    UC46 -.->|"Vincular Consultor"\n(/clinic/consultant/transfer)\nquebrado — sempre 403,\ndecisão tomada: será substituído| API
     UC23 -.->|única forma real de\nalterar o vínculo| API
     UC24 -.->|consultor se vincula\npelo próprio código| API
 ```
@@ -103,10 +103,10 @@ Usuário navega para `/clinic/my-clinic` (via menu "Minha Clínica" do `ClinicLa
 2. Erro é registrado apenas via `console.error('Erro ao carregar dados:', error)` (ou variante equivalente); `consultant` permanece `null`; a tela renderiza o mesmo estado vazio do fluxo 7a, sem nenhuma indicação de que uma falha ocorreu (RN-02).
 
 ### 8b. Usuário tenta usar "Vincular Consultor" via `/clinic/consultant/transfer` (fluxo relacionado, não pertence ao caminho de consulta deste UC, mas compartilha o mesmo módulo)
-1. **[Confirmado quebrado]** A página `/clinic/consultant/transfer` (rota não linkada em nenhum menu) redireciona automaticamente de volta para `/clinic/consultant` se `role === 'clinic_admin'` — ou seja, só um `clinic_user` consegue efetivamente abrir o formulário de busca por código.
+1. **[Confirmado quebrado — decisão de produto tomada, aguardando implementação, ver Seção 14, item 1]** A página `/clinic/consultant/transfer` (rota não linkada em nenhum menu) redireciona automaticamente de volta para `/clinic/consultant` se `role === 'clinic_admin'` — ou seja, só um `clinic_user` consegue efetivamente abrir o formulário de busca por código.
 2. Mesmo assim, ao buscar um consultor por código (`GET /api/consultants/by-code/{code}`) e tentar confirmar o vínculo, a página chama `POST /api/tenants/{tenantId}/consultant`.
 3. **A rota rejeita a chamada com 403 ("Acesso negado")** para qualquer usuário de clínica: a checagem de permissão do `POST` só aceita `system_admin` **ou** um consultor autenticado com `authorized_tenants` incluindo o tenant (`decodedToken.is_consultant && authorized_tenants?.includes(tenantId)`) — nunca `clinic_admin`/`clinic_user`.
-4. Um toast de erro é exibido ("Erro ao transferir consultoria" ou a mensagem "Acesso negado" vinda da API); o vínculo nunca é criado por este caminho.
+4. Um toast de erro é exibido ("Erro ao transferir consultoria" ou a mensagem "Acesso negado" vinda da API); o vínculo nunca é criado por este caminho. Este comportamento (as-is) permanece válido até a implementação da spec referenciada na Seção 14, item 1 — o código de `TransferConsultantPage` ainda não foi alterado nesta data.
 
 ---
 
@@ -116,8 +116,8 @@ Usuário navega para `/clinic/my-clinic` (via menu "Minha Clínica" do `ClinicLa
 |----|-------|----------------|
 | RN-01 | **[Duplicação de código confirmada]** `ClinicConsultantPage` (`/clinic/consultant/page.tsx`) e `ConsultantTab` (`/components/clinic/ConsultantTab.tsx`, usada em `my-clinic`) são praticamente idênticas — mesma estrutura JSX, mesma chamada de API, mesmos componentes — diferindo apenas no texto do estado vazio: a página standalone diz "O consultor pode solicitar vínculo informando seu CNPJ/CPF" (texto desatualizado, sem menção a aprovação); a aba diz "o vínculo é estabelecido automaticamente, sem necessidade de aprovação... Se houver consultor anterior, ele deve aprovar a transferência" (mais alinhado a UC-24/UC-25/UC-26). Nenhuma das duas compartilha um componente comum — são duas implementações independentes do mesmo dado. | Confirmado por leitura lado a lado de `ClinicConsultantPage` e `ConsultantTab` — mesma lógica, HTML quase idêntico, apenas o texto do card informativo/estado vazio diverge. |
 | RN-02 | **[Bug confirmado]** Falhas na busca do consultor (rede, permissão, erro do servidor) são tratadas de forma indistinguível do caso "sem consultor vinculado" — em ambas as implementações, o `catch` apenas loga no console e mantém `consultant: null`, sem nenhum estado de erro visível ao usuário. | Confirmado por leitura literal de `loadData` em ambos os componentes — `catch (error) { console.error(...) }`, sem `setError` ou toast. |
-| RN-03 | **[Achado crítico — funcionalidade quebrada]** A página `/clinic/consultant/transfer` pretende permitir que a própria clínica busque um consultor por código de 6 dígitos e o vincule diretamente, mas a rota que ela chama (`POST /api/tenants/{id}/consultant`) só autoriza `system_admin` ou um consultor autenticado — nunca um usuário de clínica. Toda tentativa de uso por um `clinic_user` (o único role que consegue nem sequer ser redirecionado para fora da página, ver RN-04) termina em 403. | Confirmado por leitura completa de `TransferConsultantPage` e do handler `POST` em `api/tenants/[id]/consultant/route.ts` (linhas 111-118: `if (!isSystemAdmin && !isConsultant) return 403`). |
-| RN-04 | **[Achado]** `TransferConsultantPage` redireciona automaticamente `clinic_admin` de volta para `/clinic/consultant` (`useEffect` com `if (role === 'clinic_admin') router.replace(...)`), mas não faz o mesmo para `clinic_user` — ou seja, o único role que consegue visualizar o formulário de busca é justamente aquele para quem, tipicamente, ações administrativas da clínica são restritas em outras telas do sistema (padrão inverso ao resto do módulo Clinic). | Confirmado por leitura literal do `useEffect` em `TransferConsultantPage` — a condição de redirecionamento verifica apenas `role === 'clinic_admin'`. |
+| RN-03 | **[Achado crítico — funcionalidade quebrada; decisão de produto tomada, ver Seção 14, item 1]** A página `/clinic/consultant/transfer` pretende permitir que a própria clínica busque um consultor por código de 6 dígitos e o vincule diretamente, mas a rota que ela chama (`POST /api/tenants/{id}/consultant`) só autoriza `system_admin` ou um consultor autenticado — nunca um usuário de clínica. Toda tentativa de uso por um `clinic_user` (o único role que consegue nem sequer ser redirecionado para fora da página, ver RN-04) termina em 403. **Este comportamento (as-is) continua válido** — o código não foi alterado; a decisão de produto é remover esta página e substituí-la por um fluxo novo (spec em `ONLY_FOR_DEVS/TO_DO/FEAT-unificacao-vinculo-transferencia-consultor.md`), ainda não implementado nesta data. | Confirmado por leitura completa de `TransferConsultantPage` e do handler `POST` em `api/tenants/[id]/consultant/route.ts` (linhas 111-118: `if (!isSystemAdmin && !isConsultant) return 403`). |
+| RN-04 | **[Achado; decisão de produto tomada, ver Seção 14, item 1]** `TransferConsultantPage` redireciona automaticamente `clinic_admin` de volta para `/clinic/consultant` (`useEffect` com `if (role === 'clinic_admin') router.replace(...)`), mas não faz o mesmo para `clinic_user` — ou seja, o único role que consegue visualizar o formulário de busca é justamente aquele para quem, tipicamente, ações administrativas da clínica são restritas em outras telas do sistema (padrão inverso ao resto do módulo Clinic). **Este comportamento (as-is) continua válido** até a implementação da spec referenciada no item 1 da Seção 14. | Confirmado por leitura literal do `useEffect` em `TransferConsultantPage` — a condição de redirecionamento verifica apenas `role === 'clinic_admin'`. |
 | RN-05 | Nem `/clinic/consultant` nem `/clinic/consultant/transfer` aparecem em `navLinks` do `ClinicLayout` — o único caminho de navegação real para consultar o consultor vinculado é `/clinic/my-clinic` → aba "Consultor". As outras duas rotas só são alcançáveis por URL direta ou pelos `router.push`/`router.replace` internos entre si. | Confirmado por leitura de `ClinicLayout.tsx` (`navLinks`, linhas 34-41) — nenhuma entrada para `/clinic/consultant*`. |
 | RN-06 | A API `GET /api/tenants/{id}/consultant` restringe leitura a `system_admin`, membros do próprio tenant (`clinic_admin`/`clinic_user`, via `decodedToken.tenant_id === tenantId`) ou o consultor com acesso autorizado — garantindo isolamento multi-tenant real (via Admin SDK, não apenas regra do Firestore, já que esta chamada não passa pelo client SDK). | Confirmado por leitura de `GET`, linhas 31-39 de `api/tenants/[id]/consultant/route.ts`. |
 
@@ -140,7 +140,7 @@ Ocasional — consulta pontual do usuário da clínica para conferir ou comparti
 
 ## 12. Casos de Uso Relacionados
 - **UC-23 (Vincular, Alterar, Remover Consultor da Clínica)** — único caminho funcional confirmado, do lado do System Admin, para alterar o vínculo exibido aqui.
-- **UC-24 a UC-27 (Consultor — vínculo com clínicas)** — caminho funcional do lado do próprio consultor para se vincular/solicitar transferência; **não** é o mesmo mecanismo que `/clinic/consultant/transfer` tentava expor do lado da clínica (RN-03).
+- **UC-24 a UC-27 (Consultor — vínculo com clínicas)** — caminho funcional do lado do próprio consultor para se vincular/solicitar transferência; **não** é o mesmo mecanismo que `/clinic/consultant/transfer` tentava expor do lado da clínica (RN-03). A spec de unificação referenciada na Seção 14 (item 1) também resolve a lacuna de UC-25 (solicitação de transferência sem gatilho de UI).
 - **UC-45 (Completar Configuração Inicial da Clínica)** — outro exemplo, no mesmo módulo Clinic, de tela sem gate de role entre `clinic_admin`/`clinic_user`.
 
 ---
@@ -149,9 +149,10 @@ Ocasional — consulta pontual do usuário da clínica para conferir ou comparti
 - `src/app/(clinic)/clinic/consultant/page.tsx` (`ClinicConsultantPage` — página órfã)
 - `src/components/clinic/ConsultantTab.tsx` (implementação duplicada, usada em `my-clinic`)
 - `src/app/(clinic)/clinic/my-clinic/page.tsx` (montagem da aba "Consultor", sem gate `isAdmin`)
-- `src/app/(clinic)/clinic/consultant/transfer/page.tsx` (`TransferConsultantPage` — fluxo confirmadamente quebrado)
+- `src/app/(clinic)/clinic/consultant/transfer/page.tsx` (`TransferConsultantPage` — fluxo confirmadamente quebrado; candidato a remoção, ver Seção 14 item 1)
 - `src/app/api/tenants/[id]/consultant/route.ts` (`GET`, `POST`, `DELETE`)
 - `src/components/clinic/ClinicLayout.tsx` (`navLinks` — ausência de link para `/clinic/consultant*`)
+- `ONLY_FOR_DEVS/TO_DO/FEAT-unificacao-vinculo-transferencia-consultor.md` (v1.1 — spec completa da decisão de produto para RN-03/RN-04, pronta para implementação, ainda não implementada nesta data; ver Seção 14, item 1)
 
 ---
 
@@ -159,8 +160,8 @@ Ocasional — consulta pontual do usuário da clínica para conferir ou comparti
 
 ⚠️ Os itens abaixo são achados confirmados por leitura de código que representam decisões de produto/bugs pendentes de confirmação — não foram decididos unilateralmente por este documento.
 
-1. **[Achado crítico, requer decisão de prioridade]** RN-03/RN-04 — `/clinic/consultant/transfer` é uma funcionalidade completamente não-funcional (sempre 403) e mal direcionada em termos de role (bloqueia `clinic_admin`, permite `clinic_user`). Deveria ser removida (a lógica real de vínculo já existe do lado do consultor, UC-24/25/26), ou corrigida para efetivamente funcionar como uma via alternativa de vínculo iniciada pela clínica?
-2. **[Achado, requer decisão]** RN-01 — unificar `ClinicConsultantPage` e `ConsultantTab` em um único componente compartilhado, e decidir manter apenas um dos dois pontos de entrada (a página standalone, já órfã, é candidata a remoção)?
+1. **[DECISÃO TOMADA, AGUARDANDO IMPLEMENTAÇÃO]** RN-03/RN-04 — decisão de produto: remover `/clinic/consultant/transfer` (página quebrada, sempre 403, com gate de role invertido) e substituí-la por um fluxo novo e mais completo de convite/transferência com aprovação, unificando também o "CASO 2" hoje inatingível de UC-25 (solicitação de transferência sem gatilho de UI). Spec completa já escrita e commitada em `ONLY_FOR_DEVS/TO_DO/FEAT-unificacao-vinculo-transferencia-consultor.md` (v1.1, pronta para implementação). **O código ainda não foi alterado nesta data** — `TransferConsultantPage` continua existindo e continua quebrada; RN-03/RN-04 (Seção 9) e o Fluxo de Exceção 8b continuam descrevendo o comportamento **atual** (as-is) até a implementação da spec.
+2. **[Achado, requer decisão]** RN-01 — unificar `ClinicConsultantPage` e `ConsultantTab` em um único componente compartilhado, e decidir manter apenas um dos dois pontos de entrada (a página standalone, já órfã, é candidata a remoção)? Não confirmado se a spec referenciada no item 1 também cobre esta unificação.
 3. **[Achado, requer decisão]** RN-02 — vale conectar tratamento de erro visível (toast/alert) nas duas implementações, hoje silenciosas?
 
 ---
@@ -170,3 +171,4 @@ Ocasional — consulta pontual do usuário da clínica para conferir ou comparti
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada por leitura completa de `ClinicConsultantPage`, `ConsultantTab`, `my-clinic/page.tsx`, `TransferConsultantPage` e `api/tenants/[id]/consultant/route.ts` (GET/POST/DELETE), além de `ClinicLayout.tsx` (navLinks). Confirmada duplicação de código entre as duas implementações de visualização (RN-01) e identificado achado crítico: a página `/clinic/consultant/transfer` — que pretende permitir à clínica vincular um consultor por código — está completamente quebrada, pois a API que ela chama rejeita qualquer usuário de clínica, aceitando apenas `system_admin` ou o próprio consultor autenticado (RN-03), com uma inversão adicional de gate de role que bloqueia `clinic_admin` mas permite `clinic_user` acessar o formulário inútil (RN-04). |
+| 1.1 | 18/07/2026 | Guilherme Scandelari | Seção 14 (item 1) atualizada: decisão de produto tomada para RN-03/RN-04 — remover `/clinic/consultant/transfer` e substituí-la por um fluxo novo de convite/transferência com aprovação, conforme spec `ONLY_FOR_DEVS/TO_DO/FEAT-unificacao-vinculo-transferencia-consultor.md` (v1.1, ainda não implementada). Seção 13 ganhou referência à spec; Seção 1 (diagrama), Seção 9 (RN-03/RN-04) e Fluxo de Exceção 8b anotados com a mesma nota de status, sem alterar a descrição do comportamento atual (as-is). Nenhuma mudança de código refletida — RN-03/RN-04 continuam descrevendo o comportamento vigente até a implementação. |
