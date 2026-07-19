@@ -52,7 +52,7 @@ develop → task branch → PR → dev branch → validar → PR → develop →
 5. Abrir PR da branch pessoal para `develop`
 6. CI + aprovação obrigatória — auto-merge habilitado após aprovação
 7. Abrir PR de `develop` para `master`
-8. CI + aprovação obrigatória — merge dispara release automático (release-please)
+8. CI + aprovação obrigatória — merge dispara release automático (release-please), que também sincroniza `develop` com `master` automaticamente (job `sync-develop`) — não é preciso mesclar `master` em `develop` manualmente antes da próxima PR
 
 > **Regra:** o merge nunca é feito manualmente antes do PR. O PR **é** o mecanismo de merge.
 
