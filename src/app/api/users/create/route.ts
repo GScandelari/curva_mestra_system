@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
       role: role,
       active: true,
       is_system_admin: false,
+      requirePasswordChange: true,
     });
 
     // Criar documento do usuário no Firestore (coleção raiz users)
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
       role,
       active: true,
       tenant_id: tenantId,
+      requirePasswordChange: true,
       created_at: new Date(),
       updated_at: new Date(),
     };

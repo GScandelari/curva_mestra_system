@@ -400,7 +400,7 @@ export default function ClinicDashboard() {
                     </span>
                   </button>
                   <button
-                    onClick={() => router.push('/clinic/inventory?filter=low-stock')}
+                    onClick={() => router.push('/clinic/inventory?filter=low_stock')}
                     className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors text-left"
                   >
                     <div className="flex items-center gap-2 text-sm">
