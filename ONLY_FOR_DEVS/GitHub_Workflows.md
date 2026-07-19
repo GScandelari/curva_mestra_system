@@ -138,6 +138,7 @@ Este documento descreve todos os GitHub Actions workflows configurados em `.gith
 - Usa **Release Please** para criar GitHub Releases automáticas com base nos commits Conventional Commits
 - Faz versionamento semântico automático (MAJOR/MINOR/PATCH)
 - Gera CHANGELOG automaticamente
+- **Sincroniza `develop` com `master` automaticamente** (job `sync-develop`, roda após o job `release`): faz merge de `master` em `develop` e empurra direto, usando `RELEASE_PLEASE_TOKEN`. Existe porque o próprio Release Please grava commits (`chore(master): release X.Y.Z`, bump de `package.json`/`CHANGELOG.md`) diretamente em `master`, fora do fluxo normal de PR — sem esse job, `develop` sempre ficaria "behind" de `master` logo após cada release, obrigando a mesclar `master` em `develop` manualmente antes de toda PR seguinte de `develop` → `master`.
 
 ---
 
@@ -173,6 +174,7 @@ develop           ──→ ci.yml + security.yml      ──→ (lint + type-ch
     ▼
 master            ──→ deploy-firebase.yml        ──→ curva-mestra.web.app (produção)
                   ──→ release.yml                ──→ GitHub Release (versionamento semântico)
+                                                  ──→ sync-develop (automático) ──→ develop
 ```
 
 > **Regra obrigatória:** Nunca abrir PR diretamente de uma task branch para `develop`.
