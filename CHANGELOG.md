@@ -5,6 +5,13 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.6.3](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.2...v1.6.3) (2026-07-18)
+
+
+### Bug Fixes
+
+* **admin:** adiciona filtro "Sem categoria" na listagem de produtos master ([199d09b](https://github.com/GScandelari/curva_mestra_system/commit/199d09baaaf860e0a5320cab038fe42e20986d10))
+
 ## [1.6.2](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.1...v1.6.2) (2026-07-18)
 
 
