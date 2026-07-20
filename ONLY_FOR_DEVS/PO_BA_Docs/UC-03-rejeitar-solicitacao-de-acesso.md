@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Administração do Sistema
-**Versão:** 1.2
+**Versão:** 1.3
 
-> O System Admin (ou, para a própria clínica, o Clinic Admin) rejeita uma solicitação de acesso pendente (criada em UC-01), registrando um motivo opcional. Diferente da aprovação (UC-02), a rejeição é feita inteiramente client-side, sem operações de Auth.
+> O System Admin (ou, para a própria clínica, o Clinic Admin) rejeita uma solicitação de acesso pendente (criada em UC-01), registrando um motivo opcional. Diferente da aprovação (UC-02), a rejeição usada pela UI é feita inteiramente client-side, sem operações de Auth.
 
 ---
 
@@ -36,7 +36,7 @@ flowchart LR
 **System Admin** — administrador global da plataforma Curva Mestra, identificado pela custom claim `is_system_admin: true`. Atua sobre qualquer solicitação pendente, de qualquer tenant, via `/admin/access-requests`.
 
 ### 2.2 Atores Secundários / Sistemas Externos
-**Clinic Admin** — administrador de uma clínica específica (`role: "clinic_admin"`), que também pode rejeitar solicitações de acesso, através da tela `/clinic/access-requests`. Usa a mesma função `rejectAccessRequest()` e as mesmas Regras de Negócio deste UC (RN-01 a RN-03) — a diferença real está no escopo de visibilidade das solicitações (apenas as da própria clínica, ver RN-04) e na rota de acesso. Não há operação de Firebase Auth nem serviço externo envolvido em nenhuma das duas variantes.
+**Clinic Admin** — administrador de uma clínica específica (`role: "clinic_admin"`), que também pode rejeitar solicitações de acesso, através da tela `/clinic/access-requests`. Usa a mesma função `rejectAccessRequest()` e as mesmas Regras de Negócio deste UC (RN-01 a RN-03) — a diferença real está no escopo de visibilidade das solicitações (apenas as da própria clínica, ver RN-04) e na rota de acesso. Não há operação de Firebase Auth nem serviço externo envolvido em nenhuma das duas variantes usadas pela UI.
 
 ---
 
@@ -110,7 +110,7 @@ O System Admin clica em "Rejeitar" na linha de uma solicitação pendente, na te
 | ID | Regra | Justificativa |
 |----|-------|----------------|
 | RN-01 | O motivo da rejeição é opcional; quando vazio, é salvo como `"Não especificado"`. | Permite rejeição rápida sem bloquear o admin por um campo obrigatório. |
-| RN-02 | A rejeição é feita inteiramente client-side via `accessRequestService` (`updateDoc` direto no Firestore) — diferente da aprovação, não requer Firebase Admin SDK. | Operação simples que não envolve criação de usuário/Auth, dispensando o server-side. |
+| RN-02 | A rejeição usada pela UI (System Admin e Clinic Admin) é feita inteiramente client-side via `accessRequestService` (`updateDoc` direto no Firestore) — diferente da aprovação, não requer Firebase Admin SDK nesse caminho. Existe também uma rota de API server-side equivalente (`POST /api/access-requests/[id]/reject`), mas ela não é chamada por nenhum client hoje — ver RNF-04. | Operação simples que não envolve criação de usuário/Auth, dispensando o server-side no fluxo real da UI. |
 | RN-03 | `rejectAccessRequest()` não depende de nenhum campo de documento (CPF/CNPJ) ou endereço da solicitação — atualiza apenas `status`, `rejected_by`, `rejected_by_name`, `rejection_reason`, `rejected_at`, `updated_at`. Confirmado por leitura direta do código que a mudança de schema do formulário de UC-01 (v2.0 — remoção de CPF/CNPJ/senha) **não afeta** esta função. | Este UC não tem a mesma pendência de dados desatualizados identificada em UC-02 (`document_type`/`address` em fallback) — a rejeição é agnóstica ao schema da solicitação. |
 | RN-04 | A visibilidade de solicitações pendentes é escopada por `tenant_id` quando o ator é `clinic_admin`: `listAccessRequests({ status: "pendente", tenant_id })` filtra apenas solicitações do próprio tenant; o System Admin usa a mesma função sem o filtro de `tenant_id`, vendo todas as solicitações pendentes de qualquer clínica. | Isolamento multi-tenant: um `clinic_admin` não deve ver nem rejeitar solicitações de outras clínicas. |
 
@@ -123,6 +123,7 @@ O System Admin clica em "Rejeitar" na linha de uma solicitação pendente, na te
 | RNF-01 | Acesso restrito pelo layout correspondente (`is_system_admin` para `/admin/access-requests`; `role === "clinic_admin"` para `/clinic/access-requests`); regra do Firestore restringe escrita na coleção `access_requests` conforme o role. | Segurança |
 | RNF-02 | Sem realtime listener em nenhuma das duas telas — dados podem ficar desatualizados se múltiplos admins operam simultaneamente sobre a mesma solicitação. | Confiabilidade |
 | RNF-03 | O filtro por `tenant_id` na consulta usada por `/clinic/access-requests` garante isolamento multi-tenant na visualização de solicitações pelo `clinic_admin` (RN-04). | Multi-tenant |
+| RNF-04 | **[CORRIGIDO em 19/07/2026 — commit `33c5ef3`, achado adicional durante a investigação de UC-02-RNF-01]** Existe uma rota de API server-side, `POST /api/access-requests/[id]/reject` (`src/app/api/access-requests/[id]/reject/route.ts`), que **não é usada pelo fluxo real da UI** (a rejeição, tanto pelo System Admin quanto pelo Clinic Admin, sempre passa por `rejectAccessRequest()` — `updateDoc` direto no client, RN-02 — protegido pela regra do Firestore `isSystemAdmin()` em `access_requests`, `firestore.rules` linhas 94-100). Essa rota, porém, não tinha **nenhuma** verificação de autenticação: podia ser chamada diretamente (sem token) por qualquer requisição HTTP, e os campos `rejected_by_uid`/`rejected_by_name` vinham livremente do corpo da requisição, sem verificação — permitindo tanto a rejeição não autenticada de qualquer solicitação pendente quanto a falsificação da autoria. Como o Admin SDK usado pela rota bypassa completamente as regras do Firestore, essa exposição era real (defesa em profundidade), mesmo sem uso pela UI hoje. Corrigida com o mesmo padrão de UC-02/RNF-01: `Authorization: Bearer {idToken}` + `adminAuth.verifyIdToken` + checagem de `is_system_admin` (401/403); `rejected_by_uid`/`rejected_by_name` agora vêm do token verificado — o corpo da requisição hoje só é lido para extrair `rejection_reason`. Nenhum client chama esta rota hoje; não houve necessidade de atualizar UI. | Segurança |
 
 ---
 
@@ -133,7 +134,7 @@ Ocasional — conforme o volume de solicitações que não atendem aos critério
 
 ## 12. Casos de Uso Relacionados
 - **UC-01 (Solicitar Acesso ao Sistema)** é pré-condição — só existe algo para rejeitar depois que UC-01 cria a solicitação.
-- **UC-02 (Aprovar Solicitação de Acesso)** é a alternativa mutuamente exclusiva sobre a mesma solicitação pendente, para o ator System Admin: mesmo ator, mesmo ponto de decisão, resultado oposto.
+- **UC-02 (Aprovar Solicitação de Acesso)** é a alternativa mutuamente exclusiva sobre a mesma solicitação pendente, para o ator System Admin: mesmo ator, mesmo ponto de decisão, resultado oposto. A rota de API server-side de aprovação (sempre em uso pela UI, diferente da de rejeição) recebeu a mesma correção de segurança no mesmo commit — ver UC-02, RNF-01.
 - **UC-05 (Aprovar Solicitação de Acesso pela Própria Clínica, pausado)** compartilha a mesma tela (`/clinic/access-requests`) e a mesma causa-raiz de indisponibilidade prática (nenhuma solicitação pendente tem `tenant_id` de uma clínica existente hoje) — mas trata da aprovação, não da rejeição, pelo `clinic_admin`.
 
 ---
@@ -142,6 +143,8 @@ Ocasional — conforme o volume de solicitações que não atendem aos critério
 - `src/app/(admin)/admin/access-requests/page.tsx`
 - `src/app/(clinic)/clinic/access-requests/page.tsx`
 - `src/lib/services/accessRequestService.ts` (`rejectAccessRequest`, `listAccessRequests`)
+- `src/app/api/access-requests/[id]/reject/route.ts` (rota de API server-side equivalente, não usada pela UI hoje — ver RNF-04)
+- `firestore.rules` (regra `isSystemAdmin()` em `access_requests`, linhas 94-100)
 - `project_doc/admin/access-requests-documentation.md`
 
 ---
@@ -161,3 +164,4 @@ Ocasional — conforme o volume de solicitações que não atendem aos critério
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial, mapeada a partir do código atual e de `project_doc/admin/access-requests-documentation.md` |
 | 1.1 | 13/07/2026 | Guilherme Scandelari | Revisão motivada pela reescrita de UC-01 (v2.0) e UC-02 (v2.0): confirmado, por releitura de `rejectAccessRequest()`, que esta função é agnóstica ao schema da solicitação (não usa CPF/CNPJ/endereço) — adicionada RN-03 documentando essa confirmação. Adicionada observação sobre o placeholder desatualizado do campo "Motivo da rejeição" (menciona CPF/CNPJ). Adicionada observação, a partir da leitura de `clinic/access-requests/page.tsx`, de que a rejeição pelo `clinic_admin` usa a mesma função e parece funcionar corretamente (diferente da aprovação pelo `clinic_admin`, quebrada — ver UC-05 pausado); registrada como achado relevante para um futuro UC-06, sem expandir o escopo deste documento. |
 | 1.2 | 13/07/2026 | Guilherme Scandelari | **Expansão de escopo** (decisão do usuário): `clinic_admin` passou a ser documentado como ator secundário deste UC (não um UC-06 separado), já que usa a mesma função `rejectAccessRequest()` e as mesmas regras de negócio, diferindo apenas no escopo de visibilidade das solicitações. Adicionada RN-04 (visibilidade por `tenant_id`) e RNF-03 (isolamento multi-tenant); ajustados Atores, Pré-condições, Gatilho e Fluxo Principal (passos 1, 2 e 4) para diferenciar as duas rotas/atores. Adicionada UC-05 em Casos de Uso Relacionados. Substituída a antiga nota "não expande o escopo" da seção 14 por uma pendência compartilhada com UC-05: a lista de solicitações do `clinic_admin` está normalmente vazia na prática, pela mesma causa-raiz (nenhuma solicitação pendente tem `tenant_id` de clínica existente hoje). |
+| 1.3 | 19/07/2026 | Guilherme Scandelari | **Achado de segurança documentado, já corrigido** (commit `33c5ef3`, descoberto durante a investigação da correção de UC-02-RNF-01): a rota de API `POST /api/access-requests/[id]/reject` — não usada pelo fluxo real da UI, que sempre passa por `updateDoc` client-side (RN-02) — também não tinha nenhuma verificação de autenticação, com `rejected_by_uid`/`rejected_by_name` vindos livremente do corpo da requisição. Corrigida com o mesmo padrão de Bearer token + `verifyIdToken` + checagem de `is_system_admin` usado em UC-02. Adicionada RNF-04, já nascendo `[CORRIGIDO]`; adicionada referência ao arquivo da rota e à regra `isSystemAdmin()` do Firestore em Referências (seção 13); RN-02 e a introdução do documento ajustadas para deixar explícito que a rejeição client-side (RN-02) e a rota de API server-side são caminhos distintos; UC-02 (Casos de Uso Relacionados) atualizado com referência cruzada. |
