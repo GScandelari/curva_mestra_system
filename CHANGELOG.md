@@ -5,6 +5,15 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.6.5](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.4...v1.6.5) (2026-07-20)
+
+
+### Bug Fixes
+
+* dois itens de alta severidade (UC-21, UC-13) ([91eb37e](https://github.com/GScandelari/curva_mestra_system/commit/91eb37e298fcb593bea32909a061df9447987119))
+* dois itens de alta severidade (UC-40, UC-44) ([eb12c91](https://github.com/GScandelari/curva_mestra_system/commit/eb12c9102801f62739cacc6fbca5fb5aa25876b2))
+* **security:** exige autenticacao de system_admin para aprovar/rejeitar solicitacao de acesso ([33c5ef3](https://github.com/GScandelari/curva_mestra_system/commit/33c5ef32c1949dd133376207fe2cfb38ff8e45ef))
+
 ## [1.6.4](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.3...v1.6.4) (2026-07-19)
 
 
