@@ -107,13 +107,13 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 | Severidade | Aberto  | Corrigido | Descartado | Total   |
 | ---------- | ------- | --------- | ---------- | ------- |
 | Crítica    | 0       | 5         | 1          | 6       |
-| Alta       | 16      | 7         | 1          | 24      |
+| Alta       | 18      | 5         | 1          | 24      |
 | Média      | 37      | 1         | 1          | 39      |
 | Baixa      | 66      | 16        | 1          | 83      |
-| **Total**  | **119** | **29**    | **4**      | **152** |
+| **Total**  | **121** | **27**    | **4**      | **152** |
 
 - ✅ Todos os 6 achados **críticos** já foram tratados (5 corrigidos e documentados, 1 descartado por decisão de produto)
-- ⚠️ **16 itens de severidade Alta** seguem em aberto (1 deles já com decisão de produto tomada, aguardando apenas implementação) — próximo alvo natural de priorização
+- ⚠️ **18 itens de severidade Alta** seguem em aberto (1 deles já com decisão de produto tomada, aguardando apenas implementação) — próximo alvo natural de priorização
 - 🗂️ **10 decisões de produto pendentes** e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
 - 📝 12 dos 50 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
 
