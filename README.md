@@ -102,7 +102,7 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.7, 20/07/2026):**
+**Resumo (v3.8, 20/07/2026):**
 
 | Severidade | Aberto  | Corrigido | Descartado | Total   |
 | ---------- | ------- | --------- | ---------- | ------- |
@@ -115,6 +115,7 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 - ✅ Todos os 6 achados **críticos** já foram tratados (5 corrigidos e documentados, 1 descartado por decisão de produto)
 - ⚠️ **5 itens de severidade Alta** seguem em aberto — próximo alvo natural de priorização (mais 1 item Alta já com decisão de produto tomada e em correção, aguardando apenas implementação)
 - 🗂️ **9 decisões de produto pendentes** e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
+- 🔎 **12 gaps entre a landing page comercial e o sistema real** catalogados (Seção 7 do mapa) — 6 com decisão de implementar (numeração UC-51 a UC-56 já reservada, UCs ainda não escritos), 3 com decisão de corrigir apenas o texto da landing (baixa prioridade) e 3 com decisão adiada
 - 📝 12 dos 50 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
 
 > Este resumo é um retrato do mapa no momento da última atualização deste README. Para o estado atual item a item, sempre consulte o arquivo do mapa diretamente — ele é atualizado a cada correção ou novo achado.
