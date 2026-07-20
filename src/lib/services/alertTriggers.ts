@@ -7,6 +7,7 @@ import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore
 import { db } from '@/lib/firebase';
 import {
   createExpiringProductNotification,
+  createExpiredProductNotification,
   createLowStockNotification,
   getNotificationSettings,
 } from './notificationService';
@@ -293,9 +294,15 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
           }
 
           // Criar notificação urgente de produto vencido
-          const notificationsRefCreate = collection(db, `tenants/${tenantId}/notifications`);
-
-          await getDocs(notificationsRefCreate); // Placeholder para addDoc
+          await createExpiredProductNotification(
+            tenantId,
+            item.nome_produto,
+            item.codigo_produto,
+            item.lote,
+            item.dt_validade.toString(),
+            item.id,
+            item.codigo_produto
+          );
 
           results.notificationsCreated++;
 
