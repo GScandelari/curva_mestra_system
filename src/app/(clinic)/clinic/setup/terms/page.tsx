@@ -50,18 +50,26 @@ export default function AcceptTermsOnboardingPage() {
     if (!user) return;
 
     try {
-      // Buscar documentos ativos e obrigatórios para registro
+      // Buscar todos os documentos ativos e filtrar pelo mesmo critério (união
+      // required_for_registration || required_for_existing_users) e checagem de
+      // versão usados em usePendingTerms (fonte da decisão de redirecionar para
+      // esta página) -- antes, esta página filtrava só required_for_registration
+      // e considerava aceito qualquer versão já aceita, causando loop de
+      // redirecionamento sempre que o documento pendente vinha de
+      // required_for_existing_users ou de uma nova versão publicada.
       const docsQuery = query(
         collection(db, 'legal_documents'),
         where('status', '==', 'ativo'),
-        where('required_for_registration', '==', true),
         orderBy('order', 'asc')
       );
       const docsSnapshot = await getDocs(docsQuery);
-      const docs = docsSnapshot.docs.map((doc) => ({
+      const allDocs = docsSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as LegalDocument[];
+      const docs = allDocs.filter(
+        (doc) => doc.required_for_registration || doc.required_for_existing_users
+      );
 
       // Buscar aceitações existentes do usuário
       const acceptancesQuery = query(
@@ -69,10 +77,15 @@ export default function AcceptTermsOnboardingPage() {
         where('user_id', '==', user.uid)
       );
       const acceptancesSnapshot = await getDocs(acceptancesQuery);
-      const acceptedDocs = new Set(acceptancesSnapshot.docs.map((doc) => doc.data().document_id));
+      const acceptedDocs = new Map(
+        acceptancesSnapshot.docs.map((doc) => [doc.data().document_id, doc.data().document_version])
+      );
 
-      // Filtrar apenas documentos não aceitos ainda
-      const pendingDocs = docs.filter((doc) => !acceptedDocs.has(doc.id));
+      // Filtrar documentos pendentes (não aceitos ou versão diferente)
+      const pendingDocs = docs.filter((doc) => {
+        const acceptedVersion = acceptedDocs.get(doc.id);
+        return !acceptedVersion || acceptedVersion !== doc.version;
+      });
 
       if (pendingDocs.length === 0) {
         // Se não há documentos pendentes, ir para próxima etapa
