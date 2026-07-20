@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
           phone: data.admin_phone || '',
           role: 'clinic_admin',
           active: true,
+          requirePasswordChange: true,
           created_at: new Date(),
           updated_at: new Date(),
         });
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
         role: 'clinic_admin',
         is_system_admin: false,
         active: true,
+        requirePasswordChange: true,
       });
 
       console.log(`✅ Custom claims definidos para usuário: ${userId}`);
