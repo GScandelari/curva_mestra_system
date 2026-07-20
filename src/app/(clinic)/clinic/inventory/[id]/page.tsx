@@ -58,6 +58,7 @@ export default function InventoryItemPage() {
   );
   const [deactivating, setDeactivating] = useState(false);
   const [deactivateError, setDeactivateError] = useState('');
+  const [checkError, setCheckError] = useState('');
 
   const isAdmin = claims?.role === 'clinic_admin';
 
@@ -99,13 +100,17 @@ export default function InventoryItemPage() {
     if (!tenantId || !itemId) return;
     setDeactivateOpen(true);
     setDeactivateError('');
+    setCheckError('');
     setImpactedProcedimentos(null);
     setLoadingImpacted(true);
     try {
       const impacted = await checkInventoryItemReservations(tenantId, itemId);
       setImpactedProcedimentos(impacted);
     } catch {
-      setImpactedProcedimentos([]);
+      // Falha ao verificar reservas: nunca assumir "sem reservas" (fail-open esconderia
+      // reservas reais). Mantém impactedProcedimentos em null e bloqueia a desativação
+      // até que a checagem seja refeita com sucesso.
+      setCheckError('Não foi possível verificar reservas ativas. Tente novamente.');
     } finally {
       setLoadingImpacted(false);
     }
@@ -494,6 +499,15 @@ export default function InventoryItemPage() {
             <div className="flex justify-center py-6">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : checkError ? (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Não foi possível verificar reservas</AlertTitle>
+              <AlertDescription>
+                {checkError} A desativação fica bloqueada até a verificação ser concluída com
+                sucesso, para não arriscar remover um lote com reservas ativas não confirmadas.
+              </AlertDescription>
+            </Alert>
           ) : impactedProcedimentos === null ? null : impactedProcedimentos.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Este produto não possui reservas ativas. Ele será removido do estoque e não poderá ser
@@ -546,6 +560,11 @@ export default function InventoryItemPage() {
             >
               Cancelar
             </Button>
+            {checkError && (
+              <Button variant="outline" onClick={handleOpenDeactivate} disabled={loadingImpacted}>
+                Tentar novamente
+              </Button>
+            )}
             {impactedProcedimentos !== null && impactedProcedimentos.length === 0 && (
               <Button variant="destructive" onClick={handleDeactivate} disabled={deactivating}>
                 {deactivating ? (
