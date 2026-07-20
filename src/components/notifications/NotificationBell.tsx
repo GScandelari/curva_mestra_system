@@ -5,11 +5,12 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, Check, X, Trash2, AlertCircle, Package, FileText, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,11 +34,14 @@ interface NotificationBellProps {
 export function NotificationBell({ playSound = true }: NotificationBellProps) {
   const { claims } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  const canDelete = claims?.role === 'clinic_admin';
 
   const {
     notifications,
     loading,
+    error,
     unreadCount,
     markAsRead,
     markAllAsRead,
@@ -47,6 +51,12 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
     tenantId: claims?.tenant_id || null,
     playSound,
   });
+
+  useEffect(() => {
+    if (error) {
+      toast({ title: error, variant: 'destructive' });
+    }
+  }, [error, toast]);
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -206,14 +216,16 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
                           {formatRelativeTime(notification.created_at)}
                         </span>
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={(e) => void handleDelete(e, notification.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => void handleDelete(e, notification.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -223,7 +235,7 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
           )}
         </ScrollArea>
 
-        {notifications.length > 0 && (
+        {notifications.length > 0 && canDelete && (
           <>
             <DropdownMenuSeparator />
             <div className="p-2">
