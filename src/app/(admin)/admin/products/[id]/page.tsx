@@ -117,14 +117,25 @@ export default function EditProductPage() {
 
     setSaving(true);
 
+    // Só reenvia campos de fragmentação se algo realmente mudou -- caso contrário,
+    // updateMasterProduct dispara a checagem de "produto em uso" incondicionalmente,
+    // bloqueando a edição inteira (mesmo campos não relacionados) sempre que o produto
+    // já está no inventário de alguma clínica.
+    const fragmentacaoAlterada =
+      product != null &&
+      (fragmentavel !== product.fragmentavel ||
+        (fragmentavel && Number(unidadesPorEmbalagem) !== product.unidades_por_embalagem));
+
     try {
       await updateMasterProduct(productId, {
         code: code.trim(),
         name: normalizeProductName(name),
         active,
         category: category || null,
-        fragmentavel,
-        unidades_por_embalagem: fragmentavel ? Number(unidadesPorEmbalagem) : undefined,
+        ...(fragmentacaoAlterada && {
+          fragmentavel,
+          unidades_por_embalagem: fragmentavel ? Number(unidadesPorEmbalagem) : undefined,
+        }),
       });
 
       setSuccess('Produto atualizado com sucesso!');
