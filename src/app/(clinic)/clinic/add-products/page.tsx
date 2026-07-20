@@ -25,7 +25,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+  writeBatch,
+} from 'firebase/firestore';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
 import { calcularQuantidadeInventario } from '@/lib/services/inventoryService';
 import { checkNumeroNFStatus } from '@/lib/services/nfImportService';
@@ -336,7 +344,14 @@ export default function ManualNFPage() {
         Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined))
       );
 
-      // Salvar NF no Firestore
+      // Salvar NF + itens de inventário atomicamente (writeBatch) -- antes, o
+      // documento nf_imports era criado com status "success" e os itens de
+      // inventário eram gravados um a um via addDoc; uma falha no meio do loop
+      // deixava o status "success" mentindo sobre uma gravação parcial, sem
+      // nenhum rollback. Com o batch, ou tudo é gravado ou nada é.
+      const batch = writeBatch(db);
+
+      const nfRef = doc(collection(db, `tenants/${tenantId}/nf_imports`));
       const nfData = {
         tenant_id: tenantId,
         numero_nf: numeroNF,
@@ -348,13 +363,8 @@ export default function ManualNFPage() {
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       };
+      batch.set(nfRef, nfData);
 
-      console.log('Creating NF document with data:', nfData);
-      const nfRef = await addDoc(collection(db, `tenants/${tenantId}/nf_imports`), nfData);
-      console.log('NF document created with ID:', nfRef.id);
-
-      // Adicionar produtos ao inventário
-      console.log('Adding products to inventory...');
       for (const produto of produtos) {
         const inventoryData: Record<string, any> = {
           tenant_id: tenantId,
@@ -386,10 +396,12 @@ export default function ManualNFPage() {
           inventoryData.valor_por_embalagem = produto.valor_por_embalagem;
         }
 
-        console.log('Adding inventory item:', inventoryData);
-        await addDoc(collection(db, `tenants/${tenantId}/inventory`), inventoryData);
+        const inventoryRef = doc(collection(db, `tenants/${tenantId}/inventory`));
+        batch.set(inventoryRef, inventoryData);
       }
 
+      console.log('Committing NF + inventory batch...');
+      await batch.commit();
       console.log('All products added to inventory successfully');
       toast({
         title: 'Nota fiscal salva',

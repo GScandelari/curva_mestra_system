@@ -376,6 +376,35 @@ export async function createExpiringProductNotification(
 }
 
 /**
+ * Helper: Cria notificação de produto vencido
+ */
+export async function createExpiredProductNotification(
+  tenantId: string,
+  productName: string,
+  productCode: string,
+  batchNumber: string,
+  expiryDate: string,
+  inventoryId: string,
+  productId: string
+): Promise<void> {
+  await createNotification({
+    tenant_id: tenantId,
+    type: 'expired',
+    priority: 'urgent',
+    title: `Produto vencido`,
+    message: `${productName} (lote ${batchNumber}) está vencido desde ${expiryDate}`,
+    inventory_id: inventoryId,
+    product_id: productId,
+    metadata: {
+      product_name: productName,
+      product_code: productCode,
+      batch_number: batchNumber,
+      expiry_date: expiryDate,
+    },
+  });
+}
+
+/**
  * Helper: Cria notificação de estoque baixo
  */
 export async function createLowStockNotification(
