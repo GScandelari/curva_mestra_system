@@ -102,18 +102,18 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.5, 19/07/2026):**
+**Resumo (v3.6, 20/07/2026):**
 
 | Severidade | Aberto  | Corrigido | Descartado | Total   |
 | ---------- | ------- | --------- | ---------- | ------- |
 | Crítica    | 0       | 5         | 1          | 6       |
-| Alta       | 12      | 10        | 1          | 24      |
+| Alta       | 8       | 14        | 1          | 24      |
 | Média      | 36      | 1         | 1          | 39      |
 | Baixa      | 66      | 16        | 1          | 83      |
-| **Total**  | **114** | **32**    | **4**      | **152** |
+| **Total**  | **110** | **36**    | **4**      | **152** |
 
 - ✅ Todos os 6 achados **críticos** já foram tratados (5 corrigidos e documentados, 1 descartado por decisão de produto)
-- ⚠️ **12 itens de severidade Alta** seguem em aberto — próximo alvo natural de priorização (mais 1 item Alta já com decisão de produto tomada e em correção, aguardando apenas implementação)
+- ⚠️ **8 itens de severidade Alta** seguem em aberto — próximo alvo natural de priorização (mais 1 item Alta já com decisão de produto tomada e em correção, aguardando apenas implementação)
 - 🗂️ **10 decisões de produto pendentes** e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
 - 📝 12 dos 50 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
 
