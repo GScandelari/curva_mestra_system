@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Inventário
-**Versão:** 1.0
+**Versão:** 1.1
 
-> Um usuário da clínica insere manualmente, produto a produto, uma nota fiscal sem XML disponível — para produtos Rennova (buscados no catálogo master) ou de outras marcas (cadastro livre). É o fluxo irmão do UC-10 (Importar NF-e via Upload de XML), compartilhando a mesma tela de entrada (`/clinic/add-products`) e a mesma função de checagem de duplicidade por número de NF, mas com um caminho de gravação totalmente separado no código — inclusive com divergências de schema e de robustez confirmadas em relação ao UC-10 (ver seções 9 e 14).
+> Um usuário da clínica insere manualmente, produto a produto, uma nota fiscal sem XML disponível — para produtos Rennova (buscados no catálogo master) ou de outras marcas (cadastro livre). É o fluxo irmão do UC-10 (Importar NF-e via Upload de XML), compartilhando a mesma tela de entrada (`/clinic/add-products`) e a mesma função de checagem de duplicidade por número de NF, mas com um caminho de gravação totalmente separado no código — inclusive com divergências de schema confirmadas em relação ao UC-10 (ver seções 9 e 14).
 
 ---
 
@@ -49,12 +49,12 @@ flowchart LR
 ## 4. Pós-condições
 
 ### 4.1 Sucesso (Garantias de Sucesso)
-- Um documento é criado em `tenants/{tenantId}/nf_imports`, com `status: "success"` (definido já no momento da criação — ver RN-07/seção 14), `origem: "manual"`, `tipo` (`"rennova"`/`"outra_marca"`), e o array completo de `produtos` embutido no próprio documento da NF.
-- Cada produto é gravado individualmente (não em lote) como um documento em `tenants/{tenantId}/inventory`, referenciando a NF pelo campo `nf_import_id` (não `nf_id`, diferente de UC-10 — RN-11).
+- Um documento é criado em `tenants/{tenantId}/nf_imports`, com `status: "success"`, `origem: "manual"`, `tipo` (`"rennova"`/`"outra_marca"`), e o array completo de `produtos` embutido no próprio documento da NF — gravado atomicamente junto com os itens de inventário via `writeBatch` (RN-07, **[CORRIGIDO]** no commit `16877f1`).
+- Cada produto é gravado como um documento individual em `tenants/{tenantId}/inventory` (via `doc()` + `batch.set()`, não mais `addDoc` — RN-07, **[CORRIGIDO]**), referenciando a NF pelo campo `nf_import_id` (não `nf_id`, diferente de UC-10 — RN-11).
 
 ### 4.2 Falha (Garantias Mínimas)
 - Se bloqueado por duplicidade, nenhuma gravação ocorre.
-- Se a falha ocorrer durante a gravação dos itens de inventário (após o documento da NF já ter sido criado com `status: "success"`), o resultado fica **inconsistente** — ver RN-07/seção 14 (bug confirmado, sem rollback).
+- Se ocorrer qualquer falha durante a gravação da NF ou de qualquer item de inventário, nenhuma gravação parcial ocorre — desde a correção do commit `16877f1` (RN-07, **[CORRIGIDO]**), a gravação usa um `writeBatch` atômico: ou a NF e todos os itens são gravados, ou nada é gravado.
 
 ---
 
@@ -78,8 +78,8 @@ Usuário acessa `/clinic/add-products` e percorre o wizard de 4 passos até conf
 6. Passo 4 ("Revisão"): sistema exibe a NF, a tabela completa de produtos com valor total calculado, e um aviso de que a ação não pode ser desfeita automaticamente.
 7. Usuário clica em "Confirmar e Salvar".
 8. **Somente agora** o sistema chama `checkNumeroNFStatus(tenantId, numeroNF, "manual")` — se bloqueado, exibe o motivo (Fluxo de Exceção 8d).
-9. Se não bloqueado, sistema remove campos `undefined` do array de produtos (o Firestore não os aceita) e cria, com um único `addDoc`, o documento em `tenants/{tenantId}/nf_imports`: `tenant_id`, `numero_nf`, `origem: "manual"`, `tipo`, `produtos` (array completo), `status: "success"` (já fixo neste momento — RN-07), `created_by: user?.email` (e-mail, não UID — RN-09), timestamps.
-10. Sistema então grava, em um laço `for` com `addDoc` **individual e sequencial** para cada produto (não é `writeBatch` — RN-07), um documento em `tenants/{tenantId}/inventory`: `tenant_id`, `nf_import_id`, `nf_numero`, `master_product_id`/`produto_id`, `codigo_produto`, `nome_produto`, `category`, `lote`, `quantidade_inicial`/`quantidade_disponivel`, `dt_validade` (string, **não convertida** para `Timestamp` — RN-10), `valor_unitario`, `active: true`, `is_rennova`, `brand`, e os campos de fragmentação quando aplicável.
+9. Se não bloqueado, sistema remove campos `undefined` do array de produtos (o Firestore não os aceita), abre um `writeBatch(db)` e monta, via `doc(collection(db, 'tenants/{tenantId}/nf_imports'))`, a referência do documento da NF com `tenant_id`, `numero_nf`, `origem: "manual"`, `tipo`, `produtos` (array completo), `status: "success"`, `created_by: user?.email` (e-mail, não UID — RN-09), timestamps — adicionado ao batch via `batch.set(nfRef, nfData)` (RN-07, **[CORRIGIDO]** no commit `16877f1`; antes era um `addDoc` imediato, fora de qualquer batch).
+10. Sistema então, no mesmo laço `for` percorrendo os produtos, cria uma referência (`doc(collection(db, 'tenants/{tenantId}/inventory'))`) para cada produto e a adiciona ao mesmo batch via `batch.set(inventoryRef, inventoryData)` (em vez de `addDoc` individual — RN-07, **[CORRIGIDO]**): `tenant_id`, `nf_import_id`, `nf_numero`, `master_product_id`/`produto_id`, `codigo_produto`, `nome_produto`, `category`, `lote`, `quantidade_inicial`/`quantidade_disponivel`, `dt_validade` (string, **não convertida** para `Timestamp` — RN-10), `valor_unitario`, `active: true`, `is_rennova`, `brand`, e os campos de fragmentação quando aplicável. Ao final do laço, um único `await batch.commit()` grava a NF e todos os itens atomicamente — se qualquer gravação falhar, o Firestore rejeita o batch inteiro e nada é persistido.
 11. Sistema exibe o toast de sucesso: "Nota fiscal salva" / "NF {numero} foi salva e os produtos adicionados ao inventário", e redireciona para `/clinic/inventory`.
 12. Caso de uso é concluído com sucesso.
 
@@ -128,11 +128,12 @@ Usuário acessa `/clinic/add-products` e percorre o wizard de 4 passos até conf
 1. Situação anômala (sessão inconsistente) em que `tenantId` não está disponível.
 2. Sistema exibe toast: "Erro" / "Tenant ID não encontrado".
 
-### 8f. [Bug confirmado] Falha durante a gravação dos itens de inventário, após a NF já ter sido criada com status "success" (a partir do passo 10)
-1. O documento em `nf_imports` já foi criado com `status: "success"` **antes** do laço de gravação dos itens de inventário começar (não há um status intermediário como `"processing"`, diferente de UC-10).
-2. Se o `addDoc` de um item de inventário falhar no meio do laço (ex.: erro de rede, regra do Firestore, dado inválido), os itens anteriores ao ponto de falha já foram gravados, os posteriores não — e **nada disso é revertido nem corrigido no documento da NF**, que permanece `status: "success"` mesmo estando incompleta.
-3. Sistema exibe apenas o toast genérico: "Erro ao salvar" / "Não foi possível salvar a nota fiscal" — sem indicar quantos produtos foram de fato gravados.
-4. Usuário não tem, nesta tela, nenhuma forma de saber quais produtos entraram e quais não — precisaria conferir manualmente em `/clinic/inventory`.
+### 8f. [Corrigido no commit `16877f1`] Falha durante a gravação dos itens de inventário, após a NF já ter sido criada com status "success" (histórico)
+1. Antes da correção, o documento em `nf_imports` já era criado com `status: "success"` (via `addDoc` imediato) antes do laço de gravação dos itens de inventário começar (não havia um status intermediário como `"processing"`, diferente de UC-10).
+2. Se o `addDoc` de um item de inventário falhasse no meio do laço (ex.: erro de rede, regra do Firestore, dado inválido), os itens anteriores ao ponto de falha já tinham sido gravados, os posteriores não — e **nada disso era revertido nem corrigido no documento da NF**, que permanecia `status: "success"` mesmo estando incompleta.
+3. Sistema exibia apenas o toast genérico: "Erro ao salvar" / "Não foi possível salvar a nota fiscal" — sem indicar quantos produtos foram de fato gravados.
+4. Usuário não tinha, nesta tela, nenhuma forma de saber quais produtos entraram e quais não — precisaria conferir manualmente em `/clinic/inventory`.
+5. **[CORRIGIDO]** No commit `16877f1`, a função `handleSaveNF` passou a usar `writeBatch(db)`: a referência do documento da NF e a de cada item de inventário são adicionadas ao mesmo batch via `batch.set()`, e um único `await batch.commit()` grava tudo atomicamente ao final. Uma falha em qualquer ponto agora rejeita o batch inteiro — não existe mais gravação parcial com status `"success"` enganoso (ver seção 6, passos 9-10, e RN-07).
 
 ---
 
@@ -146,7 +147,7 @@ Usuário acessa `/clinic/add-products` e percorre o wizard de 4 passos até conf
 | RN-04 | O catálogo master (`master_products`, filtrado por `active: true`) só é consultado quando o tipo escolhido é "Rennova"; produtos de outra marca são sempre cadastro livre, sem nenhuma validação contra um catálogo. | Confirmado — `loadMasterProducts` só é chamado quando `tipoNF === "rennova"`. |
 | RN-05 | A opção "Importar XML da NF-e" só é oferecida dentro do fluxo Rennova — para "outra marca" não existe alternativa de XML, pois a extração de XML (UC-10) só resolve produtos contra o catálogo master, que é exclusivamente Rennova. | Confirmado pela ausência do sub-passo de escolha de método quando `tipoNF === "outra_marca"`. |
 | RN-06 | **[Confirmado, inconsistência de UX com UC-10]** A checagem de duplicidade só ocorre no **último** passo do wizard (ao clicar em "Confirmar e Salvar"), não logo após o número da NF ser informado (Passo 2). Um usuário pode preencher o número, adicionar vários produtos manualmente, revisar, e só então descobrir que a NF está bloqueada. Diferente de UC-10, que verifica a duplicidade antes até do upload do arquivo. | Inconsistência de UX confirmada por leitura do código — não corrigida nesta rodada; ver seção 14. |
-| RN-07 | **[Bug confirmado, o mais relevante deste UC]** O documento em `nf_imports` é criado com `status: "success"` fixo **antes** de qualquer item de inventário ser gravado, e a gravação dos itens é feita em um laço de `addDoc` sequenciais — **não** um `writeBatch` atômico como em UC-10. Uma falha no meio do laço deixa a importação parcialmente gravada, sem nenhum mecanismo de rollback ou correção do status da NF, que permanece `"success"` mesmo estando incompleta. | Bug confirmado por leitura direta e literal de `handleSaveNF` — diverge da premissa inicial repassada ("addDoc/writeBatch"): confirmado que é `addDoc` sequencial, não `writeBatch`. Registrado como pendência de alta relevância na seção 14. |
+| RN-07 | **[CORRIGIDO — commit `16877f1`]** O documento em `nf_imports` era criado com `status: "success"` fixo antes de qualquer item de inventário ser gravado, e a gravação dos itens era feita em um laço de `addDoc` sequenciais — não um `writeBatch` atômico como em UC-10. Uma falha no meio do laço deixava a importação parcialmente gravada, sem nenhum mecanismo de rollback ou correção do status da NF, que permanecia `"success"` mesmo estando incompleta. Corrigido: `handleSaveNF` agora usa `writeBatch(db)` — a NF (`doc(collection(...))` + `batch.set()`) e todos os itens de inventário (mesmo padrão) são adicionados ao mesmo batch e gravados atomicamente por um único `batch.commit()`; qualquer falha rejeita o batch inteiro, sem gravação parcial. | Corrigido por leitura direta de `handleSaveNF` (commit `16877f1`) — mesmo padrão de atomicidade já usado no fluxo de importação via XML (UC-10, `writeBatch`), conforme convenção documentada no CLAUDE.md do projeto. |
 | RN-08 | O campo `numero_nf` deste fluxo é texto livre, sem nenhuma validação de formato — diferente de UC-10, onde o número vem estruturado do XML (`<nNF>`). | Confirmado — único critério é "não vazio". |
 | RN-09 | O campo `created_by` do documento da NF é gravado como o **e-mail** do usuário (`user?.email`, com fallback `"unknown"`), diferente de UC-10 (`createNFImport`), que grava o **UID** do usuário em `created_by`. | Divergência de schema confirmada por comparação direta do código dos dois fluxos — o mesmo campo tem semânticas diferentes conforme a origem da NF. |
 | RN-10 | O campo `dt_validade` gravado nos itens de inventário deste fluxo é uma **string** no formato do `<input type="date">` (ex.: `"2026-12-31"`), **não convertida** para `Timestamp` do Firestore — diferente de UC-10 (`addInventoryItems`), que grava `dt_validade` como `Timestamp.fromDate(...)`. | Divergência de schema confirmada — itens de inventário do mesmo tenant podem ter `dt_validade` em dois tipos de dado diferentes conforme a origem (XML vs. manual), o que pode quebrar telas/relatórios que esperam um `Timestamp` (ex.: ordenação por validade, alertas de vencimento). Ver seção 14. |
@@ -158,7 +159,7 @@ Usuário acessa `/clinic/add-products` e percorre o wizard de 4 passos até conf
 
 | ID | Descrição | Categoria |
 |----|-----------|-----------|
-| RNF-01 | A gravação dos itens de inventário não é atômica (RN-07) — diferente de UC-10, que usa `writeBatch`. | Confiabilidade |
+| RNF-01 | **[CORRIGIDO — commit `16877f1`]** A gravação da NF e dos itens de inventário agora é atômica via `writeBatch` (RN-07), igual a UC-10. Antes da correção, os itens eram gravados um a um via `addDoc` sequencial, sem atomicidade. | Confiabilidade |
 | RNF-02 | O autocomplete de produtos Rennova roda inteiramente no cliente, sobre a lista de `master_products` ativos carregada uma única vez ao entrar no fluxo Rennova (sem paginação nem busca server-side); mostra no máximo 10 sugestões por vez. | Performance / Usabilidade |
 | RNF-03 | Este fluxo (diferente de UC-10) não captura nem grava `natureza_operacao`, `forma_pagamento` ou `tipo_nota` em nenhum dos dois documentos criados (`nf_imports`, `inventory`) — não há XML para extrair essa informação. Os itens de inventário criados aqui não exibem o `TipoNotaBadge` nas telas que o utilizam. | Confirmado — nenhum desses três campos aparece em `nfData` nem em `inventoryData` neste arquivo. |
 
@@ -189,7 +190,7 @@ Alta — junto com UC-10, é um dos dois mecanismos principais de entrada de est
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
 1. **[Divergência confirmada, não assumida como intencional]** O ator real deste UC inclui `clinic_user`, não só `clinic_admin` como informado inicialmente — não há checagem de role própria na página, diferente de UC-10. Não confirmado se isso é intencional (talvez devesse ser restrito a `clinic_admin`, como o upload de XML) ou se é uma omissão.
-2. **[Bug confirmado — sugerido como prioridade alta]** RN-07 — `nf_imports` criado com `status: "success"` antes da gravação (não atômica) dos itens de inventário; falha parcial não é refletida no status nem revertida.
+2. **[Resolvido — commit `16877f1`]** RN-07 — `nf_imports` e os itens de inventário agora são gravados atomicamente via `writeBatch`; antes, o status `"success"` era fixado antes da gravação não atômica (`addDoc` sequencial) dos itens, sem rollback em caso de falha parcial.
 3. **[Inconsistência confirmada]** RN-06 — a checagem de duplicidade só ocorre no último passo do wizard, não logo após informar o número da NF, ao contrário de UC-10.
 4. **[Divergências de schema confirmadas, relevantes para consultas/relatórios futuros]** RN-09, RN-10, RN-11 — `created_by` (e-mail vs. UID), `dt_validade` (string vs. `Timestamp`), e nome do campo de vínculo com a NF (`nf_import_id` vs. `nf_id`) diferem entre os itens de inventário criados por UC-10 e por este UC-11.
 5. **[Nota, já registrada em UC-10]** "Gerenciar Catálogo Master de Produtos" ainda não foi mapeado como UC formal.
@@ -201,3 +202,4 @@ Alta — junto com UC-10, é um dos dois mecanismos principais de entrada de est
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial. Confirmado por leitura completa de `add-products/page.tsx` e do layout do grupo de rotas `(clinic)`. Identificadas, além do contexto fornecido, quatro divergências relevantes não mencionadas inicialmente: (1) o ator real inclui `clinic_user`, não só `clinic_admin`; (2) a gravação dos itens de inventário é feita via `addDoc` sequencial, não `writeBatch`, e o status da NF já é fixado como `"success"` antes da gravação — falha parcial não é refletida nem revertida (bug confirmado, RN-07); (3) a checagem de duplicidade só ocorre no último passo do wizard (RN-06); (4) três divergências de nome/tipo de campo em relação aos itens de inventário criados por UC-10 (`created_by`, `dt_validade`, `nf_import_id` vs. `nf_id` — RN-09 a RN-11). |
+| 1.1 | 20/07/2026 | Guilherme Scandelari | **Correção de bug (commit `16877f1`)**: RN-07 corrigido — `handleSaveNF` passou a usar `writeBatch(db)` para gravar o documento da NF e todos os itens de inventário atomicamente, em vez de `addDoc` sequencial com o status `"success"` fixado antes da gravação dos itens. Fluxo de Exceção 8f reescrito como histórico "[Corrigido]"; seções 4.1, 4.2, 6 (passos 9-10), 9 (RN-07), 10 (RNF-01) e 14 (item 2) atualizadas para refletir a atomicidade da gravação. Nenhuma das demais divergências confirmadas (ator, RN-06, RN-09 a RN-11) foi alterada por esta correção. |

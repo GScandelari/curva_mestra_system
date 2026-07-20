@@ -48,6 +48,14 @@ export function ProtectedRoute({
         return;
       }
 
+      // Se precisa trocar a senha (definida por um admin), força o fluxo antes de
+      // qualquer outra página — mesma checagem já feita no submit do /login, mas que
+      // faltava aqui para uma sessão já autenticada navegando direto (bypass confirmado).
+      if (user && claims && claims.requirePasswordChange === true) {
+        router.push('/change-password');
+        return;
+      }
+
       // Se tem roles permitidos, verificar permissão
       if (allowedRoles && allowedRoles.length > 0 && role) {
         if (!allowedRoles.includes(role)) {
@@ -90,6 +98,11 @@ export function ProtectedRoute({
 
   // Se não está ativo, não mostrar nada (vai redirecionar)
   if (claims.active === false) {
+    return null;
+  }
+
+  // Se precisa trocar a senha, não mostrar nada (vai redirecionar)
+  if (claims.requirePasswordChange === true) {
     return null;
   }
 

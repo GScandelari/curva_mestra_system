@@ -727,7 +727,9 @@ export default function EditTenantPage() {
           <DialogHeader>
             <DialogTitle>Adicionar Novo Usuário</DialogTitle>
             <DialogDescription>
-              Crie um novo usuário para esta clínica. O usuário receberá as credenciais por email.
+              Crie um novo usuário para esta clínica. A senha definida aqui não é enviada por e-mail
+              — comunique-a ao usuário por fora do sistema. Ele será solicitado a trocá-la no
+              primeiro acesso.
             </DialogDescription>
           </DialogHeader>
 
