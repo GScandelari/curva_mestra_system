@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Inventário
-**Versão:** 1.0
+**Versão:** 1.1
 
-> Um Clinic Admin desativa (soft delete) um lote de produto do inventário. Se o lote não tem nenhuma reserva ativa em procedimentos agendados, a desativação é simples e imediata. Se tem, o sistema oferece "Forçar exclusão": redistribui automaticamente as reservas para outros lotes do mesmo produto (critério FEFO — validade mais próxima primeiro), removendo o produto de procedimentos sem alternativa suficiente, e cancelando automaticamente procedimentos que ficarem sem nenhum produto. A desativação do item em si nunca é bloqueada — o pior cenário é procedimentos perderem produtos ou serem cancelados.
+> Um Clinic Admin desativa (soft delete) um lote de produto do inventário. Se o lote não tem nenhuma reserva ativa em procedimentos agendados, a desativação é simples e imediata. Se tem, o sistema oferece "Forçar exclusão": redistribui automaticamente as reservas para outros lotes do mesmo produto (critério FEFO — validade mais próxima primeiro), removendo o produto de procedimentos sem alternativa suficiente, e cancelando automaticamente procedimentos que ficarem sem nenhum produto. A desativação do item em si nunca é bloqueada — o pior cenário é procedimentos perderem produtos ou serem cancelados. Se a verificação prévia de reservas falhar, a desativação simples fica bloqueada até a checagem ser refeita com sucesso.
 
 ---
 
@@ -57,6 +57,7 @@ Nenhum ator humano — a redistribuição de reservas é inteiramente automátic
 
 ### 4.2 Falha (Garantias Mínimas)
 - Nenhuma alteração é feita; um erro é exibido no próprio diálogo.
+- **[CORRIGIDO em v1.1, commit `91eb37e`]** Se a verificação prévia de reservas (`checkInventoryItemReservations`) falhar, nenhum botão de ação ("Confirmar desativação" ou "Forçar exclusão") é exibido — a desativação fica bloqueada até a checagem ser refeita com sucesso (RN-07).
 
 ---
 
@@ -83,7 +84,7 @@ Clinic Admin clica em "Desativar" na página de detalhe de um item de inventári
    - f. Grava tudo — desativação do item original, ajustes de quantidade nos lotes alternativos, e atualização/cancelamento das solicitações — em um único `writeBatch` atômico.
    - g. Retorna `{ procedimentosAlterados, procedimentosCancelados }`.
 9. Sistema redireciona para `/clinic/inventory`.
-10. Caso de uso é concluído com sucesso — o item está sempre desativado ao final; procedimentos impactados podem ter sido silenciosamente ajustados ou cancelados (RN-08).
+10. Caso de uso é concluído com sucesso — o item está sempre desativado ao final (ressalvado o bloqueio descrito no Fluxo de Exceção 8a, RN-07); procedimentos impactados podem ter sido silenciosamente ajustados ou cancelados (RN-08).
 
 ---
 
@@ -97,10 +98,12 @@ Clinic Admin clica em "Desativar" na página de detalhe de um item de inventári
 
 ## 8. Fluxos de Exceção
 
-### 8a. [Confirmado, potencialmente perigoso] Erro ao verificar reservas (a partir do passo 3)
+### 8a. [CORRIGIDO em v1.1, commit `91eb37e`] Erro ao verificar reservas (a partir do passo 3)
 1. `checkInventoryItemReservations` lança exceção.
-2. Sistema trata como lista vazia (`catch { setImpactedProcedimentos([]); }`, sem exibir esse erro específico ao usuário) — ou seja, um erro de rede/consulta faz o sistema assumir "sem reservas" e oferecer apenas "Confirmar desativação" simples, **mesmo que existam reservas reais não verificadas**.
-3. Segue o fluxo a partir do passo 5. Ver RN-07/seção 14.
+2. Sistema seta um novo estado `checkError` com a mensagem "Não foi possível verificar reservas ativas. Tente novamente." e mantém `impactedProcedimentos` em `null` — **não** trata mais como "sem reservas" (comportamento anterior à correção, ver seção 14).
+3. Sistema exibe um Alert destrutivo ("Não foi possível verificar reservas") com a mensagem de erro e um aviso de que a desativação fica bloqueada para não arriscar remover um lote com reservas ativas não confirmadas.
+4. Como os botões "Confirmar desativação" e "Forçar exclusão" só são renderizados quando `impactedProcedimentos !== null`, nenhum dos dois aparece — a desativação fica integralmente bloqueada.
+5. Sistema exibe um botão "Tentar novamente", que rechama `handleOpenDeactivate` (repete o passo 3 do Fluxo Principal). Ver RN-07.
 
 ### 8b. Erro ao desativar (sem reservas) (a partir do passo 7)
 1. `deactivateInventoryItem` lança exceção.
@@ -120,9 +123,9 @@ Clinic Admin clica em "Desativar" na página de detalhe de um item de inventári
 | RN-02 | Somente solicitações com `status: "agendada"` são consideradas "reservas ativas" — tanto para a checagem prévia (`checkInventoryItemReservations`) quanto para a redistribuição em si. | Confirmado — a reserva de estoque (`quantidade_reservada`) é feita no momento da criação da solicitação, que já nasce com `status: "agendada"` (comentário no código de criação: "Toda solicitação inicia como 'agendada' → RESERVAR estoque"). |
 | RN-03 | Um procedimento agendado pode ter, para o item desativado, um de três desfechos automáticos: substituição total (sem aviso visível na tela de desativação), substituição parcial (aviso anexado às observações), ou remoção total do produto daquele procedimento (aviso anexado); se a remoção zerar a lista de produtos da solicitação, ela é **cancelada automaticamente**. | Confirmado por leitura completa de `forceDeactivateInventoryItem` — três ramos de `warnings` + lógica de cancelamento explícita (`cancel = newProdutos.length === 0`). |
 | RN-04 | **[Observação relevante]** A ordem de alocação entre múltiplas solicitações impactadas segue a ordem em que a consulta do Firestore as retorna — não há ordenação explícita por `dt_procedimento`. Se o estoque alternativo for insuficiente para cobrir todas as solicitações impactadas, não há garantia de que o procedimento mais próximo (ou mais antigo) tenha prioridade sobre um procedimento mais distante no tempo. | Confirmado por leitura do código — a query de `solicitacoes` não usa `orderBy`; a ordem de processamento no laço é a ordem de retorno do snapshot. Ver seção 14. |
-| RN-05 | A desativação do item em si **nunca é bloqueada**, mesmo quando não há nenhum lote alternativo disponível para nenhuma das solicitações impactadas — o item é sempre marcado `active: false` no mesmo batch; o pior cenário possível é todas as solicitações impactadas perderem o produto (ou serem canceladas), não a impossibilidade de desativar. | Confirmado — `batch.update(itemRef, {active: false, ...})` é incondicional dentro de `forceDeactivateInventoryItem`, não depende do resultado da alocação. Responde diretamente à pergunta sobre "desativação impossível": **não existe esse caso**. |
+| RN-05 | A desativação do item em si **nunca é bloqueada** pela lógica de redistribuição, mesmo quando não há nenhum lote alternativo disponível para nenhuma das solicitações impactadas — o item é sempre marcado `active: false` no mesmo batch; o pior cenário possível dentro de `forceDeactivateInventoryItem` é todas as solicitações impactadas perderem o produto (ou serem canceladas), não a impossibilidade de desativar. (Distinto de RN-07: a partir da v1.1, uma falha na *checagem prévia* de reservas passou a bloquear a desativação simples, como proteção contra fail-open — não uma limitação da lógica de redistribuição em si.) | Confirmado — `batch.update(itemRef, {active: false, ...})` é incondicional dentro de `forceDeactivateInventoryItem`, não depende do resultado da alocação. Responde diretamente à pergunta sobre "desativação impossível" dentro do fluxo de redistribuição: **não existe esse caso**. |
 | RN-06 | Mesmo lotes de outras marcas ou produtos com código diferente nunca são considerados como alternativa — a busca por lotes alternativos é estritamente por `codigo_produto` igual ao do item desativado. | Confirmado pela query `where('codigo_produto', '==', codigoProduto)`. |
-| RN-07 | **[Confirmado, potencialmente perigoso]** Se `checkInventoryItemReservations` falhar (exceção de rede/Firestore), a interface trata isso como "nenhuma reserva encontrada" — oferecendo ao usuário apenas o botão de desativação simples (sem redistribuição), mesmo que o item possa de fato ter reservas ativas não verificadas por causa do erro. | Bug/comportamento de risco confirmado por leitura literal de `handleOpenDeactivate` — não corrigido nesta rodada. |
+| RN-07 | **[CORRIGIDO em v1.1, commit `91eb37e`]** Se `checkInventoryItemReservations` falhar (exceção de rede/Firestore), a interface **até a v1.0** tratava isso como "nenhuma reserva encontrada" (`setImpactedProcedimentos([])`), oferecendo ao usuário o botão de desativação simples mesmo que o item pudesse ter reservas ativas não verificadas — um fail-open perigoso. A correção introduziu um novo estado `checkError`: no `catch` de `handleOpenDeactivate`, em vez de assumir "sem reservas", o sistema agora seta `checkError` com uma mensagem explicativa e mantém `impactedProcedimentos` em `null`. Como os botões "Confirmar desativação" e "Forçar exclusão" só renderizam quando `impactedProcedimentos !== null`, ambos ficam ocultos automaticamente — a desativação é bloqueada (fail-closed) até a checagem ser refeita com sucesso via um novo botão "Tentar novamente" (que rechama `handleOpenDeactivate`). | Corrigido conforme diff de `src/app/(clinic)/clinic/inventory/[id]/page.tsx` no commit `91eb37e` — novo estado `checkError`, remoção do `setImpactedProcedimentos([])` no `catch`, e renderização condicional dos botões de ação preservada (`impactedProcedimentos !== null`). |
 | RN-08 | Nenhuma notificação é enviada a quem criou ou é responsável pelo procedimento impactado (alterado ou cancelado automaticamente) — a única forma de descobrir a alteração é abrir a solicitação depois e ler o campo `observacoes` (para alterações) ou notar que o `status` virou `"cancelada"` (para cancelamentos). | Confirmado pela ausência de qualquer chamada a serviço de notificação/e-mail dentro de `forceDeactivateInventoryItem`. |
 | RN-09 | A restrição "apenas `clinic_admin` pode desativar" é aplicada somente na interface (`isAdmin && ...`); a regra do Firestore para subcoleções do tenant (`belongsToTenant(tenantId)`) permite leitura e escrita a qualquer usuário do tenant (inclusive `clinic_user`) nessas mesmas coleções — não há *enforcement* de role a nível de dados para esta ação específica. | Confirmado por leitura de `firestore.rules` (regra genérica de `tenants/{tenantId}/{document=**}`) — mesmo padrão de restrição "só na UI" já observado em outras partes do sistema nesta sessão (ex.: UC-11). |
 
@@ -134,7 +137,7 @@ Clinic Admin clica em "Desativar" na página de detalhe de um item de inventári
 |----|-----------|-----------|
 | RNF-01 | A redistribuição (passo 8) é executada em um único `writeBatch` do Firestore — atomicidade garantida entre a desativação do item, os ajustes nos lotes alternativos e as atualizações/cancelamentos das solicitações. | Confiabilidade |
 | RNF-02 | O cálculo de "lotes alternativos" e a alocação entre múltiplas solicitações são recalculados do zero a cada chamada de `forceDeactivateInventoryItem` — não há *lock*/transação otimista contra chamadas concorrentes (ex.: dois admins desativando lotes diferentes do mesmo produto ao mesmo tempo poderiam, em teoria, gerar leituras desatualizadas de `quantidade_disponivel` entre a leitura e o commit do batch). | Confiabilidade |
-| RNF-03 | O diálogo de desativação é sempre montado com uma nova checagem de reservas (sem cache) toda vez que é aberto. | Confiabilidade |
+| RNF-03 | O diálogo de desativação é sempre montado com uma nova checagem de reservas (sem cache) toda vez que é aberto — inclusive ao clicar em "Tentar novamente" após uma falha de checagem (RN-07). | Confiabilidade |
 
 ---
 
@@ -150,7 +153,7 @@ Ocasional — ocorre quando um lote precisa ser removido do estoque (ex.: erro d
 ---
 
 ## 13. Referências
-- `src/app/(clinic)/clinic/inventory/[id]/page.tsx`
+- `src/app/(clinic)/clinic/inventory/[id]/page.tsx` (linhas alteradas pelo commit `91eb37e` — estado `checkError`, `handleOpenDeactivate`, RN-07)
 - `src/lib/services/inventoryService.ts` (`deactivateInventoryItem`, `checkInventoryItemReservations`, `forceDeactivateInventoryItem`)
 - `src/lib/services/solicitacaoService.ts` (criação de solicitação e reserva inicial — contexto de RN-02)
 - `firestore.rules` (regra genérica de `tenants/{tenantId}/{document=**}` — RN-09)
@@ -160,7 +163,7 @@ Ocasional — ocorre quando um lote precisa ser removido do estoque (ex.: erro d
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
 1. **[Observação relevante, não confirmada como bug intencional]** RN-04 — a ordem de alocação entre solicitações concorrentes não é por data do procedimento; pode não ser a priorização mais justa/esperada pelo negócio.
-2. **[Confirmado, potencialmente perigoso]** RN-07 — falha ao verificar reservas é tratada como "sem reservas", podendo levar à desativação simples de um item que na verdade tem reservas não verificadas.
+2. **[RESOLVIDO em v1.1 — commit `91eb37e`]** RN-07 — implementado: falha ao verificar reservas ativas agora bloqueia a desativação (fail-closed), em vez de assumir "sem reservas" (fail-open). A interface exibe um alerta de erro e um botão "Tentar novamente".
 3. **[Observação]** RN-08 — nenhuma notificação para os responsáveis pelos procedimentos alterados/cancelados automaticamente.
 4. **[Observação]** RN-09 — restrição de role só na interface, não nas regras do Firestore (mesmo padrão já visto em outras partes do sistema nesta sessão).
 5. **[Nota de rastreabilidade]** "Agendar Procedimento com Reserva de Estoque" ainda não foi mapeado como UC formal.
@@ -172,3 +175,4 @@ Ocasional — ocorre quando um lote precisa ser removido do estoque (ex.: erro d
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero e confirmada por leitura completa de `inventory/[id]/page.tsx`, das três funções relevantes em `inventoryService.ts`, do trecho de criação de solicitação em `solicitacaoService.ts` (RN-02), e da regra genérica de `tenants/{tenantId}/{document=**}` em `firestore.rules` (RN-09). Respondidas as três perguntas específicas do levantamento: a redistribuição é automática por FEFO, sem escolha do usuário (RN-01); os procedimentos impactados podem ser substituídos total/parcialmente, ter o produto removido, ou ser cancelados automaticamente se ficarem sem nenhum produto (RN-03); e a desativação do item nunca é impossível — o pior cenário é a perda/cancelamento de procedimentos, não o bloqueio da desativação (RN-05). |
+| 1.1 | 19/07/2026 | Guilherme Scandelari | Correção de severidade Alta (commit `91eb37e`): o fail-open na verificação prévia de reservas (RN-07) foi corrigido — falha em `checkInventoryItemReservations` agora bloqueia a desativação (novo estado `checkError`, `impactedProcedimentos` permanece `null`, ambos os botões de ação ficam ocultos) em vez de tratar como "sem reservas". Adicionado Fluxo de Exceção 8a detalhado, novo botão "Tentar novamente" na UI, e RN-05 esclarecida para distinguir a garantia de não-bloqueio da lógica de redistribuição (inalterada) do novo bloqueio da checagem prévia (RN-07). RN-07 marcada como `[CORRIGIDO]`. |
