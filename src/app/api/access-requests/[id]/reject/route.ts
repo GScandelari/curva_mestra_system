@@ -15,13 +15,28 @@ import { FieldValue } from 'firebase-admin/firestore';
  */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    // Verificar autenticação
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await adminAuth.verifyIdToken(token);
+
+    if (!decodedToken.is_system_admin) {
+      return NextResponse.json(
+        { error: 'Apenas administradores do sistema podem rejeitar solicitações' },
+        { status: 403 }
+      );
+    }
+
+    const rejected_by_uid = decodedToken.uid;
+    const rejected_by_name = decodedToken.name || decodedToken.email || 'System Admin';
+
     const params = await context.params;
     const requestId = params.id;
-    const { rejected_by_uid, rejected_by_name, rejection_reason } = await req.json();
-
-    if (!rejected_by_uid || !rejected_by_name) {
-      return NextResponse.json({ error: 'Dados do rejeitador são obrigatórios' }, { status: 400 });
-    }
+    const { rejection_reason } = await req.json();
 
     // 1. Buscar solicitação
     const requestDoc = await adminDb.collection('access_requests').doc(requestId).get();

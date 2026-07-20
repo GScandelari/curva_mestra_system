@@ -75,15 +75,14 @@ export default function AccessRequestsPage() {
     setProcessingId(request.id);
 
     try {
+      const token = await user.getIdToken();
+
       const response = await fetch(`/api/access-requests/${request.id}/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          approved_by_uid: user.uid,
-          approved_by_name: user.displayName || user.email || 'Admin',
-        }),
       });
 
       const result = await response.json();
