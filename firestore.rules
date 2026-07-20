@@ -107,11 +107,14 @@ service cloud.firestore {
       // Usuários podem ler seu próprio documento
       allow read: if isAuthenticated() && request.auth.uid == userId;
 
-      // Clinic_admin pode listar usuários do seu tenant
-      // A query deve ter where("tenant_id", "==", <seu_tenant_id>)
+      // Clinic_admin pode listar usuários do seu tenant.
+      // resource.data.tenant_id força a query a ter where("tenant_id", "==", <seu_tenant_id>) —
+      // sem esse filtro, a regra rejeita a query inteira (Firestore não filtra documento a
+      // documento em list, só valida se a query como um todo satisfaz a condição).
       allow list: if isAuthenticated()
         && request.auth.token.role == 'clinic_admin'
-        && request.auth.token.tenant_id != null;
+        && request.auth.token.tenant_id != null
+        && resource.data.tenant_id == request.auth.token.tenant_id;
     }
 
     // Coleção de produtos master Rennova (global, sem tenant)
