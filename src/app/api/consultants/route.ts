@@ -37,12 +37,7 @@ async function generateUniqueCode(): Promise<string> {
 /**
  * Gera o HTML do e-mail de boas-vindas para o consultor
  */
-function generateConsultantWelcomeEmail(
-  name: string,
-  email: string,
-  code: string,
-  tempPassword: string
-): string {
+function generateConsultantWelcomeEmail(name: string, email: string, code: string): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -70,9 +65,8 @@ function generateConsultantWelcomeEmail(
             <p style="margin: 0; color: #92400e;"><strong>Dados de acesso:</strong></p>
             <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #92400e;">
               <li><strong>E-mail:</strong> ${email}</li>
-              <li><strong>Senha temporária:</strong> ${tempPassword}</li>
             </ul>
-            <p style="margin: 10px 0 0 0; color: #92400e; font-size: 12px;">Você será solicitado a alterar sua senha no primeiro acesso.</p>
+            <p style="margin: 10px 0 0 0; color: #92400e; font-size: 12px;">Sua senha de acesso não é enviada por e-mail. Você será solicitado a defini-la/trocá-la no primeiro acesso.</p>
           </div>
 
           <div style="text-align: center;">
@@ -291,7 +285,7 @@ export async function POST(req: NextRequest) {
 
     // Enviar e-mail de boas-vindas via fila
     try {
-      const emailHtml = generateConsultantWelcomeEmail(name, emailLower, code, tempPassword);
+      const emailHtml = generateConsultantWelcomeEmail(name, emailLower, code);
 
       await adminDb.collection('email_queue').add({
         to: emailLower,
