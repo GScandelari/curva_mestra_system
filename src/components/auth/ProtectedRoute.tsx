@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/types';
 
@@ -25,6 +27,7 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const router = useRouter();
   const { user, loading, claims, role } = useAuth();
+  const [maintenanceBlocked, setMaintenanceBlocked] = useState(false);
 
   useEffect(() => {
     async function checkAccess() {
@@ -54,6 +57,18 @@ export function ProtectedRoute({
       if (user && claims && claims.requirePasswordChange === true) {
         router.push('/change-password');
         return;
+      }
+
+      // Modo de manutenção (system_settings/global) bloqueia qualquer usuário que
+      // não seja system_admin -- antes, esse campo era gravado pela tela de
+      // Configurações mas nunca lido por nenhuma parte do sistema.
+      if (user && claims && claims.role !== 'system_admin') {
+        const settingsSnap = await getDoc(doc(db, 'system_settings', 'global'));
+        if (settingsSnap.exists() && settingsSnap.data().maintenance_mode === true) {
+          setMaintenanceBlocked(true);
+          router.push('/maintenance');
+          return;
+        }
       }
 
       // Se tem roles permitidos, verificar permissão
@@ -103,6 +118,11 @@ export function ProtectedRoute({
 
   // Se precisa trocar a senha, não mostrar nada (vai redirecionar)
   if (claims.requirePasswordChange === true) {
+    return null;
+  }
+
+  // Se o modo de manutenção bloqueou o acesso, não mostrar nada (vai redirecionar)
+  if (maintenanceBlocked) {
     return null;
   }
 
