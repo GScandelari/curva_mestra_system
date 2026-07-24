@@ -116,6 +116,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
 
       // Atualizar email no Firebase Auth também
       const consultantData = consultantDoc.data();
+      const previousEmail = consultantData?.email;
       if (consultantData?.user_id) {
         try {
           await adminAuth.updateUser(consultantData.user_id, { email: emailLower });
@@ -124,6 +125,37 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
             return NextResponse.json({ error: 'Email já está em uso no sistema' }, { status: 400 });
           }
           throw authError;
+        }
+      }
+
+      // Avisar o consultor da troca -- antes, o e-mail de login mudava
+      // silenciosamente e o consultor só descobria ao falhar o próximo login.
+      if (previousEmail && previousEmail !== emailLower) {
+        try {
+          const notifyBody = `<p>Olá ${consultantData?.name || ''},</p>
+<p>O e-mail de acesso da sua conta de consultor no Curva Mestra foi alterado de <strong>${previousEmail}</strong> para <strong>${emailLower}</strong>.</p>
+<p>A partir de agora, use o novo e-mail para fazer login. Se você não reconhece esta alteração, entre em contato com o suporte.</p>
+<p>Atenciosamente,<br>Equipe Curva Mestra</p>`;
+
+          await adminDb.collection('email_queue').add({
+            to: previousEmail,
+            subject: 'Seu e-mail de acesso foi alterado - Curva Mestra',
+            body: notifyBody,
+            status: 'pending',
+            type: 'consultant_email_changed',
+            created_at: FieldValue.serverTimestamp(),
+          });
+
+          await adminDb.collection('email_queue').add({
+            to: emailLower,
+            subject: 'Seu e-mail de acesso foi alterado - Curva Mestra',
+            body: notifyBody,
+            status: 'pending',
+            type: 'consultant_email_changed',
+            created_at: FieldValue.serverTimestamp(),
+          });
+        } catch (emailError) {
+          console.warn('Erro ao enfileirar e-mail de aviso de troca de e-mail:', emailError);
         }
       }
     }

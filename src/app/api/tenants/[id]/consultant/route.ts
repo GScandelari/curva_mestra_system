@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
 
 /**
  * GET - Obter consultor atual da clínica
@@ -175,19 +176,19 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     await batch.commit();
 
+    // Custom claims não participam do batch acima (limitação de plataforma) --
+    // sincronizadas depois, sem derrubar a resposta se falharem (Firestore já
+    // é a fonte da verdade da transferência).
+    let claimsSynced = true;
+
     // 4. Atualizar custom claims do novo consultor
     if (newConsultantData?.user_id) {
-      const userRecord = await adminAuth.getUser(newConsultantData.user_id);
-      const currentClaims = userRecord.customClaims || {};
-      const updatedAuthorizedTenants = [...(currentClaims.authorized_tenants || [])];
-      if (!updatedAuthorizedTenants.includes(tenantId)) {
-        updatedAuthorizedTenants.push(tenantId);
-      }
-
-      await adminAuth.setCustomUserClaims(newConsultantData.user_id, {
-        ...currentClaims,
-        authorized_tenants: updatedAuthorizedTenants,
-      });
+      const result = await syncConsultantAuthorizedTenants(
+        newConsultantData.user_id,
+        tenantId,
+        'add'
+      );
+      claimsSynced = claimsSynced && result.synced;
     }
 
     // 5. Remover tenant das claims do consultor antigo
@@ -196,21 +197,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       const oldConsultantData = oldConsultantDoc.data();
 
       if (oldConsultantData?.user_id) {
-        const userRecord = await adminAuth.getUser(oldConsultantData.user_id);
-        const currentClaims = userRecord.customClaims || {};
-        const updatedAuthorizedTenants = (currentClaims.authorized_tenants || []).filter(
-          (t: string) => t !== tenantId
+        const result = await syncConsultantAuthorizedTenants(
+          oldConsultantData.user_id,
+          tenantId,
+          'remove'
         );
-
-        await adminAuth.setCustomUserClaims(oldConsultantData.user_id, {
-          ...currentClaims,
-          authorized_tenants: updatedAuthorizedTenants,
-        });
+        claimsSynced = claimsSynced && result.synced;
       }
     }
 
     return NextResponse.json({
       success: true,
+      claims_synced: claimsSynced,
       message: 'Consultoria transferida com sucesso',
       data: {
         consultant_id: new_consultant_id,
@@ -290,25 +288,24 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
 
     await batch.commit();
 
-    // 3. Atualizar custom claims do consultor
+    // 3. Atualizar custom claims do consultor -- não derruba a resposta se
+    // falhar (Firestore já é a fonte da verdade da remoção).
     const consultantDoc = await adminDb.collection('consultants').doc(consultantId).get();
     const consultantData = consultantDoc.data();
 
+    let claimsSynced = true;
     if (consultantData?.user_id) {
-      const userRecord = await adminAuth.getUser(consultantData.user_id);
-      const currentClaims = userRecord.customClaims || {};
-      const updatedAuthorizedTenants = (currentClaims.authorized_tenants || []).filter(
-        (t: string) => t !== tenantId
+      const result = await syncConsultantAuthorizedTenants(
+        consultantData.user_id,
+        tenantId,
+        'remove'
       );
-
-      await adminAuth.setCustomUserClaims(consultantData.user_id, {
-        ...currentClaims,
-        authorized_tenants: updatedAuthorizedTenants,
-      });
+      claimsSynced = result.synced;
     }
 
     return NextResponse.json({
       success: true,
+      claims_synced: claimsSynced,
       message: 'Consultor removido com sucesso',
     });
   } catch (error: any) {
