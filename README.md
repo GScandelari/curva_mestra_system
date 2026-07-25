@@ -102,18 +102,18 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.16, 25/07/2026):**
+**Resumo (v3.16, 24/07/2026):**
 
 | Severidade | Aberto | Corrigido | Descartado | Total   |
 | ---------- | ------ | --------- | ---------- | ------- |
 | Crítica    | 0      | 5         | 1          | 6       |
-| Alta       | 1      | 22        | 1          | 25      |
-| Média      | 28     | 9         | 1          | 39      |
+| Alta       | 0      | 22        | 1          | 24      |
+| Média      | 31     | 6         | 1          | 39      |
 | Baixa      | 66     | 16        | 1          | 83      |
-| **Total**  | **95** | **52**    | **4**      | **153** |
+| **Total**  | **97** | **49**    | **4**      | **152** |
 
-- ✅ Todos os 6 achados **críticos** já têm status final: 5 corrigidos e documentados, 1 descartado por decisão de produto (UC-14, ferramenta de auditoria de inventário removida)
-- ⚠️ **1 novo item de severidade Alta nesta atualização**: achado de arquitetura de segurança na regra genérica multi-tenant do `firestore.rules` (`UC-13-RN-09 / UC-15-RN-07`), que torna inefetivas regras dedicadas de subcoleção — inclui sinalização de **potencial reabertura** de um item já antes marcado como corrigido (`UC-44-RN-02`), ainda pendente de decisão; dos demais 24 itens de Alta, 22 seguem corrigidos e documentados e 1 (UC-46) segue em correção, aguardando apenas implementação de uma decisão de produto já tomada (ver Seção 2 do mapa)
+- ✅ Todos os 6 achados **críticos** e todos os **24 itens de severidade Alta** já têm status final ou decisão registrada: 5 críticos + 22 altos corrigidos e documentados; 1 achado crítico e 1 achado alto, ambos do mesmo UC-14 (ferramenta de auditoria de inventário removida), descartados por decisão de produto; 1 alto (UC-46) já com decisão de produto tomada e em correção, aguardando apenas implementação
+- ⚠️ Nenhum item de severidade Alta segue em aberto; na severidade Média, 5 itens do módulo Admin — Clínicas/Consultores (sincronização de custom claims de consultor fora da transação atômica, rollback de usuário órfão, aviso de troca de e-mail — UC-23/UC-24/UC-26/UC-28/UC-29) acabam de ser corrigidos e documentados, restando 31 itens Média em aberto (ver Seção 3 do mapa)
 - 🗂️ **9 decisões de produto pendentes** e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
 - 🔎 **12 gaps entre a landing page comercial e o sistema real** catalogados (Seção 7 do mapa) — 4 com decisão de implementar, **agora 100% documentados**: **UC-51, UC-52 e UC-53 já escritos e aprovados**, aguardando apenas priorização/planejamento de implementação; o item de Backup Geográfico Automatizado (antes reservado como UC-54) foi descartado como caso de uso e documentado como **ADR aprovado** (`ONLY_FOR_DEVS/TO_DO/ADR-backup-geografico-automatizado.md`), por ser um processo de infraestrutura sem ator/tela — 5 com decisão de corrigir apenas o texto da landing (baixa prioridade) e 3 com decisão adiada
 - 📝 12 dos 53 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes

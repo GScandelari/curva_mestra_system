@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue, WriteBatch } from 'firebase-admin/firestore';
+import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
 
 /**
  * POST - Vincular consultor a uma clínica (auto-link) ou iniciar transferência
@@ -123,25 +124,23 @@ export async function POST(req: NextRequest) {
 
       await batch.commit();
 
-      // Atualizar custom claims do consultor
+      // Atualizar custom claims do consultor -- reportado na resposta (antes
+      // era engolido silenciosamente e o usuário sempre via "sucesso" mesmo
+      // com as claims fora de sincronia).
+      let claimsSynced = true;
       if (consultantData?.user_id) {
-        try {
-          const userRecord = await adminAuth.getUser(consultantData.user_id);
-          const currentClaims = userRecord.customClaims || {};
-          const updatedTenants = [...(currentClaims.authorized_tenants || [])];
-          if (!updatedTenants.includes(tenant_id)) updatedTenants.push(tenant_id);
-          await adminAuth.setCustomUserClaims(consultantData.user_id, {
-            ...currentClaims,
-            authorized_tenants: updatedTenants,
-          });
-        } catch (claimsError) {
-          console.warn('Erro ao atualizar custom claims:', claimsError);
-        }
+        const result = await syncConsultantAuthorizedTenants(
+          consultantData.user_id,
+          tenant_id,
+          'add'
+        );
+        claimsSynced = result.synced;
       }
 
       return NextResponse.json({
         success: true,
         auto_linked: true,
+        claims_synced: claimsSynced,
         message: 'Vínculo estabelecido com sucesso',
       });
     }

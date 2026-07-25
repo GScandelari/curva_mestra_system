@@ -239,49 +239,64 @@ export async function POST(req: NextRequest) {
       throw authError;
     }
 
-    // Criar documento do consultor
-    const consultantData = {
-      user_id: userId,
-      code,
-      name,
-      email: emailLower,
-      phone,
-      status: 'active',
-      authorized_tenants: [],
-      created_at: FieldValue.serverTimestamp(),
-      updated_at: FieldValue.serverTimestamp(),
-      created_by: decodedToken.uid,
-    };
-
-    const consultantRef = await adminDb.collection('consultants').add(consultantData);
-
-    // Definir Custom Claims para o usuário
-    await adminAuth.setCustomUserClaims(userId, {
-      tenant_id: null,
-      role: 'clinic_consultant' as UserRole,
-      is_system_admin: false,
-      is_consultant: true,
-      consultant_id: consultantRef.id,
-      authorized_tenants: [],
-      active: true,
-      requirePasswordChange: true,
-    });
-
-    // Criar documento na collection users
-    await adminDb
-      .collection('users')
-      .doc(userId)
-      .set({
+    // Criar documento do consultor, claims e documento em users -- se qualquer
+    // etapa falhar aqui, o usuário do Firebase Auth já criado acima fica
+    // órfão (ocupa o e-mail, sem doc correspondente) a menos que seja revertido.
+    let consultantRef: FirebaseFirestore.DocumentReference;
+    try {
+      const consultantData = {
+        user_id: userId,
+        code,
+        name,
         email: emailLower,
-        full_name: name,
         phone,
-        role: 'clinic_consultant' as UserRole,
-        tenant_id: null,
-        active: true,
-        requirePasswordChange: true,
+        status: 'active',
+        authorized_tenants: [],
         created_at: FieldValue.serverTimestamp(),
         updated_at: FieldValue.serverTimestamp(),
+        created_by: decodedToken.uid,
+      };
+
+      consultantRef = await adminDb.collection('consultants').add(consultantData);
+
+      // Definir Custom Claims para o usuário
+      await adminAuth.setCustomUserClaims(userId, {
+        tenant_id: null,
+        role: 'clinic_consultant' as UserRole,
+        is_system_admin: false,
+        is_consultant: true,
+        consultant_id: consultantRef.id,
+        authorized_tenants: [],
+        active: true,
+        requirePasswordChange: true,
       });
+
+      // Criar documento na collection users
+      await adminDb
+        .collection('users')
+        .doc(userId)
+        .set({
+          email: emailLower,
+          full_name: name,
+          phone,
+          role: 'clinic_consultant' as UserRole,
+          tenant_id: null,
+          active: true,
+          requirePasswordChange: true,
+          created_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp(),
+        });
+    } catch (postCreateError) {
+      await adminAuth
+        .deleteUser(userId)
+        .catch((deleteError) =>
+          console.error(
+            `[POST /api/consultants] falha ao reverter usuário órfão ${userId}:`,
+            deleteError
+          )
+        );
+      throw postCreateError;
+    }
 
     // Enviar e-mail de boas-vindas via fila
     try {
