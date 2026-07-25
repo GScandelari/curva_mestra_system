@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Inventário
-**Versão:** 1.1
+**Versão:** 1.2
 
-> Um usuário da clínica insere manualmente, produto a produto, uma nota fiscal sem XML disponível — para produtos Rennova (buscados no catálogo master) ou de outras marcas (cadastro livre). É o fluxo irmão do UC-10 (Importar NF-e via Upload de XML), compartilhando a mesma tela de entrada (`/clinic/add-products`) e a mesma função de checagem de duplicidade por número de NF, mas com um caminho de gravação totalmente separado no código — inclusive com divergências de schema confirmadas em relação ao UC-10 (ver seções 9 e 14).
+> Um usuário da clínica insere manualmente, produto a produto, uma nota fiscal sem XML disponível — para produtos Rennova (buscados no catálogo master) ou de outras marcas (cadastro livre). É o fluxo irmão do UC-10 (Importar NF-e via Upload de XML), compartilhando a mesma tela de entrada (`/clinic/add-products`) e a mesma função de checagem de duplicidade por número de NF, mas com um caminho de gravação totalmente separado no código — inclusive com divergências de schema que existiam em relação ao UC-10 (ver seções 9 e 14) e que foram corrigidas na v1.2 (commit `216b3a0`), junto com a restrição de acesso a `clinic_admin` (ver seção 2.1).
 
 ---
 
@@ -15,7 +15,7 @@
 
 ```mermaid
 flowchart LR
-    ClinicUser([👤 Clinic Admin / Clinic User\n⚠️ ver nota sobre ator, seção 2.1])
+    ClinicAdmin([👤 Clinic Admin\n✅ único ator desde o commit 216b3a0])
     MasterCatalog([🔧 Catálogo Master\nmaster_products — só p/ Rennova])
 
     subgraph Sistema["Curva Mestra"]
@@ -23,7 +23,7 @@ flowchart LR
         UC11(("UC-11\nInserir Nota Fiscal\nManualmente"))
     end
 
-    ClinicUser --> UC11
+    ClinicAdmin --> UC11
     UC11 -.->|busca produto por código, se Rennova| MasterCatalog
     UC11 -.->|opção "Importar XML da NF-e" redireciona para| UC10
 ```
@@ -33,7 +33,7 @@ flowchart LR
 ## 2. Atores
 
 ### 2.1 Ator Primário
-**[Divergência confirmada em relação ao contexto recebido]** O contexto inicial indicava `clinic_admin` como único ator, mas `/clinic/add-products/page.tsx` **não tem nenhuma checagem de role própria** — diferente de `/clinic/upload` (UC-10), que bloqueia explicitamente qualquer usuário que não seja `clinic_admin` com uma tela de "Acesso Negado". A única restrição de acesso vem do layout do grupo de rotas `(clinic)` (`src/app/(clinic)/layout.tsx`), que usa `ProtectedRoute allowedRoles={['clinic_admin', 'clinic_user']}` — ou seja, **hoje um `clinic_user` também consegue acessar e completar este fluxo por inteiro**, ao contrário do UC-10. Documentado como está (não corrigido); ver seção 14.
+**Clinic Admin** — **[CORRIGIDO no commit `216b3a0`]** Até a v1.1 deste documento, `/clinic/add-products/page.tsx` não tinha nenhuma checagem de role própria — diferente de `/clinic/upload` (UC-10), que já bloqueava explicitamente qualquer usuário que não fosse `clinic_admin`. A única restrição de acesso vinha do layout do grupo de rotas `(clinic)` (`src/app/(clinic)/layout.tsx`), que usa `ProtectedRoute allowedRoles={['clinic_admin', 'clinic_user']}` — na prática, um `clinic_user` conseguia acessar e completar este fluxo por inteiro. A página ganhou a mesma checagem `isAdmin = claims?.role === 'clinic_admin'` já usada em UC-10, com um early-return que exibe um componente `Alert` destrutivo — "Acesso Negado" / "Apenas administradores podem inserir notas fiscais manualmente" — para qualquer papel diferente de `clinic_admin`. Hoje, `clinic_user` não consegue mais acessar nem completar este fluxo, alinhado a UC-10 (ver Fluxo de Exceção 8g).
 
 ### 2.2 Atores Secundários / Sistemas Externos
 **Catálogo master de produtos (`master_products`)** — consultado apenas quando o tipo escolhido é "Rennova"; produtos de "outra marca" não passam por nenhum catálogo, são cadastro totalmente livre.
@@ -41,7 +41,7 @@ flowchart LR
 ---
 
 ## 3. Pré-condições
-- Usuário autenticado com role `clinic_admin` ou `clinic_user` (ver divergência na seção 2.1) e `tenant_id` definido.
+- Usuário autenticado com role `clinic_admin` (**[CORRIGIDO no commit `216b3a0`]** — até a v1.1, `clinic_user` também conseguia completar o fluxo; ver seção 2.1) e `tenant_id` definido.
 - Usuário possui em mãos os dados da nota fiscal e de cada produto — não precisa do arquivo XML.
 
 ---
@@ -50,7 +50,7 @@ flowchart LR
 
 ### 4.1 Sucesso (Garantias de Sucesso)
 - Um documento é criado em `tenants/{tenantId}/nf_imports`, com `status: "success"`, `origem: "manual"`, `tipo` (`"rennova"`/`"outra_marca"`), e o array completo de `produtos` embutido no próprio documento da NF — gravado atomicamente junto com os itens de inventário via `writeBatch` (RN-07, **[CORRIGIDO]** no commit `16877f1`).
-- Cada produto é gravado como um documento individual em `tenants/{tenantId}/inventory` (via `doc()` + `batch.set()`, não mais `addDoc` — RN-07, **[CORRIGIDO]**), referenciando a NF pelo campo `nf_import_id` (não `nf_id`, diferente de UC-10 — RN-11).
+- Cada produto é gravado como um documento individual em `tenants/{tenantId}/inventory` (via `doc()` + `batch.set()`, não mais `addDoc` — RN-07, **[CORRIGIDO]**), referenciando a NF pelo campo `nf_id` (agora igual ao valor de `nf_import_id`, mantido como alias — RN-11, **[CORRIGIDO]** no commit `216b3a0`).
 
 ### 4.2 Falha (Garantias Mínimas)
 - Se bloqueado por duplicidade, nenhuma gravação ocorre.
@@ -65,7 +65,7 @@ Usuário acessa `/clinic/add-products` e percorre o wizard de 4 passos até conf
 
 ## 6. Fluxo Principal (Basic Flow)
 
-1. Usuário acessa `/clinic/add-products`. Sistema exibe o Passo 1: "Selecione o tipo de produto" — "Adicionar Produtos Rennova" ou "Adicionar Outras Marcas".
+1. Usuário acessa `/clinic/add-products`. **[CORRIGIDO no commit `216b3a0`]** Sistema verifica `claims?.role === 'clinic_admin'` (`isAdmin`); se falso, exibe um `Alert` destrutivo — "Acesso Negado" / "Apenas administradores podem inserir notas fiscais manualmente" — e interrompe o fluxo (early-return, sem renderizar nenhum passo do wizard) — ver Fluxo de Exceção 8g. Se `isAdmin`, sistema exibe o Passo 1: "Selecione o tipo de produto" — "Adicionar Produtos Rennova" ou "Adicionar Outras Marcas".
 2. Se o usuário escolher "Rennova", sistema exibe o sub-passo "Como deseja adicionar os produtos Rennova?": "Inserção Manual" (este UC) ou "Importar XML da NF-e" (redireciona para `/clinic/upload`, UC-10 — ver Fluxo Alternativo 7a). Se escolher "Outras Marcas", o sistema pula direto para o Passo 2 (XML não é oferecido para outras marcas, pois o catálogo master é exclusivamente Rennova — RN-05).
 3. Passo 2: usuário informa o número da NF (campo de texto livre, sem validação de formato — RN-08) e clica em "Continuar" (só valida que o campo não está vazio; **não verifica duplicidade neste momento** — RN-06/seção 14).
 4. Passo 3 ("Produtos"): sistema exibe um resumo da NF (número, tipo) e a lista de produtos já adicionados (inicialmente vazia). Usuário clica em "Adicionar Produto", abrindo um Dialog:
@@ -78,8 +78,8 @@ Usuário acessa `/clinic/add-products` e percorre o wizard de 4 passos até conf
 6. Passo 4 ("Revisão"): sistema exibe a NF, a tabela completa de produtos com valor total calculado, e um aviso de que a ação não pode ser desfeita automaticamente.
 7. Usuário clica em "Confirmar e Salvar".
 8. **Somente agora** o sistema chama `checkNumeroNFStatus(tenantId, numeroNF, "manual")` — se bloqueado, exibe o motivo (Fluxo de Exceção 8d).
-9. Se não bloqueado, sistema remove campos `undefined` do array de produtos (o Firestore não os aceita), abre um `writeBatch(db)` e monta, via `doc(collection(db, 'tenants/{tenantId}/nf_imports'))`, a referência do documento da NF com `tenant_id`, `numero_nf`, `origem: "manual"`, `tipo`, `produtos` (array completo), `status: "success"`, `created_by: user?.email` (e-mail, não UID — RN-09), timestamps — adicionado ao batch via `batch.set(nfRef, nfData)` (RN-07, **[CORRIGIDO]** no commit `16877f1`; antes era um `addDoc` imediato, fora de qualquer batch).
-10. Sistema então, no mesmo laço `for` percorrendo os produtos, cria uma referência (`doc(collection(db, 'tenants/{tenantId}/inventory'))`) para cada produto e a adiciona ao mesmo batch via `batch.set(inventoryRef, inventoryData)` (em vez de `addDoc` individual — RN-07, **[CORRIGIDO]**): `tenant_id`, `nf_import_id`, `nf_numero`, `master_product_id`/`produto_id`, `codigo_produto`, `nome_produto`, `category`, `lote`, `quantidade_inicial`/`quantidade_disponivel`, `dt_validade` (string, **não convertida** para `Timestamp` — RN-10), `valor_unitario`, `active: true`, `is_rennova`, `brand`, e os campos de fragmentação quando aplicável. Ao final do laço, um único `await batch.commit()` grava a NF e todos os itens atomicamente — se qualquer gravação falhar, o Firestore rejeita o batch inteiro e nada é persistido.
+9. Se não bloqueado, sistema remove campos `undefined` do array de produtos (o Firestore não os aceita), abre um `writeBatch(db)` e monta, via `doc(collection(db, 'tenants/{tenantId}/nf_imports'))`, a referência do documento da NF com `tenant_id`, `numero_nf`, `origem: "manual"`, `tipo`, `produtos` (array completo), `status: "success"`, `created_by: user?.uid` (**[CORRIGIDO no commit `216b3a0`]** — UID, alinhado a UC-10 — RN-09; antes gravava `user?.email`, com fallback `"unknown"`), timestamps — adicionado ao batch via `batch.set(nfRef, nfData)` (RN-07, **[CORRIGIDO]** no commit `16877f1`; antes era um `addDoc` imediato, fora de qualquer batch).
+10. Sistema então, no mesmo laço `for` percorrendo os produtos, cria uma referência (`doc(collection(db, 'tenants/{tenantId}/inventory'))`) para cada produto e a adiciona ao mesmo batch via `batch.set(inventoryRef, inventoryData)` (em vez de `addDoc` individual — RN-07, **[CORRIGIDO]**): `tenant_id`, `nf_id: nfRef.id` (**[CORRIGIDO no commit `216b3a0`]** — campo novo, mesmo valor gravado em `nf_import_id`, mantido como alias para não quebrar leitores existentes — RN-11), `nf_import_id`, `nf_numero`, `master_product_id`/`produto_id`, `codigo_produto`, `nome_produto`, `category`, `lote`, `quantidade_inicial`/`quantidade_disponivel`, `dt_validade` (**[CORRIGIDO no commit `216b3a0`]** — agora `Timestamp.fromDate(new Date(\`${produto.dt_validade}T00:00:00\`))`, mesmo tipo já gravado pela importação via XML — RN-10; antes era uma string crua do `<input type="date">`), `valor_unitario`, `active: true`, `is_rennova`, `brand`, e os campos de fragmentação quando aplicável. Ao final do laço, um único `await batch.commit()` grava a NF e todos os itens atomicamente — se qualquer gravação falhar, o Firestore rejeita o batch inteiro e nada é persistido.
 11. Sistema exibe o toast de sucesso: "Nota fiscal salva" / "NF {numero} foi salva e os produtos adicionados ao inventário", e redireciona para `/clinic/inventory`.
 12. Caso de uso é concluído com sucesso.
 
@@ -135,6 +135,11 @@ Usuário acessa `/clinic/add-products` e percorre o wizard de 4 passos até conf
 4. Usuário não tinha, nesta tela, nenhuma forma de saber quais produtos entraram e quais não — precisaria conferir manualmente em `/clinic/inventory`.
 5. **[CORRIGIDO]** No commit `16877f1`, a função `handleSaveNF` passou a usar `writeBatch(db)`: a referência do documento da NF e a de cada item de inventário são adicionadas ao mesmo batch via `batch.set()`, e um único `await batch.commit()` grava tudo atomicamente ao final. Uma falha em qualquer ponto agora rejeita o batch inteiro — não existe mais gravação parcial com status `"success"` enganoso (ver seção 6, passos 9-10, e RN-07).
 
+### 8g. [CORRIGIDO no commit `216b3a0`] Usuário não é Clinic Admin (a partir do passo 1)
+1. Usuário com role `clinic_user` (ou qualquer papel diferente de `clinic_admin`) acessa `/clinic/add-products`.
+2. Sistema exibe um `Alert` destrutivo: "Acesso Negado" / "Apenas administradores podem inserir notas fiscais manualmente" — nenhum passo do wizard é renderizado.
+3. Caso de uso é encerrado sem nenhuma ação possível. **Antes desta correção** (v1.0/v1.1), não havia nenhuma checagem de role própria nesta página — qualquer `clinic_user` completava o fluxo por inteiro (ver seção 2.1 e histórico, seção 15).
+
 ---
 
 ## 9. Regras de Negócio Relacionadas
@@ -149,9 +154,9 @@ Usuário acessa `/clinic/add-products` e percorre o wizard de 4 passos até conf
 | RN-06 | **[Confirmado, inconsistência de UX com UC-10]** A checagem de duplicidade só ocorre no **último** passo do wizard (ao clicar em "Confirmar e Salvar"), não logo após o número da NF ser informado (Passo 2). Um usuário pode preencher o número, adicionar vários produtos manualmente, revisar, e só então descobrir que a NF está bloqueada. Diferente de UC-10, que verifica a duplicidade antes até do upload do arquivo. | Inconsistência de UX confirmada por leitura do código — não corrigida nesta rodada; ver seção 14. |
 | RN-07 | **[CORRIGIDO — commit `16877f1`]** O documento em `nf_imports` era criado com `status: "success"` fixo antes de qualquer item de inventário ser gravado, e a gravação dos itens era feita em um laço de `addDoc` sequenciais — não um `writeBatch` atômico como em UC-10. Uma falha no meio do laço deixava a importação parcialmente gravada, sem nenhum mecanismo de rollback ou correção do status da NF, que permanecia `"success"` mesmo estando incompleta. Corrigido: `handleSaveNF` agora usa `writeBatch(db)` — a NF (`doc(collection(...))` + `batch.set()`) e todos os itens de inventário (mesmo padrão) são adicionados ao mesmo batch e gravados atomicamente por um único `batch.commit()`; qualquer falha rejeita o batch inteiro, sem gravação parcial. | Corrigido por leitura direta de `handleSaveNF` (commit `16877f1`) — mesmo padrão de atomicidade já usado no fluxo de importação via XML (UC-10, `writeBatch`), conforme convenção documentada no CLAUDE.md do projeto. |
 | RN-08 | O campo `numero_nf` deste fluxo é texto livre, sem nenhuma validação de formato — diferente de UC-10, onde o número vem estruturado do XML (`<nNF>`). | Confirmado — único critério é "não vazio". |
-| RN-09 | O campo `created_by` do documento da NF é gravado como o **e-mail** do usuário (`user?.email`, com fallback `"unknown"`), diferente de UC-10 (`createNFImport`), que grava o **UID** do usuário em `created_by`. | Divergência de schema confirmada por comparação direta do código dos dois fluxos — o mesmo campo tem semânticas diferentes conforme a origem da NF. |
-| RN-10 | O campo `dt_validade` gravado nos itens de inventário deste fluxo é uma **string** no formato do `<input type="date">` (ex.: `"2026-12-31"`), **não convertida** para `Timestamp` do Firestore — diferente de UC-10 (`addInventoryItems`), que grava `dt_validade` como `Timestamp.fromDate(...)`. | Divergência de schema confirmada — itens de inventário do mesmo tenant podem ter `dt_validade` em dois tipos de dado diferentes conforme a origem (XML vs. manual), o que pode quebrar telas/relatórios que esperam um `Timestamp` (ex.: ordenação por validade, alertas de vencimento). Ver seção 14. |
-| RN-11 | O campo usado para referenciar a NF de origem no item de inventário é `nf_import_id` neste fluxo, enquanto UC-10 usa `nf_id` para o mesmo propósito. | Divergência de nome de campo confirmada por comparação direta do código — qualquer consulta/relatório que dependa desse vínculo precisa tratar os dois nomes separadamente conforme a origem do item. |
+| RN-09 | **[CORRIGIDO — commit `216b3a0`]** Até a v1.1, o campo `created_by` do documento da NF era gravado como o **e-mail** do usuário (`user?.email`, com fallback `"unknown"`), diferente de UC-10 (`createNFImport`), que grava o **UID** do usuário em `created_by`. Corrigido: `nfData.created_by` agora usa `user?.uid || 'unknown'`, alinhado ao schema de UC-10. | Corrigido por leitura direta de `handleSaveNF` (`add-products/page.tsx`), commit `216b3a0`. |
+| RN-10 | **[CORRIGIDO — commit `216b3a0`]** Até a v1.1, o campo `dt_validade` gravado nos itens de inventário deste fluxo era uma **string** no formato do `<input type="date">` (ex.: `"2026-12-31"`), **não convertida** para `Timestamp` do Firestore — diferente de UC-10 (`addInventoryItems`), que grava `dt_validade` como `Timestamp.fromDate(...)`. Corrigido: `inventoryData.dt_validade` agora usa `Timestamp.fromDate(new Date(\`${produto.dt_validade}T00:00:00\`))`, mesmo tipo já gravado por `addInventoryItems`. | Corrigido por leitura direta de `handleSaveNF` (`add-products/page.tsx`), commit `216b3a0`. |
+| RN-11 | **[CORRIGIDO — commit `216b3a0`]** Até a v1.1, o campo usado para referenciar a NF de origem no item de inventário era apenas `nf_import_id` neste fluxo, enquanto UC-10 usa `nf_id` para o mesmo propósito. Corrigido: `inventoryData` ganhou o campo `nf_id: nfRef.id` (mesmo valor de `nf_import_id`, que foi mantido como alias para não quebrar leitores existentes). | Corrigido por leitura direta de `handleSaveNF` (`add-products/page.tsx`), commit `216b3a0`. |
 
 ---
 
@@ -171,15 +176,15 @@ Alta — junto com UC-10, é um dos dois mecanismos principais de entrada de est
 ---
 
 ## 12. Casos de Uso Relacionados
-- **UC-10 (Importar NF-e via Upload de XML)** é o fluxo irmão — mesma tela de entrada (`/clinic/add-products`), mesma função de checagem de duplicidade (`checkNumeroNFStatus`, "espelhada" para origem manual/xml), mas caminho de gravação totalmente separado no código, com as divergências de schema confirmadas nas RN-09 a RN-11.
+- **UC-10 (Importar NF-e via Upload de XML)** é o fluxo irmão — mesma tela de entrada (`/clinic/add-products`), mesma função de checagem de duplicidade (`checkNumeroNFStatus`, "espelhada" para origem manual/xml), mas caminho de gravação totalmente separado no código. As divergências de schema entre os dois fluxos (RN-09 a RN-11) foram corrigidas no commit `216b3a0`.
 - **"Gerenciar Catálogo Master de Produtos" (System Admin, UC ainda não mapeado)** é pré-condição indireta apenas para o ramo Rennova deste UC.
 
 ---
 
 ## 13. Referências
 - `src/app/(clinic)/clinic/add-products/page.tsx`
-- `src/app/(clinic)/layout.tsx` (`ProtectedRoute allowedRoles` — origem da divergência de ator, seção 2.1)
-- `src/app/(clinic)/clinic/upload/page.tsx` (UC-10 — destino do redirecionamento em 7a)
+- `src/app/(clinic)/layout.tsx` (`ProtectedRoute allowedRoles` — restrição de grupo de rota; a restrição específica a `clinic_admin` agora também é reforçada na própria página, ver seção 2.1 e commit `216b3a0`)
+- `src/app/(clinic)/clinic/upload/page.tsx` (UC-10 — destino do redirecionamento em 7a; mesma checagem `isAdmin` replicada em `add-products/page.tsx` no commit `216b3a0`)
 - `src/lib/services/nfImportService.ts` (`checkNumeroNFStatus`; comparação com `createNFImport`/`addInventoryItems` de UC-10)
 - `src/lib/services/inventoryService.ts` (`calcularQuantidadeInventario`)
 - `src/types/masterProduct.ts` (`getNomeCompletoMasterProduct`)
@@ -189,10 +194,10 @@ Alta — junto com UC-10, é um dos dois mecanismos principais de entrada de est
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
-1. **[Divergência confirmada, não assumida como intencional]** O ator real deste UC inclui `clinic_user`, não só `clinic_admin` como informado inicialmente — não há checagem de role própria na página, diferente de UC-10. Não confirmado se isso é intencional (talvez devesse ser restrito a `clinic_admin`, como o upload de XML) ou se é uma omissão.
+1. **[RESOLVIDO em v1.2 — commit `216b3a0`]** O ator real deste UC incluía `clinic_user` até a v1.1 (sem checagem de role própria na página). Corrigido: `add-products/page.tsx` ganhou a mesma checagem `isAdmin` já usada em UC-10, com early-return "Acesso Negado" para não-admin — ver seção 2.1 e Fluxo de Exceção 8g.
 2. **[Resolvido — commit `16877f1`]** RN-07 — `nf_imports` e os itens de inventário agora são gravados atomicamente via `writeBatch`; antes, o status `"success"` era fixado antes da gravação não atômica (`addDoc` sequencial) dos itens, sem rollback em caso de falha parcial.
 3. **[Inconsistência confirmada]** RN-06 — a checagem de duplicidade só ocorre no último passo do wizard, não logo após informar o número da NF, ao contrário de UC-10.
-4. **[Divergências de schema confirmadas, relevantes para consultas/relatórios futuros]** RN-09, RN-10, RN-11 — `created_by` (e-mail vs. UID), `dt_validade` (string vs. `Timestamp`), e nome do campo de vínculo com a NF (`nf_import_id` vs. `nf_id`) diferem entre os itens de inventário criados por UC-10 e por este UC-11.
+4. **[RESOLVIDO em v1.2 — commit `216b3a0`]** RN-09, RN-10 e RN-11 — as três divergências de schema entre os itens de inventário criados por UC-10 e por este UC-11 foram corrigidas: `created_by` agora é UID (não e-mail); `dt_validade` agora é `Timestamp` (não string); e o campo `nf_id` foi adicionado (igual a `nf_import_id`, mantido como alias). Ver seção 9.
 5. **[Nota, já registrada em UC-10]** "Gerenciar Catálogo Master de Produtos" ainda não foi mapeado como UC formal.
 
 ---
@@ -203,3 +208,4 @@ Alta — junto com UC-10, é um dos dois mecanismos principais de entrada de est
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial. Confirmado por leitura completa de `add-products/page.tsx` e do layout do grupo de rotas `(clinic)`. Identificadas, além do contexto fornecido, quatro divergências relevantes não mencionadas inicialmente: (1) o ator real inclui `clinic_user`, não só `clinic_admin`; (2) a gravação dos itens de inventário é feita via `addDoc` sequencial, não `writeBatch`, e o status da NF já é fixado como `"success"` antes da gravação — falha parcial não é refletida nem revertida (bug confirmado, RN-07); (3) a checagem de duplicidade só ocorre no último passo do wizard (RN-06); (4) três divergências de nome/tipo de campo em relação aos itens de inventário criados por UC-10 (`created_by`, `dt_validade`, `nf_import_id` vs. `nf_id` — RN-09 a RN-11). |
 | 1.1 | 20/07/2026 | Guilherme Scandelari | **Correção de bug (commit `16877f1`)**: RN-07 corrigido — `handleSaveNF` passou a usar `writeBatch(db)` para gravar o documento da NF e todos os itens de inventário atomicamente, em vez de `addDoc` sequencial com o status `"success"` fixado antes da gravação dos itens. Fluxo de Exceção 8f reescrito como histórico "[Corrigido]"; seções 4.1, 4.2, 6 (passos 9-10), 9 (RN-07), 10 (RNF-01) e 14 (item 2) atualizadas para refletir a atomicidade da gravação. Nenhuma das demais divergências confirmadas (ator, RN-06, RN-09 a RN-11) foi alterada por esta correção. |
+| 1.2 | 25/07/2026 | Guilherme Scandelari | **Correção de quatro itens de severidade Média (commit `216b3a0`)**: (1) restrição de ator — `add-products/page.tsx` ganhou a mesma checagem `isAdmin` já usada em UC-10, com early-return "Acesso Negado" para `clinic_user`/outros papéis (seção 2.1, novo Fluxo de Exceção 8g); (2) RN-09 — `created_by` passou de e-mail para UID; (3) RN-10 — `dt_validade` passou de string para `Timestamp`; (4) RN-11 — campo `nf_id` adicionado aos itens de inventário (igual a `nf_import_id`, mantido como alias). Seções 2.1, 3, 4.1, 6 (passos 1, 9, 10), 8 (novo 8g), 9 (RN-09/10/11), 13 e 14 (itens 1 e 4) atualizadas de acordo. RN-06 (checagem de duplicidade só no último passo) permanece não corrigida nesta rodada. |
