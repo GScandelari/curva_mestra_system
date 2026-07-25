@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Portal do Consultor (Vínculo com Clínicas)
-**Versão:** 1.0
+**Versão:** 1.0.1
 
-> O consultor atual de uma clínica visualiza, em `/consultant/transfer-requests`, os pedidos de outros consultores que desejam assumir suas clínicas, e pode aprová-los. A lógica de aprovação está corretamente implementada e é tecnicamente alcançável — a tela e a API funcionam. **Porém**, como documentado no UC-25, nenhum pedido chega a ser criado hoje (o gatilho de solicitação está ausente da UI) — logo, esta tela, embora funcional, está condenada a permanecer sempre vazia ("Nenhum pedido de transferência pendente") até que o UC-25 seja implementado.
+> O consultor atual de uma clínica visualiza, em `/consultant/transfer-requests`, os pedidos de outros consultores que desejam assumir suas clínicas, e pode aprová-los. A lógica de aprovação está corretamente implementada e é tecnicamente alcançável — a tela e a API funcionam. **Porém**, como documentado no UC-25, nenhum pedido chega a ser criado hoje (o gatilho de solicitação está ausente da UI) — logo, esta tela, embora funcional, está condenada a permanecer sempre vazia ("Nenhum pedido de transferência pendente") até que o UC-25 seja implementado. **Atualização (v1.0.1, commit `001671b`):** a sincronização de custom claims (RN-03), antes sem nenhum `try/catch` — o achado mais grave de atomicidade entre os três UCs deste padrão —, passou a usar o utilitário compartilhado `src/lib/services/consultantClaimsSync.ts`. Uma falha nessa etapa deixa de derrubar a resposta com 500 (mesmo com os dados já definitivamente alterados); o resultado passa a ser reportado via `claims_synced: boolean` na resposta. **Isso não resolve a dependência do UC-25** — a tela continua, na prática, sempre vazia até que o gatilho de solicitação de transferência seja implementado.
 
 ---
 
@@ -58,12 +58,12 @@ flowchart LR
 - `consultants/{consultor_solicitante}.authorized_tenants` passa a incluir o `tenant_id`.
 - `tenants/{tenant_id}.consultant_id/consultant_code/consultant_name` passam a refletir o consultor solicitante.
 - Uma notificação informativa é criada em `tenants/{tenant_id}/notifications` (`type: 'consultant_linked'`, mensagem "Consultor alterado").
-- Os custom claims de ambos os consultores (atual e solicitante) são atualizados para refletir a mudança (etapa sequencial, fora da transação — mesma janela de inconsistência de RN-03 do UC-23).
+- Os custom claims de ambos os consultores (atual e solicitante) são atualizados para refletir a mudança, via `syncConsultantAuthorizedTenants` (etapa sequencial, fora da transação — mesma janela de inconsistência de RN-03 do UC-23; RN-03 deste UC corrigida no commit `001671b`); o resultado (`claims_synced: boolean`) é retornado explicitamente na resposta.
 - Um e-mail é enfileirado para o consultor solicitante, avisando da aprovação.
 
 ### 4.2 Falha
 - Se o pedido já tiver sido processado (`status !== 'pending'`): nenhuma alteração é feita, erro 400.
-- Se o `batch` for commitado mas a sincronização de custom claims falhar depois: mesmo padrão de inconsistência parcial já documentado no UC-23 (RN-03) e no UC-24 (RN-02) — aqui, diferente do UC-24, essa etapa **não** está em `try/catch`, então uma falha aqui derruba a resposta com erro 500 mesmo com os dados do Firestore já alterados (RN-03).
+- Se o `batch` for commitado mas a sincronização de custom claims falhar depois: **[CORRIGIDO em v1.0.1, commit `001671b`]** a etapa agora está protegida pelo utilitário compartilhado `syncConsultantAuthorizedTenants`, que nunca propaga exceção — a resposta deixa de ser um 500 e passa a ser `success: true` com `claims_synced: false`, mesmo padrão agora unificado com UC-23 e UC-24 (RN-03).
 
 ---
 
@@ -83,8 +83,8 @@ Consultor atual acessa `/consultant/transfer-requests`, aba "Pendentes", e clica
 7. API valida token e permissão (`is_system_admin` OU `is_consultant && consultant_id === transferData.current_consultant_id`); verifica que `status === 'pending'`.
 8. API busca os dados do consultor solicitante e da clínica.
 9. API executa um `batch` atômico: atualiza o pedido para `status: 'approved'`; remove `tenant_id` de `authorized_tenants` do consultor atual; adiciona `tenant_id` a `authorized_tenants` do consultor solicitante; atualiza `tenants/{tenant_id}` com os dados do novo consultor; cria a notificação informativa para o `clinic_admin`.
-10. Após o commit do `batch`, API atualiza (sequencialmente, fora da transação, **sem** `try/catch`) os custom claims de ambos os consultores.
-11. API enfileira um e-mail para o consultor solicitante avisando da aprovação.
+10. Após o commit do `batch`, API chama `syncConsultantAuthorizedTenants` (utilitário compartilhado, `src/lib/services/consultantClaimsSync.ts`) para atualizar, sequencialmente e fora da transação, os custom claims de ambos os consultores — a função nunca propaga exceção; a API acumula o resultado em `claimsSynced` (RN-03, corrigido no commit `001671b`; antes, essa etapa não tinha nenhum `try/catch`).
+11. API enfileira um e-mail para o consultor solicitante avisando da aprovação, e retorna `{ success: true, claims_synced, message: 'Transferência aprovada com sucesso' }`.
 12. Sistema exibe "Transferência aprovada com sucesso" e recarrega a lista de pedidos.
 13. Caso de uso é concluído com sucesso.
 
@@ -110,8 +110,8 @@ Nenhum identificado além do fluxo principal.
 2. API retorna 403.
 
 ### 8d. Falha ao sincronizar custom claims após o batch já commitado
-1. `adminAuth.getUser`/`adminAuth.setCustomUserClaims` falha para qualquer um dos dois consultores.
-2. **Diferente do UC-24**, essa chamada não está em `try/catch` — o erro propaga, a rota captura no bloco `catch` externo e retorna 500 ao cliente, **mas os dados do Firestore já foram alterados** pelo `batch` anterior. O usuário veria uma mensagem de erro mesmo com a transferência já efetivamente realizada nos dados — inconsistência entre o que a API reporta e o que de fato ocorreu (RN-03).
+1. `adminAuth.getUser`/`adminAuth.setCustomUserClaims` falha para qualquer um dos dois consultores, dentro de `syncConsultantAuthorizedTenants`.
+2. **[CORRIGIDO em v1.0.1, commit `001671b`]** Diferente do comportamento anterior (chamada fora de `try/catch`, erro propagado, resposta 500 mesmo com os dados do Firestore já alterados), a função agora captura o erro internamente e retorna `{ synced: false, error }` sem propagar exceção. A rota retorna `success: true` com `claims_synced: false` — o usuário deixa de ver uma mensagem de erro enganosa quando a transferência já foi efetivamente realizada nos dados (RN-03).
 
 ---
 
@@ -121,7 +121,7 @@ Nenhum identificado além do fluxo principal.
 |----|-------|----------------|
 | RN-01 | A aprovação não exige nenhuma confirmação adicional na UI (nem `confirm()` nativo, diferente de praticamente todas as outras ações destrutivas/importantes documentadas neste projeto até aqui) — um único clique em "Aprovar" já executa a transferência. | Confirmado por leitura de `handleApprove` na tela — chama a API diretamente, sem diálogo de confirmação. |
 | RN-02 | Um `system_admin` também pode aprovar qualquer pedido de transferência, não apenas o consultor atual — a API não distingue a origem, apenas verifica a permissão. Não existe, porém, nenhuma tela administrativa que liste esses pedidos para o `system_admin` agir (a única tela existente é a do Portal do Consultor, filtrada por `current_consultant_id`) — um `system_admin` só conseguiria aprovar chamando a API diretamente. | Confirmado por leitura da checagem de permissão em `transfer-requests/[id]/approve/route.ts` e por grep confirmando ausência de página admin equivalente. |
-| RN-03 | **[Achado de atomicidade, mais grave que o padrão já visto]** A sincronização de custom claims após o `batch` não está protegida por `try/catch` nesta rota (diferente de UC-24) — uma falha nessa etapa resulta em erro 500 reportado ao usuário, mesmo com os documentos Firestore já definitivamente alterados pela transferência. O usuário pode acreditar que a aprovação falhou quando, na verdade, os dados já mudaram. | Confirmado por leitura literal de `POST /api/consultants/transfer-requests/[id]/approve/route.ts` — chamadas a `adminAuth.getUser`/`setCustomUserClaims` fora de qualquer `try/catch`. |
+| RN-03 | **[CORRIGIDO em v1.0.1, commit `001671b`]** A sincronização de custom claims após o `batch` — antes o achado de atomicidade mais grave dos três UCs deste padrão, por não ter nenhum `try/catch` — passou a usar o utilitário compartilhado `syncConsultantAuthorizedTenants` (`src/lib/services/consultantClaimsSync.ts`, mesmo usado por UC-23 e UC-24). Uma falha nessa etapa não propaga mais exceção; a resposta deixa de ser um 500 reportado ao usuário mesmo com os documentos Firestore já definitivamente alterados — passa a ser `success: true` com `claims_synced: false` explícito. A limitação de plataforma em si (claims fora da transação Firestore) permanece, agora de forma consistente com UC-23/UC-24. | Confirmado por diff do commit `001671b` em `src/app/api/consultants/transfer-requests/[id]/approve/route.ts` — chamadas substituídas por `syncConsultantAuthorizedTenants`, resposta inclui `claims_synced`. |
 | RN-04 | Como estabelecido no UC-25 (RN-00), este fluxo depende de um pedido `pending` que, hoje, nunca é criado — a tela `/consultant/transfer-requests` está, na prática, sempre vazia na aba "Pendentes". | Consequência direta do achado do UC-25. |
 
 ---
@@ -142,14 +142,15 @@ Nenhum identificado além do fluxo principal.
 ## 12. Casos de Uso Relacionados
 - **UC-25 (Solicitar Transferência de Clínica Já Vinculada)** — pré-condição funcional (mas hoje inatingível) deste UC.
 - **UC-27 (Rejeitar Pedido de Transferência de Clínica)** — ação alternativa disponível na mesma tela, para o mesmo pedido.
-- **UC-23 (Vincular/Alterar/Remover Consultor via Painel Admin)** — mecanismo equivalente e sempre funcional para o `system_admin`, que não depende deste ciclo de aprovação.
+- **UC-23 (Vincular/Alterar/Remover Consultor via Painel Admin)** — mecanismo equivalente e sempre funcional para o `system_admin`, que não depende deste ciclo de aprovação. Desde o commit `001671b`, ambos compartilham o mesmo utilitário `src/lib/services/consultantClaimsSync.ts` para sincronização de claims (junto com UC-24).
 
 ---
 
 ## 13. Referências
 - `src/app/(consultant)/consultant/transfer-requests/page.tsx`
 - `src/app/api/consultants/transfer-requests/route.ts` (GET)
-- `src/app/api/consultants/transfer-requests/[id]/approve/route.ts`
+- `src/app/api/consultants/transfer-requests/[id]/approve/route.ts` (alterado pelo commit `001671b` — sincronização de claims via `syncConsultantAuthorizedTenants`, RN-03)
+- `src/lib/services/consultantClaimsSync.ts` (utilitário compartilhado de sincronização de claims — RN-03, commit `001671b`)
 - `src/types/index.ts` (`ConsultantTransferRequest`)
 
 ---
@@ -157,7 +158,7 @@ Nenhum identificado além do fluxo principal.
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
 1. **[RN-04, herdado do UC-25]** Este UC só passa a ser útil na prática se o gatilho do UC-25 for implementado — decisão de produto compartilhada com aquele UC.
-2. **[RN-03]** Ausência de `try/catch` na sincronização de custom claims pode gerar mensagens de erro enganosas ao usuário (dados já alterados, mas erro reportado) — recomenda-se alinhar com o padrão mais defensivo usado no UC-24.
+2. ~~**[RN-03]** Ausência de `try/catch` na sincronização de custom claims pode gerar mensagens de erro enganosas ao usuário (dados já alterados, mas erro reportado) — recomenda-se alinhar com o padrão mais defensivo usado no UC-24.~~ **[RESOLVIDO em v1.0.1, commit `001671b`]** A rota passou a usar o utilitário compartilhado `syncConsultantAuthorizedTenants`, alinhado (e agora idêntico) ao padrão usado em UC-23/UC-24 — falha na sincronização de claims não deriva mais em 500 enganoso, é reportada via `claims_synced: false`.
 3. **[RN-01]** Ausência de confirmação antes de uma ação irreversível (troca de consultor de uma clínica) — vale avaliar se deveria haver um `confirm()` ou diálogo, como ocorre em praticamente todas as outras ações equivalentes já mapeadas no sistema.
 
 ---
@@ -167,3 +168,4 @@ Nenhum identificado além do fluxo principal.
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero. Fluxo de aprovação documentado como corretamente implementado do lado "consumidor", mas dependente do gatilho ausente identificado no UC-25 (RN-04). Identificado achado de atomicidade mais grave que o padrão já visto em UCs anteriores: falha na sincronização de custom claims pode gerar erro 500 reportado ao usuário mesmo com os dados já definitivamente alterados (RN-03), e ausência de confirmação antes de uma ação irreversível (RN-01). Terceiro de 4 UCs do módulo "Consultor — vínculo com clínicas" (UC-24 a UC-27). |
+| 1.0.1 | 24/07/2026 | Guilherme Scandelari | Correção pontual (commit `001671b`): RN-03 marcada como corrigida — a sincronização de custom claims em `POST /api/consultants/transfer-requests/[id]/approve`, antes sem nenhum `try/catch` (o achado de atomicidade mais grave dos três UCs deste padrão), passou a usar o utilitário compartilhado `src/lib/services/consultantClaimsSync.ts`; falha nessa etapa deixa de derrubar a resposta com 500 e passa a ser reportada via `claims_synced: boolean`. Seções 4.1, 4.2, 6 (passos 10-11), 8d, 9, 12, 13 e 14 atualizadas. Este UC continua, na prática, sem uso real, por dependência do gatilho ausente do UC-25 (RN-04, inalterado). |

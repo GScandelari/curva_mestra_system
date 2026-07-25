@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
 
 /**
  * POST - Aprovar reivindicação
@@ -111,18 +112,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     await batch.commit();
 
-    // 4. Atualizar custom claims do consultor
+    // 4. Atualizar custom claims do consultor -- não derruba a resposta se
+    // falhar (Firestore já é a fonte da verdade da aprovação).
+    let claimsSynced = true;
     if (consultantData?.user_id) {
-      const currentClaims = (await adminAuth.getUser(consultantData.user_id)).customClaims || {};
-      const updatedAuthorizedTenants = [...(currentClaims.authorized_tenants || [])];
-      if (!updatedAuthorizedTenants.includes(tenantId)) {
-        updatedAuthorizedTenants.push(tenantId);
-      }
-
-      await adminAuth.setCustomUserClaims(consultantData.user_id, {
-        ...currentClaims,
-        authorized_tenants: updatedAuthorizedTenants,
-      });
+      const result = await syncConsultantAuthorizedTenants(consultantData.user_id, tenantId, 'add');
+      claimsSynced = result.synced;
     }
 
     // 5. Notificar consultor
@@ -146,6 +141,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     return NextResponse.json({
       success: true,
+      claims_synced: claimsSynced,
       message: 'Vínculo aprovado com sucesso',
     });
   } catch (error: any) {
