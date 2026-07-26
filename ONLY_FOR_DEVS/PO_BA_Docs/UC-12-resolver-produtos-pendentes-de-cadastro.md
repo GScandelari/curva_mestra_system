@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Inventário
-**Versão:** 1.1
+**Versão:** 1.2
 
-> Quando um produto de uma NF-e importada via XML (UC-10) não existe no catálogo master, ele vira uma pendência visível ao System Admin em `/admin/pending-products`. Resolver a pendência hoje é uma ação puramente manual e desacoplada: o admin cadastra o produto em outra tela (sem nenhum vínculo automático com a pendência) e depois remove a pendência da fila — a remoção **não verifica** se o produto foi de fato cadastrado.
+> Quando um produto de uma NF-e importada via XML (UC-10) não existe no catálogo master, ele vira uma pendência visível ao System Admin em `/admin/pending-products`. Resolver a pendência é feito em duas ações desacopladas: o admin cadastra o produto em outra tela (sem nenhum vínculo automático com a pendência) e depois remove a pendência da fila. Desde o commit `216b3a0`, a remoção ("Marcar Resolvido") **valida** que o produto foi de fato cadastrado (e está ativo) no catálogo master antes de permitir a remoção — antes, era apenas uma limpeza de fila, sem nenhuma validação real.
 
 ---
 
@@ -28,6 +28,7 @@ flowchart LR
     UC10 -->|registra a pendência| UC12
     SystemAdmin --> UC12
     UC12 -.->|"Cadastrar Produto" leva a, sem prefill| UC31
+    UC12 -.->|"Marcar Resolvido" agora valida contra, desde 216b3a0| UC31
 ```
 
 ---
@@ -51,8 +52,8 @@ flowchart LR
 ## 4. Pós-condições
 
 ### 4.1 Sucesso — "Marcar Resolvido"
-- O documento em `pending_master_products` é deletado (`resolvePendingMasterProduct`); a linha desaparece da tela.
-- Isso **não garante**, por si só, que o produto exista no catálogo master (RN-02) — é uma ação de limpeza de fila, não uma validação.
+- **[CORRIGIDO no commit `216b3a0`]** Antes de deletar a pendência, o sistema agora busca o produto no catálogo master via `getMasterProductByCode(codigo)`; só prossegue com `resolvePendingMasterProduct` (que deleta o documento em `pending_master_products`) se o produto existir e estiver `active: true` (RN-02).
+- Se o produto não existir ou não estiver ativo, a ação é bloqueada com um toast de erro orientando o admin a cadastrar o produto primeiro — nenhuma pendência é removida nesse caso (ver Fluxo de Exceção 8c).
 
 ### 4.1b Sucesso — "Cadastrar Produto"
 - Admin é redirecionado para `/admin/products/new`, a tela de cadastro de produto do catálogo master (UC-31 — Cadastrar Produto no Catálogo Master), **sem nenhum dado pré-preenchido** (nem código, nem nome) — precisa digitar tudo manualmente, inclusive reescrever o código exibido na fila (RN-01).
@@ -86,10 +87,12 @@ Duplo, dependendo do ator:
    4. Ao concluir (ou desistir), o admin normalmente volta para `/admin/pending-products` manualmente e prossegue no passo 7b para tirar a pendência da fila.
 
 **7b. System Admin clica em "Marcar Resolvido":**
-   1. Sistema chama `resolvePendingMasterProduct(pendingId)` — um `deleteDoc` direto do documento em `pending_master_products`, **sem nenhuma verificação prévia** de que o produto foi de fato cadastrado no catálogo master (RN-02).
-   2. Sistema exibe o toast "Pendência removida" e remove a linha da tabela local (sem novo fetch).
+   1. **[CORRIGIDO no commit `216b3a0`]** Sistema chama `getMasterProductByCode(row.codigo)` para verificar se o produto já existe no catálogo master e está `active: true` (RN-02; antes, nenhuma verificação prévia era feita).
+   2. **Se o produto não existir ou não estiver ativo:** sistema exibe um toast destrutivo — "Produto ainda não cadastrado" / "Cadastre o produto de código {codigo} no catálogo master (ativo) antes de marcar esta pendência como resolvida." — e interrompe a ação; nenhuma pendência é removida (Fluxo de Exceção 8c).
+   3. **Se o produto existir e estiver ativo:** sistema chama `resolvePendingMasterProduct(pendingId)` — um `deleteDoc` direto do documento em `pending_master_products`.
+   4. Sistema exibe o toast "Pendência removida" e remove a linha da tabela local (sem novo fetch).
 
-8. **(Fora deste UC, fecha o ciclo)** Quando o Clinic Admin reenvia o mesmo XML (UC-10, Fluxo Alternativo 7a — "reenvio para completar"), o produto antes pendente é buscado novamente no catálogo master: se agora existir, é importado normalmente; se ainda não existir — inclusive se a pendência já tiver sido removida manualmente sem o cadastro real ter sido feito (RN-02) — `registerPendingMasterProducts` cria uma **pendência nova** (a antiga foi deletada, não há mais nada para deduplicar) — ver RN-03/seção 14.
+8. **(Fora deste UC, fecha o ciclo)** Quando o Clinic Admin reenvia o mesmo XML (UC-10, Fluxo Alternativo 7a — "reenvio para completar"), o produto antes pendente é buscado novamente no catálogo master: se agora existir, é importado normalmente; se ainda não existir, `registerPendingMasterProducts` cria uma **pendência nova** (a antiga foi deletada, não há mais nada para deduplicar) — ver RN-03/seção 14. **[Atualizado — commit `216b3a0`]** A partir desta correção, "Marcar Resolvido" já não permite mais remover uma pendência sem o produto estar cadastrado e ativo (RN-02); a única forma de RN-03 ainda se manifestar hoje é se o produto for posteriormente desativado no catálogo master (UC-32) depois da pendência já ter sido resolvida validamente.
 
 ---
 
@@ -114,6 +117,12 @@ Duplo, dependendo do ator:
 2. Sistema exibe toast: "Erro" / "Não foi possível remover a pendência".
 3. A linha permanece na tabela.
 
+### 8c. [CORRIGIDO no commit `216b3a0`] Tentativa de "Marcar Resolvido" sem o produto cadastrado/ativo no catálogo master (a partir do passo 7b)
+1. System Admin clica em "Marcar Resolvido" para uma pendência cujo `codigo` ainda não corresponde a nenhum produto `active: true` em `master_products`.
+2. Sistema chama `getMasterProductByCode(codigo)`; o produto não existe, ou existe mas está inativo.
+3. Sistema exibe toast destrutivo: "Produto ainda não cadastrado" / "Cadastre o produto de código {codigo} no catálogo master (ativo) antes de marcar esta pendência como resolvida."
+4. Nenhuma alteração ocorre — a pendência permanece na fila. **Antes desta correção**, esta validação não existia: "Marcar Resolvido" removia a pendência incondicionalmente (ver histórico, seção 15, v1.0/1.1).
+
 ---
 
 ## 9. Regras de Negócio Relacionadas
@@ -121,8 +130,8 @@ Duplo, dependendo do ator:
 | ID | Regra | Justificativa |
 |----|-------|----------------|
 | RN-01 | O botão "Cadastrar Produto" não carrega nenhum dado da pendência na tela de cadastro (`/admin/products/new`, UC-31) — nenhum parâmetro de URL, nenhum prefill de código ou nome. O admin precisa copiar manualmente o código (e demais dados) exibidos na fila. | Confirmado por leitura do handler (`router.push('/admin/products/new')` sem argumentos) e da própria tela de cadastro (sem leitura de `searchParams`) — reconfirmado durante o mapeamento de UC-31 (RN-04 daquele UC). |
-| RN-02 | **[Sinalizado explicitamente pelo usuário]** "Marcar Resolvido" é uma ação de limpeza de fila, não uma validação — `resolvePendingMasterProduct` apenas deleta o documento da pendência, sem consultar `master_products` para confirmar que o produto com aquele código de fato existe. Um admin pode marcar como resolvido por engano (ou antes de terminar o cadastro), e a pendência desaparece da fila mesmo que o produto continue inexistente no catálogo. | Confirmado por leitura direta de `pendingMasterProductService.resolvePendingMasterProduct` — `deleteDoc` puro, nenhuma leitura prévia de `master_products`. |
-| RN-03 | **[Consequência confirmada da combinação RN-02 + UC-10]** Se uma pendência for removida manualmente sem o produto ter sido de fato cadastrado, e o Clinic Admin reenviar o mesmo XML depois, `registerPendingMasterProducts` não encontra mais nenhuma pendência prévia para aquele (`tenant_id`, `nf_id`, `codigo`) — logo, cria uma pendência **nova** em vez de perceber que já houve uma tentativa anterior. Não há nenhum histórico do que já esteve pendente e foi removido sem resolução real. | Consequência lógica confirmada pela combinação do comportamento de `resolvePendingMasterProduct` (RN-02) com a deduplicação de `registerPendingMasterProducts` (que só evita duplicar pendências que **ainda existem**, não as já deletadas). |
+| RN-02 | **[CORRIGIDO — commit `216b3a0`]** Até a v1.1, "Marcar Resolvido" era uma ação de limpeza de fila pura — `resolvePendingMasterProduct` apenas deletava o documento da pendência, sem consultar `master_products` para confirmar que o produto com aquele código de fato existia (e estava ativo). Um admin podia marcar como resolvido por engano (ou antes de terminar o cadastro), e a pendência desaparecia da fila mesmo que o produto continuasse inexistente no catálogo. Corrigido: `handleResolve` (que passou a receber também o `codigo` do produto pendente) agora chama `getMasterProductByCode(codigo)` antes de prosseguir; se o produto não existir ou não estiver `active: true`, a ação é bloqueada com um toast de erro, e `resolvePendingMasterProduct` só é chamado quando a validação passa. | Corrigido por leitura direta de `handleResolve` (`pending-products/page.tsx`), commit `216b3a0` — usa a função já existente `getMasterProductByCode` (`masterProductService.ts`). |
+| RN-03 | **[Consequência confirmada da combinação RN-02 + UC-10 — cenário mais estreito desde a correção de RN-02 no commit `216b3a0`]** Se uma pendência for removida sem o produto ter sido de fato cadastrado, e o Clinic Admin reenviar o mesmo XML depois, `registerPendingMasterProducts` não encontra mais nenhuma pendência prévia para aquele (`tenant_id`, `nf_id`, `codigo`) — logo, cria uma pendência **nova** em vez de perceber que já houve uma tentativa anterior. Não há nenhum histórico do que já esteve pendente e foi removido sem resolução real. Desde a correção de RN-02, este cenário só pode ocorrer se o produto for cadastrado, a pendência resolvida validamente, e depois desativado no catálogo master (UC-32) — não mais por uma resolução prematura sem cadastro algum. | Consequência lógica confirmada pela combinação do comportamento de `resolvePendingMasterProduct` (RN-02) com a deduplicação de `registerPendingMasterProducts` (que só evita duplicar pendências que **ainda existem**, não as já deletadas). Escopo reavaliado após a correção de RN-02 no commit `216b3a0`. |
 | RN-04 | A dedução de "pendência já existe" em `registerPendingMasterProducts` (usada em UC-10) é por igualdade exata de (`tenant_id`, `nf_id`, `codigo`) — a mesma NF reenviada várias vezes com o mesmo produto ausente não cria pendências duplicadas, mas o mesmo produto ausente em NFs diferentes (`nf_id` diferente) do mesmo tenant gera uma pendência por NF. | Confirmado por leitura de `registerPendingMasterProducts` (query com os três campos). |
 | RN-05 | A coleção `pending_master_products` é top-level (fora do padrão `tenants/{tenantId}/...`), com regra de segurança própria: qualquer usuário do próprio tenant pode criar uma pendência para si mesmo (`belongsToTenant(tenant_id)`), mas só o `system_admin` pode ler, atualizar ou deletar — nenhum `clinic_admin`/`clinic_user` consegue ver a fila de pendências, nem a própria, através das regras do Firestore (a única forma de um `clinic_admin` saber que há uma pendência é pela mensagem de erro exibida em UC-10, na própria tela de upload). | Confirmado em `firestore.rules` — isolamento deliberado: a fila de pendências é uma ferramenta exclusiva do System Admin. |
 | RN-06 | A listagem é sempre cross-tenant e sem paginação (`listPendingMasterProducts` busca a coleção inteira, ordenada por `created_at`) — não há filtro por clínica, por NF, nem por período na tela. | Confirmado pela ausência de qualquer campo de filtro/busca ou parâmetro de paginação no componente. |
@@ -146,14 +155,15 @@ Ocasional — depende de quantos produtos novos (ainda não cadastrados no catá
 
 ## 12. Casos de Uso Relacionados
 - **UC-10 (Importar NF-e via Upload de XML)** é pré-condição — é onde a pendência nasce (RN-07 daquele UC), e é para onde o ciclo retorna quando o Clinic Admin reenvia o XML após o cadastro.
-- **UC-31 (Cadastrar Produto no Catálogo Master)** é o passo intermediário real (fora deste UC) entre ver a pendência e resolvê-la de fato — sem nenhuma integração/vínculo automático com este UC-12 (RN-01).
-- **UC-32 (Editar, Ativar e Desativar Produto no Catálogo Master)** — se o produto pendente já existir no catálogo mas desativado, ou precisar de correção antes de "casar" com o XML na reimportação, é resolvido por aquele UC, não por este.
+- **UC-31 (Cadastrar Produto no Catálogo Master)** é o passo intermediário real (fora deste UC) entre ver a pendência e resolvê-la de fato — sem nenhuma integração/vínculo automático com este UC-12 (RN-01), mas desde o commit `216b3a0` é a fonte consultada por `getMasterProductByCode` para validar "Marcar Resolvido" (RN-02).
+- **UC-32 (Editar, Ativar e Desativar Produto no Catálogo Master)** — se o produto pendente já existir no catálogo mas desativado, ou precisar de correção antes de "casar" com o XML na reimportação, é resolvido por aquele UC, não por este; também é o UC que pode reabrir o cenário de RN-03 se um produto já validado por "Marcar Resolvido" for desativado depois.
 
 ---
 
 ## 13. Referências
 - `src/app/(admin)/admin/pending-products/page.tsx`
 - `src/lib/services/pendingMasterProductService.ts`
+- `src/lib/services/masterProductService.ts` (`getMasterProductByCode` — usada pela validação de RN-02 desde o commit `216b3a0`)
 - `src/app/(admin)/layout.tsx` (`ProtectedRoute allowedRoles`)
 - `src/lib/services/tenantServiceDirect.ts` (`getTenant`)
 - `src/types/pendingMasterProduct.ts`
@@ -164,8 +174,8 @@ Ocasional — depende de quantos produtos novos (ainda não cadastrados no catá
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
-1. **[Confirmado, sinalizado explicitamente pelo usuário]** RN-02 — "Marcar Resolvido" não valida o cadastro real do produto; é uma limpeza de fila manual, não uma verificação.
-2. **[Consequência confirmada]** RN-03 — remover uma pendência sem o produto ter sido cadastrado leva à criação de uma pendência nova (não reaproveitada) no próximo reenvio do XML, sem histórico do que já ocorreu.
+1. **[RESOLVIDO em v1.2 — commit `216b3a0`]** RN-02 — "Marcar Resolvido" agora valida, via `getMasterProductByCode`, que o produto foi de fato cadastrado e está ativo no catálogo master antes de remover a pendência da fila; antes, era uma limpeza pura, sem nenhuma verificação real.
+2. **[Consequência confirmada, escopo reduzido após a correção de RN-02]** RN-03 — remover uma pendência sem o produto ter sido cadastrado levava à criação de uma pendência nova (não reaproveitada) no próximo reenvio do XML. Desde o commit `216b3a0`, esse cenário só pode ocorrer se o produto for desativado (UC-32) depois de uma resolução já validada — não mais por uma resolução prematura.
 3. **[Observação]** RN-01 — nenhum prefill entre a fila de pendências e a tela de cadastro (UC-31); poderia reduzir erro de digitação de código se implementado, mas não foi pedido para corrigir nesta rodada.
 
 ---
@@ -176,3 +186,4 @@ Ocasional — depende de quantos produtos novos (ainda não cadastrados no catá
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, mapeada a partir de contexto detalhado fornecido pelo usuário e confirmada por leitura direta e completa de `pending-products/page.tsx`, `pendingMasterProductService.ts`, `firestore.rules` (regra de `pending_master_products`), `admin/products/new/page.tsx` (confirmado sem prefill) e do layout do grupo `(admin)`. |
 | 1.1 | 15/07/2026 | Guilherme Scandelari | Seção 1 (diagrama), 4.1b, 6 (passo 7a) e 12 atualizadas para referenciar o UC-31 (Cadastrar Produto no Catálogo Master), recém-mapeado — antes citado apenas como "UC não mapeado". Seção 12 também passou a referenciar o UC-32 (Editar/Ativar/Desativar Produto). Nenhuma mudança de escopo ou de conteúdo investigativo — apenas rastreabilidade entre documentos. |
+| 1.2 | 25/07/2026 | Guilherme Scandelari | **Correção de bug de severidade Média (commit `216b3a0`)**: RN-02 corrigido — "Marcar Resolvido" agora valida, via nova chamada a `getMasterProductByCode(codigo)`, que o produto está cadastrado e ativo no catálogo master antes de permitir a remoção da pendência; antes, era uma limpeza de fila sem nenhuma validação. Seções 1 (diagrama), 4.1, 6 (passo 7b, passo 8), 9 (RN-02, RN-03 com escopo reavaliado), 12, 13 e 14 (itens 1 e 2) atualizadas de acordo. Novo Fluxo de Exceção 8c documenta o bloqueio da ação quando o produto ainda não existe/não está ativo. |

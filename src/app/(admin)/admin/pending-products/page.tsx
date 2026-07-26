@@ -18,6 +18,7 @@ import {
   listPendingMasterProducts,
   resolvePendingMasterProduct,
 } from '@/lib/services/pendingMasterProductService';
+import { getMasterProductByCode } from '@/lib/services/masterProductService';
 import { getTenant } from '@/lib/services/tenantServiceDirect';
 import type { PendingMasterProduct } from '@/types/pendingMasterProduct';
 import { useToast } from '@/hooks/use-toast';
@@ -75,10 +76,23 @@ export default function PendingProductsPage() {
     }
   }
 
-  async function handleResolve(pendingId: string) {
+  async function handleResolve(pendingId: string, codigo: string) {
     setResolvingId(pendingId);
 
     try {
+      // Antes, "Marcar Resolvido" só apagava a pendência da fila -- sem checar
+      // se o produto realmente foi cadastrado no catálogo master, permitindo
+      // que a pendência fosse descartada sem nenhum cadastro correspondente.
+      const { product } = await getMasterProductByCode(codigo);
+      if (!product || !product.active) {
+        toast({
+          title: 'Produto ainda não cadastrado',
+          description: `Cadastre o produto de código ${codigo} no catálogo master (ativo) antes de marcar esta pendência como resolvida.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
       await resolvePendingMasterProduct(pendingId);
       toast({ title: 'Pendência removida' });
       setRows((prev) => prev.filter((r) => r.id !== pendingId));
@@ -169,7 +183,7 @@ export default function PendingProductsPage() {
                         <Button
                           size="sm"
                           variant="default"
-                          onClick={() => handleResolve(row.id)}
+                          onClick={() => handleResolve(row.id, row.codigo)}
                           disabled={resolvingId === row.id}
                         >
                           <PackageSearch className="mr-1 h-4 w-4" />

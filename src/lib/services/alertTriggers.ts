@@ -46,8 +46,11 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
     limitDate.setDate(limitDate.getDate() + warningDays);
 
     // Buscar produtos no inventário
+    // Filtra active: true -- antes, lotes ja desativados (UC-13) ainda
+    // contribuiam com sua quantidade residual para os alertas.
     const inventoryRef = collection(db, `tenants/${tenantId}/inventory`);
-    const inventorySnap = await getDocs(inventoryRef);
+    const inventoryQuery = query(inventoryRef, where('active', '==', true));
+    const inventorySnap = await getDocs(inventoryQuery);
 
     results.checked = inventorySnap.size;
 
@@ -153,8 +156,11 @@ export async function checkLowStock(tenantId: string): Promise<{
     });
 
     // Buscar produtos no inventário
+    // Filtra active: true -- antes, lotes ja desativados (UC-13) ainda
+    // contribuiam com sua quantidade residual para os alertas.
     const inventoryRef = collection(db, `tenants/${tenantId}/inventory`);
-    const inventorySnap = await getDocs(inventoryRef);
+    const inventoryQuery = query(inventoryRef, where('active', '==', true));
+    const inventorySnap = await getDocs(inventoryQuery);
 
     results.checked = inventorySnap.size;
 
@@ -258,8 +264,11 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
     today.setHours(0, 0, 0, 0);
 
     // Buscar produtos no inventário
+    // Filtra active: true -- antes, lotes ja desativados (UC-13) ainda
+    // contribuiam com sua quantidade residual para os alertas.
     const inventoryRef = collection(db, `tenants/${tenantId}/inventory`);
-    const inventorySnap = await getDocs(inventoryRef);
+    const inventoryQuery = query(inventoryRef, where('active', '==', true));
+    const inventorySnap = await getDocs(inventoryQuery);
 
     results.checked = inventorySnap.size;
 

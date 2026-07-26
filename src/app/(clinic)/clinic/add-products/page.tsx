@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Table,
   TableBody,
@@ -33,8 +34,9 @@ import {
   getDocs,
   serverTimestamp,
   writeBatch,
+  Timestamp,
 } from 'firebase/firestore';
-import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, AlertCircle } from 'lucide-react';
 import { calcularQuantidadeInventario } from '@/lib/services/inventoryService';
 import { checkNumeroNFStatus } from '@/lib/services/nfImportService';
 import { getNomeCompletoMasterProduct } from '@/types/masterProduct';
@@ -69,7 +71,8 @@ interface NFProduct {
 export default function ManualNFPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, tenantId } = useAuth();
+  const { user, tenantId, claims } = useAuth();
+  const isAdmin = claims?.role === 'clinic_admin';
 
   const [step, setStep] = useState<
     'select_type' | 'select_method' | 'enter_nf' | 'add_products' | 'review'
@@ -117,6 +120,23 @@ export default function ManualNFPage() {
     );
     setFilteredProducts(filtered);
   }, [productSearch, masterProducts]);
+
+  // Mesma restricao ja aplicada em clinic/upload/page.tsx (UC-10) -- antes,
+  // qualquer clinic_user conseguia completar este fluxo e gravar NF + itens
+  // de inventario, sem nenhuma checagem de role.
+  if (!isAdmin) {
+    return (
+      <div className="container py-8">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Acesso Negado</AlertTitle>
+          <AlertDescription>
+            Apenas administradores podem inserir notas fiscais manualmente
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   const handleSelectType = (type: 'rennova' | 'outra_marca') => {
     setTipoNF(type);
@@ -359,7 +379,9 @@ export default function ManualNFPage() {
         tipo: tipoNF,
         produtos: produtosSanitizados,
         status: 'success',
-        created_by: user?.email || 'unknown',
+        // uid (nao e-mail) -- alinhado ao padrao ja usado na importacao via XML
+        // (UC-10), que grava created_by como o uid do usuario.
+        created_by: user?.uid || 'unknown',
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       };
@@ -368,6 +390,10 @@ export default function ManualNFPage() {
       for (const produto of produtos) {
         const inventoryData: Record<string, any> = {
           tenant_id: tenantId,
+          // nf_id (nao nf_import_id) -- alinhado ao schema gravado pela
+          // importacao via XML (addInventoryItems, inventoryService.ts);
+          // nf_import_id mantido como alias para nao quebrar leitores existentes.
+          nf_id: nfRef.id,
           nf_import_id: nfRef.id,
           nf_numero: numeroNF,
           master_product_id: produto.master_product_id || null,
@@ -378,7 +404,9 @@ export default function ManualNFPage() {
           lote: produto.lote,
           quantidade_inicial: produto.quantidade,
           quantidade_disponivel: produto.quantidade,
-          dt_validade: produto.dt_validade,
+          // Timestamp (nao string) -- mesmo tipo gravado pela importacao via XML;
+          // produto.dt_validade vem de <input type="date"> no formato YYYY-MM-DD.
+          dt_validade: Timestamp.fromDate(new Date(`${produto.dt_validade}T00:00:00`)),
           dt_entrada: serverTimestamp(),
           valor_unitario: produto.valor_unitario,
           active: true,

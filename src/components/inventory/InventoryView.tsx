@@ -47,7 +47,11 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { type InventoryItem } from '@/lib/services/inventoryService';
-import { getStatusEstoque, type StatusEstoque } from '@/lib/inventoryUtils';
+import {
+  getStatusEstoque,
+  agruparProdutosPorCodigo,
+  type StatusEstoque,
+} from '@/lib/inventoryUtils';
 
 interface InventoryViewProps {
   tenantId: string;
@@ -210,14 +214,14 @@ export function InventoryView({
     ? inventory.filter((item) => item.brand === onlyBrand)
     : inventory;
 
-  // Quantidade total por codigo_produto (soma de todos os lotes)
-  const totalByCode = new Map<string, number>();
-  for (const item of baseInventory) {
-    totalByCode.set(
-      item.codigo_produto,
-      (totalByCode.get(item.codigo_produto) ?? 0) + item.quantidade_disponivel
-    );
-  }
+  // Agrupamento por codigo_produto (mesma função usada no relatório de estoque,
+  // reportService.ts) -- fonte única de verdade para "quantos produtos
+  // distintos" e "quantidade total por produto", evitando a divergência de
+  // UC-50-RN-01 (esta tela antes contava documentos de lote, não produtos).
+  const produtosAgrupados = agruparProdutosPorCodigo(baseInventory);
+  const totalByCode = new Map<string, number>(
+    produtosAgrupados.map((p) => [p.codigo_produto, p.quantidade_total])
+  );
 
   const getItemStatus = (item: InventoryItem) =>
     getStatusEstoque({
@@ -335,7 +339,9 @@ export function InventoryView({
               <CardTitle className="text-sm font-medium">Total de Produtos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{baseInventory.length}</div>
+              {/* Produtos distintos (mesmo critério da tela de Relatórios/UC-47) --
+                  antes contava documentos de lote, divergindo do rótulo. */}
+              <div className="text-2xl font-bold">{produtosAgrupados.length}</div>
             </CardContent>
           </Card>
           <Card>
