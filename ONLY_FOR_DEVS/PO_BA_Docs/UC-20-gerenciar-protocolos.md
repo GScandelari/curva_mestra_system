@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Procedimentos
-**Versão:** 1.0
+**Versão:** 1.0.1
 
 > Um Clinic Admin cria, edita e remove (soft delete) protocolos — combinações pré-definidas de produtos e quantidades sugeridas, reutilizadas em UC-16/UC-17 para pré-preencher procedimentos recorrentes. As três ações compartilham o mesmo componente de formulário (`ProtocoloForm`) e o mesmo catálogo de sugestão de produtos (`getHistoricalProducts`, que lista **todo** produto já visto no inventário do tenant, independente de estar ativo ou com estoque disponível). Remover é sempre soft delete (`active: false`); protocolos já usados em procedimentos anteriores não são afetados, pois cada procedimento guarda apenas o nome/id do protocolo, não uma referência viva aos seus itens.
 
@@ -139,7 +139,7 @@ Clinic Admin acessa `/clinic/protocolos` e clica em "Novo Protocolo", no ícone 
 | RN-04 | **[Confirmado]** Editar um protocolo só afeta aplicações **futuras** dele (a partir de UC-16/UC-17, Fluxo Alternativo "Aplicar um protocolo pré-definido" daqueles UCs) — como a aplicação lê `protocolo.itens` diretamente do documento no momento em que o usuário seleciona o protocolo na tela de criação de procedimento, qualquer edição feita antes dessa seleção já vale; qualquer edição feita depois de um procedimento já criado não tem efeito retroativo nenhum sobre ele (RN-03). | Confirmado pela ausência de qualquer mecanismo de versionamento ou snapshot — a aplicação sempre lê o estado atual do documento `protocolos`. |
 | RN-05 | **[Confirmado, nuance relevante]** `getHistoricalProducts` não filtra por `active` nem por `quantidade_disponivel > 0` — retorna todo código de produto que **já esteve** no inventário do tenant em algum momento, incluindo produtos hoje inativos, esgotados ou vencidos. Um protocolo pode, portanto, ser criado ou editado incluindo um produto que hoje não tem nenhum estoque disponível — nesse caso, ao ser aplicado (UC-16/UC-17), esse item específico do protocolo é silenciosamente omitido ou alocado parcialmente (mesmo comportamento já documentado em UC-16, RN-09). | Confirmado por leitura literal de `getHistoricalProducts` — nenhum filtro de status é aplicado à consulta. |
 | RN-06 | Não há validação de nome duplicado entre protocolos — dois (ou mais) protocolos do mesmo tenant podem ter exatamente o mesmo nome. | Confirmado pela ausência de qualquer checagem de unicidade em `createProtocolo`. |
-| RN-07 | **[Mesmo padrão já visto em UC-11/13/14/15]** A restrição de que só `clinic_admin` cria/edita/remove protocolos é aplicada somente na interface (`useEffect` de redirecionamento nas páginas `novo`/`[id]`, e ocultação condicional de botões na listagem) — não existe uma regra dedicada do Firestore para a coleção `protocolos`; ela cai na regra genérica de `tenants/{tenantId}/{document=**}` (`belongsToTenant`), que permite leitura e escrita a qualquer usuário do tenant, incluindo `clinic_user`. | Confirmado pela ausência de qualquer `match /protocolos/` em `firestore.rules`. |
+| RN-07 | **[Mesmo padrão já visto em UC-11/13/14/15]** A restrição de que só `clinic_admin` cria/edita/remove protocolos é aplicada somente na interface (`useEffect` de redirecionamento nas páginas `novo`/`[id]`, e ocultação condicional de botões na listagem) — não existe uma regra dedicada do Firestore para a coleção `protocolos`; ela cai na regra genérica de `tenants/{tenantId}/{document=**}` (`belongsToTenant`), que permite leitura e escrita a qualquer usuário do tenant, incluindo `clinic_user`. **[Ressalva adicionada em 25/07/2026, investigação sem correção de código]**: mesmo que uma regra dedicada para `protocolos` fosse criada exigindo `role == 'clinic_admin'` para `create`/`update`/`delete` (mesma ideia já aplicada a `notifications` em UC-42/RN-01), ela seria hoje inefetiva na prática — a mesma regra genérica de subcoleção do tenant (`tenants/{tenantId}/{document=**}`) já concede leitura e escrita irrestritas a **qualquer** usuário do tenant via semântica OR do Firestore (regras que casam o mesmo caminho são combinadas com OR, não com "mais específica vence"). Ou seja, a ausência de regra dedicada não é, isoladamente, a causa raiz: mesmo com uma regra dedicada nova, um `clinic_user` ainda poderia criar/editar/remover um protocolo chamando o Firestore diretamente, fora da UI que restringe essas ações a `clinic_admin`. A proteção real hoje é só o gate de UI. Ver achado de severidade Alta consolidado no mapa de bugs (UC-13-RN-09/UC-15-RN-07) para o contexto completo e a decisão de adiar a correção — não corrigida nesta rodada. | Confirmado pela ausência de qualquer `match /protocolos/` em `firestore.rules`; ressalva confirmada por releitura de `firestore.rules` (regra genérica de subcoleção do tenant, linhas 58-67) e cross-referência com o achado consolidado `UC-13-RN-09 / UC-15-RN-07`. |
 
 ---
 
@@ -161,6 +161,7 @@ Ocasional — protocolos são criados/ajustados esporadicamente; o uso frequente
 ## 12. Casos de Uso Relacionados
 - **UC-16 (Registrar Procedimento Programado)** e **UC-17 (Registrar Procedimento Efetuado)** são os consumidores reais dos protocolos criados/editados aqui — via o Fluxo Alternativo "Aplicar um protocolo pré-definido" de ambos.
 - Nenhuma dependência inversa: UC-16/17 nunca modificam um protocolo, apenas o leem.
+- **UC-13 (Desativar Item de Estoque...) / UC-15 (Configurar Limite de Estoque Baixo por Produto)** — origem do achado consolidado de severidade Alta (regra genérica de subcoleção do tenant torna inefetiva qualquer regra dedicada mais restrita) referenciado na ressalva de RN-07 deste UC.
 
 ---
 
@@ -171,7 +172,7 @@ Ocasional — protocolos são criados/ajustados esporadicamente; o uso frequente
 - `src/components/protocolos/ProtocoloForm.tsx`
 - `src/lib/services/protocoloService.ts` (`getHistoricalProducts`, `listProtocolos`, `createProtocolo`, `updateProtocolo`, `deleteProtocolo`)
 - `src/types/index.ts` (`Protocolo`, `ProtocoloItem`)
-- `firestore.rules` (ausência de regra dedicada para `protocolos` — RN-07)
+- `firestore.rules` (ausência de regra dedicada para `protocolos` — RN-07; regra genérica de subcoleção do tenant, linhas 58-67, que tornaria qualquer regra dedicada nova inefetiva sozinha — ressalva de RN-07)
 
 ---
 
@@ -180,7 +181,8 @@ Ocasional — protocolos são criados/ajustados esporadicamente; o uso frequente
 1. **[Observação]** RN-05 — protocolos podem incluir produtos sem nenhum estoque disponível hoje, resultando em omissão silenciosa ao aplicar (mesmo gap já documentado em UC-16/RN-09).
 2. **[Observação]** RN-06 — não há validação de nome duplicado entre protocolos.
 3. **[Observação, mesmo padrão de UC-11/13/14/15]** RN-07 — Firestore não tem regra dedicada para `protocolos`; restrição de role é só na UI.
-4. Nenhuma pendência bloqueante identificada — a mecânica de soft delete e a ausência de impacto retroativo em procedimentos já criados (RN-02 a RN-04) estão claramente confirmadas e consistentes com a própria mensagem exibida ao usuário no diálogo de remoção.
+4. **[Ressalva de precisão factual adicionada em 25/07/2026 — não é decisão nova, sem correção de código]** RN-07 — investigação confirmou que este é exatamente o mesmo problema estrutural já registrado com severidade Alta no mapa de bugs (`UC-13-RN-09 / UC-15-RN-07`): a regra genérica `match /tenants/{tenantId}/{document=**}` já concede escrita irrestrita a qualquer usuário do tenant via semântica OR do Firestore, tornando qualquer regra dedicada nova para `protocolos` inefetiva a menos que a regra genérica seja alterada primeiro (mudança de escopo maior, compartilhada por todo o sistema). Mesmo tratamento já dado a `UC-42-RN-01`, `UC-43-RN-07` e `UC-44-RN-02` nesta mesma janela de trabalho. Correção de código não realizada e não decidida por este documento.
+5. Nenhuma pendência bloqueante identificada — a mecânica de soft delete e a ausência de impacto retroativo em procedimentos já criados (RN-02 a RN-04) estão claramente confirmadas e consistentes com a própria mensagem exibida ao usuário no diálogo de remoção.
 
 ---
 
@@ -189,3 +191,4 @@ Ocasional — protocolos são criados/ajustados esporadicamente; o uso frequente
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero. Confirmado que Criar, Editar e Remover formam um único UC (mesmo critério já aplicado nesta sessão) — três ações simples compartilhando o mesmo componente de formulário e o mesmo catálogo de sugestão de produtos. Respondidas as quatro perguntas do levantamento: `getHistoricalProducts` é uma lista deduplicada de todo produto já visto no inventário (qualquer status), não um ranking de uso (RN-05); remover é sempre soft delete, sem impacto em procedimentos já criados, pois estes armazenam apenas `protocolo_id`/nome (RN-02/RN-03); editar só afeta aplicações futuras, nunca retroativamente (RN-04); e a restrição de role é só de interface, sem regra dedicada no Firestore (RN-07). |
+| 1.0.1 | 25/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Ressalva de precisão factual, sem correção de código.** RN-07 (seção 9) passou a deixar explícito que, mesmo que uma regra dedicada do Firestore fosse criada para `protocolos`, ela seria hoje inefetiva na prática — a regra genérica de subcoleção do tenant (`tenants/{tenantId}/{document=**}`) já concede leitura e escrita irrestritas a qualquer usuário do tenant via semântica OR do Firestore, o mesmo achado estrutural já registrado com severidade Alta no mapa de bugs (`UC-13-RN-09 / UC-15-RN-07`). Nenhuma correção de código foi feita; nenhum status foi alterado. Adicionado item 4 na seção 14, atualizadas as referências (seção 13) e a seção 12 (cross-reference com UC-13/UC-15). Mesmo padrão já usado em UC-42 (RN-01), UC-43 (RN-07) e UC-44 (RN-02) nesta mesma janela de trabalho. |

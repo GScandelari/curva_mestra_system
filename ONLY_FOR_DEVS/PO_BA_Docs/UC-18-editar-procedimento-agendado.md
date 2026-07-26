@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Procedimentos
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Um Clinic Admin edita um procedimento ainda no status `"agendada"` (descrição, data, observações e/ou lista de produtos), reajustando as reservas de estoque automaticamente. A edição reutiliza a mesma tela de criação (UC-16), pré-carregada via redirecionamento a partir de um wrapper dedicado (`/clinic/requests/{id}/edit`). O ajuste de reservas usa um algoritmo diferente do FEFO de criação: libera **todas** as reservas antigas e recria **todas** as reservas novas do zero, mesmo para produtos que não mudaram.
 
@@ -51,7 +51,7 @@ Nenhum.
 - `produtos_solicitados` é totalmente substituído pela nova lista (se produtos foram alterados).
 - **Todas** as reservas antigas (por item da lista antiga) são liberadas (`quantidade_reservada -=`, `quantidade_disponivel +=`) e **todas** as reservas novas (por item da lista nova) são criadas (`quantidade_reservada +=`, `quantidade_disponivel -=`) — mesmo itens que permanecem iguais entre a lista antiga e nova passam por esse ciclo liberar+reservar (RN-02).
 - Campos `descricao`/`dt_procedimento`/`observacoes` são atualizados se informados.
-- **Nada** é adicionado a `status_history` nem a `inventory_activity` (RN-04/seção 14).
+- **[CORRIGIDO no commit `6dea748`]** Uma nova entrada é adicionada a `status_history` (mantendo o `status` atual da solicitação, com `observacao: "Produtos do procedimento agendado editados"`), e dois conjuntos de logs são gravados em `inventory_activity` — um para os produtos antigos liberados (`tipo: "liberacao_edicao"`), outro para os produtos novos reservados (`tipo: "reserva_edicao"`) — fechando o gap de auditoria anterior (RN-04).
 - Tudo em uma única transação atômica.
 
 ### 4.2 Falha (Garantias Mínimas)
@@ -77,7 +77,7 @@ Clinic Admin clica em "Editar Procedimento" na página de detalhe (UC-19) de uma
 9. Sistema exibe a tela de revisão com o aviso: "Ao confirmar, as reservas de produtos serão ajustadas automaticamente no inventário. Produtos removidos terão suas reservas liberadas, e novos produtos serão reservados."
 10. Clinic Admin clica em "Confirmar Alterações".
 11. Sistema chama `updateSolicitacaoAgendada(tenantId, id, uid, userName, { descricao?, dt_procedimento?, produtos?, observacoes? })`.
-12. Dentro de uma transação atômica: relê a solicitação e confirma que o status ainda é `"agendada"` (proteção contra condição de corrida — RN-01); se `produtos` foi informado: relê todos os itens de inventário envolvidos (tanto os da lista antiga quanto os da lista nova); calcula, **antes** de gravar, o saldo disponível de cada item após liberar hipoteticamente as reservas antigas, e valida que esse saldo cobre as novas quantidades solicitadas (RN-03); libera **todas** as reservas antigas (devolve ao disponível) e cria **todas** as reservas novas (retira do disponível) — mesmo para itens que aparecem em ambas as listas com a mesma quantidade (RN-02); substitui `produtos_solicitados` pela nova lista detalhada; grava também os campos `descricao`/`dt_procedimento`/`observacoes` informados.
+12. Dentro de uma transação atômica: relê a solicitação e confirma que o status ainda é `"agendada"` (proteção contra condição de corrida — RN-01); se `produtos` foi informado: relê todos os itens de inventário envolvidos (tanto os da lista antiga quanto os da lista nova); calcula, **antes** de gravar, o saldo disponível de cada item após liberar hipoteticamente as reservas antigas, e valida que esse saldo cobre as novas quantidades solicitadas (RN-03); libera **todas** as reservas antigas (devolve ao disponível) e cria **todas** as reservas novas (retira do disponível) — mesmo para itens que aparecem em ambas as listas com a mesma quantidade (RN-02); substitui `produtos_solicitados` pela nova lista detalhada; grava também os campos `descricao`/`dt_procedimento`/`observacoes` informados; **[CORRIGIDO no commit `6dea748`]** adiciona uma nova entrada a `status_history` (mantendo o `status` atual, com `observacao: "Produtos do procedimento agendado editados"`) e grava dois conjuntos de logs em `inventory_activity` via `writeActivityLogs` — um para os produtos antigos liberados (`tipo: "liberacao_edicao"`, quantidade anterior recalculada a partir da leitura antiga do item) e outro para os produtos novos reservados (`tipo: "reserva_edicao"`), ambos usando o saldo final já totalmente ajustado como `quantidade_posterior` (RN-04).
 13. Sistema exibe toast "Procedimento atualizado com sucesso! As reservas de produtos foram ajustadas" e navega para `/clinic/requests/{id}`.
 14. Caso de uso é concluído com sucesso.
 
@@ -87,7 +87,7 @@ Clinic Admin clica em "Editar Procedimento" na página de detalhe (UC-19) de uma
 
 ### 7a. Edição sem alterar produtos (a partir do passo 7)
 1. Clinic Admin altera apenas descrição/data/observações, sem tocar na lista de produtos.
-2. No payload enviado, `produtos` ainda é preenchido com a lista atual (inalterada) — `updateSolicitacaoAgendada`, ao receber `updates.produtos`, sempre executa o ciclo completo de liberar+reservar (passo 12), mesmo que a lista seja idêntica à anterior (RN-02).
+2. No payload enviado, `produtos` ainda é preenchido com a lista atual (inalterada) — `updateSolicitacaoAgendada`, ao receber `updates.produtos`, sempre executa o ciclo completo de liberar+reservar (passo 12), mesmo que a lista seja idêntica à anterior (RN-02) — e, por consequência, também sempre grava a entrada de auditoria e os logs de `inventory_activity` (RN-04), mesmo quando nenhum produto de fato mudou.
 
 ---
 
@@ -116,7 +116,7 @@ Clinic Admin clica em "Editar Procedimento" na página de detalhe (UC-19) de uma
 | RN-01 | A edição só é permitida enquanto o status for exatamente `"agendada"` — verificado tanto no wrapper (leitura simples, fora de transação) quanto dentro da transação de `updateSolicitacaoAgendada` (releitura, proteção contra condição de corrida). Nenhum outro status permite edição por este caminho. | Confirmado nos dois pontos de checagem (`[id]/edit/page.tsx` e dentro da transação). |
 | RN-02 | **[Confirmado, algoritmo diferente do FEFO de criação]** O ajuste de reservas na edição **não** é incremental/diferencial — libera 100% das reservas associadas aos produtos da lista antiga e recria 100% das reservas da lista nova, mesmo para itens que permanecem exatamente iguais entre as duas listas (mesmo `inventory_item_id`, mesma quantidade). Não há nenhuma comparação item a item para aplicar só a diferença. | Confirmado por leitura literal de `updateSolicitacaoAgendada` — os laços "Liberar produtos antigos" e "Reservar novos produtos" são incondicionais, sem checar se o item também está na lista nova. |
 | RN-03 | Antes de validar/gravar, o cálculo de disponibilidade para os novos produtos já considera a devolução das reservas antigas ("disponível após liberar produtos antigos") — reduzir a quantidade de um produto já reservado, ou trocar de lote, não gera um falso "estoque insuficiente" só porque a reserva antiga ainda não foi formalmente liberada no momento da checagem. | Confirmado pela lógica explícita de `disponivelAposLiberar` no código. |
-| RN-04 | **[Confirmado, gap de auditoria]** Diferente de toda criação de solicitação (UC-16/UC-17) e de toda mudança de status (UC-19), a edição de uma solicitação agendada **não** grava nenhuma entrada em `status_history` nem nenhum log em `inventory_activity` — apenas `updated_by`/`updated_at` são atualizados. Não há, portanto, nenhum rastro de auditoria de que os produtos de um procedimento foram alterados, nem de qual era a composição anterior. | Confirmado pela ausência de qualquer `transaction.set` em `inventory_activity` ou qualquer atualização de `status_history` dentro de `updateSolicitacaoAgendada` — bug/gap confirmado, não corrigido nesta rodada. |
+| RN-04 | **[CORRIGIDO — commit `6dea748`]** Antes, diferente de toda criação de solicitação (UC-16/UC-17) e de toda mudança de status (UC-19), a edição de uma solicitação agendada **não** gravava nenhuma entrada em `status_history` nem nenhum log em `inventory_activity` — apenas `updated_by`/`updated_at` eram atualizados, sem nenhum rastro de auditoria de que os produtos de um procedimento foram alterados. Corrigido, dentro do mesmo ramo `if (updates.produtos)` de `updateSolicitacaoAgendada`: (a) uma nova entrada é adicionada a `status_history` (mantendo o `status` atual da solicitação — não é uma transição de status, é só o registro da edição — com `changed_by`, `changed_by_name`, `changed_at` e `observacao: "Produtos do procedimento agendado editados"`); (b) duas chamadas ao helper já existente `writeActivityLogs` (mesmo usado na criação de solicitações) gravam os logs de `inventory_activity` — uma para os produtos antigos liberados (`tipo: "liberacao_edicao"`, usando `produtosLiberados`, os produtos antigos com `quantidade_disponivel_antes` recalculado a partir da leitura antiga do inventário), outra para os novos produtos reservados (`tipo: "reserva_edicao"`, usando `produtosDetalhados`, já existente na função). Ambas as chamadas usam `disponiveisAjustados.get(...)` como `quantidade_posterior` — o mapa de ajuste final já calculado antes na mesma função. | Corrigido por leitura direta de `updateSolicitacaoAgendada` (`src/lib/services/solicitacaoService.ts`), commit `6dea748`. |
 | RN-05 | O toggle "Tipo de Procedimento" e o seletor de protocolo não são exibidos em modo de edição (`!isEditMode` controla a renderização de ambos) — uma vez criado, um procedimento não pode ser convertido de "programado" para "efetuado" (nem vice-versa) por este caminho, nem um protocolo pode ser (re)aplicado após a criação. | Confirmado pela condição `!isEditMode` nos dois blocos de UI. |
 
 ---
@@ -127,7 +127,7 @@ Clinic Admin clica em "Editar Procedimento" na página de detalhe (UC-19) de uma
 |----|-----------|-----------|
 | RNF-01 | O wrapper `/clinic/requests/{id}/edit` não renderiza nenhum formulário próprio — sempre redireciona (ou mostra um erro/skeleton) para `/clinic/requests/new` com os dados codificados na própria URL como query params (incluindo a lista completa de produtos em JSON). | Arquitetura / Usabilidade |
 | RNF-02 | Como os dados da edição trafegam via query string (incluindo `produtos_solicitados` serializado em JSON), há um limite prático de tamanho de URL que poderia, em tese, ser atingido por procedimentos com um número muito grande de produtos distintos — não foi encontrado nenhum tratamento explícito para esse cenário. | Confiabilidade (risco teórico, não confirmado como problema real) |
-| RNF-03 | A mesma transação atômica garante que a liberação das reservas antigas e a criação das novas ocorrem de forma tudo-ou-nada. | Confiabilidade |
+| RNF-03 | A mesma transação atômica garante que a liberação das reservas antigas e a criação das novas ocorrem de forma tudo-ou-nada — desde o commit `6dea748`, isso também vale para os dois novos conjuntos de logs de `inventory_activity` e a entrada de `status_history` (RN-04), gravados dentro da mesma transação. | Confiabilidade |
 
 ---
 
@@ -146,16 +146,17 @@ Ocasional — usado quando os detalhes de um procedimento já agendado precisam 
 ## 13. Referências
 - `src/app/(clinic)/clinic/requests/[id]/edit/page.tsx`
 - `src/app/(clinic)/clinic/requests/new/page.tsx` (modo `isEditMode`)
-- `src/lib/services/solicitacaoService.ts` (`updateSolicitacaoAgendada`, `getSolicitacao`)
+- `src/lib/services/solicitacaoService.ts` (`updateSolicitacaoAgendada`, `getSolicitacao`, `writeActivityLogs` — reutilizado desde o commit `6dea748` também dentro de `updateSolicitacaoAgendada`, RN-04)
 
 ---
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
-1. **[Confirmado, gap relevante]** RN-04 — nenhuma auditoria (`status_history`/`inventory_activity`) é gerada ao editar produtos de uma solicitação agendada.
-2. **[Observação]** RN-02 — o algoritmo de ajuste é "liberar tudo e recriar tudo", não incremental; funcionalmente correto mas potencialmente confuso se alguém for auditar manualmente os dados brutos do Firestore (o `updated_at` de itens não realmente afetados também muda).
-3. **[Observação]** RNF-02 — uso de query string para transportar a lista completa de produtos é um risco teórico de limite de URL, não confirmado como problema real em uso normal.
-4. **[Nota de rastreabilidade]** A interação entre uma edição concorrente (este UC) e uma desativação forçada (UC-13) sobre o mesmo procedimento não foi investigada em profundidade.
+1. **[RESOLVIDO — commit `6dea748`]** RN-04 — editar produtos de uma solicitação agendada passou a gravar auditoria: uma nova entrada em `status_history` (mantendo o status atual) e dois conjuntos de logs em `inventory_activity` (`liberacao_edicao` para os produtos antigos, `reserva_edicao` para os novos).
+2. **[Observação técnica, simplificação consciente — não é um bug]** Para um item que é ao mesmo tempo "antigo" e "novo" na mesma edição (mesmo `inventory_item_id`, quantidade apenas ajustada, não trocado por outro lote), os dois logs gerados pela correção da RN-04 (`liberacao_edicao` e `reserva_edicao`) registram o **mesmo** valor final de `quantidade_posterior` — o estado já totalmente ajustado ao fim de todo o cálculo (`disponiveisAjustados`), não um estado intermediário real entre a liberação e a reserva daquele item específico. Isso é aceitável para fins de auditoria (o valor final está correto), mas quem ler os dois logs brutos no Firestore pode estranhar não ver dois valores diferentes de "posterior" para o mesmo item.
+3. **[Observação]** RN-02 — o algoritmo de ajuste é "liberar tudo e recriar tudo", não incremental; funcionalmente correto mas potencialmente confuso se alguém for auditar manualmente os dados brutos do Firestore (o `updated_at` de itens não realmente afetados também muda) — e, desde a correção da RN-04, isso também significa que uma edição sem nenhuma mudança real de produtos (Fluxo Alternativo 7a) ainda gera uma entrada de `status_history` e logs de `inventory_activity` a cada confirmação.
+4. **[Observação]** RNF-02 — uso de query string para transportar a lista completa de produtos é um risco teórico de limite de URL, não confirmado como problema real em uso normal.
+5. **[Nota de rastreabilidade]** A interação entre uma edição concorrente (este UC) e uma desativação forçada (UC-13) sobre o mesmo procedimento não foi investigada em profundidade.
 
 ---
 
@@ -164,3 +165,4 @@ Ocasional — usado quando os detalhes de um procedimento já agendado precisam 
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero. Confirmado que a edição reutiliza inteiramente a tela de criação (UC-16) via um wrapper de redirecionamento, e que o algoritmo de ajuste de reservas (`updateSolicitacaoAgendada`) é "liberar tudo, recriar tudo" — não incremental, e diferente do FEFO usado na criação. Identificado um gap de auditoria confirmado: nenhuma entrada é gravada em `status_history` nem `inventory_activity` ao editar produtos (RN-04). |
+| 1.1 | 25/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Correção de gap de auditoria de severidade Média (commit `6dea748`)**: RN-04 corrigida — dentro do ramo `if (updates.produtos)` de `updateSolicitacaoAgendada`, uma nova entrada passa a ser adicionada a `status_history` (mantendo o status "agendada", com observação da edição) e dois conjuntos de logs de `inventory_activity` são gravados via o helper já existente `writeActivityLogs` (`tipo: "liberacao_edicao"` para os produtos antigos, `tipo: "reserva_edicao"` para os novos), ambos usando o saldo final já ajustado como `quantidade_posterior`. Seções 4.1, 6 (passo 12), 9 (RN-04), 10 (RNF-03) e 13 atualizadas. Fluxo Alternativo 7a complementado com a observação de que uma edição sem mudança real de produtos também passa a gerar auditoria. Adicionada observação técnica (nova seção 14, item 2) sobre a simplificação consciente de `quantidade_posterior` ser idêntica nos dois logs para um item que é ao mesmo tempo antigo e novo — não é um bug, mas vale documentar. |
