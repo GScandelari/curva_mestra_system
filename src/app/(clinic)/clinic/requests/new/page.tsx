@@ -278,17 +278,53 @@ export default function NovaSolicitacaoPage() {
   }
 
   const handleAplicarProtocolo = (protocolo: Protocolo) => {
-    const alocados: ProdutoSelecionado[] = [];
+    // Produtos já na lista (adicionados manualmente ou por um protocolo
+    // anterior) não são realocados -- alocarProdutoFEFO não sabe quanto já
+    // está reservado no carrinho, então realocar o mesmo produto contaria a
+    // mesma quantidade disponível duas vezes. Antes, aplicar um protocolo
+    // sobrescrevia a lista inteira sem nenhum aviso, descartando o que já
+    // tinha sido adicionado manualmente.
+    const codigosJaSelecionados = new Set(produtosSelecionados.map((p) => p.produto_codigo));
+    const jaNaLista: string[] = [];
+    const insuficientes: string[] = [];
+    const novosAlocados: ProdutoSelecionado[] = [];
+
     for (const item of protocolo.itens) {
+      if (codigosJaSelecionados.has(item.codigo_produto)) {
+        jaNaLista.push(item.codigo_produto);
+        continue;
+      }
+
       const fefo = alocarProdutoFEFO(item.codigo_produto, item.quantidade_sugerida);
-      alocados.push(...fefo);
+      const alocado = fefo.reduce((sum, a) => sum + a.quantidade_solicitada, 0);
+      if (alocado < item.quantidade_sugerida) {
+        insuficientes.push(
+          `${item.codigo_produto} (sugerido: ${item.quantidade_sugerida}, disponível: ${alocado})`
+        );
+      }
+      novosAlocados.push(...fefo);
     }
-    setProdutosSelecionados(alocados);
+
+    setProdutosSelecionados([...produtosSelecionados, ...novosAlocados]);
     setProtocoloSelecionado(protocolo);
-    toast({
-      title: `Protocolo "${protocolo.nome}" aplicado`,
-      description: 'Produtos pré-carregados. Ajuste as quantidades se necessário.',
-    });
+
+    if (insuficientes.length > 0) {
+      toast({
+        title: 'Protocolo aplicado com estoque insuficiente',
+        description: `Ajuste manualmente: ${insuficientes.join('; ')}`,
+        variant: 'destructive',
+      });
+    } else if (jaNaLista.length > 0) {
+      toast({
+        title: `Protocolo "${protocolo.nome}" aplicado`,
+        description: `Produtos novos adicionados. Já estavam na lista (mantidos como estavam): ${jaNaLista.join(', ')}.`,
+      });
+    } else {
+      toast({
+        title: `Protocolo "${protocolo.nome}" aplicado`,
+        description: 'Produtos adicionados à lista. Ajuste as quantidades se necessário.',
+      });
+    }
   };
 
   const handleAdicionarProduto = () => {
