@@ -20,6 +20,10 @@ export default function ChangePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Marca que updatePassword já teve sucesso -- a senha antiga (digitada em
+  // "Senha Atual") deixa de ser válida a partir daqui, então um retry não deve
+  // tentar reautenticar com ela de novo, só re-chamar a API que limpa a flag.
+  const [passwordChanged, setPasswordChanged] = useState(false);
 
   // Verificar se está autenticado
   useEffect(() => {
@@ -41,42 +45,50 @@ export default function ChangePasswordPage() {
     setLoading(true);
 
     try {
-      // Validar nova senha
-      const passwordError = validatePassword(newPassword);
-      if (passwordError) {
-        setError(passwordError);
-        setLoading(false);
-        return;
-      }
-
-      // Verificar se as senhas coincidem
-      if (newPassword !== confirmPassword) {
-        setError('As senhas não coincidem');
-        setLoading(false);
-        return;
-      }
-
-      // Verificar se a nova senha é diferente da atual
-      if (currentPassword === newPassword) {
-        setError('A nova senha deve ser diferente da senha atual');
-        setLoading(false);
-        return;
-      }
-
       if (!user || !user.email) {
         setError('Usuário não encontrado');
         setLoading(false);
         return;
       }
 
-      // Reautenticar o usuário com a senha atual
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
+      if (!passwordChanged) {
+        // Validar nova senha
+        const passwordError = validatePassword(newPassword);
+        if (passwordError) {
+          setError(passwordError);
+          setLoading(false);
+          return;
+        }
 
-      // Atualizar a senha
-      await updatePassword(user, newPassword);
+        // Verificar se as senhas coincidem
+        if (newPassword !== confirmPassword) {
+          setError('As senhas não coincidem');
+          setLoading(false);
+          return;
+        }
 
-      // Chamar API para remover a flag de troca obrigatória (custom claim + Firestore)
+        // Verificar se a nova senha é diferente da atual
+        if (currentPassword === newPassword) {
+          setError('A nova senha deve ser diferente da senha atual');
+          setLoading(false);
+          return;
+        }
+
+        // Reautenticar o usuário com a senha atual
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
+
+        // Atualizar a senha
+        await updatePassword(user, newPassword);
+        setPasswordChanged(true);
+      }
+
+      // Chamar API para remover a flag de troca obrigatória (custom claim +
+      // Firestore) -- se falhar, a senha já foi trocada no Firebase Auth mas a
+      // claim requirePasswordChange continua true, o que prende o usuário num
+      // loop (ProtectedRoute manda de volta para esta tela, mas a "senha
+      // atual" antiga digitada aqui não bate mais). Por isso não seguimos
+      // direto para o redirecionamento como se tivesse dado certo.
       const token = await user.getIdToken();
       const response = await fetch('/api/users/clear-password-change-flag', {
         method: 'POST',
@@ -87,7 +99,11 @@ export default function ChangePasswordPage() {
       });
 
       if (!response.ok) {
-        console.error('Erro ao limpar flag de troca de senha');
+        setError(
+          'Sua senha foi alterada com sucesso, mas houve um erro ao concluir o processo. Clique em "Tentar novamente" abaixo.'
+        );
+        setLoading(false);
+        return;
       }
 
       // Redirecionar para o dashboard apropriado
@@ -109,6 +125,10 @@ export default function ChangePasswordPage() {
       } else if (err.code === 'auth/requires-recent-login') {
         setError('Por segurança, faça login novamente antes de trocar a senha');
         router.push('/login');
+      } else if (passwordChanged) {
+        setError(
+          'Sua senha foi alterada com sucesso, mas houve um erro ao concluir o processo. Clique em "Tentar novamente" abaixo.'
+        );
       } else {
         setError('Erro ao trocar senha. Tente novamente.');
       }
@@ -147,55 +167,59 @@ export default function ChangePasswordPage() {
         </Alert>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Senha Atual (Temporária)</Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              placeholder="Digite a senha temporária"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              disabled={loading}
-              autoComplete="current-password"
-            />
-          </div>
+          {!passwordChanged && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Senha Atual (Temporária)</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  placeholder="Digite a senha temporária"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="current-password"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">Nova Senha</Label>
-            <Input
-              id="newPassword"
-              type="password"
-              placeholder="Digite a nova senha"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              disabled={loading}
-              autoComplete="new-password"
-            />
-            <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Nova Senha</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  placeholder="Digite a nova senha"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="new-password"
+                />
+                <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="Confirme a nova senha"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              disabled={loading}
-              autoComplete="new-password"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirme a nova senha"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="new-password"
+                />
+              </div>
+            </>
+          )}
 
           {error && (
             <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Salvando...' : 'Definir Nova Senha'}
+            {loading ? 'Salvando...' : passwordChanged ? 'Tentar novamente' : 'Definir Nova Senha'}
           </Button>
         </form>
 
