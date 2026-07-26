@@ -276,7 +276,12 @@ export async function processNFAndAddToInventory(
 
       const { product: masterProduct } = await getMasterProductByCode(produto.codigo);
 
-      if (!masterProduct) {
+      // Produto inativo no catálogo master é tratado como pendente, mesmo
+      // mecanismo já usado para "código não encontrado" -- antes, a
+      // importação via XML ignorava completamente o campo `active`, ao
+      // contrário da inserção manual (UC-11), que já filtra produtos
+      // inativos do autocomplete.
+      if (!masterProduct || !masterProduct.active) {
         produtosPendentes.push({ codigo: produto.codigo, nome_produto: produto.nome_produto });
         continue;
       }
