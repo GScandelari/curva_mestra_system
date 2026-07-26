@@ -873,7 +873,56 @@ export async function updateSolicitacaoAgendada(
           updateData.observacoes = updates.observacoes;
         }
 
+        // Registrar auditoria da edição -- antes, editar produtos de uma
+        // solicitação agendada não deixava nenhum rastro em status_history nem
+        // inventory_activity, diferente de toda outra mutação de estoque/status
+        // já registrada neste arquivo (criação, cancelamento, conclusão).
+        const statusHistoryAtualizado: StatusHistoryEntry[] = [
+          ...(solicitacao.status_history || []),
+          {
+            status: solicitacao.status,
+            changed_by: userId,
+            changed_by_name: userName,
+            changed_at: now,
+            observacao: 'Produtos do procedimento agendado editados',
+          },
+        ];
+        updateData.status_history = statusHistoryAtualizado;
+
         transaction.update(solicitacaoRef, updateData);
+
+        const produtosLiberados: ProdutoSolicitado[] = solicitacao.produtos_solicitados.map(
+          (p) => ({
+            ...p,
+            quantidade_disponivel_antes:
+              produtosAntigosData.get(p.inventory_item_id)?.quantidade_disponivel ?? 0,
+          })
+        );
+        writeActivityLogs(
+          transaction,
+          tenantId,
+          produtosLiberados,
+          solicitacaoId,
+          userId,
+          userName,
+          now,
+          'liberacao_edicao',
+          'Produto removido/ajustado na edição do procedimento agendado',
+          (p) => disponiveisAjustados.get(p.inventory_item_id) ?? 0
+        );
+
+        writeActivityLogs(
+          transaction,
+          tenantId,
+          produtosDetalhados,
+          solicitacaoId,
+          userId,
+          userName,
+          now,
+          'reserva_edicao',
+          'Produto adicionado/ajustado na edição do procedimento agendado',
+          (p) => disponiveisAjustados.get(p.inventory_item_id) ?? 0
+        );
       } else {
         // Atualizar apenas dados de descrição/data (sem mexer em produtos)
         const updateData: any = {
