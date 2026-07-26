@@ -22,11 +22,22 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Package, Plus, Search, Edit, Power, PowerOff } from 'lucide-react';
 import {
   listMasterProducts,
   deactivateMasterProduct,
   reactivateMasterProduct,
+  isMasterProductInUse,
 } from '@/lib/services/masterProductService';
 import {
   MasterProduct,
@@ -47,6 +58,12 @@ export default function ProductsPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Confirmação de ativar/desativar -- antes, o botão na listagem chamava a
+  // API direto no onClick, sem confirmação nem aviso de uso em inventário.
+  const [productToToggle, setProductToToggle] = useState<MasterProduct | null>(null);
+  const [productInUse, setProductInUse] = useState(false);
+  const [checkingUse, setCheckingUse] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -96,17 +113,35 @@ export default function ProductsPage() {
     setFilteredProducts(filtered);
   };
 
-  const handleToggleActive = async (productId: string, currentActive: boolean) => {
+  const handleRequestToggleActive = async (product: MasterProduct) => {
+    setProductToToggle(product);
+    setProductInUse(false);
+    if (product.active) {
+      // Só checa uso ao desativar -- reativar nunca precisa desse aviso.
+      setCheckingUse(true);
+      try {
+        const inUse = await isMasterProductInUse(product.id);
+        setProductInUse(inUse);
+      } finally {
+        setCheckingUse(false);
+      }
+    }
+  };
+
+  const handleConfirmToggleActive = async () => {
+    if (!productToToggle) return;
     try {
-      if (currentActive) {
-        await deactivateMasterProduct(productId);
+      if (productToToggle.active) {
+        await deactivateMasterProduct(productToToggle.id);
       } else {
-        await reactivateMasterProduct(productId);
+        await reactivateMasterProduct(productToToggle.id);
       }
       await loadProducts();
     } catch (err: any) {
       setError(err.message || 'Erro ao atualizar status do produto');
       console.error('Erro ao atualizar status:', err);
+    } finally {
+      setProductToToggle(null);
     }
   };
 
@@ -240,7 +275,7 @@ export default function ProductsPage() {
                           <Button
                             variant={product.active ? 'destructive' : 'default'}
                             size="sm"
-                            onClick={() => handleToggleActive(product.id, product.active)}
+                            onClick={() => handleRequestToggleActive(product)}
                           >
                             {product.active ? (
                               <PowerOff className="h-4 w-4" />
@@ -258,6 +293,54 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog
+        open={!!productToToggle}
+        onOpenChange={(open) => !open && setProductToToggle(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {productToToggle?.active ? 'Desativar produto?' : 'Reativar produto?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {productToToggle?.active ? (
+                <>
+                  Tem certeza que deseja desativar <strong>{productToToggle?.name}</strong>?
+                  {checkingUse && ' Verificando uso em inventário...'}
+                  {!checkingUse && productInUse && (
+                    <>
+                      {' '}
+                      <strong className="text-destructive">
+                        Este produto está em uso no inventário de alguma clínica.
+                      </strong>{' '}
+                      Desativar não afeta lotes já lançados, apenas impede novas entradas para este
+                      código.
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  Tem certeza que deseja reativar <strong>{productToToggle?.name}</strong>? O
+                  produto voltará a ficar disponível para novas entradas de estoque.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmToggleActive}
+              disabled={checkingUse}
+              className={
+                productToToggle?.active ? 'bg-destructive text-destructive-foreground' : undefined
+              }
+            >
+              {productToToggle?.active ? 'Desativar' : 'Reativar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -120,7 +120,21 @@ service cloud.firestore {
     // Coleção de produtos master Rennova (global, sem tenant)
     match /master_products/{productId} {
       allow read: if isAuthenticated();
-      allow write: if isSystemAdmin();
+
+      // Validação de formato no servidor -- antes, só o client validava o
+      // código de 7 dígitos (validateProductCode em types/masterProduct.ts);
+      // esta regra é a única camada de validação server-side deste fluxo
+      // (não existe API route dedicada, a escrita é direto via client SDK).
+      allow create: if isSystemAdmin()
+        && request.resource.data.code.matches('^[0-9]{7}$')
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
+      allow update: if isSystemAdmin()
+        && (!('code' in request.resource.data)
+            || request.resource.data.code.matches('^[0-9]{7}$'))
+        && (!('name' in request.resource.data)
+            || (request.resource.data.name is string && request.resource.data.name.size() > 0));
+      allow delete: if isSystemAdmin();
     }
 
     // Coleção de produtos master (apenas system_admin pode escrever)
@@ -162,11 +176,32 @@ service cloud.firestore {
 
     // Coleção de documentos legais (termos, políticas, etc.)
     match /legal_documents/{documentId} {
-      // Qualquer usuário autenticado pode ler documentos ativos
-      allow read: if isAuthenticated();
+      // System admin lê qualquer status; demais usuários autenticados só leem
+      // documentos ativos -- antes, o comentário dizia "documentos ativos" mas
+      // a regra (isAuthenticated() sem checar status) permitia ler rascunho/
+      // inativo também.
+      allow read: if isSystemAdmin()
+        || (isAuthenticated() && resource.data.status == 'ativo');
 
-      // Apenas system_admin pode criar, atualizar e deletar
-      allow write: if isSystemAdmin();
+      // Validação de formato no servidor -- antes, só o client validava
+      // (e nem todos os campos eram validados lá); esta regra é a única
+      // camada de validação server-side deste fluxo (escrita direto via
+      // client SDK, sem API route dedicada).
+      allow create: if isSystemAdmin()
+        && request.resource.data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$')
+        && request.resource.data.title is string && request.resource.data.title.size() > 0
+        && request.resource.data.version is string && request.resource.data.version.size() > 0
+        && request.resource.data.status in ['ativo', 'inativo', 'rascunho'];
+      allow update: if isSystemAdmin()
+        && (!('slug' in request.resource.data)
+            || request.resource.data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$'))
+        && (!('title' in request.resource.data)
+            || (request.resource.data.title is string && request.resource.data.title.size() > 0))
+        && (!('version' in request.resource.data)
+            || (request.resource.data.version is string && request.resource.data.version.size() > 0))
+        && (!('status' in request.resource.data)
+            || request.resource.data.status in ['ativo', 'inativo', 'rascunho']);
+      allow delete: if isSystemAdmin();
     }
 
     // Coleção de aceitações de documentos pelos usuários
