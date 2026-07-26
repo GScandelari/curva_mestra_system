@@ -176,12 +176,16 @@ service cloud.firestore {
 
     // Coleção de documentos legais (termos, políticas, etc.)
     match /legal_documents/{documentId} {
-      // System admin lê qualquer status; demais usuários autenticados só leem
-      // documentos ativos -- antes, o comentário dizia "documentos ativos" mas
-      // a regra (isAuthenticated() sem checar status) permitia ler rascunho/
-      // inativo também.
+      // System admin lê qualquer status; demais usuários autenticados não leem
+      // rascunhos (conteúdo não publicado/não revisado) -- antes, a regra
+      // (isAuthenticated() sem checar status) permitia ler rascunho também.
+      // 'inativo' continua legível por usuários comuns porque
+      // clinic/profile/page.tsx busca o título de documentos já aceitos no
+      // passado, mesmo que tenham sido desativados depois (substituídos por
+      // uma versão mais nova) -- só 'rascunho' é o caso realmente sensível
+      // (texto ainda não publicado/revisado).
       allow read: if isSystemAdmin()
-        || (isAuthenticated() && resource.data.status == 'ativo');
+        || (isAuthenticated() && resource.data.status != 'rascunho');
 
       // Validação de formato no servidor -- antes, só o client validava
       // (e nem todos os campos eram validados lá); esta regra é a única
