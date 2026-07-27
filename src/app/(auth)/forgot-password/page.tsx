@@ -36,6 +36,14 @@ export default function ForgotPasswordPage() {
       });
       setSuccess(true);
     } catch (err: any) {
+      // auth/user-not-found tratado como sucesso silencioso -- antes, a
+      // mensagem "Usuário não encontrado" permitia enumerar quais e-mails
+      // estão cadastrados no sistema só observando a resposta. Não se aplica
+      // a auth/invalid-email (erro de formato, não revela se a conta existe).
+      if (err.code === 'auth/user-not-found') {
+        setSuccess(true);
+        return;
+      }
       const errorMessage = translateFirebaseError(err.code);
       setError(errorMessage);
     } finally {
@@ -45,8 +53,6 @@ export default function ForgotPasswordPage() {
 
   const translateFirebaseError = (errorCode: string): string => {
     switch (errorCode) {
-      case 'auth/user-not-found':
-        return 'Usuário não encontrado';
       case 'auth/invalid-email':
         return 'Email inválido';
       case 'auth/too-many-requests':

@@ -151,6 +151,9 @@ function LoginForm() {
     if (error.includes('invalid-email')) {
       return 'Email inválido';
     }
+    if (error.includes('user-disabled')) {
+      return 'Esta conta foi desativada. Entre em contato com o suporte.';
+    }
     return error || 'Erro ao fazer login. Tente novamente';
   };
 

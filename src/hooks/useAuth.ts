@@ -77,7 +77,10 @@ export function useAuth() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       return { success: true, user: userCredential.user };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      // error.code (ex.: "auth/user-disabled"), não error.message -- a mensagem
+      // crua do SDK vem em inglês e translateFirebaseError (login/page.tsx)
+      // espera comparar por código, não por texto livre.
+      return { success: false, error: error.code };
     }
   };
 

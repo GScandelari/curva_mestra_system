@@ -33,7 +33,7 @@ import ReactMarkdown from 'react-markdown';
 
 export default function AcceptTermsOnboardingPage() {
   const router = useRouter();
-  const { user, claims } = useAuth();
+  const { user, claims, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,10 +41,18 @@ export default function AcceptTermsOnboardingPage() {
   const [acceptances, setAcceptances] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (user) {
-      loadDocuments();
+    // Guard defensivo (mesmo padrão da Variante A, accept-terms/page.tsx) --
+    // hoje esta rota já é protegida pelo ProtectedRoute do layout pai
+    // (clinic/layout.tsx), que redireciona antes deste componente montar, mas
+    // sem esse guard próprio a tela ficaria presa em "loading" indefinidamente
+    // caso algum dia seja alcançada sem esse wrapper.
+    if (authLoading) return;
+    if (!user) {
+      router.push('/login');
+      return;
     }
-  }, [user]);
+    loadDocuments();
+  }, [user, authLoading, router]);
 
   async function loadDocuments() {
     if (!user) return;
