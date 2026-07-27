@@ -102,18 +102,18 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.20, 26/07/2026):**
+**Resumo (v3.21, 27/07/2026):**
 
 | Severidade | Aberto | Corrigido | Descartado | Total   |
 | ---------- | ------ | --------- | ---------- | ------- |
 | Crítica    | 0      | 5         | 1          | 6       |
 | Alta       | 1      | 22        | 1          | 25      |
-| Média      | 12     | 23        | 1          | 37      |
+| Média      | 8      | 27        | 1          | 37      |
 | Baixa      | 66     | 16        | 1          | 83      |
-| **Total**  | **79** | **66**    | **4**      | **151** |
+| **Total**  | **75** | **70**    | **4**      | **151** |
 
 - ✅ Todos os 6 achados **críticos** já têm status final ou decisão registrada: 5 corrigidos e documentados; 1 descartado por decisão de produto (UC-14, ferramenta de auditoria de inventário removida)
-- ⚠️ **1 item de severidade Alta segue em aberto:** achado ampliado de arquitetura de segurança (`UC-13-RN-09 / UC-15-RN-07`) — a regra genérica de subcoleção do tenant em `firestore.rules` concede escrita irrestrita a qualquer usuário do tenant para todas as subcoleções (semântica OR do Firestore torna regras dedicadas inefetivas), com dúvida cruzada sinalizada sobre a efetividade real de `UC-44-RN-02`/`UC-43-RN-07`/`UC-42-RN-01`/`UC-20-RN-07` (os quatro já receberam ressalva textual do `uml-use-case-writer` reconhecendo o problema, sem correção de código); requer decisão dedicada, ainda não tomada. Na severidade Média, 6 itens do módulo Admin — Catálogo/Documentos Legais (validação server-side de formato para produtos master e documentos legais; confirmação ao ativar/desativar produto e ao editar documento já ativo; produto master inativo tratado como pendente na importação via XML; regra de leitura de documentos legais restringindo apenas "rascunho" — UC-31/UC-32/UC-33/UC-34) acabam de ser corrigidos e documentados, restando 12 itens Média em aberto (ver Seções 2 e 3 do mapa)
+- ⚠️ **1 item de severidade Alta segue em aberto:** achado ampliado de arquitetura de segurança (`UC-13-RN-09 / UC-15-RN-07`) — a regra genérica de subcoleção do tenant em `firestore.rules` concede escrita irrestrita a qualquer usuário do tenant para todas as subcoleções (semântica OR do Firestore torna regras dedicadas inefetivas), com dúvida cruzada sinalizada sobre a efetividade real de `UC-44-RN-02`/`UC-43-RN-07`/`UC-42-RN-01`/`UC-20-RN-07` (os quatro já receberam ressalva textual do `uml-use-case-writer` reconhecendo o problema, sem correção de código); requer decisão dedicada, ainda não tomada. Na severidade Média, 4 itens do módulo Autenticação/Acesso (mensagem de recuperação de senha fechando enumeração de contas; estado `passwordChanged` evitando loop na troca de senha obrigatória; guard defensivo replicado no aceite de termos onboarding; tradução de `auth/user-disabled` no login — UC-06/UC-07/UC-09/UC-29/UC-36) acabam de ser corrigidos e documentados, restando 8 itens Média em aberto (ver Seções 2 e 3 do mapa)
 - 🗂️ **9 decisões de produto pendentes** e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
 - 🔎 **12 gaps entre a landing page comercial e o sistema real** catalogados (Seção 7 do mapa) — 4 com decisão de implementar, **agora 100% documentados**: **UC-51, UC-52 e UC-53 já escritos e aprovados**, aguardando apenas priorização/planejamento de implementação; o item de Backup Geográfico Automatizado (antes reservado como UC-54) foi descartado como caso de uso e documentado como **ADR aprovado** (`ONLY_FOR_DEVS/TO_DO/ADR-backup-geografico-automatizado.md`), por ser um processo de infraestrutura sem ator/tela — 5 com decisão de corrigir apenas o texto da landing (baixa prioridade) e 3 com decisão adiada
 - 📝 12 dos 53 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
