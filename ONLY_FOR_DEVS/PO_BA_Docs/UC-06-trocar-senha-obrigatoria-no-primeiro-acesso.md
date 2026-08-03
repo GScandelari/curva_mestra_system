@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.4
+**Versão:** 1.5
 
 > Um usuário (`clinic_admin`, `clinic_user` ou `clinic_consultant`) cuja senha foi definida por um terceiro — um System Admin redefinindo manualmente, ou o próprio sistema ao criar um novo consultor — é obrigado a trocá-la antes de acessar qualquer área do sistema, através da custom claim `requirePasswordChange`.
 
@@ -79,11 +79,11 @@ Login bem-sucedido (UC-04) com `claims.requirePasswordChange === true` — ou ac
 4. Usuário preenche os três campos e clica em "Definir Nova Senha".
 5. Sistema valida no frontend: nova senha com pelo menos 6 caracteres; nova senha igual à confirmação; nova senha diferente da senha atual.
 6. Sistema reautentica o usuário no Firebase Auth usando e-mail + senha atual (`reauthenticateWithCredential` + `EmailAuthProvider.credential`) — necessário porque alterar a senha é uma operação sensível que exige reautenticação recente.
-7. Sistema chama `updatePassword(user, newPassword)` do Firebase Auth (client-side), atualizando a senha imediatamente.
-8. Sistema obtém um novo ID token do usuário e chama `POST /api/users/clear-password-change-flag` com Bearer token.
+7. Sistema chama `updatePassword(user, newPassword)` do Firebase Auth (client-side), atualizando a senha imediatamente. **[CORRIGIDO, commit `c3f18d4`]** Ao suceder, o sistema marca internamente o estado local `passwordChanged = true` — a partir daqui, os três campos de senha (atual/nova/confirmar) são ocultados da UI, e as etapas de validação/reautenticação/`updatePassword` (passos 5-7) não são mais executadas em nenhuma submissão subsequente deste componente, pois a senha atual digitada deixou de ser válida assim que `updatePassword` teve sucesso.
+8. Sistema obtém um novo ID token do usuário e chama `POST /api/users/clear-password-change-flag` com Bearer token — esta chamada agora ocorre sempre (dentro ou fora do bloco condicional de `!passwordChanged`), inclusive nas tentativas de retry (ver Fluxo Alternativo 7b, corrigido).
 9. API remove a propriedade `requirePasswordChange` dos custom claims (via desestruturação — não seta `false`, remove a chave) e atualiza o Firestore (`users/{uid}`: `requirePasswordChange: false`, `passwordChangedAt`, `updated_at`).
-10. Sistema redireciona por role: `is_system_admin` → `/admin/dashboard`; `role === "clinic_admin"` ou `"clinic_user"` → `/clinic/dashboard`; qualquer outro role (inclui `clinic_consultant`) → `/dashboard` (mesmo padrão de redirecionamento indireto para consultores já documentado em UC-04, Fluxo Alternativo 7b).
-11. Caso de uso é concluído com sucesso.
+10. **[CORRIGIDO, commit `c3f18d4`]** Se `response.ok` for `true`: sistema redireciona por role: `is_system_admin` → `/admin/dashboard`; `role === "clinic_admin"` ou `"clinic_user"` → `/clinic/dashboard`; qualquer outro role (inclui `clinic_consultant`) → `/dashboard` (mesmo padrão de redirecionamento indireto para consultores já documentado em UC-04, Fluxo Alternativo 7b). Se `response.ok` for `false`, o sistema **não** avança para o redirecionamento — ver Fluxo Alternativo 7b, corrigido.
+11. Caso de uso é concluído com sucesso (apenas quando o passo 10 efetivamente redireciona).
 
 ---
 
@@ -94,11 +94,16 @@ Login bem-sucedido (UC-04) com `claims.requirePasswordChange === true` — ou ac
 2. Sistema redireciona para `/login`.
 3. Caso de uso é encerrado.
 
-### 7b. Falha silenciosa ao limpar a flag no backend (a partir do passo 8)
-1. `POST /api/users/clear-password-change-flag` retorna erro (`response.ok === false`).
-2. Sistema apenas registra `console.error('Erro ao limpar flag de troca de senha')` — **não exibe nenhum erro ao usuário, não interrompe o fluxo**.
-3. Sistema prossegue para o passo 10 (redirecionamento por role) normalmente, mesmo que a claim `requirePasswordChange` **não** tenha sido removida no backend.
-4. Consequência: no próximo login (UC-04), o usuário seria redirecionado de volta para esta mesma tela, tendo que "trocar" uma senha que, na prática, já é a definitiva — ver seção 14.
+### 7b. [CORRIGIDO — commit `c3f18d4`] Falha ao limpar a flag no backend, com retry sem reautenticação (a partir do passo 8)
+1. `POST /api/users/clear-password-change-flag` retorna erro (`response.ok === false`) — o Firebase Auth já havia atualizado a senha com sucesso no passo 7 (`passwordChanged = true`).
+2. Sistema exibe o erro: "Sua senha foi alterada com sucesso, mas houve um erro ao concluir o processo. Clique em 'Tentar novamente' abaixo." — e **não avança** para o redirecionamento (passo 10).
+3. `loading` é desligado (`setLoading(false)`), permitindo novo submit; os três campos de senha permanecem ocultos (já ocultos desde que `passwordChanged` virou `true`, ver passo 7), e o texto do botão passa de "Definir Nova Senha" para "Tentar novamente".
+4. Usuário clica em "Tentar novamente" (mesmo formulário, sem nenhum campo de senha visível).
+5. Como `passwordChanged` já é `true`, o `handleSubmit` pula diretamente para o passo 8 (chamada à API), sem tentar reautenticar com a senha antiga — que não é mais válida, já que a senha já foi trocada no Firebase Auth na primeira tentativa.
+6. Se a nova tentativa tiver sucesso (`response.ok === true`), o fluxo segue normalmente a partir do passo 9 (remoção da claim, redirecionamento por role).
+7. Se falhar novamente, o sistema repete o passo 2 deste fluxo, permitindo quantas tentativas forem necessárias.
+
+**Comportamento anterior (histórico, antes da correção):** `POST /api/users/clear-password-change-flag` retornando erro só gerava `console.error('Erro ao limpar flag de troca de senha')` — **nenhum erro era exibido ao usuário, o fluxo não era interrompido** — o sistema prosseguia para o redirecionamento por role normalmente, mesmo que a claim `requirePasswordChange` não tivesse sido removida no backend. Consequência: no próximo login (UC-04), o usuário era redirecionado de volta para esta mesma tela, precisando "trocar" uma senha que, na prática, já era a definitiva — nesse segundo ciclo, "senha atual" e "nova senha" seriam iguais, bloqueado pelo Fluxo de Exceção 8d, criando um impasse (ver pendência resolvida na seção 14, item 1).
 
 ---
 
@@ -123,7 +128,7 @@ Login bem-sucedido (UC-04) com `claims.requirePasswordChange === true` — ou ac
 1. Nova senha com menos de 6 caracteres, nova senha diferente da confirmação, ou nova senha igual à senha atual.
 2. Sistema exibe a mensagem específica: "A senha deve ter pelo menos 6 caracteres", "As senhas não coincidem", ou "A nova senha deve ser diferente da senha atual".
 3. A reautenticação não chega a ser tentada.
-4. Caso de uso retorna ao passo 4.
+4. Caso de uso retorna ao passo 4. **Nota:** esta validação só ocorre enquanto `!passwordChanged` (ver passo 7, corrigido) — depois que a senha já foi trocada com sucesso, uma eventual nova tentativa (Fluxo Alternativo 7b) não passa mais por aqui.
 
 ### 8e. Erro genérico não mapeado (a partir dos passos 6-7)
 1. Qualquer outro erro do Firebase Auth não coberto por 8a-8c.
@@ -149,7 +154,7 @@ Login bem-sucedido (UC-04) com `claims.requirePasswordChange === true` — ou ac
 
 | ID | Descrição | Categoria |
 |----|-----------|-----------|
-| RNF-01 | A chamada a `POST /api/users/clear-password-change-flag` falha silenciosamente do ponto de vista do usuário (apenas `console.error`) — ver Fluxo Alternativo 7b e pendência na seção 14. | Confiabilidade |
+| RNF-01 | **[CORRIGIDO — commit `c3f18d4`]** A chamada a `POST /api/users/clear-password-change-flag` deixou de falhar silenciosamente do ponto de vista do usuário: se `response.ok` for `false`, o sistema exibe um erro explícito e interrompe o redirecionamento, oferecendo um retry que pula a reautenticação (a senha já foi trocada com sucesso no Firebase Auth) — ver Fluxo Alternativo 7b, corrigido. **Comportamento anterior (histórico):** a falha gerava apenas `console.error`, sem impacto visível para o usuário, e o fluxo prosseguia como se tivesse dado certo. | Confiabilidade |
 | RNF-02 | A troca de senha em si (reautenticação + `updatePassword`) é inteiramente client-side via Firebase SDK; apenas a limpeza da flag `requirePasswordChange` passa por um endpoint de backend (Admin SDK, necessário para alterar custom claims). | Segurança |
 
 ---
@@ -183,7 +188,7 @@ Ocasional — ocorre a cada vez que um System Admin define/redefine manualmente 
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
-1. **[Confirmado, sem correção proposta]** A falha ao chamar `/api/users/clear-password-change-flag` (Fluxo Alternativo 7b) é silenciosa — o usuário troca a senha com sucesso no Firebase Auth, mas se essa chamada falhar, `requirePasswordChange` permanece `true` no backend, e ele será redirecionado de volta para esta mesma tela no próximo login, precisando "trocar" uma senha que, na prática, já é a definitiva (nesse segundo ciclo, "senha atual" e "nova senha" seriam iguais, o que é bloqueado pelo Fluxo de Exceção 8d — criando um impasse). Não confirmado pelo usuário se isso deve ser corrigido (ex.: exibir erro e impedir o redirecionamento se a chamada falhar).
+1. ~~**[Confirmado, sem correção proposta]** A falha ao chamar `/api/users/clear-password-change-flag` (Fluxo Alternativo 7b) é silenciosa — o usuário troca a senha com sucesso no Firebase Auth, mas se essa chamada falhar, `requirePasswordChange` permanece `true` no backend, e ele será redirecionado de volta para esta mesma tela no próximo login, precisando "trocar" uma senha que, na prática, já é a definitiva (nesse segundo ciclo, "senha atual" e "nova senha" seriam iguais, o que é bloqueado pelo Fluxo de Exceção 8d — criando um impasse). Não confirmado pelo usuário se isso deve ser corrigido (ex.: exibir erro e impedir o redirecionamento se a chamada falhar).~~ **[RESOLVIDO — commit `c3f18d4`]** O componente ganhou o estado `passwordChanged` (marca que `updatePassword` já teve sucesso nesta sessão do componente). Quando `POST /api/users/clear-password-change-flag` falha, o sistema agora exibe um erro explícito e não avança para o redirecionamento, oferecendo retry sem reautenticação (a senha antiga deixou de ser válida assim que `updatePassword` teve sucesso). Ver Fluxo Alternativo 7b e RNF-01.
 
 2. **[Nota, não bloqueante]** Este UC documenta apenas os dois gatilhos confirmados por código (redefinição manual pelo admin; criação de consultor). A busca feita nesta sessão (grep por `requirePasswordChange` em todo `src/`) não encontrou mais nenhum ponto do sistema que sete essa claim.
 
@@ -204,3 +209,4 @@ Ocasional — ocorre a cada vez que um System Admin define/redefine manualmente 
 | 1.2 | 14/07/2026 | Guilherme Scandelari | Seção 12 atualizada: a bullet que citava "'Definir Senha Manualmente' (System Admin)" como UC ainda não mapeado formalmente foi substituída pela referência ao UC-30 (Definir Senha do Consultor Manualmente), recém-mapeado para a variante de consultores. Adicionada nota explícita de que a variante equivalente para usuários (`clinic_admin`/`clinic_user`) permanece sem UC formal. Adicionada referência a UC-28 como a outra origem confirmada da pré-condição deste UC. Nova pendência (item 4) registrada na seção 14 refletindo esse mapeamento parcial. |
 | 1.3 | 15/07/2026 | Guilherme Scandelari | Seção 12 atualizada com a referência ao UC-37 (Definir Senha do Usuário Manualmente), recém-mapeado para a variante de usuários (`clinic_admin`/`clinic_user`) — fecha a pendência 4 registrada em v1.2. |
 | 1.4 | 15/07/2026 | Guilherme Scandelari | Adicionada referência cruzada a UC-38 (Editar Perfil e Trocar Senha do System Admin), recém-mapeado — mecanismo equivalente de autoatendimento para o único role que nunca passa por este UC-06 (RN-06 atualizada, seção 2.1 e seção 12 atualizadas, pendência 5 registrada como resolvida). |
+| 1.5 | 26/07/2026 | Guilherme Scandelari | **Correção de bug (commit `c3f18d4`, item Q1)**: a falha silenciosa ao chamar `POST /api/users/clear-password-change-flag` (Fluxo Alternativo 7b) foi corrigida. Novo estado `passwordChanged` marca que `updatePassword` já teve sucesso nesta sessão do componente; a partir daí, as etapas de validação/reautenticação/`updatePassword` não rodam mais em submissões subsequentes, os campos de senha ficam ocultos na UI, e o botão passa a exibir "Tentar novamente". Se a chamada à API falhar, o sistema exibe um erro explícito e não avança mais para o redirecionamento — eliminando o impasse em que o usuário ficava preso trocando uma senha que já era a definitiva. Seções 6 (passos 7-11), 7 (Fluxo Alternativo 7b, reescrito como histórico "[Corrigido]"), 8 (nota em 8d), 10 (RNF-01) e 14 (item 1) atualizadas. |
