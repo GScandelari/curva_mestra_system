@@ -21,6 +21,7 @@ export interface Tenant {
   timezone?: string; // NOVO: timezone (ex: "America/Sao_Paulo")
   max_users: number; // 1 para CPF (autônomo), 5 para CNPJ (clínica)
   active: boolean;
+  onboarding_completed?: boolean; // true após o primeiro envio de /clinic/setup
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -74,6 +75,7 @@ export interface UpdateTenantData {
   cep?: string; // NOVO: CEP separado
   timezone?: string; // NOVO: timezone
   active?: boolean;
+  onboarding_completed?: boolean;
 }
 
 /**

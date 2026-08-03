@@ -188,7 +188,7 @@ export default function ClinicDetailPage() {
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{stats.low_stock}</div>
               <p className="text-xs text-muted-foreground">
-                produtos Rennova com 5 unidades ou menos
+                produtos Rennova com 10 unidades ou menos
               </p>
             </CardContent>
           </Card>

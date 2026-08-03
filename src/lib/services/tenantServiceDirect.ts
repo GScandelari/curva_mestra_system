@@ -189,6 +189,9 @@ export async function updateTenant(tenantId: string, data: UpdateTenantData) {
     if (data.state !== undefined) firestoreData.state = data.state;
     if (data.cep !== undefined) firestoreData.cep = data.cep;
     if (data.active !== undefined) firestoreData.active = data.active;
+    if (data.onboarding_completed !== undefined) {
+      firestoreData.onboarding_completed = data.onboarding_completed;
+    }
 
     await updateDoc(docRef, firestoreData);
 
