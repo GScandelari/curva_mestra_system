@@ -5,6 +5,20 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.6.7](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.6...v1.6.7) (2026-08-03)
+
+
+### Bug Fixes
+
+* cinco itens de alta severidade (UC-21, UC-28, UC-35) ([66c75fa](https://github.com/GScandelari/curva_mestra_system/commit/66c75fa4203915450f2bfe710e55d935c66d35ef))
+* cinco itens de media severidade (UC-23, UC-24, UC-26, UC-28, UC-29) ([001671b](https://github.com/GScandelari/curva_mestra_system/commit/001671b8531af8e6c725fd6097edc1545ea79378))
+* nao bloquear leitura de legal_documents inativos por usuarios comuns ([ea5d265](https://github.com/GScandelari/curva_mestra_system/commit/ea5d26542d6b8b98d1f8d45509b5b1a6db74c8fd))
+* quatro itens de media severidade (UC-06, UC-07, UC-09, UC-29/UC-36) ([c3f18d4](https://github.com/GScandelari/curva_mestra_system/commit/c3f18d4f68a54e0c40f2ec6961ab77b8137f9286))
+* quatro itens de media severidade (UC-39, UC-45, UC-47, UC-48) ([70a38d7](https://github.com/GScandelari/curva_mestra_system/commit/70a38d780a6161d6ec8072491b2a7693bff45424))
+* seis itens de media severidade (UC-31, UC-32, UC-33, UC-34) ([7c3cbb2](https://github.com/GScandelari/curva_mestra_system/commit/7c3cbb20485691a3f5e94e51738561a4e8d65fad))
+* sete itens de media severidade (UC-11, UC-12, UC-13, UC-15, UC-50) ([216b3a0](https://github.com/GScandelari/curva_mestra_system/commit/216b3a0ffc65a2e3ce703d7ee302415ade1c5567))
+* tres itens de media severidade (UC-16, UC-18) ([6dea748](https://github.com/GScandelari/curva_mestra_system/commit/6dea74872c41d62e303acc00f02e69c3794837cb))
+
 ## [1.6.6](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.5...v1.6.6) (2026-07-20)
 
 
