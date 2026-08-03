@@ -37,12 +37,7 @@ async function generateUniqueCode(): Promise<string> {
 /**
  * Gera o HTML do e-mail de boas-vindas para o consultor
  */
-function generateConsultantWelcomeEmail(
-  name: string,
-  email: string,
-  code: string,
-  tempPassword: string
-): string {
+function generateConsultantWelcomeEmail(name: string, email: string, code: string): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -70,9 +65,8 @@ function generateConsultantWelcomeEmail(
             <p style="margin: 0; color: #92400e;"><strong>Dados de acesso:</strong></p>
             <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #92400e;">
               <li><strong>E-mail:</strong> ${email}</li>
-              <li><strong>Senha temporária:</strong> ${tempPassword}</li>
             </ul>
-            <p style="margin: 10px 0 0 0; color: #92400e; font-size: 12px;">Você será solicitado a alterar sua senha no primeiro acesso.</p>
+            <p style="margin: 10px 0 0 0; color: #92400e; font-size: 12px;">Sua senha de acesso não é enviada por e-mail. Você será solicitado a defini-la/trocá-la no primeiro acesso.</p>
           </div>
 
           <div style="text-align: center;">
@@ -245,53 +239,68 @@ export async function POST(req: NextRequest) {
       throw authError;
     }
 
-    // Criar documento do consultor
-    const consultantData = {
-      user_id: userId,
-      code,
-      name,
-      email: emailLower,
-      phone,
-      status: 'active',
-      authorized_tenants: [],
-      created_at: FieldValue.serverTimestamp(),
-      updated_at: FieldValue.serverTimestamp(),
-      created_by: decodedToken.uid,
-    };
-
-    const consultantRef = await adminDb.collection('consultants').add(consultantData);
-
-    // Definir Custom Claims para o usuário
-    await adminAuth.setCustomUserClaims(userId, {
-      tenant_id: null,
-      role: 'clinic_consultant' as UserRole,
-      is_system_admin: false,
-      is_consultant: true,
-      consultant_id: consultantRef.id,
-      authorized_tenants: [],
-      active: true,
-      requirePasswordChange: true,
-    });
-
-    // Criar documento na collection users
-    await adminDb
-      .collection('users')
-      .doc(userId)
-      .set({
+    // Criar documento do consultor, claims e documento em users -- se qualquer
+    // etapa falhar aqui, o usuário do Firebase Auth já criado acima fica
+    // órfão (ocupa o e-mail, sem doc correspondente) a menos que seja revertido.
+    let consultantRef: FirebaseFirestore.DocumentReference;
+    try {
+      const consultantData = {
+        user_id: userId,
+        code,
+        name,
         email: emailLower,
-        full_name: name,
         phone,
-        role: 'clinic_consultant' as UserRole,
-        tenant_id: null,
-        active: true,
-        requirePasswordChange: true,
+        status: 'active',
+        authorized_tenants: [],
         created_at: FieldValue.serverTimestamp(),
         updated_at: FieldValue.serverTimestamp(),
+        created_by: decodedToken.uid,
+      };
+
+      consultantRef = await adminDb.collection('consultants').add(consultantData);
+
+      // Definir Custom Claims para o usuário
+      await adminAuth.setCustomUserClaims(userId, {
+        tenant_id: null,
+        role: 'clinic_consultant' as UserRole,
+        is_system_admin: false,
+        is_consultant: true,
+        consultant_id: consultantRef.id,
+        authorized_tenants: [],
+        active: true,
+        requirePasswordChange: true,
       });
+
+      // Criar documento na collection users
+      await adminDb
+        .collection('users')
+        .doc(userId)
+        .set({
+          email: emailLower,
+          full_name: name,
+          phone,
+          role: 'clinic_consultant' as UserRole,
+          tenant_id: null,
+          active: true,
+          requirePasswordChange: true,
+          created_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp(),
+        });
+    } catch (postCreateError) {
+      await adminAuth
+        .deleteUser(userId)
+        .catch((deleteError) =>
+          console.error(
+            `[POST /api/consultants] falha ao reverter usuário órfão ${userId}:`,
+            deleteError
+          )
+        );
+      throw postCreateError;
+    }
 
     // Enviar e-mail de boas-vindas via fila
     try {
-      const emailHtml = generateConsultantWelcomeEmail(name, emailLower, code, tempPassword);
+      const emailHtml = generateConsultantWelcomeEmail(name, emailLower, code);
 
       await adminDb.collection('email_queue').add({
         to: emailLower,

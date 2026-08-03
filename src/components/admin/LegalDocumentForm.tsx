@@ -8,6 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -52,6 +62,10 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
   const [loading, setLoading] = useState(mode === 'edit');
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<LegalDocument>>(EMPTY_FORM);
+  // Snapshot do documento como carregado, para detectar mudanças de alto
+  // impacto (versão ou obrigatoriedade) em um documento já ativo.
+  const [originalDocument, setOriginalDocument] = useState<Partial<LegalDocument> | null>(null);
+  const [confirmImpactOpen, setConfirmImpactOpen] = useState(false);
 
   useEffect(() => {
     if (mode === 'edit' && documentId) {
@@ -64,7 +78,9 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
       const docRef = doc(db, 'legal_documents', documentId!);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setFormData({ id: docSnap.id, ...docSnap.data() } as LegalDocument);
+        const loaded = { id: docSnap.id, ...docSnap.data() } as LegalDocument;
+        setFormData(loaded);
+        setOriginalDocument(loaded);
       } else {
         toast({ title: 'Documento não encontrado', variant: 'destructive' });
         router.push('/admin/legal-documents');
@@ -121,13 +137,40 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
       return;
     }
 
+    // Editar versão ou obrigatoriedade de um documento já ativo torna
+    // instantaneamente pendentes todos os usuários que já haviam aceitado a
+    // versão anterior (usePendingTerms compara document_version), disparando
+    // o fluxo de re-aceite (UC-09) para toda a base de uma vez -- antes,
+    // salvar não avisava sobre esse impacto.
+    const impactaUsuariosJaAceitos =
+      mode === 'edit' &&
+      originalDocument?.status === 'ativo' &&
+      (originalDocument.version !== formData.version ||
+        (originalDocument.required_for_existing_users === false &&
+          formData.required_for_existing_users === true));
+
+    if (impactaUsuariosJaAceitos) {
+      setConfirmImpactOpen(true);
+      return;
+    }
+
+    await performSave();
+  }
+
+  async function performSave() {
+    // Sempre normaliza o slug (mesmo se editado manualmente) para garantir o
+    // formato exigido pela regra do Firestore (^[a-z0-9]+(-[a-z0-9]+)*$) --
+    // antes, um slug digitado à mão com caracteres inválidos só falharia (sem
+    // mensagem clara) na escrita, já que o client não validava esse campo.
+    const slugNormalizado = generateSlug(formData.slug || formData.title!);
+
     setSaving(true);
     try {
       if (mode === 'create') {
         await addDoc(collection(db, 'legal_documents'), {
           ...formData,
-          slug: formData.slug || generateSlug(formData.title!),
-          created_by: auth.currentUser.uid,
+          slug: slugNormalizado,
+          created_by: auth.currentUser!.uid,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
           published_at: formData.status === 'ativo' ? serverTimestamp() : null,
@@ -136,7 +179,7 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
       } else {
         const updateData: any = {
           title: formData.title,
-          slug: formData.slug || generateSlug(formData.title!),
+          slug: slugNormalizado,
           content: formData.content,
           version: formData.version,
           status: formData.status,
@@ -154,6 +197,7 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
       toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
     } finally {
       setSaving(false);
+      setConfirmImpactOpen(false);
     }
   }
 
@@ -338,6 +382,23 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
           )}
         </Button>
       </div>
+
+      <AlertDialog open={confirmImpactOpen} onOpenChange={setConfirmImpactOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Este documento já está ativo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Alterar a versão ou tornar este documento obrigatório para usuários existentes fará
+              com que todos os usuários que já aceitaram a versão anterior precisem aceitar
+              novamente no próximo acesso. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={performSave}>Continuar e salvar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

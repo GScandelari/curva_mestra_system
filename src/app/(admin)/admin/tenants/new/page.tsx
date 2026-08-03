@@ -76,9 +76,8 @@ Sua clínica {{clinic_name}} foi cadastrada com sucesso em nossa plataforma.
 
 **Dados de Acesso:**
 - E-mail: {{admin_email}}
-- Senha temporária: {{temp_password}}
 
-**Importante:** Por favor, altere sua senha no primeiro acesso através do menu Perfil.
+**Importante:** sua senha de acesso não é enviada por e-mail — foi definida pelo System Admin durante o cadastro. Você será solicitado a trocá-la no primeiro acesso ao sistema.
 
 **Próximos Passos:**
 1. Acesse o sistema em: https://curva-mestra.web.app
@@ -146,11 +145,12 @@ Equipe Curva Mestra`
   };
 
   const getPreviewEmail = () => {
+    // Não substitui {{temp_password}} -- a senha nunca deve trafegar por e-mail,
+    // mesmo que o admin edite o corpo manualmente e inclua esse placeholder.
     return emailBody
       .replace(/{{admin_name}}/g, adminData.name || '[Nome do Administrador]')
       .replace(/{{clinic_name}}/g, clinicData.name || '[Nome da Clínica]')
-      .replace(/{{admin_email}}/g, adminData.email || '[E-mail do Administrador]')
-      .replace(/{{temp_password}}/g, adminData.password || '[Senha Temporária]');
+      .replace(/{{admin_email}}/g, adminData.email || '[E-mail do Administrador]');
   };
 
   const handleSubmit = async () => {
@@ -511,7 +511,8 @@ Equipe Curva Mestra`
                   placeholder="Mínimo 6 caracteres"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Esta senha será enviada por e-mail. O usuário deverá alterá-la no primeiro acesso.
+                  Esta senha não é enviada por e-mail — comunique-a ao administrador por fora do
+                  sistema. Ele será solicitado a trocá-la no primeiro acesso.
                 </p>
               </div>
             </CardContent>

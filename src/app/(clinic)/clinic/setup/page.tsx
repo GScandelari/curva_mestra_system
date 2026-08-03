@@ -56,13 +56,20 @@ export default function ClinicSetupPage() {
   });
 
   const tenantId = claims?.tenant_id;
+  const isAdmin = claims?.role === 'clinic_admin';
 
   useEffect(() => {
-    // Verifica se já completou setup e carrega dados existentes
+    // Antes, qualquer clinic_user (não só clinic_admin) conseguia editar os
+    // dados cadastrais da clínica por aqui -- mesma restrição já usada em
+    // outras telas do módulo clínica.
+    if (claims && !isAdmin) {
+      router.push('/clinic/dashboard');
+      return;
+    }
     if (tenantId) {
       loadExistingData();
     }
-  }, [tenantId]);
+  }, [tenantId, claims, isAdmin, router]);
 
   async function loadExistingData() {
     if (!tenantId) return;
@@ -72,6 +79,14 @@ export default function ClinicSetupPage() {
 
       // Carrega dados existentes do tenant (inseridos pelo system_admin)
       const { tenant } = await getTenant(tenantId);
+
+      // Onboarding já concluído antes -- /clinic/setup deixa de ser uma
+      // segunda via permanente de edição de dados cadastrais; a edição
+      // posterior é feita em clinic/settings.
+      if (tenant?.onboarding_completed) {
+        router.push('/clinic/dashboard');
+        return;
+      }
 
       if (tenant) {
         // Extrai cidade, estado e CEP do endereço se não estiverem separados
@@ -246,6 +261,7 @@ export default function ClinicSetupPage() {
         state: formData.state,
         cep: formData.cep.replace(/\D/g, ''),
         max_users: formData.document_type === 'cnpj' ? 5 : 1,
+        onboarding_completed: true,
       };
 
       await updateTenant(tenantId, updateData);

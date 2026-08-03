@@ -98,24 +98,25 @@ docs:   documentação
 
 ## Roadmap e Backlog Técnico
 
-O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnicos e decisões de produto pendentes, consolidado a partir dos 50 Casos de Uso documentados em [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/). É a fonte de verdade para priorização de próximas correções e melhorias.
+O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnicos e decisões de produto pendentes, consolidado a partir dos 53 Casos de Uso documentados em [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/). É a fonte de verdade para priorização de próximas correções e melhorias.
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.7, 20/07/2026):**
+**Resumo (v3.22, 03/08/2026):**
 
-| Severidade | Aberto  | Corrigido | Descartado | Total   |
-| ---------- | ------- | --------- | ---------- | ------- |
-| Crítica    | 0       | 5         | 1          | 6       |
-| Alta       | 5       | 17        | 1          | 24      |
-| Média      | 36      | 1         | 1          | 39      |
-| Baixa      | 66      | 16        | 1          | 83      |
-| **Total**  | **107** | **39**    | **4**      | **152** |
+| Severidade | Aberto | Corrigido | Descartado | Total   |
+| ---------- | ------ | --------- | ---------- | ------- |
+| Crítica    | 0      | 5         | 1          | 6       |
+| Alta       | 1      | 22        | 1          | 25      |
+| Média      | 3      | 32        | 1          | 37      |
+| Baixa      | 66     | 16        | 1          | 83      |
+| **Total**  | **70** | **75**    | **4**      | **151** |
 
-- ✅ Todos os 6 achados **críticos** já foram tratados (5 corrigidos e documentados, 1 descartado por decisão de produto)
-- ⚠️ **5 itens de severidade Alta** seguem em aberto — próximo alvo natural de priorização (mais 1 item Alta já com decisão de produto tomada e em correção, aguardando apenas implementação)
+- ✅ Todos os 6 achados **críticos** já têm status final ou decisão registrada: 5 corrigidos e documentados; 1 descartado por decisão de produto (UC-14, ferramenta de auditoria de inventário removida)
+- ⚠️ **1 item de severidade Alta segue em aberto:** achado ampliado de arquitetura de segurança (`UC-13-RN-09 / UC-15-RN-07`) — a regra genérica de subcoleção do tenant em `firestore.rules` concede escrita irrestrita a qualquer usuário do tenant para todas as subcoleções (semântica OR do Firestore torna regras dedicadas inefetivas), com dúvida cruzada sinalizada sobre a efetividade real de `UC-44-RN-02`/`UC-43-RN-07`/`UC-42-RN-01`/`UC-20-RN-07` (os quatro já receberam ressalva textual do `uml-use-case-writer` reconhecendo o problema, sem correção de código); requer decisão dedicada, ainda não tomada. Na severidade Média, 5 itens dos módulos Administração do Sistema/Onboarding de Clínica/Relatórios/Portal do Consultor (bloqueio de criação de usuário para clínica inativa; restrição de role e flag de onboarding concluído em `/clinic/setup`; contagem de itens ignorados por validade inválida no Relatório de Vencimento; texto do card de estoque baixo — UC-39/UC-45/UC-47/UC-48) acabam de ser corrigidos e documentados, restando apenas 3 itens Média em aberto, todos deliberadamente adiados/consolidados (`UC-15-RN-05`, `UC-20-RN-07`, `UC-42-RN-05` — ver Seções 2 e 3 do mapa)
 - 🗂️ **9 decisões de produto pendentes** e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
-- 📝 12 dos 50 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
+- 🔎 **12 gaps entre a landing page comercial e o sistema real** catalogados (Seção 7 do mapa) — 4 com decisão de implementar, **agora 100% documentados**: **UC-51, UC-52 e UC-53 já escritos e aprovados**, aguardando apenas priorização/planejamento de implementação; o item de Backup Geográfico Automatizado (antes reservado como UC-54) foi descartado como caso de uso e documentado como **ADR aprovado** (`ONLY_FOR_DEVS/TO_DO/ADR-backup-geografico-automatizado.md`), por ser um processo de infraestrutura sem ator/tela — 5 com decisão de corrigir apenas o texto da landing (baixa prioridade) e 3 com decisão adiada
+- 📝 12 dos 53 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
 
 > Este resumo é um retrato do mapa no momento da última atualização deste README. Para o estado atual item a item, sempre consulte o arquivo do mapa diretamente — ele é atualizado a cada correção ou novo achado.
 
@@ -125,7 +126,7 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 - [`CLAUDE.md`](./CLAUDE.md) — instruções de arquitetura e convenções para desenvolvimento com IA
 - [`ONLY_FOR_DEVS/`](./ONLY_FOR_DEVS/) — guias, tasks pendentes e decisões técnicas
-- [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/) — Casos de Uso UML (UC-01 a UC-50) e mapa de bugs/melhorias
+- [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/) — Casos de Uso UML (UC-01 a UC-53) e mapa de bugs/melhorias
 - [`ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md`](./ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md) — guia completo do pipeline de desenvolvimento e dos agentes de IA do projeto
 - [`CHANGELOG.md`](./CHANGELOG.md) — histórico de versões (gerado automaticamente)
 

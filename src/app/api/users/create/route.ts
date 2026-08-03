@@ -68,6 +68,16 @@ export async function POST(request: NextRequest) {
 
     const tenantData = tenantDoc.data();
 
+    // Antes, uma clínica desativada (UC-22) ainda permitia criar novos
+    // usuários -- a desativação em cascata só afeta os usuários já existentes
+    // no momento da suspensão, não bloqueia a criação de novos.
+    if (tenantData?.active === false) {
+      return NextResponse.json(
+        { error: 'Não é possível criar usuários para uma clínica inativa' },
+        { status: 403 }
+      );
+    }
+
     // Obter limite de usuários do tenant (baseado em CPF=1 ou CNPJ=5)
     const maxUsers = tenantData?.max_users || 5;
 

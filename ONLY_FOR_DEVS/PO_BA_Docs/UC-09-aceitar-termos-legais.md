@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.4
+**Versão:** 1.4.1
 
 > Um usuário autenticado — seja um usuário existente notificado de um novo termo obrigatório publicado (`/accept-terms`), seja um usuário em onboarding de uma nova clínica aceitando termos pela primeira vez (`/clinic/setup/terms`) — deve aceitar todos os documentos legais ativos e obrigatórios antes de continuar usando o sistema. Um componente global (`TermsInterceptor`) decide, em toda navegação, se há termos pendentes e redireciona automaticamente para a variante correta.
 
@@ -87,7 +87,7 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 
 ### Variante B — Onboarding de nova clínica (`/clinic/setup/terms`)
 1. `TermsInterceptor` detecta `hasPendingTerms` e, como o role é `clinic_admin`/`clinic_user` e o caminho já começa com `/clinic/setup`, redireciona para `/clinic/setup/terms`.
-2. Página aguarda `useAuth()` resolver o usuário.
+2. Página aguarda `useAuth()` resolver o usuário. **[CORRIGIDO, commit `c3f18d4`]** — ver Fluxo de Exceção 8d para o detalhe do guard adicionado.
 3. Página consulta todos os documentos de `legal_documents` com `status: "ativo"` (ordenado por `order`) e filtra, no cliente, pela união `doc.required_for_registration || doc.required_for_existing_users` — mesmo critério de `usePendingTerms` (RN-02/RN-03 — **[CORRIGIDO]** no commit `16877f1`; antes, a query filtrava diretamente por `required_for_registration == true`, sem considerar `required_for_existing_users`).
 4. Página consulta `user_document_acceptances` e monta um `Map<document_id, document_version>` — mesma estrutura da Variante A (RN-02 — **[CORRIGIDO]**; antes era um `Set` por `document_id`, aceito em qualquer versão, mesma divergência da Variante A).
 5. Página filtra `pendingDocs` com o mesmo critério de versão da Variante A (passo 5).
@@ -134,10 +134,15 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 2. Sistema exibe toast: "Atenção" / "Você precisa aceitar todos os documentos para continuar".
 3. Nenhum registro é criado; caso de uso retorna à marcação dos checkboxes.
 
-### 8d. Usuário não autenticado (a partir do passo 2 da Variante A, ou implicitamente na Variante B)
-1. `auth.currentUser` (Variante A) ou `user` de `useAuth()` (Variante B) está ausente.
-2. A Variante A redireciona explicitamente para `/login`. A Variante B simplesmente não carrega nada (`loadDocuments` só roda se `user` existir) — **a tela ficaria "carregando" indefinidamente**, sem nenhum redirecionamento explícito para usuário deslogado (ver seção 14).
-3. Caso de uso é encerrado (Variante A) ou fica bloqueado indefinidamente (Variante B).
+### 8d. [CORRIGIDO — defesa em profundidade, achado não reproduzível pelo caminho normal de navegação — commit `c3f18d4`] Usuário não autenticado (a partir do passo 2 da Variante A, ou do carregamento da Variante B)
+1. `auth.currentUser` (Variante A) ou `user`/`loading` de `useAuth()` (Variante B) indicam usuário deslogado.
+2. **Variante A** (`/accept-terms`) já redirecionava explicitamente para `/login` desde a v1.0 deste UC — não alterada por esta correção.
+3. **Variante B** (`/clinic/setup/terms`) — **[CORRIGIDO]** o `useEffect` que decide se chama `loadDocuments()` passou a extrair também `loading: authLoading` de `useAuth()`. A lógica agora é: `if (authLoading) return;` (aguarda a resolução do estado de auth antes de decidir qualquer coisa) → `if (!user) { router.push('/login'); return; }` (redireciona explicitamente para usuário deslogado) → só então `loadDocuments()` é chamado — o mesmo padrão defensivo já usado na Variante A.
+4. **Nuance importante:** a investigação confirmou que, na prática, o loading infinito descrito no comportamento anterior **não se reproduz hoje** pelo caminho normal de navegação, porque `src/app/(clinic)/layout.tsx` já envolve todas as rotas do grupo `(clinic)` (incluindo `/clinic/setup/*`) com `ProtectedRoute`, que já redireciona usuários deslogados para `/login` **antes** do componente da página sequer montar — esse wrapping do layout pai é anterior a este UC. Ou seja, este não é (e não era) um bug ativo no comportamento observável do sistema hoje.
+5. **Decisão do PO:** implementar o guard mesmo assim, como defesa em profundidade — não depender só do `ProtectedRoute` do layout pai, protegendo contra refactors futuros que possam remover esse wrapper, ou algum caminho de acesso direto que hoje não existe.
+6. Caso de uso é encerrado (ambas as variantes agora redirecionam explicitamente para `/login`, cada uma com seu próprio guard).
+
+**Comportamento anterior (histórico, antes da correção):** a Variante B não verificava `authLoading` nem `user` antes de decidir se chamava `loadDocuments()` — o `useEffect` continha apenas `if (user) { loadDocuments(); }`, sem `else` nem redirecionamento; um usuário deslogado que, por algum caminho hipotético, alcançasse esta página sem passar pelo `ProtectedRoute` do layout pai ficaria com a tela presa em estado de carregamento indefinidamente.
 
 ### 8e. Erro ao carregar documentos ou salvar aceites
 1. Exceção lançada durante a leitura (`getDocs`) ou a gravação (`addDoc`) no Firestore.
@@ -192,9 +197,10 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 
 ## 13. Referências
 - `src/app/(auth)/accept-terms/page.tsx`
-- `src/app/(clinic)/clinic/setup/terms/page.tsx`
+- `src/app/(clinic)/clinic/setup/terms/page.tsx` (guard defensivo de usuário deslogado adicionado no commit `c3f18d4` — ver Fluxo de Exceção 8d)
 - `src/components/auth/TermsInterceptor.tsx`
 - `src/hooks/usePendingTerms.ts`
+- `src/app/(clinic)/layout.tsx` (já envolve as rotas do grupo `(clinic)` com `ProtectedRoute`, redirecionando usuários deslogados antes do componente montar — motivo pelo qual o achado do Fluxo 8d não era reproduzível pelo caminho normal de navegação)
 - `src/components/admin/LegalDocumentForm.tsx` (confirma que "editar" reutiliza o mesmo ID do documento e permite alterar `version` livremente, sem versionamento automático — ver UC-34)
 - `src/app/(clinic)/clinic/profile/page.tsx` (exibição somente-leitura do histórico de aceites do próprio usuário — formalizado em UC-41)
 - `src/types/index.ts` (`LegalDocument`, `UserDocumentAcceptance`)
@@ -208,6 +214,7 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 2. **[Resolvido — commit `16877f1`]** RN-03/Fluxo 8b — divergência de filtro `required_for_registration`/`required_for_existing_users` entre `usePendingTerms` e as páginas de aceite. Corrigido unificando a query (sem filtro `required_for_*` na leitura; filtro client-side pela união das duas flags) nas duas páginas.
 3. **[Observação]** RN-07 — `ip_address` nunca é de fato capturado, apesar de existir no schema; pode ser relevante dependendo do requisito legal/de compliance real por trás desse campo.
 4. **[Resolvido — UC-34]** RN-05/Fluxo 8f — exclusão permanente de documentos legais já aceitos (sem checagem de dependências) era um risco de compliance identificado durante o mapeamento de UC-34; corrigido em UC-34 (RN-03, commit `4561a2a`): a exclusão passou a ser bloqueada sempre que existirem aceites registrados.
+5. **[RESOLVIDO — defesa em profundidade, commit `c3f18d4`]** A Variante B (`/clinic/setup/terms`) não tinha guard próprio para usuário deslogado, ao contrário da Variante A (achado citado no Fluxo de Exceção 8d desde a v1.0, sem item formal correspondente nesta seção até agora). Investigação confirmou que o loading infinito descrito não se reproduz hoje pelo caminho normal de navegação, pois `(clinic)/layout.tsx` já envolve a rota com `ProtectedRoute`, redirecionando usuários deslogados antes mesmo do componente montar. Ainda assim, o guard foi implementado como defesa em profundidade (mesmo padrão já usado na Variante A), protegendo contra futuros refactors que removam esse wrapper ou caminhos de acesso direto hoje inexistentes.
 
 ---
 
@@ -221,3 +228,4 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 | 1.3 | 15/07/2026 | Guilherme Scandelari | Cross-reference: adicionada referência a UC-45 (Completar Configuração Inicial da Clínica), destino do redirecionamento ao final da Variante B de onboarding. |
 | 1.3.1 | 16/07/2026 | Guilherme Scandelari | Cross-reference: o bug de exclusão órfã documentado em UC-34 (RN-03) foi corrigido no commit `4561a2a` (bloqueio de exclusão quando existem aceites registrados). Atualizado o diagrama (seção 1), Fluxo de Exceção 8f, RN-05 e seção 12 para refletir que a exclusão permanente de documento legal só ocorre quando ele nunca foi aceito; item 4 da seção 14 marcado como resolvido. Nenhum outro conteúdo deste UC foi alterado. |
 | 1.4 | 20/07/2026 | Guilherme Scandelari | **Correção de bug (commit `16877f1`)**: RN-02 e RN-03 corrigidos — `accept-terms/page.tsx` e `clinic/setup/terms/page.tsx` agora usam exatamente o mesmo critério de "documento pendente" que `usePendingTerms`/`TermsInterceptor` (união `required_for_registration || required_for_existing_users` na query, e `Map<document_id, document_version>` com checagem de versão em vez de `Set` por `document_id`). Isso elimina o loop de redirecionamento descrito nos Fluxos de Exceção 8a e 8b, ambos reescritos como histórico "[Corrigido]". Seções 3, 6 (passos 3-6 de ambas as variantes), 9 (RN-01 a RN-03) e 14 (itens 1 e 2) atualizadas para refletir a correção. |
+| 1.4.1 | 26/07/2026 | Guilherme Scandelari | **Correção defensiva (commit `c3f18d4`)**: Fluxo de Exceção 8d reescrito — a Variante B (`clinic/setup/terms/page.tsx`) ganhou o mesmo guard já usado na Variante A (`accept-terms/page.tsx`): aguarda `authLoading` resolver, redireciona para `/login` se `!user`, só então chama `loadDocuments()`. **Nuance registrada:** a investigação confirmou que o loading infinito descrito no achado original não se reproduz hoje pelo caminho normal de navegação, pois `(clinic)/layout.tsx` já envolve todas as rotas do grupo com `ProtectedRoute`, que redireciona usuários deslogados antes do componente montar — a correção foi implementada como defesa em profundidade (proteção contra refactors futuros ou caminhos de acesso hoje inexistentes), não como resposta a um bug ativo. Seções 6 (passo 2 da Variante B), 8 (Fluxo 8d, reescrito), 13 e 14 (novo item 5) atualizadas. |

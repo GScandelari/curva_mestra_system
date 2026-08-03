@@ -39,6 +39,7 @@ export interface ExpirationReport {
   }[];
   total_produtos: number;
   valor_em_risco: number;
+  itens_ignorados: number; // Itens com dt_validade inválida/não interpretável, excluídos do relatório
   gerado_em: Date;
 }
 
@@ -144,6 +145,7 @@ export async function generateExpirationReport(
 
     const produtosVencendo: ExpirationReport['produtos_vencendo'] = [];
     let valorEmRisco = 0;
+    let itensIgnorados = 0;
 
     snapshot.forEach((doc) => {
       const data = doc.data();
@@ -165,6 +167,7 @@ export async function generateExpirationReport(
           dtValidade = new Date(data.dt_validade);
         } else {
           console.warn(`[EXPIRATION REPORT] Formato de data desconhecido:`, data.dt_validade);
+          itensIgnorados++;
           return;
         }
       } else {
@@ -173,6 +176,19 @@ export async function generateExpirationReport(
           `[EXPIRATION REPORT] Data de validade inválida para produto ${doc.id}:`,
           data.dt_validade
         );
+        itensIgnorados++;
+        return;
+      }
+
+      // Datas ISO/DD-MM-YYYY sintaticamente aceitas pelo construtor Date, mas
+      // com valores inválidos (ex: "2025-13-45"), viram Invalid Date -- sem isso,
+      // o item seria descartado silenciosamente na comparação NaN <= limitDate.
+      if (isNaN(dtValidade.getTime())) {
+        console.warn(
+          `[EXPIRATION REPORT] Data de validade inválida para produto ${doc.id}:`,
+          data.dt_validade
+        );
+        itensIgnorados++;
         return;
       }
 
@@ -217,6 +233,7 @@ export async function generateExpirationReport(
       produtos_vencendo: produtosVencendo,
       total_produtos: produtosVencendo.length,
       valor_em_risco: valorEmRisco,
+      itens_ignorados: itensIgnorados,
       gerado_em: new Date(),
     };
   } catch (error) {

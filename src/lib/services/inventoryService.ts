@@ -386,6 +386,72 @@ export async function getInventoryItem(
 }
 
 /**
+ * Busca todos os lotes ativos de um produto (mesmo codigo_produto) no tenant --
+ * usado para consolidar quantidade/valor/status entre lotes na tela de detalhe
+ * (antes, o detalhe só enxergava o próprio lote, divergindo da agregação já
+ * usada pela lista de inventário).
+ */
+export async function getInventoryItemsByCodigo(
+  tenantId: string,
+  codigoProduto: string
+): Promise<InventoryItem[]> {
+  try {
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+    const q = query(
+      inventoryRef,
+      where('codigo_produto', '==', codigoProduto),
+      where('active', '==', true)
+    );
+
+    const snapshot = await getDocs(q);
+    const items: InventoryItem[] = [];
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      items.push({
+        id: docSnap.id,
+        tenant_id: data.tenant_id,
+        produto_id: data.produto_id,
+        codigo_produto: data.codigo_produto,
+        nome_produto: data.nome_produto,
+        lote: data.lote,
+        quantidade_inicial: data.quantidade_inicial,
+        quantidade_disponivel: data.quantidade_disponivel,
+        quantidade_reservada: data.quantidade_reservada,
+        dt_validade:
+          data.dt_validade instanceof Timestamp
+            ? data.dt_validade.toDate()
+            : new Date(data.dt_validade),
+        dt_entrada:
+          data.dt_entrada instanceof Timestamp
+            ? data.dt_entrada.toDate()
+            : new Date(data.dt_entrada),
+        valor_unitario: data.valor_unitario,
+        nf_numero: data.nf_numero,
+        nf_id: data.nf_id,
+        active: data.active,
+        created_at:
+          data.created_at instanceof Timestamp
+            ? data.created_at.toDate()
+            : new Date(data.created_at),
+        updated_at:
+          data.updated_at instanceof Timestamp
+            ? data.updated_at.toDate()
+            : new Date(data.updated_at),
+        category: data.category as string | undefined,
+        fragmentavel: data.fragmentavel as boolean | undefined,
+        unidades_por_embalagem: data.unidades_por_embalagem as number | undefined,
+      });
+    });
+
+    return items;
+  } catch (error) {
+    console.error('Erro ao buscar lotes do produto:', error);
+    throw error;
+  }
+}
+
+/**
  * Retorna um Map<codigo_produto, limite_estoque_baixo> para o tenant.
  * Lê de tenants/{tenantId}/stock_limits/{codigo_produto}.
  */

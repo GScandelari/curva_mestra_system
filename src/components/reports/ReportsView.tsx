@@ -388,6 +388,17 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
               </div>
             </div>
 
+            {expirationReport.itens_ignorados > 0 && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                {expirationReport.itens_ignorados}{' '}
+                {expirationReport.itens_ignorados === 1
+                  ? 'item foi ignorado'
+                  : 'itens foram ignorados'}{' '}
+                por ter data de validade inválida ou não reconhecida. O &quot;Valor em Risco&quot;
+                acima pode estar subestimado.
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">

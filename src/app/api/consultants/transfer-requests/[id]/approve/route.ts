@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -106,16 +107,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     await batch.commit();
 
+    // Custom claims sincronizadas depois do commit -- não derrubam a resposta
+    // se falharem (Firestore já é a fonte da verdade da transferência).
+    let claimsSynced = true;
+
     // Atualizar custom claims do novo consultor (adicionar tenant)
     if (requestingConsultantData.user_id) {
-      const userRecord = await adminAuth.getUser(requestingConsultantData.user_id);
-      const currentClaims = userRecord.customClaims || {};
-      const updatedTenants = [...(currentClaims.authorized_tenants || [])];
-      if (!updatedTenants.includes(tenant_id)) updatedTenants.push(tenant_id);
-      await adminAuth.setCustomUserClaims(requestingConsultantData.user_id, {
-        ...currentClaims,
-        authorized_tenants: updatedTenants,
-      });
+      const result = await syncConsultantAuthorizedTenants(
+        requestingConsultantData.user_id,
+        tenant_id,
+        'add'
+      );
+      claimsSynced = claimsSynced && result.synced;
     }
 
     // Atualizar custom claims do consultor atual (remover tenant)
@@ -126,15 +129,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const currentConsultantData = currentConsultantDoc.data();
 
     if (currentConsultantData?.user_id) {
-      const userRecord = await adminAuth.getUser(currentConsultantData.user_id);
-      const currentClaims = userRecord.customClaims || {};
-      const updatedTenants = (currentClaims.authorized_tenants || []).filter(
-        (t: string) => t !== tenant_id
+      const result = await syncConsultantAuthorizedTenants(
+        currentConsultantData.user_id,
+        tenant_id,
+        'remove'
       );
-      await adminAuth.setCustomUserClaims(currentConsultantData.user_id, {
-        ...currentClaims,
-        authorized_tenants: updatedTenants,
-      });
+      claimsSynced = claimsSynced && result.synced;
     }
 
     // Email para o consultor solicitante
@@ -154,7 +154,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       console.warn('Erro ao enviar email:', emailError);
     }
 
-    return NextResponse.json({ success: true, message: 'Transferência aprovada com sucesso' });
+    return NextResponse.json({
+      success: true,
+      claims_synced: claimsSynced,
+      message: 'Transferência aprovada com sucesso',
+    });
   } catch (error: any) {
     console.error('Erro ao aprovar transferência:', error);
     return NextResponse.json(

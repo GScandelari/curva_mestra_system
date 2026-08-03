@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import {
   getInventoryItem,
+  getInventoryItemsByCodigo,
   getStockLimitsMap,
   deactivateInventoryItem,
   checkInventoryItemReservations,
@@ -38,7 +39,11 @@ import {
   type InventoryItem,
   type ImpactedProcedimento,
 } from '@/lib/services/inventoryService';
-import { getStatusEstoque, type StatusEstoque } from '@/lib/inventoryUtils';
+import {
+  getStatusEstoque,
+  agruparProdutosPorCodigo,
+  type StatusEstoque,
+} from '@/lib/inventoryUtils';
 
 export default function InventoryItemPage() {
   const { claims } = useAuth();
@@ -46,6 +51,7 @@ export default function InventoryItemPage() {
   const params = useParams();
 
   const [item, setItem] = useState<InventoryItem | null>(null);
+  const [outrosLotes, setOutrosLotes] = useState<InventoryItem[]>([]);
   const [stockLimit, setStockLimit] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,6 +91,12 @@ export default function InventoryItemPage() {
 
         setItem(data);
         setStockLimit(limitsMap.get(data.codigo_produto));
+
+        // Lotes-irmãos do mesmo produto (mesmo codigo_produto) -- antes, esta
+        // tela só enxergava o próprio lote, divergindo do valor/status
+        // consolidado já usado pela lista de inventário (UC-50-RN-02/RN-07).
+        const todosLotes = await getInventoryItemsByCodigo(tenantId, data.codigo_produto);
+        setOutrosLotes(todosLotes);
       } catch (err: any) {
         console.error('Erro ao carregar produto:', err);
         setError('Erro ao carregar produto');
@@ -229,10 +241,21 @@ export default function InventoryItemPage() {
     );
   }
 
+  // Consolidado entre todos os lotes ativos do mesmo produto -- mesmo cálculo
+  // usado na lista de inventário (agruparProdutosPorCodigo), para o status e o
+  // valor total deixarem de divergir entre as duas telas (UC-50-RN-02/RN-07).
+  const [produtoConsolidado] = agruparProdutosPorCodigo(
+    outrosLotes.length > 0 ? outrosLotes : [item]
+  );
+  const valorTotalConsolidado = produtoConsolidado.lotes.reduce(
+    (sum, lote) => sum + lote.valor_unitario * lote.quantidade_disponivel,
+    0
+  );
+
   const expiryStatus = getExpiryStatus(item.dt_validade);
   const stockStatus = getStockStatusDisplay(
     getStatusEstoque({
-      quantidade_disponivel: item.quantidade_disponivel,
+      quantidade_disponivel: produtoConsolidado.quantidade_total,
       limite_estoque_baixo: stockLimit,
     })
   );
@@ -388,9 +411,25 @@ export default function InventoryItemPage() {
                 <div className="flex items-center gap-3">
                   <DollarSign className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium">Valor Total em Estoque</p>
-                    <p className="text-xl font-bold text-primary">
+                    <p className="text-sm font-medium">Valor Total deste Lote</p>
+                    <p className="text-xl font-bold">
                       {formatCurrency(item.valor_unitario * item.quantidade_disponivel)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <div className="flex items-center gap-3">
+                  <DollarSign className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      Valor Total em Estoque
+                      {produtoConsolidado.lotes.length > 1 &&
+                        ` (${produtoConsolidado.lotes.length} lotes)`}
+                    </p>
+                    <p className="text-xl font-bold text-primary">
+                      {formatCurrency(valorTotalConsolidado)}
                     </p>
                   </div>
                 </div>
