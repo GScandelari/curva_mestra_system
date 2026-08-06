@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Administração do Sistema
-**Versão:** 1.2.1
+**Versão:** 1.2.2
 
 > Um System Admin, a partir da tela de gestão de usuários ou de consultores, aciona o envio de um e-mail com um link seguro de redefinição de senha para outra pessoa — usando um sistema de token **customizado e próprio do Curva Mestra** (não o mecanismo nativo do Firebase usado em UC-02/UC-07), com expiração de 30 minutos e uso único. É a terceira forma que um System Admin tem de ajudar alguém a recuperar acesso, ao lado de "Definir Senha Manualmente" (UC-06, sem e-mail, senha definida imediatamente).
 
@@ -92,7 +92,7 @@ O System Admin clica no botão de redefinir senha na tela de edição de um usu�
 12. API retorna sucesso; sistema exibe confirmação com o e-mail para o qual foi enviado.
 13. **(Continuação, pelo usuário-alvo)** Usuário-alvo recebe o e-mail e clica no link, chegando a `/reset-password/{token}`.
 14. Sistema chama `GET /api/auth/validate-reset-token?token={token}` para validar o token sem consumi-lo, exibindo o e-mail mascarado (ex.: `j***o@dominio.com`) se válido.
-15. Usuário-alvo preenche nova senha e confirmação (mínimo 6 caracteres) e submete.
+15. Usuário-alvo preenche nova senha e confirmação e submete — nova senha validada por `validatePassword(newPassword, { minLength: 6 })`, função compartilhada de `@/lib/validations/serverValidations` (**[CORRIGIDO, commit `1254abb`]**, ver RN-08; antes, uma função local inline só checava `password.length < 6`).
 16. Sistema chama `POST /api/auth/reset-password` com `{ token, new_password }`.
 17. API consome o token (`consumeToken` — revalida e marca `used_at`), atualiza a senha no Firebase Auth via Admin SDK, remove `requirePasswordChange` das claims se presente (RN-06), atualiza o Firestore do usuário e invalida quaisquer outros tokens pendentes.
 18. Sistema exibe "Senha Redefinida!" e redireciona para `/login` após 3 segundos.
@@ -143,8 +143,8 @@ O System Admin clica no botão de redefinir senha na tela de edição de um usu�
 3. Mesmo tratamento de 8d.
 
 ### 8f. Nova senha inválida (a partir do passo 15)
-1. Menos de 6 caracteres, ou confirmação diferente da senha.
-2. Sistema exibe o erro específico no próprio formulário: "A senha deve ter pelo menos 6 caracteres" / "As senhas não coincidem".
+1. Nova senha reprovada por `validatePassword` (menos de 6 caracteres, ou sem nenhuma letra — **[CORRIGIDO, commit `1254abb`]**, esta segunda checagem é nova em relação à função local anterior, ver RN-08), ou confirmação diferente da senha.
+2. Sistema exibe o erro específico no próprio formulário: "Senha deve ter pelo menos 6 caracteres" ou "Senha deve conter pelo menos uma letra" (retornadas por `validatePassword`) / "As senhas não coincidem".
 3. Caso de uso retorna ao passo 15.
 
 ---
@@ -160,6 +160,7 @@ O System Admin clica no botão de redefinir senha na tela de edição de um usu�
 | RN-05 | Não é permitido redefinir a senha de um usuário com `role: "system_admin"` através deste mecanismo (`/api/users/{id}/reset-password`) — a rota equivalente de consultores não tem essa restrição, pois consultores nunca têm `role: "system_admin"`. | Restrição de segurança confirmada no código: administradores globais não são alvo deste fluxo. |
 | RN-06 | Ao completar a redefinição (`POST /api/auth/reset-password`), se o usuário-alvo tivesse `requirePasswordChange: true` (UC-06), essa claim é removida — ou seja, este mecanismo também "quita" uma pendência de troca obrigatória de senha, mesmo tendo sido originado por um caminho diferente. | Confirmado por leitura de `api/auth/reset-password/route.ts` — os dois mecanismos (UC-06 e UC-08) convergem nesse ponto específico. |
 | RN-07 | Este mecanismo é genuinamente diferente do link usado em UC-02 (aprovação) e de UC-07 (self-service) — ambos usam o sistema nativo do Firebase Auth (`generatePasswordResetLink`/`sendPasswordResetEmail`); este usa um sistema de token 100% customizado, construído neste projeto, com página própria (`/reset-password/[token]`) e API routes próprias. | Confirmado por leitura completa de `passwordResetService.ts` — a senha é alterada via `adminAuth.updateUser`, uma operação diferente de `generatePasswordResetLink`; nenhuma chamada ao sistema nativo de reset do Firebase existe neste mecanismo. |
+| RN-08 | **[CORRIGIDO — commit `1254abb`, achado novo, descoberto durante a correção de UC-06-RN-02]** Antes: `src/app/(auth)/reset-password/[token]/page.tsx` (passo 15 do Fluxo Principal) tinha uma função local `validatePassword` que só checava `password.length < 6` — mais fraca que a função compartilhada `validatePassword` de `@/lib/validations/serverValidations` (que também exige pelo menos uma letra e limita a 100 caracteres). Essa mesmíssima inconsistência foi corrigida, no mesmo commit, em `change-password/page.tsx` (UC-06, RN-02) — a página pertencente a este UC-08 tinha exatamente o mesmo problema, ainda não documentado em nenhuma RN deste UC até agora. Agora: a função local foi removida; o arquivo importa `validatePassword` de `@/lib/validations/serverValidations` e chama `validatePassword(newPassword, { minLength: 6 })`, exibindo `passwordValidation.error` quando `!passwordValidation.valid`. | Elimina a divergência de rigor entre esta tela e a validação compartilhada usada em outros pontos do sistema (ex.: UC-01, UC-06) — corrigido por leitura direta do diff do commit `1254abb` em `reset-password/[token]/page.tsx`. Mesmo achado gêmeo documentado formalmente em **UC-06 (RN-02)**, já que as duas telas compartilhavam a mesma função local fraca antes da correção; a correção de código em si pertence a este UC-08, pois a página `/reset-password/[token]` é coberta por ele, não por UC-06. |
 
 ---
 
@@ -179,7 +180,7 @@ Ocasional — usado pelo System Admin como alternativa a "Definir Senha Manualme
 ---
 
 ## 12. Casos de Uso Relacionados
-- **UC-06 (Trocar Senha Obrigatória no Primeiro Acesso)** documenta o mecanismo irmão "Definir Senha Manualmente" (sem e-mail, senha definida imediatamente, com `requirePasswordChange` opcional) — as duas ações ficam lado a lado na mesma tela `admin/users`, como duas formas distintas de o System Admin ajudar alguém com a senha. Convergem em RN-06 (ambas limpam `requirePasswordChange`, quando aplicável).
+- **UC-06 (Trocar Senha Obrigatória no Primeiro Acesso)** documenta o mecanismo irmão "Definir Senha Manualmente" (sem e-mail, senha definida imediatamente, com `requirePasswordChange` opcional) — as duas ações ficam lado a lado na mesma tela `admin/users`, como duas formas distintas de o System Admin ajudar alguém com a senha. Convergem em RN-06 (ambas limpam `requirePasswordChange`, quando aplicável) e, desde o commit `1254abb`, também no achado gêmeo de validação fraca de senha corrigido em ambas as telas no mesmo commit (RN-08 deste UC; UC-06-RN-02).
 - **UC-02 (Aprovar Solicitação de Acesso)** e **UC-07 (Recuperar Senha Esquecida)** usam o mecanismo nativo do Firebase Auth para redefinição de senha — genuinamente diferente do token customizado deste UC (RN-07).
 - **UC-29 (Editar, Suspender e Reativar Consultor)** documenta a mesma tela onde a variante para consultores deste mecanismo vive (`admin/consultants/[id]/page.tsx`, seção "Gerenciamento de Senha" → "Redefinir Senha"). A funcionalidade "Redefinir Senha via Link" dessa tela é integralmente coberta por este UC-08 (rota `api/consultants/[id]/reset-password`, passos 1-19 acima) — por decisão confirmada, não recebeu um UC dedicado (UC-30), para evitar duplicar este conteúdo.
 - **UC-30 (Definir Senha do Consultor Manualmente)** — mecanismo irmão específico de consultores, na mesma tela de UC-29, equivalente ao papel que UC-06 exerce para usuários (`clinic_admin`/`clinic_user`).
@@ -196,10 +197,12 @@ Ocasional — usado pelo System Admin como alternativa a "Definir Senha Manualme
 - `src/app/api/auth/validate-reset-token/route.ts`
 - `src/app/api/auth/reset-password/route.ts`
 - `src/lib/services/passwordResetService.ts`
-- `src/app/(auth)/reset-password/[token]/page.tsx`
+- `src/app/(auth)/reset-password/[token]/page.tsx` (desde o commit `1254abb`, usa `validatePassword` compartilhada de `@/lib/validations/serverValidations` em vez de uma função local fraca — ver RN-08)
 - `firestore.rules` (regra de `password_reset_tokens`)
 - `src/components/ui/alert-dialog.tsx` (componente padrão usado na correção do RNF-02)
+- `src/lib/validations/serverValidations.ts` (`validatePassword`, usada por `reset-password/[token]/page.tsx` desde o commit `1254abb` — ver RN-08)
 - Commit da correção: `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`) — troca `confirm()` nativo por `AlertDialog` em ambas as variantes (RNF-02)
+- Commit da correção: `1254abb` (`fix: seis itens de baixa severidade (UC-01, UC-03, UC-04, UC-06, UC-07)`) — corrige, junto com UC-06-RN-02, a validação fraca de senha em `reset-password/[token]/page.tsx` (RN-08 deste UC; achado descoberto durante a correção de UC-06, não listado no título do commit por não ter UC próprio identificado na hora)
 
 ---
 
@@ -220,3 +223,4 @@ Nenhuma pendência bloqueante identificada — ao contrário de UC-05, este meca
 | 1.1 | 14/07/2026 | Guilherme Scandelari | Seção 12 atualizada com referências cruzadas ao módulo "Admin — Gestão de Consultores": adicionada menção a UC-29 (mesma tela `admin/consultants/[id]`, confirmando que este UC-08 já cobre integralmente a funcionalidade "Redefinir Senha via Link" da variante de consultores, sem necessidade de UC-30 dedicado) e a UC-30 (mecanismo irmão de definição manual de senha, específico de consultores). |
 | 1.2 | 15/07/2026 | Guilherme Scandelari | Seção 12 atualizada com referências cruzadas ao módulo "Admin — Gestão de Usuários": adicionada menção a UC-36 (mesma tela `admin/users`, confirmando que este UC-08 já cobre integralmente a funcionalidade "Redefinir Senha via Link" da variante de usuários, rota `api/users/{id}/reset-password`, sem necessidade de UC dedicado) e a UC-37 (mecanismo irmão de definição manual de senha, específico de usuários). |
 | 1.2.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-08-RNF-02): o diálogo de confirmação do admin (passo 3 do Fluxo Principal), que usava `confirm()` nativo do navegador, foi substituído por um `AlertDialog` padrão do sistema (`@/components/ui/alert-dialog`) no commit `53df743` — em ambas as variantes (`admin/users/page.tsx` e `admin/consultants/[id]/page.tsx`), `handleResetPassword` (abre o diálogo) foi separado de `confirmResetPassword` (executa a chamada à API), mesmo padrão já usado em `admin/legal-documents/page.tsx`. Atualizados Fluxo Principal (passos 2-4), Fluxo Alternativo 7a (nota histórica), RNF-02 (marcado `[Corrigido]`), referências (Seção 13) e item 2 da Seção 14 (marcado `[RESOLVIDO]`). |
+| 1.2.2 | 06/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Achado novo, já corrigido (commit `1254abb`)**: durante a correção de UC-06-RN-02 (validação fraca de senha em `change-password/page.tsx`), foi descoberto e corrigido, no mesmo commit, o mesmo problema em `src/app/(auth)/reset-password/[token]/page.tsx` — página coberta por este UC-08, não por UC-06. A função local `validatePassword` (só checava `length < 6`) foi removida e substituída pela função compartilhada `validatePassword` de `@/lib/validations/serverValidations` (`validatePassword(newPassword, { minLength: 6 })`, que também exige pelo menos uma letra). Adicionada RN-08 (Seção 9, já nascendo `[CORRIGIDO]`, com referência cruzada a UC-06-RN-02); atualizados Fluxo Principal (passo 15), Fluxo de Exceção 8f (novas mensagens possíveis), Referências (Seção 13) e Casos de Uso Relacionados (Seção 12, bullet de UC-06). Nenhuma pendência nova registrada na Seção 14, pois o achado já nasceu corrigido. |
