@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { KeyRound, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { validatePassword } from '@/lib/validations/serverValidations';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -32,13 +33,6 @@ export default function ChangePasswordPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  const validatePassword = (password: string): string | null => {
-    if (password.length < 6) {
-      return 'A senha deve ter pelo menos 6 caracteres';
-    }
-    return null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -53,9 +47,9 @@ export default function ChangePasswordPage() {
 
       if (!passwordChanged) {
         // Validar nova senha
-        const passwordError = validatePassword(newPassword);
-        if (passwordError) {
-          setError(passwordError);
+        const passwordValidation = validatePassword(newPassword, { minLength: 6 });
+        if (!passwordValidation.valid) {
+          setError(passwordValidation.error!);
           setLoading(false);
           return;
         }
