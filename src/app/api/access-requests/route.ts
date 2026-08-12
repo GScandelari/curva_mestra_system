@@ -19,6 +19,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
+import { adminDb } from '@/lib/firebase-admin';
 import {
   validateEmail,
   validatePhone,
@@ -97,6 +98,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: phoneValidation.error }, { status: 400 });
     }
 
+    const normalizedEmail = data.email.toLowerCase().trim();
+
+    // Bloquear duplicidade de solicitação pendente para o mesmo e-mail --
+    // usa o Admin SDK (bypassa as regras de segurança) porque a leitura de
+    // access_requests é restrita a system_admin para o client SDK.
+    const duplicateSnap = await adminDb
+      .collection('access_requests')
+      .where('email', '==', normalizedEmail)
+      .where('status', '==', 'pendente')
+      .limit(1)
+      .get();
+    if (!duplicateSnap.empty) {
+      return NextResponse.json(
+        { error: 'Já existe uma solicitação pendente para este e-mail' },
+        { status: 409 }
+      );
+    }
+
     // Derivar type legado a partir do role
     const type = data.role === 'especialista' ? 'clinica' : 'autonomo';
 
@@ -105,7 +124,7 @@ export async function POST(req: NextRequest) {
       role: data.role,
       type, // campo legado
       full_name: data.full_name,
-      email: data.email.toLowerCase().trim(),
+      email: normalizedEmail,
       phone: data.phone,
       council_number: data.council_number,
       business_name: data.business_name,
