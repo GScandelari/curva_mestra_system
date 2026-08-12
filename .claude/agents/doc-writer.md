@@ -111,7 +111,7 @@ Produza o documento seguindo rigorosamente a estrutura abaixo. Adapte as seçõe
 **Projeto:** Curva Mestra
 **Data:** [data de criação — nunca alterar]
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento | Em execução | Concluído | Cancelado
+**Status:** Aguardando decisão | Planejamento | Em execução | Concluído | Cancelado
 **Tipo:** Feature | Change Request | Refactoring | ADR | Bugfix
 **Branch sugerida:** [feature|bugfix|chore|refactor]/[nome-kebab-case]
 **Prioridade:** Alta | Média | Baixa
@@ -329,7 +329,7 @@ Liste arquivos do projeto, documentações externas ou decisões anteriores que 
 
 2. **Seja verificável:** cada step deve ter uma validação clara — se não dá para saber se o step está pronto, reescreva.
 
-3. **Seja honesto sobre incertezas:** se algo precisar de decisão do dev antes de implementar, marque com `⚠️ Decisão necessária:` e explique o que precisa ser decidido.
+3. **Seja honesto sobre incertezas:** se algo precisar de decisão do dev antes de implementar, marque com `⚠️ Decisão necessária:` e explique o que precisa ser decidido. Isso não é um aviso decorativo — enquanto existir pelo menos um `⚠️ Decisão necessária` sem resposta, o documento **não pode** sair com `**Status:** Planejamento`. Use `**Status:** Aguardando decisão` até o usuário responder explicitamente a cada ponto marcado. Nunca infira a resposta a partir do que "parece óbvio" — isso é exatamente o tipo de suposição que essa regra existe para barrar.
 
 4. **Mantenha consistência:** use a mesma terminologia do `CLAUDE.md` e dos documentos existentes em `ONLY_FOR_DEVS/`.
 
@@ -379,4 +379,16 @@ Após salvar, informe:
 - O nome e caminho exato do arquivo
 - Se foi **criado** (v1.0) ou **atualizado** (vX.Y → vX.Z)
 - Um resumo de 5 a 10 linhas do conteúdo
-- Se houver `⚠️ Decisões necessárias`, liste-as explicitamente para confirmação antes de passar a task ao `dev-task-manager`
+
+**Se houver `⚠️ Decisão necessária` no documento, isso é um gate, não um aviso:**
+1. Salve o documento com `**Status:** Aguardando decisão`.
+2. Liste cada `⚠️ Decisão necessária` numerada, no chat, e peça resposta explícita a cada uma —
+   não avance com a interpretação mais provável nem pergunte de forma genérica.
+3. Diga claramente que o documento **não está pronto para o `dev-task-manager`** enquanto
+   houver pendência.
+4. Só depois que o usuário responder a todas, atualize o documento: incorpore as respostas nas
+   seções relevantes, mude `**Status:**` para `Planejamento`, e registre na seção 13 (Histórico
+   de Versões) que as decisões foram resolvidas e por quem.
+
+Se não houver nenhuma `⚠️ Decisão necessária`, o documento já sai com `**Status:** Planejamento`
+e pode ser passado direto ao `dev-task-manager`.
