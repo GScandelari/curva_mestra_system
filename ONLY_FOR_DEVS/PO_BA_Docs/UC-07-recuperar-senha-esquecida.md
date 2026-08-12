@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Um usuário desautenticado que esqueceu a senha solicita, a partir da tela de login, o envio de um e-mail de redefinição — usando exclusivamente o mecanismo nativo do Firebase Auth (`sendPasswordResetEmail`). Este fluxo é genuinamente diferente do mecanismo de token customizado usado quando é o System Admin quem inicia a redefinição em nome de outra pessoa (UC-08) — não compartilham nenhum código.
 
@@ -78,10 +78,12 @@ O usuário clica em "Esqueceu a senha?" na tela `/login`, chega a `/forgot-passw
 
 ## 7. Fluxos Alternativos
 
-### 7a. Usuário já autenticado acessa /forgot-password (a partir do passo 2)
-1. A página `/forgot-password` **não verifica** se o usuário já está autenticado (diferente de `/login` e `/register`, que redirecionam para `/dashboard` nesse caso) — ver RN-04.
-2. O formulário é exibido normalmente, mesmo para um usuário já logado.
-3. Segue o fluxo normal a partir do passo 3.
+### 7a. [CORRIGIDO — commit `1254abb`] Usuário já autenticado acessa /forgot-password (a partir do passo 2)
+1. Sistema detecta, via `useAuth()` (`isAuthenticated`, `loading: authLoading`), que o usuário já está autenticado.
+2. Um `useEffect` dedicado (`if (!authLoading && isAuthenticated) { router.push('/dashboard'); }`) redireciona automaticamente para `/dashboard`, sem exibir o formulário — mesmo padrão já usado em `/login` e `/register`.
+3. Caso de uso é encerrado.
+
+**Comportamento anterior (histórico, antes da correção):** a página `/forgot-password` não verificava se o usuário já estava autenticado — o formulário era exibido normalmente mesmo para um usuário já logado, que podia solicitar redefinição de senha para qualquer e-mail, inclusive um diferente do seu (ver RN-04, comportamento então documentado como *as-is*).
 
 ---
 
@@ -126,7 +128,7 @@ O usuário clica em "Esqueceu a senha?" na tela `/login`, chega a `/forgot-passw
 | RN-01 | Este fluxo usa exclusivamente o mecanismo nativo do Firebase Auth (`sendPasswordResetEmail`) — não passa por nenhuma API route própria do Curva Mestra, não usa a fila `email_queue`, e a página de definição da nova senha é a página de ação hospedada padrão do próprio Firebase, não uma tela do Curva Mestra. | Diferente de UC-08 (mecanismo de token customizado, acionado pelo System Admin) e do link de redefinição do UC-02 (gerado pelo Admin SDK, mas enviado via `email_queue` com template próprio do sistema). |
 | RN-02 | Não há, hoje, nenhum caminho alternativo de recuperação para um usuário desautenticado (SMS, pergunta de segurança, etc.) — o único caminho self-service é o e-mail. | Confirmado por leitura completa de `forgot-password/page.tsx` — nenhum outro método é oferecido. |
 | RN-03 | **[CORRIGIDO — commit `c3f18d4`]** O erro `auth/user-not-found` deixou de ser exibido literalmente ao usuário. O `catch` de `handleSubmit` (`src/app/(auth)/forgot-password/page.tsx`) agora trata esse código como sucesso silencioso (`setSuccess(true)`), exibindo a mesma tela de sucesso ("Email enviado com sucesso!") independentemente de o e-mail informado corresponder ou não a uma conta cadastrada. O `case 'auth/user-not-found'` foi removido de `translateFirebaseError`. **Nota:** `auth/invalid-email` continua tratado como erro visível e distinto (mensagem "Email inválido") — é um erro de formato de digitação, não revela nada sobre a existência da conta, portanto não representa risco de enumeração (ver Fluxo de Exceção 8b). **Comportamento anterior (histórico):** o erro `auth/user-not-found` era exibido literalmente ("Usuário não encontrado"), permitindo a um visitante descobrir se um e-mail estava cadastrado no sistema (enumeração de contas). | Corrigido por leitura direta do diff do commit `c3f18d4` em `src/app/(auth)/forgot-password/page.tsx` — bloco `if (err.code === 'auth/user-not-found') { setSuccess(true); return; }` adicionado ao `catch`, e `case 'auth/user-not-found'` removido de `translateFirebaseError`. |
-| RN-04 | A página `/forgot-password` não verifica se o usuário já está autenticado (diferente de `/login` e `/register`, que redirecionam para `/dashboard` nesse caso) — um usuário já logado pode acessar esta tela normalmente e solicitar redefinição de senha para qualquer e-mail, inclusive um diferente do seu. | Inconsistência confirmada por leitura do código — comportamento *as-is*, sem correção proposta. |
+| RN-04 | **[CORRIGIDO — commit `1254abb`]** A página `/forgot-password` agora verifica se o usuário já está autenticado — usa `useAuth()` (`isAuthenticated`, `loading: authLoading`) e um `useEffect` que redireciona para `/dashboard` quando `!authLoading && isAuthenticated`, alinhando com o mesmo padrão já usado em `/login` e `/register`. **Comportamento anterior (histórico):** a página não fazia essa verificação — um usuário já logado podia acessar a tela normalmente e solicitar redefinição de senha para qualquer e-mail, inclusive um diferente do seu. | Elimina a inconsistência antes documentada aqui — comportamento agora alinhado ao padrão do restante do sistema. Corrigido por leitura direta do diff do commit `1254abb` em `src/app/(auth)/forgot-password/page.tsx`. |
 
 ---
 
@@ -152,8 +154,9 @@ Ocasional — sob demanda, a cada vez que um usuário esquece a própria senha.
 ---
 
 ## 13. Referências
-- `src/app/(auth)/forgot-password/page.tsx`
+- `src/app/(auth)/forgot-password/page.tsx` (desde o commit `1254abb`, também usa `useAuth()` para redirecionar um usuário já autenticado para `/dashboard` — ver RN-04)
 - `src/app/(auth)/login/page.tsx` (link de entrada "Esqueceu a senha?")
+- `src/hooks/useAuth.ts` (`isAuthenticated`, `loading` — consumidos desde o commit `1254abb`, RN-04)
 - Firebase Auth SDK (`sendPasswordResetEmail`) — não há nenhuma API route própria do Curva Mestra envolvida neste fluxo
 
 ---
@@ -161,7 +164,7 @@ Ocasional — sob demanda, a cada vez que um usuário esquece a própria senha.
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
 1. ~~**[Risco de segurança confirmado, não corrigido]** RN-03 — a mensagem "Usuário não encontrado" permite enumeração de contas cadastradas por um visitante não autenticado. Não confirmado pelo usuário como escopo de correção.~~ **[RESOLVIDO — commit `c3f18d4`]** `auth/user-not-found` passou a ser tratado como sucesso silencioso, exibindo a mesma tela de sucesso independentemente de a conta existir — eliminando a possibilidade de enumeração de contas pela resposta desta tela.
-2. **[Confirmado, as-is]** RN-04 — a página não verifica se o usuário já está autenticado, diferente do padrão usado em `/login` e `/register`. Não confirmado como prioridade de correção.
+2. ~~**[Confirmado, as-is]** RN-04 — a página não verifica se o usuário já está autenticado, diferente do padrão usado em `/login` e `/register`. Não confirmado como prioridade de correção.~~ **[RESOLVIDO — commit `1254abb`]** `/forgot-password` passou a usar `useAuth()` e um `useEffect` que redireciona para `/dashboard` quando o usuário já está autenticado, alinhando-se ao mesmo padrão já usado em `/login` e `/register`. Ver RN-04 e Fluxo Alternativo 7a.
 
 ---
 
@@ -171,3 +174,4 @@ Ocasional — sob demanda, a cada vez que um usuário esquece a própria senha.
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial, mapeada a partir da leitura completa de `forgot-password/page.tsx`. Confirmado que este fluxo é totalmente independente do mecanismo de token customizado (UC-08) e do link de redefinição usado em UC-02 — usa exclusivamente `sendPasswordResetEmail` do Firebase Auth nativo, sem nenhuma API route própria do Curva Mestra. |
 | 1.1 | 26/07/2026 | Guilherme Scandelari | **Correção de bug (commit `c3f18d4`)**: RN-03 corrigida — o erro `auth/user-not-found` deixou de ser exibido como mensagem distinta ("Usuário não encontrado"); o `catch` de `handleSubmit` agora trata esse código como sucesso silencioso, exibindo a mesma tela de sucesso independentemente de a conta existir, fechando a enumeração de contas. O `case` correspondente foi removido de `translateFirebaseError`; `auth/invalid-email` permanece como erro visível e distinto (não representa risco de enumeração). Seções 4.2, 6 (passo 6), 8 (Fluxo de Exceção 8a, reescrito como histórico "[Corrigido]"; 8b atualizado com nota de que não foi afetado), 9 (RN-03) e 14 (item 1) atualizadas. |
+| 1.2 | 06/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Correção de bug (commit `1254abb`, item UC-07-RN-04)**: a pendência registrada como "as-is" desde a v1.0 foi corrigida — `/forgot-password` passou a usar `useAuth()` (`isAuthenticated`, `loading`) e um `useEffect` que redireciona para `/dashboard` quando o usuário já está autenticado, alinhando este fluxo ao mesmo padrão já usado em `/login` e `/register`. RN-04 marcada `[CORRIGIDO]`; Fluxo Alternativo 7a reescrito com o comportamento novo e nota histórica do comportamento anterior; Referências (seção 13) e o segundo item da Seção 14 (marcado `[RESOLVIDO]`, mesmo padrão já usado para o item RN-03) atualizados. |

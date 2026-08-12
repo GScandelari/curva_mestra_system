@@ -68,7 +68,7 @@ Mapeie para a branch pessoal correspondente:
 
 | Git user.email / user.name        | Branch pessoal      | Domínio Firebase          |
 | --------------------------------- | ------------------- | ------------------------- |
-| `stanke399@gmail.com` / Guilherme | `gscandelari_setup` | `gscandelari-dev.web.app` |
+| `stanke399@gmail.com` / Guilherme | `gscandelari_setup` | `dev-gscandelari.web.app` |
 
 Se o dev não for reconhecido, pergunte antes de continuar.
 
@@ -103,19 +103,23 @@ Verifique se existe um documento correspondente à task em `ONLY_FOR_DEVS/TO_DO/
 ls ONLY_FOR_DEVS/TO_DO/
 ```
 
-- Se existir um documento relacionado à task descrita, anote o nome do arquivo — ele será usado no Modo B ao concluir.
-- Se não existir, avise o usuário que a task não possui documentação em `TO_DO/` e recomende usar o `@doc-writer` para criá-la antes de iniciar.
+- Se existir um documento relacionado à task descrita, anote o nome do arquivo — ele será usado no Modo B ao concluir. Isso vale tanto para docs `FEAT-/CR-/REFACTOR-/ADR-/BUGFIX-` do `@doc-writer` quanto para `SEC-` do `@security-auditor`.
+- Se não existir, avise o usuário que a task não possui documentação em `TO_DO/` e recomende usar o `@doc-writer` (ou `@security-auditor`, se for um achado de segurança) para criá-la antes de iniciar.
+- **Leia o campo `**Status:**` do documento antes de prosseguir.** Se for `Aguardando decisão`, **pare aqui** — o `doc-writer` (ou `security-auditor`) deixou `⚠️ Decisão necessária` sem resposta. Avise o usuário e não crie branch nem plano até o documento voltar com `**Status:** Planejamento`.
 
 ### A.5. Classificar a task e nomear a branch
 
 Com base na descrição da task, determine o **tipo de branch**:
 
-| Se a task for...                   | Tipo de branch |
-| ---------------------------------- | -------------- |
-| Nova funcionalidade para o usuário | `feature/`     |
-| Correção de bug não-crítico        | `bugfix/`      |
-| Correção crítica em produção       | `hotfix/`      |
-| Manutenção, infra, config, docs    | `chore/`       |
+| Se a task for...                                | Tipo de branch |
+| ------------------------------------------------ | -------------- |
+| Nova funcionalidade para o usuário                | `feature/`     |
+| Correção de bug não-crítico                       | `bugfix/`      |
+| Correção crítica em produção                      | `hotfix/`      |
+| Manutenção, infra, config, docs                   | `chore/`       |
+| Achado `SEC-` com **Prioridade MVP: P0**          | `hotfix/`      |
+| Achado `SEC-` com **Prioridade MVP: P1**          | `bugfix/`      |
+| Achado `SEC-` com **Prioridade MVP: P2 ou P3**    | `chore/`       |
 
 Nomeie em `kebab-case` descritivo. Crie a partir do `develop` e publique:
 
@@ -204,7 +208,7 @@ Exiba o resultado estruturado:
 ⚠️  Antes de abrir a PR:
     1. Execute o Modo B para mover o doc da task de TO_DO → TASK_COMPLETED (commit na task branch)
     2. Merge a task branch na branch pessoal para validar no Firebase
-       (gscandelari-dev.web.app)
+       (dev-gscandelari.web.app)
 ```
 
 Aguarde confirmação do usuário antes de iniciar qualquer implementação.
@@ -247,7 +251,26 @@ ls ONLY_FOR_DEVS/TO_DO/
 
 Identifique o documento correspondente à task concluída pelo nome ou pelo argumento recebido. Se houver ambiguidade (mais de um arquivo possível), liste as opções e peça confirmação ao usuário.
 
-### B.3. Atualizar o documento
+### B.3. Verificar testes antes de concluir (gate leve de QA)
+
+Não existe um agente `qa-negocio` dedicado ainda — até que exista, este passo cumpre o papel
+mínimo dele: nenhuma task fecha sem verificação real.
+
+1. Releia, no documento em `TO_DO/`, a tabela de Regras de Negócio (RN) e a seção de Estratégia
+   de Testes / Avaliação de testes.
+2. Para cada RN ou lógica de segurança marcada como "deve testar", confirme que existe um teste
+   correspondente em `src/__tests__/`.
+3. Rode a suíte de verdade:
+   ```bash
+   npm run test:coverage
+   ```
+4. **Se algum teste esperado não existir, ou a suíte falhar, pare aqui.** Não mova o documento
+   para `TASK_COMPLETED` nem declare a task concluída — avise o usuário exatamente qual RN ou
+   função ficou sem teste, ou qual teste falhou, e aguarde a correção.
+5. Só avance para B.4 se a suíte passar e toda RN marcada como testável tiver teste
+   correspondente.
+
+### B.4. Atualizar o documento
 
 Leia o arquivo encontrado em `ONLY_FOR_DEVS/TO_DO/` e:
 
@@ -264,7 +287,7 @@ Leia o arquivo encontrado em `ONLY_FOR_DEVS/TO_DO/` e:
 4. Incremente a versão no cabeçalho (`**Versão:**`) conforme o padrão minor (`X.Y → X.Y+1`)
 5. Salve o arquivo atualizado no mesmo local (`TO_DO/`)
 
-### B.4. Mover o documento para TASK_COMPLETED
+### B.5. Mover o documento para TASK_COMPLETED
 
 Execute o movimento via git para preservar o histórico:
 
@@ -272,7 +295,7 @@ Execute o movimento via git para preservar o histórico:
 git mv ONLY_FOR_DEVS/TO_DO/<nome-do-arquivo>.md ONLY_FOR_DEVS/TASK_COMPLETED/<nome-do-arquivo>.md
 ```
 
-### B.5. Commitar na task branch e fazer push
+### B.6. Commitar na task branch e fazer push
 
 Commite diretamente na task branch (o mesmo branch do trabalho entregue):
 
@@ -284,7 +307,7 @@ git push
 
 Este commit será incluído automaticamente na PR da task. Não é necessário abrir PR separada para a documentação.
 
-### B.6. Confirmar ao usuário
+### B.7. Confirmar ao usuário
 
 Exiba o resultado:
 

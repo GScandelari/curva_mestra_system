@@ -34,7 +34,7 @@ Mapeie para a branch pessoal correspondente:
 
 | Git user.email / user.name       | Branch pessoal      | Domínio Firebase              |
 | -------------------------------- | ------------------- | ----------------------------- |
-| `stanke399@gmail.com` / Guilherme | `gscandelari_setup` | `gscandelari-dev.web.app`     |
+| `stanke399@gmail.com` / Guilherme | `gscandelari_setup` | `dev-gscandelari.web.app`     |
 
 Se o dev não for reconhecido, pergunte antes de continuar.
 
@@ -161,7 +161,7 @@ Exiba o resultado estruturado:
 ✅ Checklist de validação
 
 ⚠️  Lembre-se: antes de abrir o PR, merge a task branch na sua branch pessoal
-    para validar no Firebase (gscandelari-dev.web.app).
+    para validar no Firebase (dev-gscandelari.web.app).
 ```
 
 Aguarde confirmação do usuário antes de iniciar qualquer implementação.
