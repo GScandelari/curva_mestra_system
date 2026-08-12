@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { KeyRound, AlertTriangle, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { validatePassword } from '@/lib/validations/serverValidations';
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -65,13 +66,6 @@ export default function ResetPasswordPage({ params }: PageProps) {
     validateToken();
   }, [token]);
 
-  const validatePassword = (password: string): string | null => {
-    if (password.length < 6) {
-      return 'A senha deve ter pelo menos 6 caracteres';
-    }
-    return null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -79,9 +73,9 @@ export default function ResetPasswordPage({ params }: PageProps) {
 
     try {
       // Validar nova senha
-      const passwordError = validatePassword(newPassword);
-      if (passwordError) {
-        setError(passwordError);
+      const passwordValidation = validatePassword(newPassword, { minLength: 6 });
+      if (!passwordValidation.valid) {
+        setError(passwordValidation.error!);
         setLoading(false);
         return;
       }

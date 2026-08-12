@@ -18,6 +18,11 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  validateFullName,
+  validateEmail,
+  validatePhone,
+} from '@/lib/validations/serverValidations';
 
 type Role = 'especialista' | 'consultor';
 
@@ -66,8 +71,9 @@ export default function RegisterPage() {
     setError('');
     setSuccess('');
 
-    if (!formData.fullName || formData.fullName.trim().length < 3) {
-      setError('Nome completo inválido');
+    const nameValidation = validateFullName(formData.fullName);
+    if (!nameValidation.valid) {
+      setError(nameValidation.error!);
       return;
     }
     if (!formData.councilNumber || formData.councilNumber.trim().length < 3) {
@@ -78,12 +84,14 @@ export default function RegisterPage() {
       );
       return;
     }
-    if (!formData.email || !formData.email.includes('@')) {
-      setError('E-mail inválido');
+    const emailValidation = validateEmail(formData.email);
+    if (!emailValidation.valid) {
+      setError(emailValidation.error!);
       return;
     }
-    if (!formData.phone || formData.phone.replace(/\D/g, '').length < 10) {
-      setError('Telefone inválido');
+    const phoneValidation = validatePhone(formData.phone);
+    if (!phoneValidation.valid) {
+      setError(phoneValidation.error!);
       return;
     }
     if (!formData.businessName || formData.businessName.trim().length < 3) {

@@ -345,7 +345,7 @@ export default function AccessRequestsPage() {
               <Label htmlFor="reason">Motivo da rejeição</Label>
               <Textarea
                 id="reason"
-                placeholder="Ex: CPF/CNPJ não cadastrado, limite de usuários atingido, etc."
+                placeholder="Ex: Perfil não compatível, dados incorretos, vaga indisponível, etc."
                 value={rejectionReason}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                   setRejectionReason(e.target.value)
