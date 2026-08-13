@@ -130,4 +130,16 @@ describe('isRequestExpired', () => {
     expect(isRequestExpired({ expires_at: '2026-06-01T00:00:00.000Z' as never }, now)).toBe(true);
     expect(isRequestExpired({ expires_at: '2026-06-30T00:00:00.000Z' as never }, now)).toBe(false);
   });
+
+  it('handles a Timestamp already serialized to JSON ({_seconds, _nanoseconds}), as it arrives on the client', () => {
+    const now = new Date(2026, 5, 20);
+    const pastSeconds = Math.floor(new Date(2026, 5, 1).getTime() / 1000);
+    const futureSeconds = Math.floor(new Date(2026, 5, 30).getTime() / 1000);
+    expect(
+      isRequestExpired({ expires_at: { _seconds: pastSeconds, _nanoseconds: 0 } as never }, now)
+    ).toBe(true);
+    expect(
+      isRequestExpired({ expires_at: { _seconds: futureSeconds, _nanoseconds: 0 } as never }, now)
+    ).toBe(false);
+  });
 });

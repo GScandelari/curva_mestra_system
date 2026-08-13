@@ -55,18 +55,35 @@ export function computeExpiresAt(createdAt: Date = new Date()): Date {
 }
 
 /**
+ * Normaliza um `expires_at` vindo de três formas possíveis para um `Date`:
+ * - instância de `Timestamp` do Admin SDK (uso no servidor, dentro das API routes);
+ * - `{ _seconds, _nanoseconds }`, formato em que um Timestamp chega ao client depois
+ *   de serializado por `NextResponse.json()` (mesmo padrão de `formatTimestamp` em
+ *   `src/lib/utils.ts`, usado pelas telas que consomem `isRequestExpired`);
+ * - string/Date, para o caso de teste ou de já ter sido normalizado antes.
+ */
+function toDateSafe(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if ((value as Timestamp)?.toDate) return (value as Timestamp).toDate();
+  if (value && typeof value === 'object' && '_seconds' in (value as Record<string, unknown>)) {
+    const { _seconds } = value as { _seconds: number };
+    return new Date(_seconds * 1000);
+  }
+  return new Date(value as string);
+}
+
+/**
  * Verifica se uma pendência já expirou, com base em `expires_at`.
  * Documentos legados/sem `expires_at` NUNCA são considerados expirados (RN-11/RN-12).
  * Mesmo padrão de comparação usado em `validateToken`/`consumeToken`
  * (`new Date() > expiresAt`), aqui centralizado como função pura testável.
+ * Funciona tanto no servidor (Timestamp do Admin SDK) quanto no client
+ * (Timestamp já serializado em JSON) — ver `toDateSafe`.
  */
 export function isRequestExpired(
   request: Pick<ConsultantTransferRequest, 'expires_at'>,
   now: Date = new Date()
 ): boolean {
   if (!request.expires_at) return false;
-  const expiresAtDate = (request.expires_at as Timestamp).toDate
-    ? (request.expires_at as Timestamp).toDate()
-    : new Date(request.expires_at as unknown as string);
-  return now > expiresAtDate;
+  return now > toDateSafe(request.expires_at);
 }
