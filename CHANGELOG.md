@@ -5,6 +5,13 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.7.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.7.0...v1.7.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* **agents:** reconcile security-auditor with uc-issues-tracker/uml-use-case-writer ([6414ca7](https://github.com/GScandelari/curva_mestra_system/commit/6414ca7aeab189cb692d3343f336aa8fa40e50a9))
+
 ## [1.7.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.7...v1.7.0) (2026-08-12)
 
 
