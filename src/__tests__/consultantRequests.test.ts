@@ -142,4 +142,10 @@ describe('isRequestExpired', () => {
       isRequestExpired({ expires_at: { _seconds: futureSeconds, _nanoseconds: 0 } as never }, now)
     ).toBe(false);
   });
+
+  it('accepts a plain Date instance for expires_at', () => {
+    const now = new Date(2026, 5, 20);
+    expect(isRequestExpired({ expires_at: new Date(2026, 5, 1) as never }, now)).toBe(true);
+    expect(isRequestExpired({ expires_at: new Date(2026, 5, 30) as never }, now)).toBe(false);
+  });
 });
