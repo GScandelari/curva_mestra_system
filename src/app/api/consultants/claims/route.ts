@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp, WriteBatch } from 'firebase-admin/firestore';
 import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
-import { computeExpiresAt } from '@/lib/consultantRequests';
+import { computeExpiresAt, isRequestExpired } from '@/lib/consultantRequests';
 
 /**
  * POST - Vincular consultor a uma clínica (auto-link) ou iniciar transferência
@@ -147,15 +147,21 @@ export async function POST(req: NextRequest) {
     }
 
     // --- CASO 2: Clínica COM consultor → criar pedido de transferência ---
-    const existingTransfer = await adminDb
+    // Mesmo critério do convite (RN-12): um pedido pending já expirado não conta como
+    // duplicata — senão, agora que transferências também expiram (RF-14), um pedido
+    // esquecido bloquearia o consultor de solicitar novamente pra sempre.
+    const existingTransfers = await adminDb
       .collection('consultant_transfer_requests')
       .where('requesting_consultant_id', '==', consultantId)
       .where('tenant_id', '==', tenant_id)
       .where('status', '==', 'pending')
-      .limit(1)
       .get();
 
-    if (!existingTransfer.empty) {
+    const activeTransfer = existingTransfers.docs.find(
+      (doc) => !isRequestExpired({ expires_at: doc.data().expires_at })
+    );
+
+    if (activeTransfer) {
       return NextResponse.json(
         { error: 'Já existe um pedido de transferência pendente para esta clínica' },
         { status: 400 }
