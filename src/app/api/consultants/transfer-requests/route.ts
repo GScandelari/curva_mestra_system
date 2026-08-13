@@ -48,13 +48,17 @@ export async function GET(req: NextRequest) {
     // --- consultor: mescla pendências de transferência (aprovador atual) e de convite (convidado) ---
     const consultantId = decodedToken.consultant_id;
 
+    // RNF-02: cada consulta é ordenada no próprio Firestore (índices compostos dedicados em
+    // firestore.indexes.json) — o merge abaixo só intercala as duas listas já ordenadas.
     let transferQuery = adminDb
       .collection('consultant_transfer_requests')
-      .where('current_consultant_id', '==', consultantId) as FirebaseFirestore.Query;
+      .where('current_consultant_id', '==', consultantId)
+      .orderBy('created_at', 'desc') as FirebaseFirestore.Query;
     let inviteQuery = adminDb
       .collection('consultant_transfer_requests')
       .where('type', '==', 'invite')
-      .where('requesting_consultant_id', '==', consultantId) as FirebaseFirestore.Query;
+      .where('requesting_consultant_id', '==', consultantId)
+      .orderBy('created_at', 'desc') as FirebaseFirestore.Query;
 
     if (status) {
       transferQuery = transferQuery.where('status', '==', status);

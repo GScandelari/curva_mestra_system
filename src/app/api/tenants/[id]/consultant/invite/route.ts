@@ -31,28 +31,32 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
+    // Filtro puro por igualdade (tenant_id + type + status) — RF-03 garante no máximo um
+    // convite pending por tenant na prática, então não há necessidade de orderBy/índice
+    // dedicado aqui: os poucos documentos retornados são ordenados em memória.
     const snapshot = await adminDb
       .collection('consultant_transfer_requests')
       .where('tenant_id', '==', tenantId)
       .where('type', '==', 'invite')
       .where('status', '==', 'pending')
-      .orderBy('created_at', 'desc')
-      .limit(1)
       .get();
 
     if (snapshot.empty) {
       return NextResponse.json({ success: true, data: null });
     }
 
-    const doc = snapshot.docs[0];
-    const data = doc.data();
+    const mostRecent = snapshot.docs
+      .map((doc) => ({ id: doc.id, ref: doc, data: doc.data() }))
+      .sort(
+        (a, b) => (b.data.created_at?.toMillis?.() ?? 0) - (a.data.created_at?.toMillis?.() ?? 0)
+      )[0];
 
     // Convite pendente porém já expirado não conta como "ativo" para esta consulta (RN-12)
-    if (isRequestExpired({ expires_at: data.expires_at })) {
+    if (isRequestExpired({ expires_at: mostRecent.data.expires_at })) {
       return NextResponse.json({ success: true, data: null });
     }
 
-    return NextResponse.json({ success: true, data: { id: doc.id, ...data } });
+    return NextResponse.json({ success: true, data: { id: mostRecent.id, ...mostRecent.data } });
   } catch (error: any) {
     console.error('Erro ao buscar convite pendente:', error);
     return NextResponse.json(
