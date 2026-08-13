@@ -76,4 +76,4 @@ dev-tools/.env.dev-tools
 docs_old/
 
 #Claude
-.claude\settings.local.json
+.claude/settings.local.json
