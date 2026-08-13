@@ -4,6 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
+import type { ConsultantTransferRequest } from '@/types';
+import {
+  getApproverConsultantId,
+  isInviteRequest,
+  isRequestExpired,
+} from '@/lib/consultantRequests';
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -30,19 +36,25 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    const transferData = transferDoc.data()!;
+    const transferData = transferDoc.data()! as ConsultantTransferRequest;
+    const approverConsultantId = getApproverConsultantId(transferData);
+    const isInvite = isInviteRequest(transferData);
 
     const isSystemAdmin = decodedToken.is_system_admin;
-    const isCurrentConsultant =
-      decodedToken.is_consultant &&
-      decodedToken.consultant_id === transferData.current_consultant_id;
+    const isApprover =
+      decodedToken.is_consultant && decodedToken.consultant_id === approverConsultantId;
 
-    if (!isSystemAdmin && !isCurrentConsultant) {
+    if (!isSystemAdmin && !isApprover) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
     if (transferData.status !== 'pending') {
       return NextResponse.json({ error: 'Pedido já foi processado' }, { status: 400 });
+    }
+
+    // RN-11: pendência expirada não pode mais ser aprovada
+    if (isRequestExpired({ expires_at: transferData.expires_at })) {
+      return NextResponse.json({ error: 'Este pedido expirou' }, { status: 400 });
     }
 
     const { tenant_id, requesting_consultant_id, current_consultant_id } = transferData;
@@ -73,14 +85,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       updated_at: FieldValue.serverTimestamp(),
     });
 
-    // Remover tenant do consultor atual
-    const currentConsultantRef = adminDb.collection('consultants').doc(current_consultant_id);
-    batch.update(currentConsultantRef, {
-      authorized_tenants: FieldValue.arrayRemove(tenant_id),
-      updated_at: FieldValue.serverTimestamp(),
-    });
+    // RN-03: convite não remove "consultor atual" — por definição não existe nenhum
+    if (!isInvite && current_consultant_id) {
+      const currentConsultantRef = adminDb.collection('consultants').doc(current_consultant_id);
+      batch.update(currentConsultantRef, {
+        authorized_tenants: FieldValue.arrayRemove(tenant_id),
+        updated_at: FieldValue.serverTimestamp(),
+      });
+    }
 
-    // Adicionar tenant ao novo consultor
+    // Adicionar tenant ao consultor que fica vinculado (convidado, ou solicitante da transferência)
     batch.update(requestingConsultantDoc.ref, {
       authorized_tenants: FieldValue.arrayUnion(tenant_id),
       updated_at: FieldValue.serverTimestamp(),
@@ -94,12 +108,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       updated_at: FieldValue.serverTimestamp(),
     });
 
-    // Notificação informativa para clinic_admin
+    // Notificação informativa para clinic_admin — texto condicional por tipo
     const notifRef = adminDb.collection(`tenants/${tenant_id}/notifications`).doc();
     batch.set(notifRef, {
       type: 'consultant_linked',
-      title: 'Consultor alterado',
-      message: `Seu consultor foi alterado para ${requestingConsultantData.name} (${requestingConsultantData.code}). Acesse Minha Clínica para mais detalhes.`,
+      title: isInvite ? 'Consultor vinculado' : 'Consultor alterado',
+      message: isInvite
+        ? `${requestingConsultantData.name} (${requestingConsultantData.code}) aceitou o convite e foi vinculado como consultor da sua clínica.`
+        : `Seu consultor foi alterado para ${requestingConsultantData.name} (${requestingConsultantData.code}). Acesse Minha Clínica para mais detalhes.`,
       action_url: '/clinic/my-clinic?tab=consultant',
       read: false,
       created_at: FieldValue.serverTimestamp(),
@@ -111,7 +127,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // se falharem (Firestore já é a fonte da verdade da transferência).
     let claimsSynced = true;
 
-    // Atualizar custom claims do novo consultor (adicionar tenant)
+    // Atualizar custom claims do consultor que fica vinculado (adicionar tenant)
     if (requestingConsultantData.user_id) {
       const result = await syncConsultantAuthorizedTenants(
         requestingConsultantData.user_id,
@@ -121,43 +137,48 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       claimsSynced = claimsSynced && result.synced;
     }
 
-    // Atualizar custom claims do consultor atual (remover tenant)
-    const currentConsultantDoc = await adminDb
-      .collection('consultants')
-      .doc(current_consultant_id)
-      .get();
-    const currentConsultantData = currentConsultantDoc.data();
+    // RN-03: só remove claims do consultor atual quando não é convite
+    if (!isInvite && current_consultant_id) {
+      const currentConsultantDoc = await adminDb
+        .collection('consultants')
+        .doc(current_consultant_id)
+        .get();
+      const currentConsultantData = currentConsultantDoc.data();
 
-    if (currentConsultantData?.user_id) {
-      const result = await syncConsultantAuthorizedTenants(
-        currentConsultantData.user_id,
-        tenant_id,
-        'remove'
-      );
-      claimsSynced = claimsSynced && result.synced;
+      if (currentConsultantData?.user_id) {
+        const result = await syncConsultantAuthorizedTenants(
+          currentConsultantData.user_id,
+          tenant_id,
+          'remove'
+        );
+        claimsSynced = claimsSynced && result.synced;
+      }
     }
 
-    // Email para o consultor solicitante
-    try {
-      await adminDb.collection('email_queue').add({
-        to: requestingConsultantData.email,
-        subject: 'Transferência aprovada - Curva Mestra',
-        body: `<p>Olá ${requestingConsultantData.name},</p>
+    // Email para o consultor solicitante — apenas para transferência (invite: o próprio
+    // aprovador é o destinatário natural, um email aqui seria redundante).
+    if (!isInvite) {
+      try {
+        await adminDb.collection('email_queue').add({
+          to: requestingConsultantData.email,
+          subject: 'Transferência aprovada - Curva Mestra',
+          body: `<p>Olá ${requestingConsultantData.name},</p>
 <p>Sua solicitação de transferência para a clínica <strong>${transferData.tenant_name}</strong> foi aprovada!</p>
 <p>Você já pode acessar os dados da clínica no Portal do Consultor.</p>
 <p>Atenciosamente,<br>Equipe Curva Mestra</p>`,
-        status: 'pending',
-        type: 'consultant_transfer_approved',
-        created_at: FieldValue.serverTimestamp(),
-      });
-    } catch (emailError) {
-      console.warn('Erro ao enviar email:', emailError);
+          status: 'pending',
+          type: 'consultant_transfer_approved',
+          created_at: FieldValue.serverTimestamp(),
+        });
+      } catch (emailError) {
+        console.warn('Erro ao enviar email:', emailError);
+      }
     }
 
     return NextResponse.json({
       success: true,
       claims_synced: claimsSynced,
-      message: 'Transferência aprovada com sucesso',
+      message: isInvite ? 'Convite aceito com sucesso' : 'Transferência aprovada com sucesso',
     });
   } catch (error: any) {
     console.error('Erro ao aprovar transferência:', error);

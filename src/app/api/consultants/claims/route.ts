@@ -2,8 +2,9 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { FieldValue, WriteBatch } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, WriteBatch } from 'firebase-admin/firestore';
 import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
+import { computeExpiresAt } from '@/lib/consultantRequests';
 
 /**
  * POST - Vincular consultor a uma clínica (auto-link) ou iniciar transferência
@@ -178,6 +179,7 @@ export async function POST(req: NextRequest) {
       tenant_name: tenantData?.name,
       tenant_document: tenantData?.document_number,
       status: 'pending',
+      expires_at: Timestamp.fromDate(computeExpiresAt()), // RN-11
       created_at: FieldValue.serverTimestamp(),
       updated_at: FieldValue.serverTimestamp(),
     });
