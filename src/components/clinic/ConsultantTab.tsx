@@ -1,17 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { UserCheck, Mail, Phone, Copy, AlertTriangle } from 'lucide-react';
+import { UserCheck, Mail, Phone, Copy, AlertTriangle, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import type { Consultant } from '@/types';
 
 export default function ConsultantTab() {
-  const { user, tenantId } = useAuth();
+  const { user, tenantId, role } = useAuth();
   const { toast } = useToast();
+  // Mesmo padrão de gate das abas "Usuários"/"Limite de Estoque" em my-clinic/page.tsx
+  const isAdmin = role === 'clinic_admin';
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -117,6 +120,14 @@ export default function ConsultantTab() {
                 buscando pelo CNPJ/CPF da sua clínica — o vínculo é estabelecido automaticamente,
                 sem necessidade de aprovação.
               </p>
+              {isAdmin && (
+                <Button asChild className="mt-6">
+                  <Link href="/clinic/consultant/invite">
+                    <Send className="mr-2 h-4 w-4" />
+                    Convidar Consultor
+                  </Link>
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
