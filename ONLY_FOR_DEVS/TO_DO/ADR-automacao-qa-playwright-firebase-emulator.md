@@ -1,15 +1,15 @@
-# ADR: Automação de QA via Playwright + Firebase Emulator Suite (proposta em aberto)
+# ADR: Automação de QA via Playwright + Firebase Emulator Suite
 
 **Projeto:** Curva Mestra
 **Data:** 17/07/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento — **PAUSADO deliberadamente, decisão não tomada**
+**Status:** **APROVADO (retomado em 14/08/2026)** — pronto para geração de spec de implementação via `doc-writer`
 **Tipo:** ADR
-**Branch sugerida:** N/A — este documento apenas registra a proposta; nenhuma branch de implementação deve ser criada até a retomada e aprovação explícita do escopo (ver Seção 10.1)
-**Prioridade:** A decidir na retomada — o próprio usuário pediu para revisitar este assunto **antes de iniciar qualquer nova implementação**, o que sugere revisão cedo, mas isso não é uma autorização para implementar nada agora
-**Versão:** 1.0
+**Branch sugerida:** `chore/qa-agent-playwright-emulator-setup` (infraestrutura de teste, não é `feature` de produto) — a criar apenas quando o `doc-writer` gerar a spec de implementação derivada (Seção 7)
+**Prioridade:** Alta — usuário pediu para tratar como requisito de todas as features, retroativo aos UCs já mapeados
+**Versão:** 2.0
 
-> **Isto NÃO é uma decisão de arquitetura tomada.** É o registro de uma proposta discutida em 17/07/2026, durante a correção de 4 bugfixes críticos (UC-43, UC-34, UC-29, UC-36), a pedido explícito do usuário: *"Vamos colocar isso como uma tarefa do TO_DO. Quero voltar nessa tarefa em um momento mais oportuno, antes mesmo de iniciarmos outras implementações."* Este documento captura o raciocínio já levantado e as perguntas em aberto — nenhum código, configuração ou infraestrutura deve ser criado a partir dele sem antes retomar a discussão e responder à Seção 10.1.
+> **Decisão retomada e aprovada em 14/08/2026**, respondendo às 7 perguntas da Seção 10.1 (ver respostas inline nessa seção). O raciocínio original (17/07/2026, durante a correção de 4 bugfixes críticos: UC-43, UC-34, UC-29, UC-36) permanece válido e é a base da decisão. Próximo passo formal: acionar `doc-writer` para gerar a spec de implementação derivada (FEAT), cobrindo tanto a infraestrutura (Playwright + Emulator Suite + `qa-agent`) quanto o backlog retroativo de cadernos de teste para os UC-01 a UC-53 já mapeados.
 
 ---
 
@@ -245,17 +245,17 @@ N/A neste documento — ironicamente, "estratégia de testes" é o próprio obje
 | Investir na infraestrutura (Alternativa B) e ela não reduzir de fato o tempo gasto em validação manual (ex.: specs gerados exigem tanta revisão humana quanto escrever o teste à mão) | Baixa/Média | Médio | Se retomado, considerar um piloto restrito a 1 bugfix antes de generalizar (ver pergunta 10.1.3). |
 | Continuar sem automação nenhuma e um bug de sincronização de claims (a classe mais recorrente nesta sessão) voltar a escapar para produção | Média | Alto | É exatamente o risco que motivou a proposta; mitigado hoje apenas pela disciplina de STEP 4 manual — sem rede de segurança automatizada. |
 
-### 10.1 Perguntas em aberto — a responder na retomada
+### 10.1 Perguntas em aberto — respondidas na retomada (14/08/2026)
 
-⚠️ **Nenhuma destas perguntas foi respondida.** Elas devem ser discutidas com o usuário antes de qualquer implementação:
+✅ **Todas as 7 perguntas foram respondidas pelo usuário em 14/08/2026.** Registradas aqui para orientar a spec de implementação que o `doc-writer` vai gerar a partir deste ADR:
 
-1. **Momento do investimento:** vale a pena montar essa infraestrutura agora, ou o investimento deve esperar o pós-MVP (quando o sistema estiver mais estável e o custo de manutenção dos specs Playwright gerados for mais previsível)?
-2. **Modo de execução:** o "Agente de QA" (e os specs Playwright que ele gera) rodaria sob demanda (ex.: acionado manualmente pelo dev ao concluir um bugfix), ou entraria como gate obrigatório em CI (`.github/workflows/ci.yml` ou um novo `e2e.yml`)? Isso afeta diretamente RNF-01 (tempo de CI) e a decisão de branch protection (Seção 3.3 do guia de pipeline, hoje sem esse gate).
-3. **Escopo de cobertura:** a automação cobriria **todos** os bugfixes/features futuros que incluam uma seção "STEP 4 — Validação Manual", ou apenas os que tocam Auth/custom claims/segurança (a classe de bug mais recorrente e mais crítica identificada nesta sessão)? Um piloto restrito reduziria o investimento inicial descrito em 4.3.
-4. **Onde o "Agente de QA" vive no pipeline:** seria um quinto agente formal (ao lado de `uml-use-case-writer`, `uc-issues-tracker`, `doc-writer`, `dev-task-manager`, descritos na Seção 15 do `GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md`), acionado em que ponto do fluxo — logo após `dev-task-manager` concluir e mover o spec para `TASK_COMPLETED/`? Isso exigiria atualizar a tabela da Seção 15.1 e o diagrama da Seção 15.2 daquele guia.
-5. **Versionamento dos specs Playwright gerados:** ficam versionados junto do spec `.md` de origem (ex.: numa subpasta ao lado do arquivo em `TASK_COMPLETED/`), ou centralizados num diretório único `tests/e2e/` sem relação de pasta com o spec que os originou? Isso afeta rastreabilidade (qual teste veio de qual bugfix) vs. convenção usual de projetos Next.js/Playwright (testes centralizados).
-6. **Confiabilidade da geração automática:** todo spec Playwright gerado pelo agente exigiria revisão humana obrigatória antes de virar gate de CI (reduzindo o ganho de automação), ou haveria algum nível de confiança para rodar direto? Ver trade-off 4.3.
-7. **Dados de teste (seed):** os dados de teste do emulador (duas clínicas, consultores, documento legal com/sem aceite) seriam mantidos como fixture versionada e reaproveitada entre specs, ou gerados sob demanda por cada spec Playwright de forma isolada? Isso afeta RNF-02 (determinismo/isolamento).
+1. **Momento do investimento:** **Agora.** O usuário decidiu tratar cadernos de teste automatizados como requisito para todas as features, inclusive retroativo aos UCs já mapeados — não espera o pós-MVP.
+2. **Modo de execução:** **Gate obrigatório em CI.** Um novo job de E2E entra em `.github/workflows/ci.yml` (ou um `e2e.yml` dedicado), sobe o Firebase Emulator Suite e roda os specs Playwright a cada PR — bloqueia o merge se falhar. Isso implica também atualizar branch protection (Seção 3.3 do guia de pipeline) para exigir esse check.
+3. **Escopo de cobertura:** **Todas as features**, não só Auth/claims/segurança — inclusive retroativo aos UC-01 a UC-53 já documentados em `ONLY_FOR_DEVS/PO_BA_Docs/`. Sem piloto restrito; o backlog retroativo deve ser tratado como trabalho contínuo (não é preciso ser feito de uma vez, mas todo UC eventualmente precisa de um caderno).
+4. **Onde o "Agente de QA" vive no pipeline:** **Novo agente dedicado** (`qa-agent`, nome provisório — a definir na spec de implementação), ao lado de `uml-use-case-writer`, `uc-issues-tracker`, `doc-writer`, `dev-task-manager`. Acionado após `dev-task-manager` concluir uma task (spec movida para `TASK_COMPLETED/`) para gerar o caderno de teste da feature recém-implementada, e também de forma avulsa para cobrir retroativamente UCs já existentes. Exige atualizar a tabela da Seção 15.1 e o diagrama da Seção 15.2 do `GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md`.
+5. **Versionamento dos specs Playwright gerados:** não decidido explicitamente pelo usuário nesta rodada — **default proposto:** centralizados em `tests/e2e/`, nomeados por UC (ex.: `tests/e2e/UC-29-editar-suspender-reativar-consultor.spec.ts`) para manter rastreabilidade sem quebrar a convenção usual de projetos Next.js/Playwright. A confirmar/ajustar quando o `doc-writer` gerar a spec de implementação.
+6. **Confiabilidade da geração automática:** **Revisão humana obrigatória** antes de qualquer spec Playwright gerado por IA virar gate de CI — mitiga o risco (já sinalizado na Seção 4.3) de má interpretação de texto em português virar falso senso de segurança.
+7. **Dados de teste (seed):** não decidido explicitamente pelo usuário nesta rodada — **default proposto:** fixture versionada e reaproveitada entre specs (`scripts/seed-emulator.ts`, RNF-02), em vez de gerada sob demanda por cada spec isoladamente, para manter determinismo. A confirmar/ajustar quando o `doc-writer` gerar a spec de implementação.
 
 ---
 
@@ -289,3 +289,4 @@ N/A neste documento — ironicamente, "estratégia de testes" é o próprio obje
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|-------------|
 | 1.0 | 17/07/2026 | Doc Writer (Claude) | Versão inicial. Registra a proposta de automação de QA discutida durante a sessão de correção dos bugfixes UC-43, UC-34, UC-29 e UC-36, com o raciocínio já levantado e as perguntas em aberto (Seção 10.1) — decisão explicitamente pausada a pedido do usuário. |
+| 2.0 | 14/08/2026 | Claude (via usuário) | **Decisão retomada e aprovada.** Status muda de "Pausado" para "Aprovado". As 7 perguntas da Seção 10.1 foram respondidas: investir agora, gate obrigatório em CI, escopo cobre todas as features (retroativo aos UC-01–UC-53), novo agente dedicado (`qa-agent`), revisão humana obrigatória dos specs gerados; versionamento dos specs e estratégia de seed ficaram com default proposto, a confirmar na spec de implementação. `CLAUDE.md` atualizado com a política. Próximo passo: `doc-writer` gera a spec de implementação (FEAT) derivada deste ADR. |
