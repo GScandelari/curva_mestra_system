@@ -5,6 +5,26 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.7.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.7.0...v1.7.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* **agents:** reconcile security-auditor with uc-issues-tracker/uml-use-case-writer ([6414ca7](https://github.com/GScandelari/curva_mestra_system/commit/6414ca7aeab189cb692d3343f336aa8fa40e50a9))
+
+## [1.7.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.7...v1.7.0) (2026-08-12)
+
+
+### Features
+
+* **agents:** add security-auditor subagent for MVP security sweeps ([44a87e1](https://github.com/GScandelari/curva_mestra_system/commit/44a87e18d3d8e3b2ba8ec9e684a614bff76d0932))
+* **agents:** recognize SEC- findings and add QA gate in dev-task-manager ([8f3c001](https://github.com/GScandelari/curva_mestra_system/commit/8f3c0013201edd22b55a7034e5003d0181b78ffa))
+
+
+### Bug Fixes
+
+* seis itens de baixa severidade (UC-01, UC-03, UC-04, UC-06, UC-07) ([1254abb](https://github.com/GScandelari/curva_mestra_system/commit/1254abb5f1d9c3b62c7084f4f77a108a195c4e18))
+
 ## [1.6.7](https://github.com/GScandelari/curva_mestra_system/compare/v1.6.6...v1.6.7) (2026-08-03)
 
 
