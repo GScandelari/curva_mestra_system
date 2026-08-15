@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { adminDb } from '@/lib/firebase-admin';
 import {
@@ -48,8 +48,10 @@ export async function POST(req: NextRequest) {
     // Bloquear novas solicitações quando o System Admin desativou registros
     // (system_settings/global.registration_enabled) -- antes, esse campo era
     // gravado pela tela de Configurações mas nunca lido por ninguém.
-    const settingsSnap = await getDoc(doc(db, 'system_settings', 'global'));
-    if (settingsSnap.exists() && settingsSnap.data().registration_enabled === false) {
+    // Usa o Admin SDK (bypassa as regras) porque a leitura de system_settings
+    // exige isAuthenticated() e esta rota é pública/não-autenticada.
+    const settingsSnap = await adminDb.doc('system_settings/global').get();
+    if (settingsSnap.exists && settingsSnap.data()?.registration_enabled === false) {
       return NextResponse.json(
         { error: 'O cadastro de novas solicitações está temporariamente desativado.' },
         { status: 403 }
