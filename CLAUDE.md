@@ -127,6 +127,21 @@ NOME_PRODUTO = tudo até "Lt:"
 }
 ```
 
+**8. Cadernos de Teste Automatizados (OBRIGATÓRIO para toda feature)**
+
+**Decisão (14/08/2026):** toda feature do sistema — nova ou já existente (retroativo aos UC-01 a UC-53 em `ONLY_FOR_DEVS/PO_BA_Docs/`) — precisa de um caderno de teste automatizado. Detalhamento completo, raciocínio e perguntas respondidas em `ONLY_FOR_DEVS/TO_DO/ADR-automacao-qa-playwright-firebase-emulator.md` (v2.0, status **Aprovado**).
+
+```yaml
+Ferramenta: Playwright E2E + Firebase Emulator Suite (Auth + Firestore reais, emulados — sem mock)
+Execução: gate obrigatório em CI — bloqueia merge de PR se falhar
+Geração: agente de IA dedicado (qa-agent, a criar) — lê o spec da feature (STEP 4 / caderno) e gera o spec Playwright equivalente
+Revisão: humana OBRIGATÓRIA em todo spec gerado por IA antes de virar gate de CI — nunca confiar cegamente em teste gerado
+Escopo: TODAS as features, sem exceção — não só Auth/segurança
+Retroativo: sim — UC-01 a UC-53 precisam eventualmente de caderno próprio; não precisa ser feito de uma vez
+```
+
+_NUNCA aprove uma feature nova como concluída sem, no mínimo, considerar/gerar o caderno de teste correspondente. Antes de implementar essa infraestrutura (Playwright config, `qa-agent`, seed do emulador), acionar `doc-writer` para gerar a spec de implementação derivada do ADR acima — não implementar ad-hoc fora desse fluxo._
+
 **9. Comandos Úteis (salve no terminal)**
 
 ```bash
