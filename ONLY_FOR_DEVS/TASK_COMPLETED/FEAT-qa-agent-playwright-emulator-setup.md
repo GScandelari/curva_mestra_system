@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 14/08/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Stanke Scandelari
+**Data de Conclusão:** 17/08/2026
 **Tipo:** Feature
 **Branch sugerida:** `chore/qa-agent-playwright-emulator-setup`
 **Prioridade:** Alta
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Deriva de `ONLY_FOR_DEVS/TO_DO/ADR-automacao-qa-playwright-firebase-emulator.md` (v2.0, **Aprovado**, 7 perguntas da Seção 10.1 já respondidas). Constrói a infraestrutura completa de QA automatizada — `playwright.config.ts` apontando para o Firebase Emulator Suite já configurado em `firebase.json`, script `test:e2e` real (hoje só existe como exemplo não aplicado no guia de pipeline), `scripts/seed-emulator.ts` com fixture determinística, o novo agente `qa-agent` (`.claude/agents/qa-agent.md`) que gera specs Playwright a partir de documentação já existente, e um job de CI (`.github/workflows/e2e.yml`) que roda esses specs como gate obrigatório de PR para `develop`/`master`. Não migra o backlog retroativo dos UC-01 a UC-53 de uma vez — deixa a infraestrutura pronta e documenta esse backlog como trabalho contínuo, a começar logo após esta task ser mergeada.
 
@@ -1112,3 +1114,4 @@ Antes de commitar:
 | Versão | Data | Autor | O que mudou |
 |---|---|---|---|
 | 1.0 | 14/08/2026 | Doc Writer (Claude) | Versão inicial. Spec de implementação derivada do `ADR-automacao-qa-playwright-firebase-emulator.md` (v2.0, Aprovado) — infraestrutura completa (Playwright + Firebase Emulator Suite + seed determinístico + `qa-agent` + gate de CI), sem migrar o backlog retroativo dos 53 UCs de uma vez. |
+| 1.1 | 17/08/2026 | Guilherme Stanke Scandelari | Task concluída — infraestrutura implementada e validada de ponta a ponta (STEP 1-10): `playwright.config.ts`, `scripts/lib/emulatorAdmin.ts` + teste unitário, `scripts/seed-emulator.ts`, `tests/e2e/_infra-smoke.spec.ts` (3/3 verde local e em CI), `.claude/agents/qa-agent.md` (validado manualmente em Modo A contra `BUGFIX-suspend-consultant-reconnect-delete.md`), `.github/workflows/e2e.yml`, branch protection de `develop` atualizada de fato (via `gh api`) exigindo o check `E2E (Playwright + Firebase Emulator Suite)`, e `GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md` atualizado (Seções 3.3, 5.1, 15.1-15.3). Três desvios não previstos na v1.0, descobertos e corrigidos durante a implementação: (1) `firebase.json` já declara um alvo `hosting` com `frameworksBackend` que exige `FIREBASE_CLI_EXPERIMENTS=webframeworks` em qualquer comando do CLI, mesmo com `--only auth,firestore,storage` — resolvido com `cross-env` no script `test:e2e`; (2) o client SDK (`src/lib/firebase.ts`) chama `getAuth(app)` incondicionalmente (inclusive em SSR) e falha com `auth/invalid-api-key` se `NEXT_PUBLIC_FIREBASE_API_KEY` estiver vazio — resolvido com valores fake no `webServer.env` do `playwright.config.ts`; (3) `TermsInterceptor` redireciona qualquer role para `/accept-terms` quando há termo obrigatório sem aceite — `scripts/seed-emulator.ts` passou a registrar aceite de ambos os documentos legais para `systemAdmin`/`clinicAdminA` (os usuários logados pelo smoke spec), mantendo `clinicUserA`/`clinicAdminB`/`consultant` deliberadamente sem aceite para specs futuros do fluxo `/accept-terms`. CI do Firestore Emulator também exigiu JDK ≥ 21 (`actions/setup-java@v5` adicionado ao `e2e.yml`). Backlog retroativo dos UC-01 a UC-53 explicitamente não incluído nesta task (trabalho contínuo, Seção 9). Movida para `TASK_COMPLETED/`. |
