@@ -129,15 +129,28 @@ async function seed() {
       published_at: now,
     });
   }
-  await db
-    .collection('user_document_acceptances')
-    .doc(`${TEST_USERS.clinicAdminA.uid}_${TEST_LEGAL_DOCUMENTS.withAcceptance.id}`)
-    .set({
-      user_id: TEST_USERS.clinicAdminA.uid,
-      document_id: TEST_LEGAL_DOCUMENTS.withAcceptance.id,
-      document_version: '1.0',
-      accepted_at: now,
-    });
+  // TermsInterceptor (src/components/auth/TermsInterceptor.tsx) roda para
+  // QUALQUER role autenticado, não só clinic_*, e redireciona para
+  // /accept-terms sempre que existir pelo menos 1 documento obrigatório sem
+  // aceite do usuário logado. systemAdmin e clinicAdminA são os usuários que
+  // tests/e2e/_infra-smoke.spec.ts loga via UI para chegar direto no
+  // dashboard -- por isso recebem aceite de AMBOS os documentos legais.
+  // clinicUserA/clinicAdminB/consultant continuam de propósito SEM nenhuma
+  // aceitação: é assim que RF-03 ("um documento com aceite, um sem") fica
+  // satisfeito por usuário/documento, sem precisar de um registro negativo
+  // explícito -- specs futuros que exercitem o fluxo /accept-terms podem
+  // logar com qualquer um desses usuários.
+  const usersWithFullAcceptance = [TEST_USERS.systemAdmin, TEST_USERS.clinicAdminA];
+  for (const user of usersWithFullAcceptance) {
+    for (const legalDoc of Object.values(TEST_LEGAL_DOCUMENTS)) {
+      await db.collection('user_document_acceptances').doc(`${user.uid}_${legalDoc.id}`).set({
+        user_id: user.uid,
+        document_id: legalDoc.id,
+        document_version: '1.0',
+        accepted_at: now,
+      });
+    }
+  }
 
   console.log('[seed-emulator] concluído.');
 }
