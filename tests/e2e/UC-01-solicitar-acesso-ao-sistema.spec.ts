@@ -99,7 +99,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(requestBody.volume).toBe('30–80');
 
       // Passo 18: mensagem de sucesso + campos de texto limpos.
-      await expect(page.getByRole('alert')).toContainText('Solicitação enviada com sucesso!');
+      await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
+        'Solicitação enviada com sucesso!'
+      );
       await expect(page.locator('#fullName')).toHaveValue('');
       await expect(page.locator('#email')).toHaveValue('');
 
@@ -165,7 +167,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(requestBody.consultant_reference).toBeUndefined();
       expect(requestBody.volume).toBeUndefined();
 
-      await expect(page.getByRole('alert')).toContainText('Solicitação enviada com sucesso!');
+      await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
+        'Solicitação enviada com sucesso!'
+      );
 
       const db = getEmulatorAdminFirestore();
       const snap = await db
@@ -258,7 +262,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(requestBody.consultant_reference).toBeUndefined();
       expect(requestBody.volume).toBeUndefined();
 
-      await expect(page.getByRole('alert')).toContainText('Solicitação enviada com sucesso!');
+      await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
+        'Solicitação enviada com sucesso!'
+      );
     });
   });
 
@@ -293,7 +299,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
 
       // validateFullName (src/lib/validations/serverValidations.ts) retorna
       // exatamente esta mensagem quando `parts.length < 2`.
-      await expect(page.getByRole('alert')).toContainText('Informe nome e sobrenome');
+      await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
+        'Informe nome e sobrenome'
+      );
 
       // Passo 3: a requisição não é enviada à API.
       expect(apiCalled).toBe(false);
@@ -325,7 +333,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         businessName: 'Clínica Duarte',
       });
       await page.getByRole('button', { name: 'Solicitar acesso à Curva Mestra' }).click();
-      await expect(page.getByRole('alert')).toContainText('Solicitação enviada com sucesso!');
+      await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
+        'Solicitação enviada com sucesso!'
+      );
 
       // Segunda submissão, mesmo e-mail: navega de novo para /register (em
       // vez de reaproveitar o formulário já montado) para não competir com o
@@ -346,7 +356,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       const response = await responsePromise;
 
       expect(response.status()).toBe(409);
-      await expect(page.getByRole('alert')).toContainText(
+      await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
         'Já existe uma solicitação pendente para este e-mail'
       );
 
