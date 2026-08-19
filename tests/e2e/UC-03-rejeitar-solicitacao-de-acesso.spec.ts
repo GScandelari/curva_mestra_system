@@ -130,7 +130,9 @@ test.describe('UC-03 — Rejeitar Solicitação de Acesso', () => {
       await page.getByRole('dialog').getByRole('button', { name: 'Confirmar Rejeição' }).click();
 
       // Passo 10: toast de sucesso.
-      await expect(page.getByText('Solicitação rejeitada')).toBeVisible();
+      await expect(
+        page.getByText('Solicitação rejeitada').and(page.locator(':not([role="status"])'))
+      ).toBeVisible();
       await expect(page.getByText('O solicitante será notificado')).toBeVisible();
 
       // Passo 11: dialog fecha e a lista de pendentes é recarregada sem a
@@ -187,7 +189,9 @@ test.describe('UC-03 — Rejeitar Solicitação de Acesso', () => {
       await page.locator('#reason').fill('Vaga já preenchida por outro candidato.');
       await page.getByRole('dialog').getByRole('button', { name: 'Confirmar Rejeição' }).click();
 
-      await expect(page.getByText('Solicitação rejeitada')).toBeVisible();
+      await expect(
+        page.getByText('Solicitação rejeitada').and(page.locator(':not([role="status"])'))
+      ).toBeVisible();
       await expect(page.getByRole('row', { name: new RegExp(ownRequest.full_name) })).toHaveCount(
         0
       );
@@ -226,7 +230,9 @@ test.describe('UC-03 — Rejeitar Solicitação de Acesso', () => {
 
       // Passo 3: segue o fluxo normal a partir do passo 6 do Fluxo Principal.
       await page.getByRole('dialog').getByRole('button', { name: 'Confirmar Rejeição' }).click();
-      await expect(page.getByText('Solicitação rejeitada')).toBeVisible();
+      await expect(
+        page.getByText('Solicitação rejeitada').and(page.locator(':not([role="status"])'))
+      ).toBeVisible();
 
       const db = getEmulatorAdminFirestore();
       const doc = (await db.collection('access_requests').doc(request.id).get()).data();
@@ -301,8 +307,10 @@ test.describe('UC-03 — Rejeitar Solicitação de Acesso', () => {
       await page.getByRole('dialog').getByRole('button', { name: 'Confirmar Rejeição' }).click();
 
       // Passos 2-3: toast destructive com a mensagem exata do service.
-      await expect(page.getByText('Erro')).toBeVisible();
-      await expect(page.getByText('Solicitação já foi processada')).toBeVisible();
+      await expect(page.getByText('Erro').and(page.locator(':not([role="status"])'))).toBeVisible();
+      await expect(
+        page.getByText('Solicitação já foi processada').and(page.locator(':not([role="status"])'))
+      ).toBeVisible();
 
       // Dialog permanece aberto — só fecha no branch de sucesso.
       await expect(page.getByRole('dialog')).toBeVisible();

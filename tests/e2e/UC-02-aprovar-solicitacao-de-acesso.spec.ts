@@ -162,9 +162,13 @@ test.describe('UC-02 — Aprovar Solicitação de Acesso', () => {
       const { tenant_id, user_id } = responseBody.data as { tenant_id: string; user_id: string };
 
       // Passo 16: toast de sucesso.
-      await expect(page.getByText('Solicitação aprovada!')).toBeVisible();
       await expect(
-        page.getByText(`Tenant e usuário criados com sucesso. Email: ${email}`)
+        page.getByText('Solicitação aprovada!').and(page.locator(':not([role="status"])'))
+      ).toBeVisible();
+      await expect(
+        page
+          .getByText(`Tenant e usuário criados com sucesso. Email: ${email}`)
+          .and(page.locator(':not([role="status"])'))
       ).toBeVisible();
 
       // Passo 17: a solicitação aprovada não aparece mais na listagem.
@@ -264,7 +268,9 @@ test.describe('UC-02 — Aprovar Solicitação de Acesso', () => {
       expect(response.status()).toBe(200);
       const { tenant_id } = (await response.json()).data as { tenant_id: string };
 
-      await expect(page.getByText('Solicitação aprovada!')).toBeVisible();
+      await expect(
+        page.getByText('Solicitação aprovada!').and(page.locator(':not([role="status"])'))
+      ).toBeVisible();
 
       const db = getEmulatorAdminFirestore();
       const tenantSnap = await db.collection('tenants').doc(tenant_id).get();
@@ -400,7 +406,9 @@ test.describe('UC-02 — Aprovar Solicitação de Acesso', () => {
       expect(body.error).toBe('Este email já está em uso');
 
       // Toast destructive de erro.
-      await expect(page.getByText('Este email já está em uso')).toBeVisible();
+      await expect(
+        page.getByText('Este email já está em uso').and(page.locator(':not([role="status"])'))
+      ).toBeVisible();
 
       // Garantias mínimas de falha: tenant revertido (não fica órfão), a
       // solicitação permanece "pendente" e continua visível na listagem.

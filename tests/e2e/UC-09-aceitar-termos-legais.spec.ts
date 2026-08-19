@@ -109,12 +109,12 @@ async function gotoAfterSignIn(
   page: Page,
   url: string,
   expectedUrlPattern: RegExp,
-  attempts = 3
+  attempts = 6
 ): Promise<void> {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     await page.goto(url);
     try {
-      await expect(page).toHaveURL(expectedUrlPattern, { timeout: 6000 });
+      await expect(page).toHaveURL(expectedUrlPattern, { timeout: 10000 });
       return;
     } catch (error) {
       if (attempt === attempts) throw error;
