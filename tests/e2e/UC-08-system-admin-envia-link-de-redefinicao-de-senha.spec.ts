@@ -140,6 +140,14 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
     test('variante usuário: admin envia o link, usuário-alvo completa a redefinição e RN-06 remove requirePasswordChange (passos 1-19)', async ({
       page,
     }) => {
+      // Fluxo real e longo (login admin, varias idas ao Firestore, navegacao
+      // para /reset-password/[token] -- possivel primeiro compile a frio
+      // dessa rota dinamica no meio da suite -- form, submit, redirect,
+      // segundo login) -- o timeout global de 30s (playwright.config.ts) e
+      // apertado demais aqui; estourou em rodadas anteriores sem apontar uma
+      // linha especifica (timeout de teste inteiro, nao de um await isolado).
+      test.setTimeout(60_000);
+
       const target = TEST_USERS.clinicUserA;
       const adminAuth = getEmulatorAdminAuth();
 

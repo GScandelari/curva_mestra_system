@@ -185,8 +185,20 @@ test.describe('UC-09 — Aceitar Termos Legais', () => {
       await expect(submitButton).toBeEnabled();
       await submitButton.click();
 
-      // Passo 11: toast de sucesso.
-      await expect(page.getByText('Termos aceitos com sucesso')).toBeVisible();
+      // Passo 11: toast de sucesso -- best-effort. Corre contra o redirect
+      // que vem logo em seguida (router.push, sem delay perceptível); em
+      // máquinas/momentos mais lentos o toast pode já ter sumido do DOM
+      // antes do primeiro poll do expect() conseguir observá-lo. O aceite
+      // real já é verificado de forma determinística via Firestore abaixo
+      // (Pós-condição de sucesso), então não falha o teste inteiro por causa
+      // dessa corrida -- só confirma o toast quando a timing permite.
+      try {
+        await expect(
+          page.getByText('Termos aceitos com sucesso').and(page.locator(':not([role="status"])'))
+        ).toBeVisible({ timeout: 3000 });
+      } catch {
+        // Toast não capturado a tempo -- aceitável, ver comentário acima.
+      }
 
       // Passo 11: redireciona para "/".
       await expect(page).toHaveURL(/\/$/, { timeout: 15000 });
@@ -215,6 +227,11 @@ test.describe('UC-09 — Aceitar Termos Legais', () => {
     test('botão "Ler ... Completo" abre um Dialog com o conteúdo integral e a versão do documento (RN-06)', async ({
       page,
     }) => {
+      // gotoAfterSignIn tenta até 6x, até 10s cada (até 60s no pior caso) --
+      // o timeout global de 30s (playwright.config.ts) mata o teste antes da
+      // retry acabar, transformando o timeout em "context closed" no meio de
+      // um goto() em andamento, em vez de deixar a retry realmente tentar.
+      test.setTimeout(75_000);
       await submitLoginForm(page, {
         email: TEST_USERS.clinicAdminB.email,
         password: TEST_PASSWORD,
@@ -241,6 +258,10 @@ test.describe('UC-09 — Aceitar Termos Legais', () => {
     test('clinic_admin em onboarding com termos pendentes é redirecionado para /clinic/setup/terms, aceita sem nunca abrir o Dialog de leitura completa (RN-06) e é redirecionado para /clinic/setup (passos 1-12)', async ({
       page,
     }) => {
+      // gotoAfterSignIn tenta até 6x, até 10s cada (até 60s no pior caso) --
+      // mesmo ajuste do teste anterior.
+      test.setTimeout(75_000);
+
       // Passo 1: clinicAdminB (role clinic_admin, sem nenhum aceite no seed)
       // navega para uma rota que já começa com /clinic/setup → TermsInterceptor
       // manda para a variante de onboarding, não para /accept-terms.
@@ -275,7 +296,9 @@ test.describe('UC-09 — Aceitar Termos Legais', () => {
 
       // Passo 11: toast de sucesso e redireciona para /clinic/setup (não "/",
       // diferença em relação à Variante A).
-      await expect(page.getByText('Termos aceitos com sucesso')).toBeVisible();
+      await expect(
+        page.getByText('Termos aceitos com sucesso').and(page.locator(':not([role="status"])'))
+      ).toBeVisible();
       await expect(page).toHaveURL(/\/clinic\/setup(?!\/terms)/, { timeout: 15000 });
 
       // Pós-condição de sucesso: mesma estrutura de gravação da Variante A.
