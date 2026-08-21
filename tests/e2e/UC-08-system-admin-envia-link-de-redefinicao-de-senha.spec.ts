@@ -141,120 +141,143 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
       page,
     }) => {
       const target = TEST_USERS.clinicUserA;
-
-      // Setup: simula que o usuário-alvo tinha uma troca de senha obrigatória
-      // pendente (UC-06), para poder observar RN-06 removê-la ao final deste
-      // fluxo. Nenhum usuário semeado nasce com essa claim.
       const adminAuth = getEmulatorAdminAuth();
-      await adminAuth.setCustomUserClaims(target.uid, {
-        ...target.claims,
-        requirePasswordChange: true,
-      });
 
-      // Passo 1: System Admin loga e acessa /admin/users.
-      await loginAs(
-        page,
-        { email: TEST_USERS.systemAdmin.email, password: TEST_PASSWORD },
-        '/admin/dashboard'
-      );
-      await openEditDialogForUser(page, target.email);
-      await expect(page.getByText(`Edite as informações do usuário ${target.email}`)).toBeVisible();
+      // Este teste muda a senha REAL de clinicUserA (self-service, passo 15) --
+      // sem restaurar TEST_PASSWORD ao final, qualquer spec que rode depois
+      // (ordem alfabética de arquivo, workers:1) e tente logar como
+      // clinicUserA com a senha padrão falharia (achado empírico: UC-09
+      // ficava preso em /login por causa exatamente disso). try/finally
+      // garante a restauração mesmo se alguma asserção no meio falhar.
+      try {
+        // Setup: simula que o usuário-alvo tinha uma troca de senha obrigatória
+        // pendente (UC-06), para poder observar RN-06 removê-la ao final deste
+        // fluxo. Nenhum usuário semeado nasce com essa claim.
+        await adminAuth.setCustomUserClaims(target.uid, {
+          ...target.claims,
+          requirePasswordChange: true,
+        });
 
-      // Passo 2: clica no botão de redefinir senha (distinto de "Definir Senha Manualmente").
-      await page.getByRole('button', { name: 'Enviar Link de Reset' }).click();
+        // Passo 1: System Admin loga e acessa /admin/users.
+        await loginAs(
+          page,
+          { email: TEST_USERS.systemAdmin.email, password: TEST_PASSWORD },
+          '/admin/dashboard'
+        );
+        await openEditDialogForUser(page, target.email);
+        await expect(
+          page.getByText(`Edite as informações do usuário ${target.email}`)
+        ).toBeVisible();
 
-      // Passo 3: AlertDialog padrão do sistema (RNF-02), não confirm() nativo.
-      const confirmDialog = page.getByRole('alertdialog');
-      await expect(confirmDialog.getByRole('heading', { name: 'Redefinir senha' })).toBeVisible();
-      await expect(confirmDialog).toContainText(
-        `Tem certeza que deseja redefinir a senha de ${target.email}?`
-      );
-      await expect(confirmDialog).toContainText(
-        'Um email será enviado com um link seguro para o usuário definir uma nova senha.'
-      );
+        // Passo 2: clica no botão de redefinir senha (distinto de "Definir Senha Manualmente").
+        await page.getByRole('button', { name: 'Enviar Link de Reset' }).click();
 
-      // Passos 4-12: confirma, API cria token + enfileira e-mail + audita.
-      await confirmDialog.getByRole('button', { name: 'Confirmar' }).click();
-      await expect(page.getByText('Email enviado com sucesso!')).toBeVisible();
-      await expect(page.getByText('Enviado para:')).toContainText(target.email);
+        // Passo 3: AlertDialog padrão do sistema (RNF-02), não confirm() nativo.
+        const confirmDialog = page.getByRole('alertdialog');
+        await expect(confirmDialog.getByRole('heading', { name: 'Redefinir senha' })).toBeVisible();
+        await expect(confirmDialog).toContainText(
+          `Tem certeza que deseja redefinir a senha de ${target.email}?`
+        );
+        await expect(confirmDialog).toContainText(
+          'Um email será enviado com um link seguro para o usuário definir uma nova senha.'
+        );
 
-      const db = getEmulatorAdminFirestore();
+        // Passos 4-12: confirma, API cria token + enfileira e-mail + audita.
+        await confirmDialog.getByRole('button', { name: 'Confirmar' }).click();
+        await expect(page.getByText('Email enviado com sucesso!')).toBeVisible();
+        await expect(page.getByText('Enviado para:')).toContainText(target.email);
 
-      // Pós-condição (Parte 1): token criado com hash SHA-256, expiração de
-      // ~30min, sem o token bruto persistido em nenhum campo (RN-01/RN-02).
-      const tokenSnap = await db
-        .collection(RESET_TOKENS_COLLECTION)
-        .where('user_id', '==', target.uid)
-        .get();
-      expect(tokenSnap.size).toBe(1);
-      const tokenDoc = tokenSnap.docs[0].data();
-      expect(tokenDoc.user_email).toBe(target.email);
-      expect(tokenDoc.created_by).toBe(TEST_USERS.systemAdmin.uid);
-      expect(tokenDoc.used_at).toBeUndefined();
-      expect((tokenDoc as Record<string, unknown>).token).toBeUndefined();
-      expect((tokenDoc as Record<string, unknown>).raw_token).toBeUndefined();
-      const expiresAtMs = (tokenDoc.expires_at as Timestamp).toMillis();
-      const expectedExpiryMs = Date.now() + 30 * 60 * 1000;
-      expect(Math.abs(expiresAtMs - expectedExpiryMs)).toBeLessThan(60_000);
+        const db = getEmulatorAdminFirestore();
 
-      // Pós-condição: e-mail enfileirado em email_queue (type: password_reset).
-      const rawToken = await getLatestResetTokenRawForUid(target.uid);
-      expect(hashTokenLikeApp(rawToken)).toBe(tokenDoc.token_hash);
-      const emailSnap = await db
-        .collection(EMAIL_QUEUE_COLLECTION)
-        .where('metadata.user_id', '==', target.uid)
-        .get();
-      expect(emailSnap.size).toBe(1);
-      expect(emailSnap.docs[0].data().to).toBe(target.email);
-      expect(emailSnap.docs[0].data().type).toBe('password_reset');
+        // Pós-condição (Parte 1): token criado com hash SHA-256, expiração de
+        // ~30min, sem o token bruto persistido em nenhum campo (RN-01/RN-02).
+        const tokenSnap = await db
+          .collection(RESET_TOKENS_COLLECTION)
+          .where('user_id', '==', target.uid)
+          .get();
+        expect(tokenSnap.size).toBe(1);
+        const tokenDoc = tokenSnap.docs[0].data();
+        expect(tokenDoc.user_email).toBe(target.email);
+        expect(tokenDoc.created_by).toBe(TEST_USERS.systemAdmin.uid);
+        expect(tokenDoc.used_at).toBeUndefined();
+        expect((tokenDoc as Record<string, unknown>).token).toBeUndefined();
+        expect((tokenDoc as Record<string, unknown>).raw_token).toBeUndefined();
+        const expiresAtMs = (tokenDoc.expires_at as Timestamp).toMillis();
+        const expectedExpiryMs = Date.now() + 30 * 60 * 1000;
+        expect(Math.abs(expiresAtMs - expectedExpiryMs)).toBeLessThan(60_000);
 
-      // Pós-condição: auditoria no documento do usuário-alvo.
-      const userDocAfterRequest = await db.doc(`users/${target.uid}`).get();
-      expect(userDocAfterRequest.data()?.passwordResetRequestedBy).toBe(TEST_USERS.systemAdmin.uid);
-      expect(userDocAfterRequest.data()?.passwordResetRequestedAt).toBeTruthy();
+        // Pós-condição: e-mail enfileirado em email_queue (type: password_reset).
+        const rawToken = await getLatestResetTokenRawForUid(target.uid);
+        expect(hashTokenLikeApp(rawToken)).toBe(tokenDoc.token_hash);
+        const emailSnap = await db
+          .collection(EMAIL_QUEUE_COLLECTION)
+          .where('metadata.user_id', '==', target.uid)
+          .get();
+        expect(emailSnap.size).toBe(1);
+        expect(emailSnap.docs[0].data().to).toBe(target.email);
+        expect(emailSnap.docs[0].data().type).toBe('password_reset');
 
-      // Passo 13: usuário-alvo (self-service) chega em /reset-password/{token}
-      // a partir do e-mail recebido.
-      await page.goto(`/reset-password/${rawToken}`);
+        // Pós-condição: auditoria no documento do usuário-alvo.
+        const userDocAfterRequest = await db.doc(`users/${target.uid}`).get();
+        expect(userDocAfterRequest.data()?.passwordResetRequestedBy).toBe(
+          TEST_USERS.systemAdmin.uid
+        );
+        expect(userDocAfterRequest.data()?.passwordResetRequestedAt).toBeTruthy();
 
-      // Passo 14: token validado sem ser consumido, e-mail mascarado exibido (RNF-01).
-      await expect(page.getByRole('heading', { name: 'Nova Senha' })).toBeVisible();
-      await expect(page.getByText(maskEmailLikeApp(target.email))).toBeVisible();
+        // Passo 13: usuário-alvo (self-service) chega em /reset-password/{token}
+        // a partir do e-mail recebido. Um usuário real chegaria aqui SEM sessão
+        // ativa (link de e-mail, outro dispositivo/aba) -- limpa a sessão do
+        // system_admin ainda ativa neste `page` antes de navegar, senão o
+        // useEffect reativo de "já autenticado" de /login (mesmo padrão do
+        // achado UC-04-Q4) intercepta o redirect final do passo 19 e manda o
+        // admin de volta para /admin/dashboard em vez de deixar em /login.
+        await page.evaluate(() => {
+          sessionStorage.clear();
+          localStorage.clear();
+        });
+        await page.goto(`/reset-password/${rawToken}`);
 
-      // Passo 15: nova senha válida (RN-08: validatePassword compartilhada).
-      const newPassword = 'NovaSenha123';
-      await page.locator('#newPassword').fill(newPassword);
-      await page.locator('#confirmPassword').fill(newPassword);
+        // Passo 14: token validado sem ser consumido, e-mail mascarado exibido (RNF-01).
+        await expect(page.getByRole('heading', { name: 'Nova Senha' })).toBeVisible();
+        await expect(page.getByText(maskEmailLikeApp(target.email))).toBeVisible();
 
-      // Passos 16-18: submete, API consome o token e atualiza a senha.
-      await page.getByRole('button', { name: 'Definir Nova Senha' }).click();
-      await expect(page.getByRole('heading', { name: 'Senha Redefinida!' })).toBeVisible();
+        // Passo 15: nova senha válida (RN-08: validatePassword compartilhada).
+        const newPassword = 'NovaSenha123';
+        await page.locator('#newPassword').fill(newPassword);
+        await page.locator('#confirmPassword').fill(newPassword);
 
-      // Passo 19: redireciona para /login após 3s.
-      await expect(page).toHaveURL(/\/login/, { timeout: 8000 });
+        // Passos 16-18: submete, API consome o token e atualiza a senha.
+        await page.getByRole('button', { name: 'Definir Nova Senha' }).click();
+        await expect(page.getByRole('heading', { name: 'Senha Redefinida!' })).toBeVisible();
 
-      // Pós-condição (Parte 2, Esperado Firebase Auth): a senha nova
-      // realmente funciona — a evidência mais forte possível sem conseguir
-      // ler a senha em si é logar com sucesso usando o valor definido.
-      await loginAs(page, { email: target.email, password: newPassword }, '/clinic/dashboard');
+        // Passo 19: redireciona para /login após 3s.
+        await expect(page).toHaveURL(/\/login/, { timeout: 8000 });
 
-      // Pós-condição (Esperado Firestore): token marcado como usado.
-      const tokenAfter = await db
-        .collection(RESET_TOKENS_COLLECTION)
-        .doc(tokenSnap.docs[0].id)
-        .get();
-      expect(tokenAfter.data()?.used_at).toBeTruthy();
+        // Pós-condição (Parte 2, Esperado Firebase Auth): a senha nova
+        // realmente funciona — a evidência mais forte possível sem conseguir
+        // ler a senha em si é logar com sucesso usando o valor definido.
+        await loginAs(page, { email: target.email, password: newPassword }, '/clinic/dashboard');
 
-      // Pós-condição (Esperado Custom Claims, RN-06): requirePasswordChange
-      // removido/zerado — a claim que setamos como true no início da rodada
-      // agora é false, exatamente como a API faz.
-      const userRecordAfter = await adminAuth.getUser(target.uid);
-      expect(userRecordAfter.customClaims?.requirePasswordChange).toBe(false);
+        // Pós-condição (Esperado Firestore): token marcado como usado.
+        const tokenAfter = await db
+          .collection(RESET_TOKENS_COLLECTION)
+          .doc(tokenSnap.docs[0].id)
+          .get();
+        expect(tokenAfter.data()?.used_at).toBeTruthy();
 
-      // Pós-condição (Esperado Firestore): users/{uid} também reflete a troca.
-      const userDocFinal = await db.doc(`users/${target.uid}`).get();
-      expect(userDocFinal.data()?.requirePasswordChange).toBe(false);
-      expect(userDocFinal.data()?.passwordChangedAt).toBeTruthy();
+        // Pós-condição (Esperado Custom Claims, RN-06): requirePasswordChange
+        // removido/zerado — a claim que setamos como true no início da rodada
+        // agora é false, exatamente como a API faz.
+        const userRecordAfter = await adminAuth.getUser(target.uid);
+        expect(userRecordAfter.customClaims?.requirePasswordChange).toBe(false);
+
+        // Pós-condição (Esperado Firestore): users/{uid} também reflete a troca.
+        const userDocFinal = await db.doc(`users/${target.uid}`).get();
+        expect(userDocFinal.data()?.requirePasswordChange).toBe(false);
+        expect(userDocFinal.data()?.passwordChangedAt).toBeTruthy();
+      } finally {
+        await adminAuth.updateUser(target.uid, { password: TEST_PASSWORD });
+      }
     });
 
     test('variante consultor: admin envia o link pela tela admin/consultants/[id] (passos 1-12, rota api/consultants/{id}/reset-password)', async ({
@@ -369,42 +392,60 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
       page,
     }) => {
       const target = TEST_USERS.clinicAdminB;
+      const adminAuth = getEmulatorAdminAuth();
 
-      // Setup: gera e consome um token real via UI, ponta a ponta (mesmo
-      // mecanismo do Fluxo Principal), só para deixar o link "já usado".
-      await loginAs(
-        page,
-        { email: TEST_USERS.systemAdmin.email, password: TEST_PASSWORD },
-        '/admin/dashboard'
-      );
-      await openEditDialogForUser(page, target.email);
-      await page.getByRole('button', { name: 'Enviar Link de Reset' }).click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmar' }).click();
-      await expect(page.getByText('Email enviado com sucesso!')).toBeVisible();
+      // Este teste muda a senha REAL de clinicAdminB (self-service, passo 13)
+      // para deixar o link "já usado" -- sem restaurar TEST_PASSWORD ao final,
+      // qualquer spec que rode depois (ordem alfabética de arquivo, workers:1)
+      // e dependa da senha padrão de clinicAdminB falharia (mesma classe de
+      // achado do teste "variante usuário" acima, que afetava clinicUserA e
+      // travava specs de UC-09). try/finally garante restauração mesmo se
+      // alguma asserção no meio falhar.
+      try {
+        // Setup: gera e consome um token real via UI, ponta a ponta (mesmo
+        // mecanismo do Fluxo Principal), só para deixar o link "já usado".
+        await loginAs(
+          page,
+          { email: TEST_USERS.systemAdmin.email, password: TEST_PASSWORD },
+          '/admin/dashboard'
+        );
+        await openEditDialogForUser(page, target.email);
+        await page.getByRole('button', { name: 'Enviar Link de Reset' }).click();
+        await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmar' }).click();
+        await expect(page.getByText('Email enviado com sucesso!')).toBeVisible();
 
-      const rawToken = await getLatestResetTokenRawForUid(target.uid);
+        const rawToken = await getLatestResetTokenRawForUid(target.uid);
 
-      await page.goto(`/reset-password/${rawToken}`);
-      await expect(page.getByRole('heading', { name: 'Nova Senha' })).toBeVisible();
-      await page.locator('#newPassword').fill('SenhaUsada123');
-      await page.locator('#confirmPassword').fill('SenhaUsada123');
-      await page.getByRole('button', { name: 'Definir Nova Senha' }).click();
-      await expect(page.getByRole('heading', { name: 'Senha Redefinida!' })).toBeVisible();
+        // Mesmo achado do teste "variante usuário": limpa a sessão do
+        // system_admin antes de completar a redefinição como o usuário-alvo.
+        await page.evaluate(() => {
+          sessionStorage.clear();
+          localStorage.clear();
+        });
+        await page.goto(`/reset-password/${rawToken}`);
+        await expect(page.getByRole('heading', { name: 'Nova Senha' })).toBeVisible();
+        await page.locator('#newPassword').fill('SenhaUsada123');
+        await page.locator('#confirmPassword').fill('SenhaUsada123');
+        await page.getByRole('button', { name: 'Definir Nova Senha' }).click();
+        await expect(page.getByRole('heading', { name: 'Senha Redefinida!' })).toBeVisible();
 
-      // Passo 1 do fluxo 7b: reabre o MESMO link, agora já usado.
-      await page.goto(`/reset-password/${rawToken}`);
+        // Passo 1 do fluxo 7b: reabre o MESMO link, agora já usado.
+        await page.goto(`/reset-password/${rawToken}`);
 
-      // Passo 2.
-      await expect(page.getByRole('heading', { name: 'Link Inválido' })).toBeVisible();
-      await expect(
-        page.getByText('Este link já foi utilizado. Solicite um novo reset de senha.')
-      ).toBeVisible();
-      await expect(
-        page.getByText(
-          'Se você precisa redefinir sua senha, entre em contato com o administrador do sistema.'
-        )
-      ).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Voltar ao Login' })).toBeVisible();
+        // Passo 2.
+        await expect(page.getByRole('heading', { name: 'Link Inválido' })).toBeVisible();
+        await expect(
+          page.getByText('Este link já foi utilizado. Solicite um novo reset de senha.')
+        ).toBeVisible();
+        await expect(
+          page.getByText(
+            'Se você precisa redefinir sua senha, entre em contato com o administrador do sistema.'
+          )
+        ).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Voltar ao Login' })).toBeVisible();
+      } finally {
+        await adminAuth.updateUser(target.uid, { password: TEST_PASSWORD });
+      }
     });
   });
 

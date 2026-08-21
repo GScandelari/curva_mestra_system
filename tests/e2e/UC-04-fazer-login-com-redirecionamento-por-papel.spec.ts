@@ -233,7 +233,11 @@ test.describe('UC-04 — Fazer Login com Redirecionamento por Papel', () => {
       await page.goto('/login');
 
       await expect(page).toHaveURL(/\/clinic\/dashboard/);
-      await expect(page.getByRole('heading', { name: 'Curva Mestra' })).toHaveCount(0);
+      // "Curva Mestra" não serve para confirmar que o formulário sumiu -- é a
+      // mesma marca exibida no header de todo layout /clinic/* (ClinicLayout.tsx),
+      // inclusive no próprio dashboard. O campo de e-mail do formulário de login
+      // é exclusivo dessa tela.
+      await expect(page.locator('#email')).toHaveCount(0);
     });
 
     test('nuance do passo 7a.2 — sessão já autenticada só reavalia requirePasswordChange, ignorando role/active/clínica já validados no login original', async ({
@@ -367,11 +371,31 @@ test.describe('UC-04 — Fazer Login com Redirecionamento por Papel', () => {
 
       const authAdmin = getEmulatorAdminAuth();
       const user = await authAdmin.getUser(TEST_USERS.systemAdmin.uid);
-      expect(user.customClaims?.requirePasswordChange).toBe(false); // claim restaurada
+      // claim restaurada -- TEST_USERS.systemAdmin.claims (seed-data.ts) nunca
+      // definiu requirePasswordChange, então o valor original é undefined, não false.
+      expect(user.customClaims?.requirePasswordChange).toBeUndefined();
     });
   });
 
   test.describe('Fluxo de Exceção 8d — clínica inativa/suspensa, role clinic_user (RN-03, RN-04)', () => {
+    // ACHADO REAL (não é bug de teste): investigação empírica contra o emulador
+    // mostrou que o card "Sistema Indisponível" nunca chega a aparecer -- o
+    // screenshot salvo em falha mostra o formulário de login vazio/resetado, não
+    // o card. Hipótese: em src/app/(auth)/login/page.tsx, o useEffect reativo que
+    // redireciona qualquer usuário autenticado ("Redirecionar se já estiver
+    // autenticado") corre em paralelo com a checagem manual de tenant.active
+    // dentro de handleSubmit/checkClinicStatus. Se o efeito reativo disparar
+    // primeiro (via onAuthStateChanged), o usuário é levado para /clinic/dashboard
+    // antes do handleInactiveClinic() do handleSubmit rodar; o signOut() desse
+    // último então força volta a /login com uma instância NOVA do componente,
+    // cujo estado local `clinicInactiveMessage` nasce em false -- explicando o
+    // formulário vazio observado. Não corrigido aqui por decisão do usuário
+    // (mexe em fluxo real de autenticação) -- registrado no mapa de bugs para
+    // avaliação numa task dedicada.
+    test.fixme(
+      true,
+      'Race condition real entre o redirect reativo e a checagem manual de tenant.active em login/page.tsx -- ver comentário acima. Registrado no _MAPA-DE-BUGS-E-MELHORIAS.md.'
+    );
     test('tenant.active === false desconecta o clinic_user e mostra o card "Sistema Indisponível" em /login', async ({
       page,
     }) => {

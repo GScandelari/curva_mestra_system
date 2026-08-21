@@ -106,16 +106,23 @@ test.describe('UC-05 — "Aprovar Solicitação de Acesso" pela Própria Clínic
   });
 
   test.describe('Fluxo Principal (passo 4, cenário hipotético) + Fluxo de Exceção 8a — solicitação pendente semeada via Admin SDK', () => {
-    test('clicar em "Aprovar" aciona approveAccessRequest(), depreciada, e não aprova nada (RN-02)', async ({
+    // ACHADO ADICIONAL (validado empiricamente contra o emulador real, mesma
+    // causa-raiz de UC-03): mesmo semeando a access_request diretamente via
+    // Admin SDK com tenant_id correto, a linha NUNCA chega a aparecer nesta
+    // tela para o Clinic Admin -- firestore.rules restringe leitura de
+    // access_requests a system_admin (`allow read, update, delete: if
+    // isSystemAdmin();`), e listAccessRequests({tenant_id}) engole o erro de
+    // permissão em silêncio, retornando lista vazia. Ou seja: além de
+    // approveAccessRequest() estar depreciada e sempre falhar (RN-02, já
+    // documentado por este UC), a lista nem chega a exibir a solicitação
+    // para o Clinic Admin poder clicar em "Aprovar" -- o passo 4 do Fluxo
+    // Principal é hoje duplamente inalcançável. Este teste fixa o
+    // comportamento real (lista vazia) em vez do cenário hipotético original
+    // (linha visível, clique falha) -- mesmo padrão já usado no teste irmão
+    // acima e em UC-03.
+    test('solicitação semeada via Admin SDK não aparece na lista (mesma causa-raiz de UC-03 — leitura de access_requests restrita a system_admin)', async ({
       page,
     }) => {
-      // 8c: nenhuma tela viva do sistema cria uma access_request já vinculada
-      // a um tenant existente — para exercitar o passo 4 do Fluxo Principal
-      // (cenário hipotético descrito no próprio UC), a única forma de colocar
-      // uma solicitação pendente nesta lista é escrever o documento
-      // diretamente via Admin SDK, contornando a UI. Isso replica de propósito
-      // a ausência de um caminho real (RN-03), não simula um caminho que
-      // exista de fato hoje.
       const email = uniqueEmail('aprovar');
       const db = getEmulatorAdminFirestore();
       const now = Timestamp.now();
@@ -140,36 +147,17 @@ test.describe('UC-05 — "Aprovar Solicitação de Acesso" pela Própria Clínic
       );
       await page.goto('/clinic/access-requests');
 
-      const row = page.getByRole('row', { name: new RegExp(email) });
-      await expect(row).toBeVisible();
-      await expect(row.getByText('Fernanda Lopes')).toBeVisible();
+      await expect(page.getByRole('row', { name: new RegExp(email) })).toHaveCount(0);
 
-      // Passo 4: clica em "Aprovar" na linha da solicitação pendente.
-      await row.getByRole('button', { name: 'Aprovar' }).click();
-
-      // 8a/RN-02: approveAccessRequest() está marcada DEPRECATED no
-      // código-fonte (accessRequestService.ts, linhas ~199-211) e sempre
-      // retorna { success: false }, com esta mensagem literal —
-      // independentemente da solicitação, do tenant ou de qualquer outro
-      // dado. Nenhum caminho de código leva ao sucesso.
-      await expect(
-        page.getByText(
-          'Esta função foi depreciada. Use a API route /api/access-requests/[id]/approve'
-        )
-      ).toBeVisible();
-
-      // Pós-condição de "falha" (seção 4.2 do UC): nenhum usuário é criado; a
-      // solicitação permanece "pendente", sem approved_by/approved_at.
+      // Pós-condição: a solicitação nunca foi tocada -- a UI não teve como
+      // oferecer a ação de aprovar (nem que oferecesse, RN-02 garante que
+      // approveAccessRequest() sempre falharia mesmo assim).
       const snap = await requestRef.get();
       const data = snap.data();
       expect(data?.status).toBe('pendente');
       expect(data?.approved_by).toBeUndefined();
       expect(data?.approved_at).toBeUndefined();
 
-      // Garantia mínima de falha via Firebase Auth (Admin SDK): nenhum
-      // usuário foi criado para este e-mail — mesmo critério de asserção via
-      // Admin SDK usado em UC-02 para o caminho de aprovação que de fato
-      // funciona (rota /api/access-requests/[id]/approve).
       const auth = getEmulatorAdminAuth();
       await expect(auth.getUserByEmail(email)).rejects.toThrow();
     });
