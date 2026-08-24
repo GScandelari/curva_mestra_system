@@ -98,11 +98,11 @@ docs:   documentação
 
 ## Roadmap e Backlog Técnico
 
-O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnicos e decisões de produto pendentes, consolidado a partir dos 53 Casos de Uso documentados em [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/). É a fonte de verdade para priorização de próximas correções e melhorias.
+O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnicos e decisões de produto pendentes, consolidado a partir dos 54 Casos de Uso documentados em [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/). É a fonte de verdade para priorização de próximas correções e melhorias.
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.27, 19/08/2026):**
+**Resumo (RECONCILIAÇÃO PENDENTE — ver nota no topo do mapa, `_MAPA-DE-BUGS-E-MELHORIAS.md`):**
 
 | Severidade | Aberto | Corrigido | Descartado | Total   |
 | ---------- | ------ | --------- | ---------- | ------- |
@@ -112,11 +112,13 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 | Baixa      | 60     | 23        | 1          | 84      |
 | **Total**  | **65** | **83**    | **4**      | **154** |
 
+> ⚠️ **Tabela e bullets abaixo desatualizados — herdam a linhagem `develop` (v3.27) do merge de `origin/gscandelari_setup` em `bugfix/tenant-create-missing-auth-header`, ainda não reconciliado pelo `uc-issues-tracker`.** Em particular, ainda não refletem o fechamento de `UC-46-RN-03`/`RN-04` e o novo UC-54 (feitos só em `gscandelari_setup`, PR #274) — ver a nota de reconciliação pendente no topo de `_MAPA-DE-BUGS-E-MELHORIAS.md` para o estado completo dos dois lados.
+
 - ✅ Todos os 6 achados **críticos** já têm status final ou decisão registrada: 5 corrigidos e documentados; 1 descartado por decisão de produto (UC-14, ferramenta de auditoria de inventário removida)
-- ⚠️ **2 itens de severidade Alta seguem em aberto:** (1) achado ampliado de arquitetura de segurança (`UC-13-RN-09 / UC-15-RN-07`) — a regra genérica de subcoleção do tenant em `firestore.rules` concede escrita irrestrita a qualquer usuário do tenant para todas as subcoleções (semântica OR do Firestore torna regras dedicadas inefetivas), com dúvida cruzada sinalizada sobre a efetividade real de `UC-44-RN-02`/`UC-43-RN-07`/`UC-42-RN-01`/`UC-20-RN-07` (os quatro já receberam ressalva textual do `uml-use-case-writer` reconhecendo o problema, sem correção de código); requer decisão dedicada, ainda não tomada. (2) **novo, `UC-04-Q4`** — race condition real em `src/app/(auth)/login/page.tsx` (descoberta pelo `qa-agent` ao gerar o caderno de teste retroativo de UC-04, validada por screenshot do Playwright contra o Firebase Emulator Suite): o card "Sistema Indisponível" nunca é exibido para um `clinic_user` de clínica suspensa, que só vê o formulário de login resetado sem explicação; decisão do usuário de não corrigir agora (fluxo sensível de autenticação, task separada), teste correspondente marcado com `test.fixme()`; achado ainda não incorporado ao UC-04 (sinalizado para o `uml-use-case-writer`). `UC-01-Q1` (achado de que `POST /api/access-requests` lia `system_settings/global` via client SDK, bloqueado pela regra `isAuthenticated()` do Firestore) foi corrigido e documentado — migrado para o Admin SDK (commit `66689fe`), UC-01 atualizado para v2.1.1. Na severidade Média, restam apenas 3 itens em aberto, todos deliberadamente adiados/consolidados (`UC-15-RN-05`, `UC-20-RN-07`, `UC-42-RN-05` — ver Seções 2 e 3 do mapa)
-- 🗂️ **8 decisões de produto pendentes** (todas originadas de UC — o item de infraestrutura `ADR-QA-AUTOMATION`, automação de QA via Playwright + Firebase Emulator Suite, foi implementado de ponta a ponta em 17/08/2026, ver Seção 6 do mapa) e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
-- 🔎 **12 gaps entre a landing page comercial e o sistema real** catalogados (Seção 7 do mapa) — 4 com decisão de implementar, **agora 100% documentados**: **UC-51, UC-52 e UC-53 já escritos e aprovados**, aguardando apenas priorização/planejamento de implementação; o item de Backup Geográfico Automatizado (antes reservado como UC-54) foi descartado como caso de uso e documentado como **ADR aprovado** (`ONLY_FOR_DEVS/TO_DO/ADR-backup-geografico-automatizado.md`), por ser um processo de infraestrutura sem ator/tela — 5 com decisão de corrigir apenas o texto da landing (baixa prioridade) e 3 com decisão adiada
-- 📝 12 dos 53 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
+- ⚠️ **2 itens de severidade Alta seguem em aberto (nesta linhagem):** (1) achado ampliado de arquitetura de segurança (`UC-13-RN-09 / UC-15-RN-07`) — a regra genérica de subcoleção do tenant em `firestore.rules` concede escrita irrestrita a qualquer usuário do tenant para todas as subcoleções (semântica OR do Firestore torna regras dedicadas inefetivas), com dúvida cruzada sinalizada sobre a efetividade real de `UC-44-RN-02`/`UC-43-RN-07`/`UC-42-RN-01`/`UC-20-RN-07` (os quatro já receberam ressalva textual do `uml-use-case-writer` reconhecendo o problema, sem correção de código); requer decisão dedicada, ainda não tomada. (2) **`UC-04-Q4`** — race condition real em `src/app/(auth)/login/page.tsx` (descoberta pelo `qa-agent` ao gerar o caderno de teste retroativo de UC-04, validada por screenshot do Playwright contra o Firebase Emulator Suite): o card "Sistema Indisponível" nunca é exibido para um `clinic_user` de clínica suspensa; decisão do usuário de não corrigir agora, teste marcado com `test.fixme()`. `UC-01-Q1` foi corrigido e documentado — migrado para o Admin SDK (commit `66689fe`), UC-01 atualizado para v2.1.1. **`UC-46-RN-03`/`RN-04` já corrigidos em `gscandelari_setup` (não refletidos aqui ainda — ver aviso acima).**
+- 🗂️ **8 decisões de produto pendentes** (o item de infraestrutura `ADR-QA-AUTOMATION` foi implementado de ponta a ponta em 17/08/2026, ver Seção 6 do mapa) e **16 itens de código morto/rotas órfãs** catalogados sem severidade atribuída (ver Seções 4 e 5 do mapa)
+- 🔎 **12 gaps entre a landing page comercial e o sistema real** catalogados (Seção 7 do mapa) — 4 com decisão de implementar, **100% documentados**: **UC-51, UC-52 e UC-53 já escritos e aprovados**; o item de Backup Geográfico Automatizado (antes reservado como UC-54, número hoje reaproveitado pelo UC-54 real de `gscandelari_setup`) foi documentado como **ADR aprovado** — 5 com decisão de corrigir apenas o texto da landing (baixa prioridade) e 3 com decisão adiada
+- 📝 12 dos 54 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
 
 > Este resumo é um retrato do mapa no momento da última atualização deste README. Para o estado atual item a item, sempre consulte o arquivo do mapa diretamente — ele é atualizado a cada correção ou novo achado.
 
@@ -126,7 +128,7 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 - [`CLAUDE.md`](./CLAUDE.md) — instruções de arquitetura e convenções para desenvolvimento com IA
 - [`ONLY_FOR_DEVS/`](./ONLY_FOR_DEVS/) — guias, tasks pendentes e decisões técnicas
-- [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/) — Casos de Uso UML (UC-01 a UC-53) e mapa de bugs/melhorias
+- [`ONLY_FOR_DEVS/PO_BA_Docs/`](./ONLY_FOR_DEVS/PO_BA_Docs/) — Casos de Uso UML (UC-01 a UC-54) e mapa de bugs/melhorias
 - [`ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md`](./ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md) — guia completo do pipeline de desenvolvimento e dos agentes de IA do projeto
 - [`CHANGELOG.md`](./CHANGELOG.md) — histórico de versões (gerado automaticamente)
 
