@@ -5,6 +5,42 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.8.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.7.1...v1.8.0) (2026-09-21)
+
+
+### Features
+
+* **admin:** add read-only consultant pendencies screen for system admin ([3b80222](https://github.com/GScandelari/curva_mestra_system/commit/3b80222507f324a8c489b799afb3d057c16a1d46))
+* **agents:** add qa-agent subagent definition ([b2f4fd0](https://github.com/GScandelari/curva_mestra_system/commit/b2f4fd016636ea60a7a26604f7dfebf146a244a1))
+* **api:** add clinic consultant invite cancellation endpoint ([4a77df3](https://github.com/GScandelari/curva_mestra_system/commit/4a77df322c1cf8b3e5067519933d6a018f6d33f6))
+* **api:** add clinic-initiated consultant invite endpoint ([cc5ddf6](https://github.com/GScandelari/curva_mestra_system/commit/cc5ddf641b23cbaac1040e4f333c5b5e55b2c630))
+* **config:** add scripts/seed-emulator.ts to seed firebase emulator suite ([0babe27](https://github.com/GScandelari/curva_mestra_system/commit/0babe273ed63023f8e88895a80d1b716657a5600))
+* **hooks:** add pure helpers for consultant pendency approver and expiration resolution ([4fb9ab6](https://github.com/GScandelari/curva_mestra_system/commit/4fb9ab684790d4f96037bc529d7a0d07683cbd34))
+* **types:** add consultant_invite_rejected notification type ([7180fa3](https://github.com/GScandelari/curva_mestra_system/commit/7180fa3754d5a6afe5ee9f95426dc163bd1b31a8))
+* **types:** add type/status/expiration fields to ConsultantTransferRequest ([100bff7](https://github.com/GScandelari/curva_mestra_system/commit/100bff7f7cad5b9289ef13e4d741b94d8459b133))
+* **ui:** add clinic consultant invite page with pending state and cancellation ([c231356](https://github.com/GScandelari/curva_mestra_system/commit/c2313564336feceba7964079717e8e47b73e0136))
+* **ui:** add transfer request trigger to consultant clinic search ([a782464](https://github.com/GScandelari/curva_mestra_system/commit/a7824644bba7b7e9c92ec81cb0be0345b7e73dd9))
+
+
+### Bug Fixes
+
+* **admin:** send auth token when creating a tenant with admin user ([a9449a3](https://github.com/GScandelari/curva_mestra_system/commit/a9449a327098c13d29a81f7cf971aec0e7faaa68))
+* **api:** align consultant pendency queries with the indexes RNF-02 actually requires ([efe56ef](https://github.com/GScandelari/curva_mestra_system/commit/efe56efef50f69fa03fdee08e286ee5455a63201))
+* **api:** exclude expired transfer requests from the duplicate-pending check ([3fe9348](https://github.com/GScandelari/curva_mestra_system/commit/3fe9348c6a554897287746b036db1f45aa3c2a98))
+* **api:** generalize transfer-requests approve/reject for invite type and expiration ([f8a2874](https://github.com/GScandelari/curva_mestra_system/commit/f8a2874b2704e01e01cdbf2b05443eae84c2841a))
+* **api:** generalize transfer-requests GET to cover invite and transfer types ([fea876e](https://github.com/GScandelari/curva_mestra_system/commit/fea876ee282c681c39ee00d99bc02b51780c2396))
+* **ci:** install JDK 21 in e2e workflow for firebase-tools firestore emulator ([c5850e7](https://github.com/GScandelari/curva_mestra_system/commit/c5850e78dec523060f0a44abaab9b2b05aa6ddf4))
+* **config:** resolve playwright.config.ts + seed issues found validating STEP 6 ([e2c66eb](https://github.com/GScandelari/curva_mestra_system/commit/e2c66eb486e11401a34ec18e6a2851c53fa001bb))
+* destrava E2E rodando contra o Firebase Emulator Suite em CI ([a99506e](https://github.com/GScandelari/curva_mestra_system/commit/a99506e1dbbbd518de58e353e1ed55aed23d0cf1))
+* **e2e:** ajusta timeouts e corrida de toast - suite completa 100% verde ([717b3fb](https://github.com/GScandelari/curva_mestra_system/commit/717b3fbfad3a572049964d3a73fbcf408572da2f))
+* **e2e:** desambigua selector de toast Radix e reforca retry do UC-09 ([cda99fe](https://github.com/GScandelari/curva_mestra_system/commit/cda99fe068d7f5fd8465a37e3f9435f4249b7b32))
+* **e2e:** reescreve UC-03/UC-05 (bug de permissao) e conserta vazamento de senha no UC-08 ([a3da1a6](https://github.com/GScandelari/curva_mestra_system/commit/a3da1a6c0f8e88eb1debba5723c36245607344e7))
+* **hooks:** make isRequestExpired handle client-side serialized Timestamps ([4b066c0](https://github.com/GScandelari/curva_mestra_system/commit/4b066c02c76291050a3d38d5ef26961d5ac20c01))
+* **notifications:** add consultant_invite_rejected to getNotificationStats by_type map ([26fe3f8](https://github.com/GScandelari/curva_mestra_system/commit/26fe3f879c52092257add16b7d8129b102411f21))
+* **ui:** add invite trigger to ConsultantTab empty state ([7f08100](https://github.com/GScandelari/curva_mestra_system/commit/7f08100c2a9da2abf27349ec762e631f660a3795))
+* **ui:** differentiate invite vs transfer copy and expiration badge on consultant transfer-requests page ([7bca83d](https://github.com/GScandelari/curva_mestra_system/commit/7bca83d5645690752a80f273fab0d4212f3b53f4))
+* **ui:** remove broken TransferConsultantPage and dangling references ([b7fb66e](https://github.com/GScandelari/curva_mestra_system/commit/b7fb66e7bc8767a4ad2df43611fe75b04503cbf4))
+
 ## [1.7.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.7.0...v1.7.1) (2026-08-13)
 
 
