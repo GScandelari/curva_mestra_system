@@ -19,6 +19,7 @@ import {
   Settings,
   UserCheck,
   PackageSearch,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +53,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Consultores',
       href: '/admin/consultants',
       icon: UserCheck,
+    },
+    {
+      name: 'Pendências de Consultor',
+      href: '/admin/consultant-pendencies',
+      icon: Clock,
     },
     {
       name: 'Produtos Rennova',

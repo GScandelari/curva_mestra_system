@@ -20,6 +20,7 @@ import { ArrowRightLeft, CheckCircle2, XCircle, Building2, Clock } from 'lucide-
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatTimestamp } from '@/lib/utils';
+import { getPendencyTypeLabel, isInviteRequest, isRequestExpired } from '@/lib/consultantRequests';
 import type { ConsultantTransferRequest } from '@/types';
 
 export default function TransferRequestsPage() {
@@ -116,60 +117,79 @@ export default function TransferRequestsPage() {
     );
   };
 
-  const RequestCard = ({ request }: { request: ConsultantTransferRequest }) => (
-    <div className="p-4 border rounded-lg space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <Building2 className="h-5 w-5 text-sky-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold">{request.tenant_name}</p>
-            <p className="text-xs text-muted-foreground">{request.tenant_document}</p>
+  const RequestCard = ({ request }: { request: ConsultantTransferRequest }) => {
+    const isInvite = isInviteRequest(request);
+    const expired = request.status === 'pending' && isRequestExpired(request);
+
+    return (
+      <div className="p-4 border rounded-lg space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <Building2 className="h-5 w-5 text-sky-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">{request.tenant_name}</p>
+              <p className="text-xs text-muted-foreground">{request.tenant_document}</p>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex gap-1">
+              <Badge variant="secondary">{getPendencyTypeLabel(request.type)}</Badge>
+              {getStatusBadge(request.status)}
+            </div>
+            {expired && <Badge variant="destructive">Expirado</Badge>}
           </div>
         </div>
-        {getStatusBadge(request.status)}
-      </div>
 
-      <div className="text-sm text-muted-foreground space-y-1">
-        <p>
-          <span className="font-medium text-foreground">Solicitante:</span>{' '}
-          {request.requesting_consultant_name} ({request.requesting_consultant_code})
-        </p>
-        <p>
-          <span className="font-medium text-foreground">Recebido em:</span>{' '}
-          {formatTimestamp(request.created_at)}
-        </p>
-        {request.status === 'rejected' && request.rejection_reason && (
+        <div className="text-sm text-muted-foreground space-y-1">
+          {isInvite ? (
+            <p>
+              A clínica <span className="font-medium text-foreground">{request.tenant_name}</span>{' '}
+              convidou você para ser o consultor vinculado.
+            </p>
+          ) : (
+            <p>
+              <span className="font-medium text-foreground">Solicitante:</span>{' '}
+              {request.requesting_consultant_name} ({request.requesting_consultant_code})
+            </p>
+          )}
           <p>
-            <span className="font-medium text-foreground">Motivo:</span> {request.rejection_reason}
+            <span className="font-medium text-foreground">Recebido em:</span>{' '}
+            {formatTimestamp(request.created_at)}
           </p>
+          {request.status === 'rejected' && request.rejection_reason && (
+            <p>
+              <span className="font-medium text-foreground">Motivo:</span>{' '}
+              {request.rejection_reason}
+            </p>
+          )}
+        </div>
+
+        {request.status === 'pending' && (
+          <div className="flex gap-2 pt-1">
+            <Button
+              size="sm"
+              className="flex-1"
+              onClick={() => handleApprove(request)}
+              disabled={processing || expired}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Aprovar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={() => openRejectDialog(request)}
+              disabled={processing || expired}
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Rejeitar
+            </Button>
+          </div>
         )}
       </div>
-
-      {request.status === 'pending' && (
-        <div className="flex gap-2 pt-1">
-          <Button
-            size="sm"
-            className="flex-1"
-            onClick={() => handleApprove(request)}
-            disabled={processing}
-          >
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            Aprovar
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1"
-            onClick={() => openRejectDialog(request)}
-            disabled={processing}
-          >
-            <XCircle className="mr-2 h-4 w-4" />
-            Rejeitar
-          </Button>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="container py-8 max-w-2xl">

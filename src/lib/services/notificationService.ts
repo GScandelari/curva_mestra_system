@@ -277,6 +277,7 @@ export async function getNotificationStats(tenantId: string): Promise<Notificati
         new_user: 0,
         consultant_linked: 0,
         consultant_claim: 0,
+        consultant_invite_rejected: 0,
       },
       by_priority: {
         low: 0,

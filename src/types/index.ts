@@ -422,22 +422,74 @@ export interface Consultant {
   created_by?: string; // UID do admin que criou
 }
 
-export type ConsultantTransferRequestStatus = 'pending' | 'approved' | 'rejected';
+export type ConsultantTransferRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+/**
+ * Discriminador do tipo de pendência.
+ * - 'invite': iniciado pela CLÍNICA (clinic_admin), quando ela ainda não tem consultor
+ *   vinculado. Quem deve aprovar é o próprio consultor convidado (requesting_consultant_id).
+ *   Pode ser cancelado pela clínica que o criou (status: 'cancelled', RN-09).
+ * - 'transfer': iniciado pelo CONSULTOR SOLICITANTE, quando a clínica já tem consultor
+ *   vinculado a outro. Quem deve aprovar é o consultor atual (current_consultant_id).
+ *   Não pode ser cancelado pela clínica (RN-09) — apenas aprovado/rejeitado pelo consultor
+ *   atual, ou deixado expirar (RN-11).
+ * Documentos legados sem este campo devem ser tratados como 'transfer'
+ * (único tipo existente antes desta feature) — ver `normalizeLegacyType` em
+ * `src/lib/consultantRequests.ts`.
+ */
+export type ConsultantPendencyType = 'invite' | 'transfer';
 
 export interface ConsultantTransferRequest {
   id: string;
+  type?: ConsultantPendencyType; // opcional para compatibilidade com documentos legados
+
+  /**
+   * Consultor que ficará vinculado à clínica SE o pedido for aprovado.
+   * - type 'invite': o consultor CONVIDADO pela clínica (ainda não vinculado a ela).
+   * - type 'transfer': o consultor SOLICITANTE (quer assumir uma clínica já vinculada
+   *   a outro consultor). Nome do campo mantido por compatibilidade com UC-25/26/27;
+   *   ver Seção 4.2/4.3 da spec sobre a decisão consciente de não renomear (confirmada pelo PO).
+   */
   requesting_consultant_id: string;
   requesting_consultant_name: string;
   requesting_consultant_code: string;
-  current_consultant_id: string;
-  current_consultant_name: string;
+
+  /**
+   * Consultor hoje vinculado à clínica, que deve aprovar a transferência.
+   * Presente APENAS quando type === 'transfer' — ausente/undefined em 'invite',
+   * pois por definição a clínica não tem consultor vinculado nesse cenário (RN-02).
+   */
+  current_consultant_id?: string;
+  current_consultant_name?: string;
+
   tenant_id: string;
   tenant_name: string;
   tenant_document: string;
+
+  /** Apenas para type 'invite': quem (clinic_admin) criou o convite. */
+  invited_by_user_id?: string;
+  invited_by_user_name?: string;
+
   status: ConsultantTransferRequestStatus;
   rejection_reason?: string;
   approved_at?: Timestamp;
   rejected_at?: Timestamp;
+
+  /** Apenas quando status === 'cancelled' (somente aplicável a type 'invite', RN-09). */
+  cancelled_at?: Timestamp;
+  cancelled_by_user_id?: string;
+
+  /**
+   * Data-limite para a pendência permanecer acionável (aprovar/rejeitar/cancelar).
+   * Calculada como created_at + 15 dias no momento da criação (mesmo padrão de
+   * `password_reset_tokens.expires_at` em `src/lib/services/passwordResetService.ts`).
+   * Ausente em documentos legados criados antes desta feature — nesse caso a pendência
+   * é tratada como nunca expirada (ver `isRequestExpired` em `src/lib/consultantRequests.ts`).
+   * Não existe Cloud Function agendada para expirar automaticamente: a checagem é
+   * sempre feita em tempo de leitura (mesmo padrão de `validateToken`/`consumeToken`).
+   */
+  expires_at?: Timestamp;
+
   created_at: Timestamp;
   updated_at: Timestamp;
 }

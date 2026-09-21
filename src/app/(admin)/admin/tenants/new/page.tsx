@@ -11,6 +11,7 @@ import { Building2, User, Mail, ArrowRight, Send, Eye } from 'lucide-react';
 import { createTenant } from '@/lib/services/tenantServiceDirect';
 import { validateDocument, maskDocument } from '@/lib/utils/documentValidation';
 import { DocumentType } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ interface AdminData {
 
 export default function NewTenantPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState<Step>(1);
 
   // Dados da Clínica (Step 1)
@@ -154,6 +156,11 @@ Equipe Curva Mestra`
   };
 
   const handleSubmit = async () => {
+    if (!user) {
+      setError('Sessão expirada — faça login novamente.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -161,32 +168,37 @@ Equipe Curva Mestra`
     const maxUsers = clinicData.documentType === 'cpf' ? 1 : 5;
 
     try {
-      await createTenant({
-        // Dados da clínica
-        name: clinicData.name.trim(),
-        document_type: clinicData.documentType,
-        document_number: documentNumbers,
-        cnpj: documentNumbers,
-        max_users: maxUsers,
-        email: clinicData.email.trim(),
-        phone: clinicData.phone.trim(),
-        address: clinicData.address.trim(),
-        city: clinicData.city.trim(),
-        state: clinicData.state.trim(),
-        cep: clinicData.cep.replace(/\D/g, ''),
-        // Dados do administrador
-        admin_name: adminData.name.trim(),
-        admin_email: adminData.email.trim(),
-        admin_phone: adminData.phone.trim(),
-        temp_password: adminData.password,
+      const token = await user.getIdToken();
 
-        // Dados do e-mail
-        welcome_email: {
-          subject: emailSubject,
-          body: getPreviewEmail(),
-          send: true,
+      await createTenant(
+        {
+          // Dados da clínica
+          name: clinicData.name.trim(),
+          document_type: clinicData.documentType,
+          document_number: documentNumbers,
+          cnpj: documentNumbers,
+          max_users: maxUsers,
+          email: clinicData.email.trim(),
+          phone: clinicData.phone.trim(),
+          address: clinicData.address.trim(),
+          city: clinicData.city.trim(),
+          state: clinicData.state.trim(),
+          cep: clinicData.cep.replace(/\D/g, ''),
+          // Dados do administrador
+          admin_name: adminData.name.trim(),
+          admin_email: adminData.email.trim(),
+          admin_phone: adminData.phone.trim(),
+          temp_password: adminData.password,
+
+          // Dados do e-mail
+          welcome_email: {
+            subject: emailSubject,
+            body: getPreviewEmail(),
+            send: true,
+          },
         },
-      });
+        token
+      );
 
       router.push('/admin/tenants');
     } catch (err: any) {

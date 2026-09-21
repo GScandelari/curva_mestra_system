@@ -14,7 +14,8 @@ export type NotificationType =
   | 'request_created' // Nova solicitação criada (para admins)
   | 'new_user' // Novo usuário adicionado à clínica
   | 'consultant_linked' // Consultor vinculado automaticamente à clínica
-  | 'consultant_claim'; // Solicitação de vínculo de consultor (legado)
+  | 'consultant_claim' // Solicitação de vínculo de consultor (legado)
+  | 'consultant_invite_rejected'; // Consultor convidado recusou o convite da clínica
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
