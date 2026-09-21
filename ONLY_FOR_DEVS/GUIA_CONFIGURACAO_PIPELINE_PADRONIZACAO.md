@@ -308,6 +308,7 @@ Configurações obrigatórias:
         - lint
         - type-check
         - build
+        - e2e (Playwright + Firebase Emulator Suite — desde FEAT-qa-agent-playwright-emulator-setup, v1.0; configurado via `gh api .../branches/develop/protection/required_status_checks`, contexto real `E2E (Playwright + Firebase Emulator Suite)`, o nome do job em `.github/workflows/e2e.yml`)
 
   ✅ Require conversation resolution before merging: true
   ✅ Allow force pushes: false
@@ -707,7 +708,8 @@ Certifique-se de que o `package.json` contém todos estes scripts:
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:e2e": "playwright test",
+    "test:e2e": "cross-env FIREBASE_CLI_EXPERIMENTS=webframeworks firebase emulators:exec --project demo-curva-mestra-e2e --only auth,firestore,storage \"tsx scripts/seed-emulator.ts && playwright test\"",
+    "test:e2e:seed": "tsx scripts/seed-emulator.ts",
     "prepare": "husky",
     "firebase:emulators": "firebase emulators:start",
     "firebase:deploy": "firebase deploy",
@@ -718,6 +720,8 @@ Certifique-se de que o `package.json` contém todos estes scripts:
   }
 }
 ```
+
+> `test:e2e` deixou de ser um exemplo aspiracional a partir de `FEAT-qa-agent-playwright-emulator-setup` (v1.0) — é o script real do `package.json`, embrulhando `firebase emulators:exec` (projeto `demo-curva-mestra-e2e`, nunca um projeto real) em torno do seed determinístico (`scripts/seed-emulator.ts`) e da suíte Playwright (`playwright.config.ts`, specs em `tests/e2e/`). `cross-env FIREBASE_CLI_EXPERIMENTS=webframeworks` é necessário porque `firebase.json` declara um alvo de `hosting` com `frameworksBackend` (Next.js) que o Firebase CLI valida em qualquer comando, mesmo quando `--only` não inclui `hosting`. Ver Seção 15 para o agente `qa-agent`, que gera os specs consumidos por este script.
 
 ### 5.2 Configuração do TypeScript (`tsconfig.json`)
 
@@ -1924,9 +1928,9 @@ firebase login:ci
 
 ## 15. Pipeline de Agentes de IA (Planejamento, Documentação e Rastreamento de Bugs)
 
-Além do pipeline de Git/CI descrito nas seções 1-14, o projeto usa quatro agentes de IA (`.claude/agents/*.md`) para manter a documentação de produto (`ONLY_FOR_DEVS/PO_BA_Docs/`) e o planejamento de tasks (`ONLY_FOR_DEVS/TO_DO/`) sincronizados com o código real. Eles não substituem o fluxo de Git Flow — encaixam-se **antes** dele (planejamento) e **no fechamento do PR** (sincronização de documentação).
+Além do pipeline de Git/CI descrito nas seções 1-14, o projeto usa cinco agentes de IA (`.claude/agents/*.md`) para manter a documentação de produto (`ONLY_FOR_DEVS/PO_BA_Docs/`), o planejamento de tasks (`ONLY_FOR_DEVS/TO_DO/`) e a cobertura de testes automatizados (`tests/e2e/`) sincronizados com o código real. Eles não substituem o fluxo de Git Flow — encaixam-se **antes** dele (planejamento), **no fechamento do PR** (sincronização de documentação) e **depois** dele (geração de teste automatizado a partir da task recém-concluída ou de um UC já mapeado).
 
-### 15.1 Os quatro agentes
+### 15.1 Os cinco agentes
 
 | Agente | Papel | Entrada | Saída |
 |---|---|---|---|
@@ -1934,6 +1938,7 @@ Além do pipeline de Git/CI descrito nas seções 1-14, o projeto usa quatro age
 | `uc-issues-tracker` | Lê todos os UCs e consolida os achados (bugs, achados de segurança, código morto, decisões de produto pendentes) num backlog único e rastreável. Também atualiza o status desses itens conforme correções acontecem, e mantém o resumo do README.md ("Roadmap e Backlog Técnico") sincronizado com o mapa. | Todos os `UC-*.md` existentes | `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` + seção "Roadmap e Backlog Técnico" do `README.md` |
 | `doc-writer` | Transforma um item do backlog (ou uma nova demanda de produto) numa especificação técnica completa, pronta para implementação. | Item do mapa de bugs, ou descrição de feature/CR/ADR | `ONLY_FOR_DEVS/TO_DO/[PREFIXO]-*.md` |
 | `dev-task-manager` | Prepara o ambiente (branch a partir do `develop`, seção 1 deste guia) e o plano de implementação a partir do spec; ao final, registra a conclusão movendo o spec para `TASK_COMPLETED/`. | Spec em `TO_DO/` | Branch de task + `ONLY_FOR_DEVS/TASK_COMPLETED/*.md` |
+| `qa-agent` | Gera specs Playwright a partir da Seção "STEP 4 — Validação Manual" de um spec já concluído (Modo A) ou do fluxo de um UC já mapeado (Modo B, cobertura retroativa), sempre rodando contra o Firebase Emulator Suite (nunca Firebase real). Nunca declara um spec pronto para gate de CI sozinho — toda geração exige revisão humana via PR. | Spec em `TASK_COMPLETED/` (Seção STEP 4) ou `UC-NN.md` | `tests/e2e/UC-NN-slug.spec.ts` (ou `tests/e2e/_infra-*.spec.ts`) |
 
 ### 15.2 Fluxo completo
 
@@ -1942,13 +1947,24 @@ uc-issues-tracker (consulta)   →  o que está pendente? qual o próximo item a
         ↓
 doc-writer                     →  transforma o item escolhido em spec formal em TO_DO/
         ↓
-dev-task-manager               →  prepara branch + plano (seção 1.3 deste guia); dev implementa
+dev-task-manager (Modo A)      →  prepara branch + plano (seção 1.3 deste guia); dev implementa
         ↓
-   PR aberto → develop  (Passo 7 da seção 1.3)
+dev-task-manager (Modo B)      →  move o spec de TO_DO/ para TASK_COMPLETED/ ao concluir a task
+        ↓
+qa-agent (Modo A)              →  lê a Seção "STEP 4" do spec recém-concluído,
+                                   gera tests/e2e/UC-NN-slug.spec.ts equivalente
+        ↓
+   PR aberto → develop  (Passo 7 da seção 1.3) → revisão humana obrigatória → merge
         ↓
 uml-use-case-writer             →  atualiza o UC afetado para refletir o novo comportamento "as-is"
 uc-issues-tracker (Modo B)       →  marca o item correspondente como corrigido no mapa
+        ↓
+   e2e.yml passa a rodar o spec gerado como gate obrigatório em todo PR seguinte
 ```
+
+Cobertura retroativa dos UCs já mapeados (UC-01 a UC-53) segue o mesmo fluxo, mas o `qa-agent` (Modo B)
+parte direto de um `UC-NN.md` já existente, sem depender de uma task recém-concluída — trabalho contínuo,
+task a task, priorizado pelo `uc-issues-tracker`.
 
 ### 15.3 Quando acionar cada agente
 
@@ -1959,7 +1975,9 @@ uc-issues-tracker (Modo B)       →  marca o item correspondente como corrigido
 | Ao iniciar a implementação | `dev-task-manager` (Modo A) | Preparar branch e plano a partir do spec, como já documentado no próprio agente. |
 | No Passo 7 (PR → `develop`) | `uml-use-case-writer` + `uc-issues-tracker` (Modo B) | Atualizar o UC afetado e marcar o item como corrigido — fecha o ciclo entre código e documentação. |
 | Ao concluir a task | `dev-task-manager` (Modo B) | Mover o spec de `TO_DO/` para `TASK_COMPLETED/`. |
+| Após o Modo B do `dev-task-manager` (task movida para `TASK_COMPLETED/`) | `qa-agent` | Gerar o caderno de teste automatizado da feature recém-implementada, se a Seção STEP 4 existir. |
 | Ao mapear uma funcionalidade nova/nunca documentada | `uml-use-case-writer` | Criar o UC do zero antes de qualquer spec de implementação, se o comportamento atual ainda não estiver documentado. |
+| Ao cobrir retroativamente um UC já mapeado sem caderno de teste | `qa-agent` (Modo B) | Gerar `tests/e2e/UC-NN-slug.spec.ts` a partir do Fluxo Principal/Alternativos do UC, como trabalho contínuo pós-infraestrutura (ver `FEAT-qa-agent-playwright-emulator-setup.md`, Seção 9). |
 
 > **Regra de Ouro:** nenhuma correção de bug ou decisão de produto listada no mapa é considerada fechada só porque o código mudou — ela só fecha quando o UC de origem reflete o novo comportamento. Um PR que resolve um item do `_MAPA-DE-BUGS-E-MELHORIAS.md` sem atualizar a documentação deixa o sistema mais correto e a documentação mais errada — o que é pior do que não ter documentação nenhuma, porque agora ela mente com autoridade.
 
