@@ -5,7 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, Building2, Loader2, CheckCircle2, AlertCircle, UserCheck } from 'lucide-react';
+import {
+  Search,
+  Building2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  UserCheck,
+  ArrowRightLeft,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -28,6 +36,7 @@ export default function SearchClinicsPage() {
   const [searched, setSearched] = useState(false);
   const [linking, setLinking] = useState<Record<string, boolean>>({});
   const [linked, setLinked] = useState<Record<string, boolean>>({});
+  const [transferRequested, setTransferRequested] = useState<Record<string, boolean>>({});
 
   const formatDocument = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -60,6 +69,7 @@ export default function SearchClinicsPage() {
     setSearching(true);
     setSearched(true);
     setLinked({});
+    setTransferRequested({});
 
     try {
       const token = await user.getIdToken();
@@ -107,8 +117,14 @@ export default function SearchClinicsPage() {
         throw new Error(data.error || 'Erro ao vincular clínica');
       }
 
-      setLinked((prev) => ({ ...prev, [tenant.id]: true }));
-      toast({ title: 'Vínculo estabelecido com sucesso!' });
+      // CASO 1 (auto-link, sem consultor atual) vs CASO 2 (transferência, já tem consultor)
+      if (data.transfer_requested) {
+        setTransferRequested((prev) => ({ ...prev, [tenant.id]: true }));
+        toast({ title: 'Pedido de transferência enviado ao consultor atual' });
+      } else {
+        setLinked((prev) => ({ ...prev, [tenant.id]: true }));
+        toast({ title: 'Vínculo estabelecido com sucesso!' });
+      }
     } catch (error: any) {
       toast({ title: error.message || 'Erro ao vincular clínica', variant: 'destructive' });
     } finally {
@@ -205,13 +221,33 @@ export default function SearchClinicsPage() {
                           <CheckCircle2 className="h-4 w-4" />
                           Vinculado com sucesso
                         </div>
+                      ) : transferRequested[tenant.id] ? (
+                        <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Pedido de transferência enviado
+                        </div>
                       ) : tenant.consultant_id ? (
-                        <div className="flex items-center gap-2 text-muted-foreground text-sm bg-muted/50 rounded-md px-3 py-2">
-                          <UserCheck className="h-4 w-4 flex-shrink-0" />
-                          <span>
-                            Clínica já possui o consultor <strong>{tenant.consultant_name}</strong>{' '}
-                            vinculado
-                          </span>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm bg-muted/50 rounded-md px-3 py-2">
+                            <UserCheck className="h-4 w-4 flex-shrink-0" />
+                            <span>
+                              Clínica já possui o consultor{' '}
+                              <strong>{tenant.consultant_name}</strong> vinculado
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => void handleLink(tenant)}
+                            disabled={linking[tenant.id]}
+                          >
+                            {linking[tenant.id] ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <ArrowRightLeft className="mr-2 h-4 w-4" />
+                            )}
+                            Solicitar Transferência
+                          </Button>
                         </div>
                       ) : (
                         <Button

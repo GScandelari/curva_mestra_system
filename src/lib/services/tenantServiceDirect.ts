@@ -92,7 +92,7 @@ export async function getTenant(tenantId: string) {
 }
 
 // Criar novo tenant
-export async function createTenant(data: CreateTenantData) {
+export async function createTenant(data: CreateTenantData, token: string) {
   try {
     // Se tiver dados de admin, usar API route (que usa Firebase Admin)
     if (data.admin_email && data.admin_name && data.temp_password) {
@@ -102,6 +102,7 @@ export async function createTenant(data: CreateTenantData) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(data),
       });

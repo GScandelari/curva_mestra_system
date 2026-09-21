@@ -17,7 +17,13 @@ export const dynamic = 'force-dynamic';
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+  connectFirestoreEmulator,
+} from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { adminDb } from '@/lib/firebase-admin';
 import {
@@ -37,6 +43,21 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
+
+// src/lib/firebase.ts só conecta ao emulador quando `typeof window !==
+// 'undefined'` (client-side) -- esta rota roda no servidor e mantém sua
+// própria instância local do client SDK (linhas acima), que nunca passava
+// por esse gate. Sem isso, addDoc() abaixo tentava escrever no Firestore
+// REAL (projeto "demo-*" inexistente), travando indefinidamente com
+// PERMISSION_DENIED em vez de falhar rápido -- só ativa em e2e local/CI
+// (NEXT_PUBLIC_USE_FIREBASE_EMULATORS), sem efeito em produção.
+if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
+  try {
+    connectFirestoreEmulator(db, 'localhost', 8080);
+  } catch {
+    // já conectado (hot-reload do Next dev reexecuta este módulo) -- idempotente.
+  }
+}
 
 /**
  * POST — Criar nova solicitação de acesso

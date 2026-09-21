@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 18/07/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Scandelari
+**Data de Conclusão:** 13/08/2026
 **Tipo:** Feature
 **Branch sugerida:** `feature/consultor-vinculo-convite-transferencia`
 **Prioridade:** Alta
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Unifica, sob uma única coleção `consultant_transfer_requests` com campo discriminador `type: 'invite' | 'transfer'`, dois fluxos hoje incompletos: (1) a Clínica passa a poder convidar um consultor específico quando ainda não tem nenhum vinculado (**novo**), e (2) o Consultor passa a ter, finalmente, um botão real para solicitar a transferência de uma clínica já vinculada a outro consultor (**UC-25, backend pronto, sem gatilho de UI até hoje**). Remove código morto/quebrado (`TransferConsultantPage`, rotas órfãs de `consultant_claims/[id]/approve|reject`) e adiciona uma tela de System Admin, somente leitura, para visualizar todas as pendências dos dois tipos. Nesta revisão (v1.1), incorpora as respostas do PO às Decisões Necessárias da v1.0: cancelamento de convite pelo Clinic Admin e expiração de 15 dias para ambos os tipos de pendência.
 
@@ -914,6 +916,7 @@ Referência para o `uml-use-case-writer` revisar cada UC após a implementação
 |--------|------|-------|-------------|
 | 1.0 | 18/07/2026 | Doc Writer (Claude) | Versão inicial. Investigado o estado atual dos quatro mecanismos paralelos de vínculo consultor-clínica (auto-link, transferência sem gatilho, painel admin, página quebrada) e o código morto associado (`consultants/claims/[id]/approve\|reject`). Especificada a generalização da coleção `consultant_transfer_requests` com campo discriminador `type`, o novo fluxo de convite pela clínica, o gatilho de UI que faltava para UC-25, a generalização das telas/rotas de aprovação (UC-26/27) e a nova tela somente leitura de System Admin. |
 | 1.1 | 18/07/2026 | Doc Writer (Claude) | Incorporadas as respostas do PO às 4 Decisões Necessárias da v1.0: (1) RF-03 confirmado como decisão definitiva, sem incerteza; (2) adicionado cancelamento de convite pelo Clinic Admin (RF-13, novo status `'cancelled'`, novo endpoint `DELETE /api/tenants/[id]/consultant/invite/[requestId]`, novo estado da tela `/clinic/consultant/invite`), sem notificação ao consultor convidado (RN-10); (3) adicionada expiração de 15 dias para `invite` e `transfer` (RF-14, campo `expires_at`, funções puras `computeExpiresAt`/`isRequestExpired`), seguindo o padrão de `passwordResetService.ts` (checagem em tempo de leitura, sem Cloud Function agendada) — inclui alteração de `src/app/api/consultants/claims/route.ts` (CASO 2) para gravar `expires_at`; convites expirados deixam de bloquear a criação de novos convites (RN-12); (4) mantida a decisão de não renomear `requesting_consultant_id`, agora como decisão confirmada e não mais em aberto. Plano de Implementação renumerado de 15 para 16 Steps. Seção "Decisões Necessárias" substituída por "Decisões Confirmadas pelo PO". |
+| 1.2 | 13/08/2026 | Guilherme Scandelari | Task concluída — movida para TASK_COMPLETED. Todos os 16 steps implementados na branch `feature/consultor-vinculo-convite-transferencia`, mais 3 correções encontradas durante a implementação (não previstas na spec original): `isRequestExpired` ajustada para tratar Timestamp serializado no client; queries de `transfer-requests` GET ajustadas para de fato usar `orderBy`+os índices do Step 16 (RNF-02); consulta de convite pendente simplificada para evitar um 4º índice composto não especificado. Validado estaticamente: `npm run lint` (zero erros), `npm run type-check` (zero erros), `npm run build` (sem falhas), `npm run test:coverage` (111 testes, `consultantRequests.ts` em 100% de cobertura). **Os itens de validação manual/emulador da Seção 9 (fluxos end-to-end de convite/transferência/aprovação/rejeição/expiração) não foram executados nesta sessão** — não há Firebase Emulator Suite disponível neste ambiente; ficam pendentes de validação manual antes ou depois do deploy em `dev-gscandelari.web.app`. |
 
 ---
 
