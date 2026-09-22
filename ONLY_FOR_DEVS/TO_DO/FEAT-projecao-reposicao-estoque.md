@@ -3,13 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 22/09/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Aguardando decisão
+**Status:** Planejamento
 **Tipo:** Feature
 **Branch sugerida:** `feat/uc52-projecao-reposicao-estoque` (já existe e está com checkout ativo — ver nota na Seção 0 sobre o prefixo `feat/` divergir do padrão documentado `feature/`)
 **Prioridade:** Média
-**Versão:** 1.0
+**Versão:** 1.1
 
-> Implementa o UC-52 (`ONLY_FOR_DEVS/PO_BA_Docs/UC-52-consultar-projecao-de-reposicao-de-estoque.md`, v1.0, Aprovado): uma tela e um card de Dashboard que projetam, por `codigo_produto`, a data estimada em que o estoque vai zerar, calculada 100% client-side a partir do consumo histórico real (`Solicitacao concluida`), sem nenhum cron ou API route nova. Consultor Rennova vinculado vê a mesma projeção completa das clínicas vinculadas, sem mudança de `firestore.rules`. Dois pontos do UC-52 (critério de suficiência de dados e destino do card agregado do Consultor) ficam pendentes de decisão explícita antes de virar código — ver Seção 14 abaixo.
+> Implementa o UC-52 (`ONLY_FOR_DEVS/PO_BA_Docs/UC-52-consultar-projecao-de-reposicao-de-estoque.md`, v1.0, Aprovado): uma tela e um card de Dashboard que projetam, por `codigo_produto`, a data estimada em que o estoque vai zerar, calculada 100% client-side a partir do consumo histórico real (`Solicitacao concluida`), sem nenhum cron ou API route nova. Consultor Rennova vinculado vê a mesma projeção completa das clínicas vinculadas, sem mudança de `firestore.rules`. As duas pendências de decisão do UC-52 (critério de suficiência de dados e destino do card agregado do Consultor) foram respondidas explicitamente pelo usuário — ver Seção 14.
 
 ---
 
@@ -101,7 +101,7 @@ Fechar um dos 3 gaps landing-vs-sistema já priorizados nessa leva (UC-51/UC-52/
 |----|-------|---------------|
 | RN-01 | Taxa de consumo diária = soma de `quantidade` de `ProdutoSolicitado` (dentro de `Solicitacao` com `status == 'concluida'`) que contenham aquele `produto_codigo`, dentro da janela usada, dividida pelo número de dias da janela | UC-52 RN-01; mesma fonte de dado de `generateConsumptionReport` (UC-47) |
 | RN-02 | Data estimada de esgotamento = hoje + ceil(quantidade_disponivel_total ÷ taxa_consumo_diária). Se a taxa calculada for zero, nenhuma data é projetada (cai em RN-03/dados insuficientes) | UC-52 RN-02 |
-| RN-03 | ⚠️ Critério de "dados suficientes" por janela — ver Decisão Necessária #1 (Seção 14) | UC-52 RN-03 — proposta não validada tecnicamente |
+| RN-03 | Critério de "dados suficientes" por janela: pelo menos `MIN_DISTINCT_CONSUMPTION_DATES = 2` `Solicitacao` distintas com `status == 'concluida'`, envolvendo o mesmo `produto_codigo`, em datas de calendário diferentes, dentro da janela avaliada (cascata 90→60→30 dias). Sem dado suficiente em nenhuma das 3 janelas, o produto fica sem projeção (RF-06/7a) — nunca quebra a tela | UC-52 RN-03; critério confirmado pelo usuário em 22/09/2026, exatamente como proposto (ver Seção 14) |
 | RN-04 | Toda data estimada exibida (card ou tela) deve indicar visivelmente a janela usada (90/60/30) e o caráter estimado — nunca como fato garantido | UC-52 RN-04 |
 | RN-05 | Projeção calculada por `codigo_produto` agregado, somando todos os lotes ativos — mesma convenção de `stock_limits` (UC-15) e `checkLowStock` (`alertTriggers.ts`) | UC-52 RN-05 |
 | RN-06 | Evento-alvo é a data em que `quantidade_disponivel` total chega a zero — não a data de cruzar `limite_estoque_baixo` (UC-15). Os dois mecanismos são independentes | UC-52 RN-06 |
@@ -119,16 +119,18 @@ Fechar um dos 3 gaps landing-vs-sistema já priorizados nessa leva (UC-51/UC-52/
 - **Módulo de cálculo 100% puro** em `src/lib/services/projectionService.ts`: todas as funções de cálculo (seleção de janela em cascata, taxa de consumo, data estimada) recebem dados já carregados (arrays de eventos de consumo, `Date` de "hoje" como parâmetro explícito) e não tocam Firestore — mesmo padrão de `src/lib/inventoryUtils.ts` (`computeInventoryStats` recebe `cutoffDate` como parâmetro, não usa `new Date()` internamente), o que torna as funções 100% testáveis sem mocks. Uma única função orquestradora assíncrona (`getReplenishmentProjections`) faz a leitura real do Firestore e delega o cálculo às funções puras — mesmo padrão de separação já usado implicitamente em `reportService.ts` (embora lá tudo esteja numa função só; aqui a extração é deliberada para habilitar teste unitário de alta prioridade, conforme CLAUDE.md item 8).
 - **Componente de tela único reaproveitado** (`ProjectionsView.tsx`), no mesmo espírito de `InventoryView.tsx`, usado tanto por `/clinic/inventory/projections` quanto por `/consultant/clinics/{tenantId}/projections` — evita duas implementações divergentes da mesma tabela (RN-09 exige que sejam idênticas).
 - **Novo prop `onViewProjections`** em `InventoryView.tsx`, no mesmo padrão de `onAddProducts` — mas, diferente de `onAddProducts` (restrito a `isAdmin`), visível para qualquer usuário com acesso à tela (clinic_admin, clinic_user e Consultor, conforme Seção 2.1 do UC-52, que dá o mesmo acesso a `clinic_user`).
+- **Card do Dashboard do Consultor navega para `/consultant/clinics`** (lista de clínicas vinculadas já existente), em vez de linkar para uma clínica específica ou para uma tela agregada nova — decisão confirmada pelo usuário (Seção 14, item 2), evitando expandir o escopo de UI do UC-52 sem passar antes pelo `uml-use-case-writer`.
 
 ### 4.2 Alternativas descartadas
 
 - **Persistir a projeção calculada em uma subcoleção** (ex. `tenants/{tenantId}/projections`): descartada porque RN-07 exige explicitamente "sem persistência do resultado calculado — recalculado do zero a cada carregamento", mesma decisão já tomada para UC-15/UC-42/UC-47.
-- **Criar uma tela agregada "Todas as Clínicas" no Portal do Consultor**: cogitada como possível destino do card do Dashboard do Consultor, mas o UC-52 não descreve essa tela em nenhum lugar — as únicas duas superfícies novas de UI que o UC fecha são o card e a tela por-tenant (`/consultant/clinics/{tenantId}/projections`). Criar uma tela agregada nova seria expandir o escopo do UC sem aprovação explícita — por isso vira a Decisão Necessária #2 em vez de uma suposição.
+- **Criar uma tela agregada "Todas as Clínicas" no Portal do Consultor**: cogitada como possível destino do card do Dashboard do Consultor (opção (d) apresentada ao usuário), mas descartada — o usuário confirmou a opção (a), card linkando para `/consultant/clinics` (Seção 14). Criar uma tela agregada nova expandiria o escopo de UI do UC-52 além do que ele fecha hoje, exigindo primeiro uma atualização do UC pelo `uml-use-case-writer`.
 
 ### 4.3 Trade-offs aceitos
 
 - RNF-02 aceita explicitamente que o card do Dashboard do Consultor seja O(N tenants) sem cache — mais simples de implementar agora, ao custo de possível lentidão para consultores com muitas clínicas vinculadas (mesmo trade-off já aceito em UC-47 RNF-02).
-- O critério de suficiência de dados (RN-03) é implementado como constante nomeada e exportada (`MIN_DISTINCT_CONSUMPTION_DATES`), facilmente ajustável depois de validado tecnicamente, em vez de bloquear a feature inteira até a decisão ser tomada com 100% de certeza — mas a implementação **não pode começar** até a Decisão Necessária #1 ser respondida (mesmo que a resposta seja "sim, usar 2, exatamente como proposto").
+- O critério de suficiência de dados (RN-03) é implementado como constante nomeada e exportada (`MIN_DISTINCT_CONSUMPTION_DATES = 2`), confirmada pelo usuário exatamente como proposta pelo UC-52 — facilmente ajustável no futuro caso a heurística se mostre inadequada em produção, sem precisar reescrever a lógica de seleção de janela.
+- O card do Dashboard do Consultor não leva diretamente à clínica com a projeção mais urgente (opção (b), descartada) — o Consultor precisa de um clique adicional em `/consultant/clinics` para escolher a clínica. Trade-off aceito em troca de não expandir o escopo do UC-52 nesta versão (opção (d), também descartada).
 
 ---
 
@@ -154,7 +156,7 @@ Fechar um dos 3 gaps landing-vs-sistema já priorizados nessa leva (UC-51/UC-52/
 | `src/app/(consultant)/consultant/clinics/[tenantId]/inventory/page.tsx` | Passa `onViewProjections={() => router.push('/consultant/clinics/${tenantId}/projections')}` para `InventoryView` |
 | `src/app/(consultant)/consultant/clinics/[tenantId]/page.tsx` | Novo segundo Quick Action "Ver Projeções" ao lado de "Ver Estoque" |
 | `src/app/(clinic)/clinic/dashboard/page.tsx` | Novo card "Projeção de Reposição" (RF-02), carregado via `getReplenishmentProjections(tenantId)` |
-| `src/app/(consultant)/consultant/dashboard/page.tsx` | Novo card "Projeção de Reposição" agregando clínicas vinculadas ativas (RF-03) — implementação depende da Decisão Necessária #2 |
+| `src/app/(consultant)/consultant/dashboard/page.tsx` | Novo card "Projeção de Reposição" agregando clínicas vinculadas ativas (RF-03), com clique navegando para `/consultant/clinics` (decisão confirmada, Seção 14) |
 
 ### 5.3 Arquivos a REMOVER
 
@@ -192,7 +194,7 @@ Novas interfaces, todas locais a `src/lib/services/projectionService.ts` (mesmo 
 export const HISTORY_WINDOWS_DAYS = [90, 60, 30] as const;
 export type HistoryWindowDays = (typeof HISTORY_WINDOWS_DAYS)[number];
 
-// ⚠️ Ver Decisão Necessária #1 (Seção 14) antes de implementar — valor provisório.
+// Critério de suficiência de dados (RN-03), confirmado pelo usuário em 22/09/2026 — ver Seção 14.
 export const MIN_DISTINCT_CONSUMPTION_DATES = 2;
 
 export interface ConsumptionEvent {
@@ -285,7 +287,7 @@ Lógica de `getReplenishmentProjections`: lê `inventory` (`active == true`) agr
 
 **`/clinic/dashboard`** (estado atual → novo): hoje tem 3 cards na primeira linha (Estoque, Procedimentos, Alertas). Passa a ter um 4º card "Projeção de Reposição" (não entra na mesma grid de 3 colunas — para não redimensionar os 3 cards existentes sem necessidade, é adicionado como um card independente logo abaixo dessa linha, antes da seção "Próximos Procedimentos"/"Atividade Recente"). Estados: carregando (skeleton); com produtos em risco (contagem + botão "Ver Projeções" → `/clinic/inventory/projections`); sem produtos em risco (Fluxo Alternativo 7b: "Nenhum produto com previsão de reposição próxima", sem contagem em destaque); erro (toast, RNF-04).
 
-**`/consultant/dashboard`** (estado atual → novo): hoje tem 2 cards (Clínicas Vinculadas, Buscar Clínicas) + "Minhas Clínicas". Passa a ter um 3º card "Projeção de Reposição" agregando a contagem de produtos em risco somada de todas as `clinics.filter(c => c.active)`. **O destino do clique deste card depende da Decisão Necessária #2** — ver Seção 14.
+**`/consultant/dashboard`** (estado atual → novo): hoje tem 2 cards (Clínicas Vinculadas, Buscar Clínicas) + "Minhas Clínicas". Passa a ter um 3º card "Projeção de Reposição" agregando a contagem de produtos em risco somada de todas as `clinics.filter(c => c.active)`; o clique no card navega para `/consultant/clinics` (opção (a) confirmada pelo usuário — Seção 14), deixando o Consultor escolher manualmente qual clínica vinculada investigar em detalhe, já que não existe uma tela agregada de projeções de todas as clínicas nesta versão.
 
 ### 6.4 Mudanças em API Routes
 
@@ -299,13 +301,11 @@ N/A — nenhuma rota nova ou alterada (RNF-01). Toda leitura é direta via Fires
 
 **Objetivo:** Implementar RN-01 a RN-06 como funções puras testáveis, sem tocar Firestore.
 
-**Pré-requisito:** Decisão Necessária #1 (Seção 14) respondida — define o valor/critério exato de `MIN_DISTINCT_CONSUMPTION_DATES`/`isWindowDataSufficient`.
-
 **Arquivos afetados:**
 - `src/lib/services/projectionService.ts` — criar com as interfaces e funções da Seção 6.1/6.2 (exceto `getReplenishmentProjections`)
 
 **Ações:**
-1. Definir `HISTORY_WINDOWS_DAYS`, `MIN_DISTINCT_CONSUMPTION_DATES`, `ConsumptionEvent`, `ProductProjectionInput`, `ProductProjection`.
+1. Definir `HISTORY_WINDOWS_DAYS`, `MIN_DISTINCT_CONSUMPTION_DATES = 2` (RN-03, confirmado — Seção 14), `ConsumptionEvent`, `ProductProjectionInput`, `ProductProjection`.
 2. Implementar `isWindowDataSufficient`, `filterEventsWithinWindow`, `calculateDailyConsumptionRate`, `selectConsumptionWindow`, `calculateEstimatedDepletionDate`, `calculateProductProjection`, `countProjectionsWithinHorizon`.
 
 **Validação:** `npm run type-check` sem erros; funções exportadas e importáveis por outro arquivo.
@@ -434,11 +434,9 @@ N/A — nenhuma rota nova ou alterada (RNF-01). Toda leitura é direta via Fires
 
 ---
 
-### STEP 8 — Card no Dashboard do Consultor ⚠️ depende da Decisão Necessária #2
+### STEP 8 — Card no Dashboard do Consultor
 
 **Objetivo:** RF-03, agregando clínicas vinculadas ativas (RNF-02).
-
-**Pré-requisito:** Decisão Necessária #2 (Seção 14) respondida — define o destino do clique no card.
 
 **Arquivos afetados:**
 - `src/app/(consultant)/consultant/dashboard/page.tsx` — novo estado + novo card
@@ -446,10 +444,10 @@ N/A — nenhuma rota nova ou alterada (RNF-01). Toda leitura é direta via Fires
 **Ações:**
 1. Após `clinics` carregado, para cada `clinics.filter(c => c.active)`, chamar `getReplenishmentProjections(clinic.id)` via `Promise.all` (RNF-02 — aceito como MVP sem cache).
 2. Somar `countProjectionsWithinHorizon(...)` de cada clínica.
-3. Renderizar card "Projeção de Reposição" com a soma; destino do clique conforme Decisão Necessária #2.
+3. Renderizar card "Projeção de Reposição" com a soma; clique navega para `/consultant/clinics` (opção (a) confirmada pelo usuário — Seção 14), sem tentar levar a uma clínica específica.
 4. Erros de leitura de clínicas individuais não devem quebrar o card inteiro — logar/`toast` e seguir somando as demais (falha parcial tolerável, já que é um resumo).
 
-**Validação:** Consultor com 2+ clínicas vinculadas ativas, cada uma com ao menos um produto em risco, vê a soma correta no card.
+**Validação:** Consultor com 2+ clínicas vinculadas ativas, cada uma com ao menos um produto em risco, vê a soma correta no card; clicar no card leva a `/consultant/clinics`.
 
 **Commit:** `feat(dashboard): add replenishment projection card to consultant dashboard`
 
@@ -500,7 +498,7 @@ Regra aplicada: funções puras de cálculo são prioridade alta de teste unitá
 [ ] Branch pessoal: task branch mergeada em gscandelari_setup para validação no Firebase
 [ ] PR: aberto para develop com template preenchido
 [ ] Card do Dashboard da clínica testado manualmente com produto em risco e com estado vazio (7b)
-[ ] Card do Dashboard do Consultor testado manualmente com 2+ clínicas vinculadas ativas
+[ ] Card do Dashboard do Consultor testado manualmente com 2+ clínicas vinculadas ativas e clique leva a /consultant/clinics
 [ ] Tela "Projeções Gerais" testada manualmente para clínica e para Consultor (mesma informação, RN-09)
 [ ] Acesso do Consultor a tenant não autorizado bloqueado (redirect, Fluxo Alternativo 7c) — testado manualmente
 [ ] Caderno Playwright (tests/e2e/UC-52-*.spec.ts) gerado pelo qa-agent e revisado por humano antes de virar gate de CI
@@ -512,7 +510,7 @@ Regra aplicada: funções puras de cálculo são prioridade alta de teste unitá
 
 | Risco | Probabilidade | Impacto | Mitigação |
 |-------|--------------|---------|-----------|
-| Critério de suficiência de dados (RN-03) validado tecnicamente errado após implementação | Média | Médio | Constante `MIN_DISTINCT_CONSUMPTION_DATES` nomeada e isolada — ajuste pontual, sem reescrever lógica |
+| Critério de suficiência de dados (RN-03) se mostrar inadequado em produção mesmo após confirmação | Baixa | Médio | Constante `MIN_DISTINCT_CONSUMPTION_DATES` nomeada e isolada — ajuste pontual, sem reescrever lógica |
 | Dashboard do Consultor lento com muitas clínicas vinculadas (RNF-02) | Média | Médio | Aceito como MVP; se virar problema real, otimizar com cache/agregação server-side em iteração futura |
 | Falha parcial de uma clínica quebrar o card agregado do Consultor | Baixa | Médio | Step 8 trata falha por-clínica isoladamente, sem interromper a soma das demais |
 | Confusão do usuário entre este card e o alerta de "estoque baixo" já existente (UC-15/UC-42) | Média | Baixo | RN-04/RF-07 exigem aviso visível explicando a natureza estimada; nomenclatura distinta ("Projeção de Reposição" vs. "Estoque baixo") |
@@ -555,21 +553,16 @@ Regra aplicada: funções puras de cálculo são prioridade alta de teste unitá
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|-------------|
 | 1.0 | 22/09/2026 | Doc Writer (Claude) | Versão inicial. Spec de implementação derivada do UC-52 (v1.0, Aprovado). Investigado o código real (`reportService.ts`, `alertTriggers.ts`, `inventoryUtils.ts`, `InventoryView.tsx`, páginas de Dashboard e do Portal do Consultor, `firestore.rules`, `firestore.indexes.json`) para confirmar que nenhuma mudança de regra/índice é necessária e para desenhar o módulo de cálculo puro (`projectionService.ts`) e a reutilização de componentes (`ProjectionsView.tsx` espelhando `InventoryView.tsx`). Duas pendências marcadas como `⚠️ Decisão necessária` e documento mantido em Status "Aguardando decisão": (1) critério exato de suficiência de dados herdado como pendência técnica não bloqueante do próprio UC-52 (RN-03/Seção 14); (2) destino do clique no card agregado do Dashboard do Consultor, já que o UC-52 não descreve nenhuma tela "todas as clínicas" de projeções. |
+| 1.1 | 22/09/2026 | Doc Writer (Claude), decisões respondidas pelo usuário (Guilherme Scandelari) | Resolvidas as 2 pendências da v1.0. (1) RN-03 confirmado exatamente como proposto: critério de suficiência = ≥2 `Solicitacao concluida` em datas de calendário distintas, dentro da janela avaliada; sem dado suficiente, o produto fica sem projeção, sem quebrar a tela — `MIN_DISTINCT_CONSUMPTION_DATES = 2` deixa de ser "provisório" e passa a ser valor definitivo (Seções 3.3, 4.3, 6.1, Step 1). (2) Destino do card do Dashboard do Consultor confirmado como opção (a): navega para `/consultant/clinics` (lista existente), Consultor escolhe manualmente a clínica — opções (b)/(c)/(d) descartadas e registradas na Seção 4.2 (Seções 4.1, 5.2, 6.3, Step 8). `**Status:**` alterado de "Aguardando decisão" para "Planejamento" — documento pronto para o `dev-task-manager`. |
 
 ---
 
-## 14. Perguntas em Aberto / Decisões Pendentes
+## 14. Decisões Registradas (Resolvidas em 22/09/2026)
 
-🚫 **Este documento não pode ser passado ao `dev-task-manager` enquanto as duas decisões abaixo não forem respondidas explicitamente pelo usuário.** Diferente da Seção 14 do UC-52 (que marcou essas pendências como não-bloqueantes para a **aprovação do UC**), elas **bloqueiam a implementação** porque afetam diretamente decisões de código (valor de uma constante e destino de uma navegação).
+As duas pendências abaixo foram levantadas na v1.0 deste documento como `⚠️ Decisão necessária` (bloqueantes para implementação, diferente da Seção 14 do UC-52, que as havia marcado como não-bloqueantes apenas para a **aprovação do UC**). Ambas foram respondidas explicitamente pelo usuário e incorporadas ao restante do documento (ver Seção 13, v1.1) — mantidas aqui apenas como registro de rastreabilidade.
 
-1. **⚠️ Decisão necessária — RN-03, critério de suficiência de dados.** O UC-52 propôs (Seção 14, item 1, não validado tecnicamente): "pelo menos 2 `Solicitacao` distintas com `status == 'concluida'`, envolvendo o mesmo `produto_codigo`, em datas de calendário diferentes, dentro da janela avaliada" (cascata 90→60→30). Este documento implementou essa proposta como `MIN_DISTINCT_CONSUMPTION_DATES = 2` (Seção 6.1), mas **não posso presumir que esse número final é 2** sem confirmação explícita — o próprio UC pede essa validação antes da implementação. Perguntas concretas:
-   - O critério fica exatamente "2 datas de calendário distintas com solicitação concluída, dentro da janela"? Ou deve ser outro número (ex. 3)?
-   - Ou o critério deve ser outra métrica inteiramente (ex. volume mínimo de quantidade consumida na janela, não número de eventos)?
+1. **RN-03 — critério de suficiência de dados.** Pergunta: o critério fica exatamente "≥2 datas de calendário distintas com solicitação concluída, dentro da janela avaliada", como proposto pelo UC-52 (Seção 14, item 1), ou deveria ser outro número/outra métrica?
+   **Resposta do usuário:** confirmado exatamente como proposto — `MIN_DISTINCT_CONSUMPTION_DATES = 2`, aplicado em cascata às janelas 90/60/30 dias. Sem dado suficiente em nenhuma das três janelas, o produto fica sem projeção (RF-06/Fluxo Alternativo 7a) — nunca quebra a tela.
 
-2. **⚠️ Decisão necessária — destino do card "Projeção de Reposição" no Dashboard do Consultor.** O UC-52 (Seção 4.1) diz apenas que o card do Dashboard "exibe... um link para a tela detalhada", mas a única "tela detalhada" que o UC-52 fecha é por-tenant (`/consultant/clinics/{tenantId}/projections`, Fluxo Principal passo 5 — acessível **a partir da tela de detalhe de uma clínica específica**, não a partir do Dashboard agregado). Como o card do Dashboard do Consultor agrega N clínicas (RF-03/RNF-02), não há hoje nenhuma "tela de todas as projeções" para a qual esse card possa linkar diretamente. Preciso que você escolha uma das opções abaixo (ou proponha outra):
-   - **(a)** O card linka para `/consultant/clinics` (lista de clínicas vinculadas), deixando o Consultor escolher manualmente qual clínica investigar.
-   - **(b)** O card linka diretamente para a clínica com a projeção mais urgente (`/consultant/clinics/{tenantIdMaisUrgente}/projections`).
-   - **(c)** O card não é clicável nesta versão — é puramente informativo (contagem), sem link algum.
-   - **(d)** Criar uma nova tela agregada "Projeções — Todas as Clínicas" no Portal do Consultor — mas isso expande o escopo de UI além do que o UC-52 fechou, então normalmente exigiria voltar ao `uml-use-case-writer` para atualizar o UC antes de virar código.
-
-Assim que você responder a essas duas perguntas, eu atualizo este documento (incorporando as respostas nas Seções 4.1/6.1/6.3/Step 8), mudo `**Status:**` para `Planejamento` e registro a resolução na Seção 13 (Histórico de Versões).
+2. **Destino do card "Projeção de Reposição" no Dashboard do Consultor.** Pergunta: como o card agrega N clínicas vinculadas e não existe uma tela "todas as projeções", qual das opções (a) `/consultant/clinics`, (b) clínica mais urgente, (c) card não clicável, ou (d) nova tela agregada deveria ser o destino do clique?
+   **Resposta do usuário:** opção **(a)** — o card navega para `/consultant/clinics` (lista de clínicas vinculadas já existente), deixando o Consultor escolher manualmente qual clínica investigar em detalhe.
