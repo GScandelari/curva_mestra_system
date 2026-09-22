@@ -3,6 +3,9 @@
  * Cálculo de projeção de reposição de estoque (UC-52)
  */
 
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -160,4 +163,101 @@ export function countProjectionsWithinHorizon(
       projection.data_estimada_esgotamento !== null &&
       projection.data_estimada_esgotamento <= horizonDate
   ).length;
+}
+
+// ============================================================================
+// ORQUESTRADOR — LEITURA FIRESTORE
+// ============================================================================
+
+/**
+ * Lê inventory + solicitacoes concluídas do tenant e calcula a projeção
+ * de esgotamento por codigo_produto (RN-01 a RN-06). 100% client-side, sem
+ * persistência do resultado (RN-07).
+ */
+export async function getReplenishmentProjections(tenantId: string): Promise<ProductProjection[]> {
+  try {
+    const today = new Date();
+    const maxWindowDays = Math.max(...HISTORY_WINDOWS_DAYS);
+    const windowStart = new Date(today);
+    windowStart.setDate(windowStart.getDate() - maxWindowDays);
+
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+    const inventoryQuery = query(inventoryRef, where('active', '==', true));
+
+    const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
+    const solicitacoesQuery = query(
+      solicitacoesRef,
+      where('status', '==', 'concluida'),
+      where('dt_procedimento', '>=', Timestamp.fromDate(windowStart))
+    );
+
+    const [inventorySnapshot, solicitacoesSnapshot] = await Promise.all([
+      getDocs(inventoryQuery),
+      getDocs(solicitacoesQuery),
+    ]);
+
+    const inventoryByCodigo = new Map<
+      string,
+      { codigo_produto: string; nome_produto: string; quantidade_disponivel_total: number }
+    >();
+
+    inventorySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const codigo = data.codigo_produto;
+      const quantidade = data.quantidade_disponivel || 0;
+
+      const existing = inventoryByCodigo.get(codigo);
+      if (existing) {
+        existing.quantidade_disponivel_total += quantidade;
+      } else {
+        inventoryByCodigo.set(codigo, {
+          codigo_produto: codigo,
+          nome_produto: data.nome_produto,
+          quantidade_disponivel_total: quantidade,
+        });
+      }
+    });
+
+    const eventsByCodigo = new Map<string, ConsumptionEvent[]>();
+
+    solicitacoesSnapshot.forEach((doc) => {
+      const solicitacao = doc.data();
+      const dtProcedimento: Timestamp | undefined = solicitacao.dt_procedimento;
+      if (!dtProcedimento) return;
+      const dtProcedimentoDate = dtProcedimento.toDate();
+
+      const produtos = solicitacao.produtos_solicitados || [];
+      produtos.forEach((produto: any) => {
+        const codigo = produto.codigo_produto;
+        const eventos = eventsByCodigo.get(codigo) ?? [];
+        eventos.push({
+          quantidade: produto.quantidade || 0,
+          dt_procedimento: dtProcedimentoDate,
+        });
+        eventsByCodigo.set(codigo, eventos);
+      });
+    });
+
+    const projections: ProductProjection[] = Array.from(inventoryByCodigo.values()).map((item) => {
+      const input: ProductProjectionInput = {
+        codigo_produto: item.codigo_produto,
+        nome_produto: item.nome_produto,
+        quantidade_disponivel_total: item.quantidade_disponivel_total,
+        eventosConsumo: eventsByCodigo.get(item.codigo_produto) ?? [],
+      };
+      return calculateProductProjection(input, today);
+    });
+
+    projections.sort((a, b) => {
+      if (a.data_estimada_esgotamento === null && b.data_estimada_esgotamento === null) return 0;
+      if (a.data_estimada_esgotamento === null) return 1;
+      if (b.data_estimada_esgotamento === null) return -1;
+      return a.data_estimada_esgotamento.getTime() - b.data_estimada_esgotamento.getTime();
+    });
+
+    return projections;
+  } catch (error) {
+    console.error('Erro ao calcular projeção de reposição:', error);
+    throw new Error('Falha ao calcular projeção de reposição de estoque');
+  }
 }
