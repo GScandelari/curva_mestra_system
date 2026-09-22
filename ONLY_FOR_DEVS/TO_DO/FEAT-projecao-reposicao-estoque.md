@@ -3,11 +3,11 @@
 **Projeto:** Curva Mestra
 **Data:** 22/09/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Em execução
 **Tipo:** Feature
 **Branch sugerida:** `feat/uc52-projecao-reposicao-estoque` (já existe e está com checkout ativo — ver nota na Seção 0 sobre o prefixo `feat/` divergir do padrão documentado `feature/`)
 **Prioridade:** Média
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Implementa o UC-52 (`ONLY_FOR_DEVS/PO_BA_Docs/UC-52-consultar-projecao-de-reposicao-de-estoque.md`, v1.0, Aprovado): uma tela e um card de Dashboard que projetam, por `codigo_produto`, a data estimada em que o estoque vai zerar, calculada 100% client-side a partir do consumo histórico real (`Solicitacao concluida`), sem nenhum cron ou API route nova. Consultor Rennova vinculado vê a mesma projeção completa das clínicas vinculadas, sem mudança de `firestore.rules`. As duas pendências de decisão do UC-52 (critério de suficiência de dados e destino do card agregado do Consultor) foram respondidas explicitamente pelo usuário — ver Seção 14.
 
@@ -101,7 +101,7 @@ Fechar um dos 3 gaps landing-vs-sistema já priorizados nessa leva (UC-51/UC-52/
 |----|-------|---------------|
 | RN-01 | Taxa de consumo diária = soma de `quantidade` de `ProdutoSolicitado` (dentro de `Solicitacao` com `status == 'concluida'`) que contenham aquele `produto_codigo`, dentro da janela usada, dividida pelo número de dias da janela | UC-52 RN-01; mesma fonte de dado de `generateConsumptionReport` (UC-47) |
 | RN-02 | Data estimada de esgotamento = hoje + ceil(quantidade_disponivel_total ÷ taxa_consumo_diária). Se a taxa calculada for zero, nenhuma data é projetada (cai em RN-03/dados insuficientes) | UC-52 RN-02 |
-| RN-03 | Critério de "dados suficientes" por janela: pelo menos `MIN_DISTINCT_CONSUMPTION_DATES = 2` `Solicitacao` distintas com `status == 'concluida'`, envolvendo o mesmo `produto_codigo`, em datas de calendário diferentes, dentro da janela avaliada (cascata 90→60→30 dias). Sem dado suficiente em nenhuma das 3 janelas, o produto fica sem projeção (RF-06/7a) — nunca quebra a tela | UC-52 RN-03; critério confirmado pelo usuário em 22/09/2026, exatamente como proposto (ver Seção 14) |
+| RN-03 | Critério de "dados suficientes" por janela: pelo menos `MIN_DISTINCT_CONSUMPTION_DATES = 2` `Solicitacao` distintas com `status == 'concluida'`, envolvendo o mesmo `produto_codigo`, em datas de calendário diferentes, dentro da janela avaliada (cascata **30→60→90 dias**, mais recente primeiro — ver correção na Seção 14, item 3). Sem dado suficiente em nenhuma das 3 janelas, o produto fica sem projeção (RF-06/7a) — nunca quebra a tela | UC-52 RN-03 v1.1; critério de suficiência (2 datas) confirmado pelo usuário em 22/09/2026 exatamente como proposto (Seção 14, item 1); ordem da cascata corrigida em 22/09/2026 durante a implementação (Seção 14, item 3) |
 | RN-04 | Toda data estimada exibida (card ou tela) deve indicar visivelmente a janela usada (90/60/30) e o caráter estimado — nunca como fato garantido | UC-52 RN-04 |
 | RN-05 | Projeção calculada por `codigo_produto` agregado, somando todos os lotes ativos — mesma convenção de `stock_limits` (UC-15) e `checkLowStock` (`alertTriggers.ts`) | UC-52 RN-05 |
 | RN-06 | Evento-alvo é a data em que `quantidade_disponivel` total chega a zero — não a data de cruzar `limite_estoque_baixo` (UC-15). Os dois mecanismos são independentes | UC-52 RN-06 |
@@ -130,6 +130,7 @@ Fechar um dos 3 gaps landing-vs-sistema já priorizados nessa leva (UC-51/UC-52/
 
 - RNF-02 aceita explicitamente que o card do Dashboard do Consultor seja O(N tenants) sem cache — mais simples de implementar agora, ao custo de possível lentidão para consultores com muitas clínicas vinculadas (mesmo trade-off já aceito em UC-47 RNF-02).
 - O critério de suficiência de dados (RN-03) é implementado como constante nomeada e exportada (`MIN_DISTINCT_CONSUMPTION_DATES = 2`), confirmada pelo usuário exatamente como proposta pelo UC-52 — facilmente ajustável no futuro caso a heurística se mostre inadequada em produção, sem precisar reescrever a lógica de seleção de janela.
+- A ordem de avaliação da cascata é **30→60→90 dias** (mais estreita primeiro), não 90→60→30 como a v1.0/v1.1 deste documento e o UC-52 v1.0 originalmente descreviam — corrigido em 22/09/2026 durante a implementação (Seção 14, item 3). Como todas as janelas terminam em "hoje", uma janela mais estreita é sempre um subconjunto de uma mais larga; avaliar da mais larga primeiro tornaria o fallback para janelas menores matematicamente inalcançável.
 - O card do Dashboard do Consultor não leva diretamente à clínica com a projeção mais urgente (opção (b), descartada) — o Consultor precisa de um clique adicional em `/consultant/clinics` para escolher a clínica. Trade-off aceito em troca de não expandir o escopo do UC-52 nesta versão (opção (d), também descartada).
 
 ---
@@ -191,7 +192,9 @@ Novas interfaces, todas locais a `src/lib/services/projectionService.ts` (mesmo 
 // Antes: não existe.
 
 // Depois:
-export const HISTORY_WINDOWS_DAYS = [90, 60, 30] as const;
+// Ordem 30→60→90 (mais estreita/recente primeiro) — corrigido em 22/09/2026
+// durante a implementação. Ver Seção 14, item 3.
+export const HISTORY_WINDOWS_DAYS = [30, 60, 90] as const;
 export type HistoryWindowDays = (typeof HISTORY_WINDOWS_DAYS)[number];
 
 // Critério de suficiência de dados (RN-03), confirmado pelo usuário em 22/09/2026 — ver Seção 14.
@@ -325,7 +328,7 @@ N/A — nenhuma rota nova ou alterada (RNF-01). Toda leitura é direta via Fires
 1. `isWindowDataSufficient`: datas distintas suficientes → `true`; mesma data repetida → `false`; array vazio → `false`.
 2. `filterEventsWithinWindow`: evento dentro da janela incluído; fora da janela excluído; evento exatamente no limite incluído.
 3. `calculateDailyConsumptionRate`: soma correta ÷ dias; array vazio → 0.
-4. `selectConsumptionWindow`: cascata 90→60→30 — janela de 90 dias insuficiente mas 60 suficiente retorna 60; nenhuma janela suficiente retorna `null`; 90 dias já suficiente não avalia 60/30 (evitar assumir, testar explicitamente que a primeira janela suficiente vence, mesmo que uma janela menor desse uma taxa diferente).
+4. `selectConsumptionWindow`: cascata **30→60→90** — janela de 30 dias insuficiente mas 60 suficiente retorna 60; 30 e 60 insuficientes mas 90 suficiente retorna 90; nenhuma janela suficiente retorna `null`; 30 dias já suficiente não avalia 60/90 (a primeira janela suficiente vence, mesmo que uma janela mais larga desse uma taxa diferente).
 5. `calculateEstimatedDepletionDate`: taxa > 0 retorna data futura correta (arredondamento para cima, RN-02); taxa == 0 retorna `null`; taxa negativa (não deveria ocorrer, mas testar defensivamente) retorna `null`.
 6. `calculateProductProjection`: caso com dados suficientes retorna projeção completa; caso sem dados suficientes retorna `dados_insuficientes: true` com os 3 campos `null` (RF-06).
 7. `countProjectionsWithinHorizon`: produto dentro do horizonte contado; fora do horizonte não contado; `data_estimada_esgotamento: null` nunca contado; horizonte customizado respeitado.
@@ -523,7 +526,7 @@ Regra aplicada: funções puras de cálculo são prioridade alta de teste unitá
 | Termo | Definição |
 |-------|-----------|
 | Janela de histórico | Período retroativo (90, 60 ou 30 dias) usado para calcular a taxa de consumo diária de um produto |
-| Cascata de janelas | Estratégia de tentar 90 dias primeiro, depois 60, depois 30, usando a mais recente que tiver dados suficientes (RN-03) |
+| Cascata de janelas | Estratégia de tentar 30 dias primeiro, depois 60, depois 90, ampliando a janela apenas quando os dados mais recentes forem insuficientes (RN-03) |
 | Taxa de consumo diária | Quantidade total consumida (solicitações concluídas) dividida pelo número de dias da janela usada |
 | Data estimada de esgotamento | Data projetada em que `quantidade_disponivel` total de um produto chegaria a zero, dada a taxa de consumo diária (RN-02) |
 | Horizonte de destaque | Janela de 30 dias à frente usada para decidir quais produtos entram na contagem resumo dos cards de Dashboard |
@@ -533,7 +536,7 @@ Regra aplicada: funções puras de cálculo são prioridade alta de teste unitá
 
 ## 12. Referências
 
-- `ONLY_FOR_DEVS/PO_BA_Docs/UC-52-consultar-projecao-de-reposicao-de-estoque.md` (v1.0, Aprovado) — UC de origem
+- `ONLY_FOR_DEVS/PO_BA_Docs/UC-52-consultar-projecao-de-reposicao-de-estoque.md` (v1.1, Aprovado) — UC de origem
 - `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` (Seção 7.1) — reserva original do UC-52
 - `CLAUDE.md` (item 8) — obrigatoriedade de caderno de teste Playwright para toda feature
 - `ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md` — Git Flow, Conventional Commits, fluxo de PR
@@ -554,6 +557,7 @@ Regra aplicada: funções puras de cálculo são prioridade alta de teste unitá
 |--------|------|-------|-------------|
 | 1.0 | 22/09/2026 | Doc Writer (Claude) | Versão inicial. Spec de implementação derivada do UC-52 (v1.0, Aprovado). Investigado o código real (`reportService.ts`, `alertTriggers.ts`, `inventoryUtils.ts`, `InventoryView.tsx`, páginas de Dashboard e do Portal do Consultor, `firestore.rules`, `firestore.indexes.json`) para confirmar que nenhuma mudança de regra/índice é necessária e para desenhar o módulo de cálculo puro (`projectionService.ts`) e a reutilização de componentes (`ProjectionsView.tsx` espelhando `InventoryView.tsx`). Duas pendências marcadas como `⚠️ Decisão necessária` e documento mantido em Status "Aguardando decisão": (1) critério exato de suficiência de dados herdado como pendência técnica não bloqueante do próprio UC-52 (RN-03/Seção 14); (2) destino do clique no card agregado do Dashboard do Consultor, já que o UC-52 não descreve nenhuma tela "todas as clínicas" de projeções. |
 | 1.1 | 22/09/2026 | Doc Writer (Claude), decisões respondidas pelo usuário (Guilherme Scandelari) | Resolvidas as 2 pendências da v1.0. (1) RN-03 confirmado exatamente como proposto: critério de suficiência = ≥2 `Solicitacao concluida` em datas de calendário distintas, dentro da janela avaliada; sem dado suficiente, o produto fica sem projeção, sem quebrar a tela — `MIN_DISTINCT_CONSUMPTION_DATES = 2` deixa de ser "provisório" e passa a ser valor definitivo (Seções 3.3, 4.3, 6.1, Step 1). (2) Destino do card do Dashboard do Consultor confirmado como opção (a): navega para `/consultant/clinics` (lista existente), Consultor escolhe manualmente a clínica — opções (b)/(c)/(d) descartadas e registradas na Seção 4.2 (Seções 4.1, 5.2, 6.3, Step 8). `**Status:**` alterado de "Aguardando decisão" para "Planejamento" — documento pronto para o `dev-task-manager`. |
+| 1.2 | 22/09/2026 | Implementação (Claude), correção confirmada pelo usuário (Guilherme Scandelari) durante o Step 2 | Corrigida a ordem de avaliação da cascata de RN-03: de 90→60→30 para **30→60→90 dias** (mais estreita/recente primeiro). Motivo: como todas as janelas terminam em "hoje", uma janela mais estreita é sempre um subconjunto de uma mais larga (30⊆60⊆90) — avaliando 90 primeiro, o fallback para 60/30 era matematicamente inalcançável (suficiência em janela menor sempre implica suficiência na maior que a contém), tornando o resultado sempre "90 dias ou dados insuficientes" e contradizendo a intenção documentada da cascata. Descoberto ao escrever os testes unitários de `selectConsumptionWindow` (Step 2); usuário confirmou a inversão de ordem como correção (ver Seção 14, item 3). Critério de suficiência em si (2 datas distintas) não mudou. UC-52 corrigido em paralelo pelo `uml-use-case-writer` (v1.0→v1.1). `**Status:**` alterado para "Em execução" — implementação em andamento na branch `feat/uc52-projecao-reposicao-estoque` (commits `06017e8` a `cd4b125` já refletem a correção). |
 
 ---
 
@@ -566,3 +570,6 @@ As duas pendências abaixo foram levantadas na v1.0 deste documento como `⚠️
 
 2. **Destino do card "Projeção de Reposição" no Dashboard do Consultor.** Pergunta: como o card agrega N clínicas vinculadas e não existe uma tela "todas as projeções", qual das opções (a) `/consultant/clinics`, (b) clínica mais urgente, (c) card não clicável, ou (d) nova tela agregada deveria ser o destino do clique?
    **Resposta do usuário:** opção **(a)** — o card navega para `/consultant/clinics` (lista de clínicas vinculadas já existente), deixando o Consultor escolher manualmente qual clínica investigar em detalhe.
+
+3. **Ordem da cascata de janelas (RN-03), encontrada durante o Step 2 (22/09/2026).** Ao escrever os testes unitários de `selectConsumptionWindow`, identificou-se que a ordem original (90→60→30, mais larga primeiro) tornava o fallback para janelas menores matematicamente inalcançável: como todas as janelas terminam em "hoje", uma janela mais estreita é sempre um subconjunto de uma mais larga (30⊆60⊆90), então suficiência de dados em uma janela menor sempre implica suficiência na janela maior que a contém — avaliando 90 primeiro, o resultado seria sempre "90 dias" (se suficiente) ou "dados insuficientes", nunca "60" ou "30". Pergunta: (a) inverter a ordem para 30→60→90 (mais recente primeiro, tornando o fallback real), (b) manter 90→60→30 aceitando que 60/30 nunca disparam na prática, ou (c) pausar e revisar formalmente com `uml-use-case-writer`/`doc-writer` antes de prosseguir?
+   **Resposta do usuário:** opção **(a)** — inverter a ordem para 30→60→90 dias. `HISTORY_WINDOWS_DAYS` alterado de `[90, 60, 30]` para `[30, 60, 90]` em `src/lib/services/projectionService.ts`; UC-52 corrigido correspondentemente pelo `uml-use-case-writer` (v1.0→v1.1).
