@@ -228,7 +228,11 @@ export async function getReplenishmentProjections(tenantId: string): Promise<Pro
 
       const produtos = solicitacao.produtos_solicitados || [];
       produtos.forEach((produto: any) => {
-        const codigo = produto.codigo_produto;
+        // Campo real gravado em ProdutoSolicitado é produto_codigo, não
+        // codigo_produto (que só existe em InventoryItem) -- ver
+        // src/types/index.ts. O mesmo engano pré-existe em
+        // reportService.ts (generateConsumptionReport).
+        const codigo = produto.produto_codigo;
         const eventos = eventsByCodigo.get(codigo) ?? [];
         eventos.push({
           quantidade: produto.quantidade || 0,
