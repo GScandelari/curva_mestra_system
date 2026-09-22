@@ -7,7 +7,13 @@
 // TYPES
 // ============================================================================
 
-export const HISTORY_WINDOWS_DAYS = [90, 60, 30] as const;
+// Ordem de avaliação da cascata: mais estreita (recente) primeiro. Janelas medidas
+// a partir de "hoje" são aninhadas (30 ⊆ 60 ⊆ 90), então avaliar da mais larga para
+// a mais estreita tornaria o fallback para 60/30 matematicamente inalcançável —
+// suficiência em uma janela menor sempre implica suficiência na janela maior que a
+// contém. Avaliando da mais estreita, o sistema usa a taxa mais recente disponível e
+// só amplia a janela quando os dados recentes forem insuficientes.
+export const HISTORY_WINDOWS_DAYS = [30, 60, 90] as const;
 export type HistoryWindowDays = (typeof HISTORY_WINDOWS_DAYS)[number];
 
 // Critério de suficiência de dados (RN-03), confirmado pelo usuário em 22/09/2026.
