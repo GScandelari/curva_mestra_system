@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Building2, ArrowLeft, Package, AlertTriangle } from 'lucide-react';
+import { Building2, ArrowLeft, Package, AlertTriangle, TrendingDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { collection, query, where, getDocs, QueryConstraint } from 'firebase/firestore';
@@ -195,14 +195,24 @@ export default function ClinicDetailPage() {
         </div>
 
         {/* Quick Actions */}
-        <Button
-          variant="outline"
-          className="h-auto py-4 flex flex-col gap-2 w-full md:w-auto"
-          onClick={() => router.push(`/consultant/clinics/${tenantId}/inventory`)}
-        >
-          <Package className="h-6 w-6" />
-          <span>Ver Estoque</span>
-        </Button>
+        <div className="flex flex-col md:flex-row gap-4">
+          <Button
+            variant="outline"
+            className="h-auto py-4 flex flex-col gap-2 w-full md:w-auto"
+            onClick={() => router.push(`/consultant/clinics/${tenantId}/inventory`)}
+          >
+            <Package className="h-6 w-6" />
+            <span>Ver Estoque</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto py-4 flex flex-col gap-2 w-full md:w-auto"
+            onClick={() => router.push(`/consultant/clinics/${tenantId}/projections`)}
+          >
+            <TrendingDown className="h-6 w-6" />
+            <span>Ver Projeções</span>
+          </Button>
+        </div>
       </div>
     </div>
   );
