@@ -33,10 +33,15 @@ import {
   type RecentActivity as ActivityType,
 } from '@/lib/services/inventoryService';
 import { getUpcomingProcedures } from '@/lib/services/solicitacaoService';
+import {
+  getReplenishmentProjections,
+  countProjectionsWithinHorizon,
+} from '@/lib/services/projectionService';
 import type { Solicitacao } from '@/types';
 import { formatTimestamp } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 interface AlertasStats {
   vencidos: number;
@@ -47,6 +52,7 @@ interface AlertasStats {
 export default function ClinicDashboard() {
   const { user, claims } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [estoqueStats, setEstoqueStats] = useState<DashboardEstoqueStats | null>(null);
   const [procedimentosStats, setProcedimentosStats] = useState<DashboardProcedimentosStats | null>(
@@ -56,6 +62,8 @@ export default function ClinicDashboard() {
   const [expiringProducts, setExpiringProducts] = useState<ExpiringProduct[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityType[]>([]);
   const [upcomingProcedures, setUpcomingProcedures] = useState<Solicitacao[]>([]);
+  const [projectionsCount, setProjectionsCount] = useState<number | null>(null);
+  const [loadingProjections, setLoadingProjections] = useState(true);
 
   const [loadingBlocks, setLoadingBlocks] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(true);
@@ -151,6 +159,23 @@ export default function ClinicDashboard() {
       .catch(() => {})
       .finally(() => setLoadingDetails(false));
   }, [tenantId]);
+
+  // Projeção de reposição (UC-52) — carregada separada do Promise.all acima
+  // para não acoplar a falha desta feature nova às demais seções do Dashboard.
+  useEffect(() => {
+    if (!tenantId) return;
+
+    setLoadingProjections(true);
+    getReplenishmentProjections(tenantId)
+      .then((projections) => {
+        setProjectionsCount(countProjectionsWithinHorizon(projections, new Date(), 30));
+      })
+      .catch((err) => {
+        console.error('Erro ao carregar projeções de reposição:', err);
+        toast({ title: 'Erro ao carregar projeção de reposição', variant: 'destructive' });
+      })
+      .finally(() => setLoadingProjections(false));
+  }, [tenantId, toast]);
 
   // ── Formatters ──────────────────────────────────────────────────────────────
 
@@ -418,6 +443,50 @@ export default function ClinicDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* PROJEÇÃO DE REPOSIÇÃO */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingDown className="h-5 w-5 text-sky-600" />
+              Projeção de Reposição
+            </CardTitle>
+            <CardDescription>
+              Produtos com estimativa de esgotamento nos próximos 30 dias
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingProjections ? (
+              <BlockSkeleton />
+            ) : projectionsCount === null ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Não foi possível carregar a projeção de reposição
+              </p>
+            ) : projectionsCount === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhum produto com previsão de reposição próxima
+              </p>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-2xl font-bold text-sky-600">{projectionsCount}</span>
+                  <span className="text-sm text-muted-foreground ml-2">
+                    {projectionsCount === 1
+                      ? 'produto com previsão de esgotar em até 30 dias'
+                      : 'produtos com previsão de esgotar em até 30 dias'}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/clinic/inventory/projections')}
+                >
+                  Ver Projeções
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* ── Seções de detalhe ──────────────────────────────────────────── */}
         <div className="grid gap-4 md:grid-cols-2">
