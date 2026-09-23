@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,10 @@ import {
   Eye,
   X,
   ArrowLeft,
+  Receipt,
+  History,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { useToast } from '@/hooks/use-toast';
@@ -21,21 +25,35 @@ import {
   generateStockValueReport,
   generateExpirationReport,
   generateConsumptionReport,
+  generateProcedureCostReport,
+  generateLotHistoryReport,
   exportToExcel,
   formatCurrency,
   formatDecimalBR,
   type StockValueReport,
   type ExpirationReport,
   type ConsumptionReport,
+  type ProcedureCostReport,
+  type LotHistoryReport,
 } from '@/lib/services/reportService';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 
 interface ReportsViewProps {
   tenantId: string;
   readOnly?: boolean;
   backUrl?: string;
+  isAdmin?: boolean;
 }
 
-export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
+interface InventoryOption {
+  id: string;
+  codigo_produto: string;
+  nome_produto: string;
+  lote: string;
+}
+
+export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsViewProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -50,13 +68,51 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
   const [consumptionStartDate, setConsumptionStartDate] = useState('');
   const [consumptionEndDate, setConsumptionEndDate] = useState('');
 
+  const [procedureCostReport, setProcedureCostReport] = useState<ProcedureCostReport | null>(null);
+  const [procedureCostStartDate, setProcedureCostStartDate] = useState('');
+  const [procedureCostEndDate, setProcedureCostEndDate] = useState('');
+  const [expandedProduto, setExpandedProduto] = useState<string | null>(null);
+
+  const [lotHistoryReport, setLotHistoryReport] = useState<LotHistoryReport | null>(null);
+  const [lotHistoryInventory, setLotHistoryInventory] = useState<InventoryOption[]>([]);
+  const [lotHistoryProdutoCodigo, setLotHistoryProdutoCodigo] = useState('');
+  const [lotHistoryInventoryItemId, setLotHistoryInventoryItemId] = useState('');
+
   useEffect(() => {
     const today = new Date();
     const lastMonth = new Date();
     lastMonth.setMonth(today.getMonth() - 1);
     setConsumptionStartDate(lastMonth.toISOString().split('T')[0]);
     setConsumptionEndDate(today.toISOString().split('T')[0]);
+    setProcedureCostStartDate(lastMonth.toISOString().split('T')[0]);
+    setProcedureCostEndDate(today.toISOString().split('T')[0]);
   }, []);
+
+  // Lista de produtos/lotes para os selects em cascata do Histórico do Lote
+  // (UC-51, Fluxo 7a) — carregada uma única vez, só quando isAdmin.
+  useEffect(() => {
+    if (!isAdmin || !tenantId) return;
+
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+    const q = query(inventoryRef, where('active', '==', true), orderBy('nome_produto', 'asc'));
+
+    getDocs(q)
+      .then((snapshot) => {
+        const items: InventoryOption[] = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            codigo_produto: data.codigo_produto,
+            nome_produto: data.nome_produto,
+            lote: data.lote,
+          };
+        });
+        setLotHistoryInventory(items);
+      })
+      .catch((error) => {
+        console.error('Erro ao carregar produtos para histórico do lote:', error);
+      });
+  }, [isAdmin, tenantId]);
 
   async function handleGenerateStockReport() {
     try {
@@ -124,6 +180,63 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
     }
   }
 
+  async function handleGenerateProcedureCostReport() {
+    if (!procedureCostStartDate || !procedureCostEndDate) {
+      toast({
+        title: 'Selecione o período',
+        description: 'Informe a data inicial e final para gerar o relatório de custo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      setLoading(true);
+      setActiveReport('procedure-cost');
+      setExpandedProduto(null);
+      const report = await generateProcedureCostReport(
+        tenantId,
+        new Date(procedureCostStartDate),
+        new Date(procedureCostEndDate)
+      );
+      setProcedureCostReport(report);
+    } catch (error) {
+      console.error('Erro ao gerar relatório:', error);
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o relatório. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGenerateLotHistoryReport() {
+    if (!lotHistoryInventoryItemId) {
+      toast({
+        title: 'Selecione um lote',
+        description: 'Informe o produto e o lote para consultar o histórico.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      setLoading(true);
+      setActiveReport('lot-history');
+      const report = await generateLotHistoryReport(tenantId, lotHistoryInventoryItemId);
+      setLotHistoryReport(report);
+    } catch (error) {
+      console.error('Erro ao gerar relatório:', error);
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o relatório. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleExportStockReport() {
     if (!stockReport) return;
     const data = stockReport.por_produto.map((item) => ({
@@ -162,6 +275,38 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
     }));
     exportToExcel(data, 'relatorio_consumo_produtos');
   }
+
+  function handleExportProcedureCostReport() {
+    if (!procedureCostReport) return;
+    const data = procedureCostReport.por_produto.map((item) => ({
+      Código: item.codigo_produto,
+      Nome: item.nome_produto,
+      Categoria: item.categoria,
+      'Qtd. Consumida': item.quantidade_consumida,
+      'Lotes Distintos': item.lotes_distintos,
+      'Custo Total': formatDecimalBR(item.custo_total, 2),
+      'Ticket Médio de Custo': formatDecimalBR(item.ticket_medio_custo, 2),
+    }));
+    exportToExcel(data, 'relatorio_custo_por_procedimento');
+  }
+
+  function handleExportLotHistoryReport() {
+    if (!lotHistoryReport) return;
+    const data = lotHistoryReport.eventos.map((evento) => ({
+      Data: evento.dt_procedimento.toLocaleDateString('pt-BR'),
+      Procedimento: evento.identificador_procedimento,
+      'Quantidade Consumida': evento.quantidade_consumida,
+      'Saldo Após Evento': evento.saldo_apos_evento,
+    }));
+    exportToExcel(data, `historico_lote_${lotHistoryReport.lote}`);
+  }
+
+  const produtosParaHistorico = Array.from(
+    new Map(lotHistoryInventory.map((i) => [i.codigo_produto, i.nome_produto])).entries()
+  );
+  const lotesParaHistorico = lotHistoryInventory.filter(
+    (i) => i.codigo_produto === lotHistoryProdutoCodigo
+  );
 
   return (
     <div className="container py-8">
@@ -259,6 +404,102 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
               {loading && activeReport === 'consumption' ? 'Gerando...' : 'Gerar Relatório'}
             </Button>
           </div>
+
+          {isAdmin && (
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-indigo-100 rounded-lg">
+                  <Receipt className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Custo por Procedimento</h3>
+                  <p className="text-sm text-gray-600">Custo real de material por produto</p>
+                </div>
+              </div>
+              <div className="space-y-2 mb-3">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Data Início</label>
+                  <Input
+                    type="date"
+                    value={procedureCostStartDate}
+                    onChange={(e) => setProcedureCostStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Data Fim</label>
+                  <Input
+                    type="date"
+                    value={procedureCostEndDate}
+                    onChange={(e) => setProcedureCostEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleGenerateProcedureCostReport}
+                disabled={loading}
+                className="w-full"
+              >
+                {loading && activeReport === 'procedure-cost' ? 'Gerando...' : 'Gerar Relatório'}
+              </Button>
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-teal-100 rounded-lg">
+                  <History className="w-6 h-6 text-teal-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Histórico do Lote</h3>
+                  <p className="text-sm text-gray-600">Consumo cronológico de um lote</p>
+                </div>
+              </div>
+              <div className="space-y-2 mb-3">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Produto</label>
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={lotHistoryProdutoCodigo}
+                    onChange={(e) => {
+                      setLotHistoryProdutoCodigo(e.target.value);
+                      setLotHistoryInventoryItemId('');
+                    }}
+                  >
+                    <option value="">Selecione o produto</option>
+                    {produtosParaHistorico.map(([codigo, nome]) => (
+                      <option key={codigo} value={codigo}>
+                        {nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Lote</label>
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={lotHistoryInventoryItemId}
+                    onChange={(e) => setLotHistoryInventoryItemId(e.target.value)}
+                    disabled={!lotHistoryProdutoCodigo}
+                  >
+                    <option value="">Selecione o lote</option>
+                    {lotesParaHistorico.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.lote}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <Button
+                onClick={handleGenerateLotHistoryReport}
+                disabled={loading}
+                className="w-full"
+              >
+                {loading && activeReport === 'lot-history' ? 'Gerando...' : 'Gerar Relatório'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Stock Report Result */}
@@ -540,6 +781,254 @@ export function ReportsView({ tenantId, readOnly, backUrl }: ReportsViewProps) {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Procedure Cost Report Result */}
+        {procedureCostReport && activeReport === 'procedure-cost' && (
+          <div className="bg-white rounded-lg shadow-sm border-2 border-indigo-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold">Relatório de Custo por Procedimento</h2>
+                <Badge variant="secondary" className="bg-indigo-100 text-indigo-700">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Preview
+                </Badge>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => setProcedureCostReport(null)} variant="ghost" size="sm">
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+                <Button onClick={handleExportProcedureCostReport} variant="default" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Exportar Excel
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="p-4 bg-indigo-50 rounded-lg">
+                <p className="text-sm text-indigo-600 font-medium">Custo Total do Período</p>
+                <p className="text-2xl font-bold text-indigo-900">
+                  {formatCurrency(procedureCostReport.custo_total_periodo)}
+                </p>
+              </div>
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-600 font-medium">Ticket Médio de Custo Geral</p>
+                <p className="text-2xl font-bold text-blue-900">
+                  {formatCurrency(procedureCostReport.ticket_medio_custo_geral)}
+                </p>
+              </div>
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <p className="text-sm text-purple-600 font-medium">Total de Procedimentos</p>
+                <p className="text-2xl font-bold text-purple-900">
+                  {procedureCostReport.total_procedimentos_periodo}
+                </p>
+              </div>
+            </div>
+
+            {procedureCostReport.por_produto.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-8">
+                Nenhuma solicitação concluída no período informado
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Código
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Produto
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Categoria
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Qtd. Consumida
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Lotes Distintos
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Custo Total
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Ticket Médio de Custo
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {procedureCostReport.por_produto.map((produto) => (
+                      <Fragment key={produto.codigo_produto}>
+                        <tr
+                          className={
+                            produto.lotes_distintos > 1 ? 'cursor-pointer hover:bg-gray-50' : ''
+                          }
+                          onClick={() =>
+                            produto.lotes_distintos > 1 &&
+                            setExpandedProduto(
+                              expandedProduto === produto.codigo_produto
+                                ? null
+                                : produto.codigo_produto
+                            )
+                          }
+                        >
+                          <td className="px-4 py-3 text-sm text-gray-400">
+                            {produto.lotes_distintos > 1 &&
+                              (expandedProduto === produto.codigo_produto ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              ))}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-mono text-gray-900">
+                            {produto.codigo_produto}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {produto.nome_produto}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{produto.categoria}</td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                            {produto.quantidade_consumida}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-600">
+                            {produto.lotes_distintos}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                            {formatCurrency(produto.custo_total)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                            {formatCurrency(produto.ticket_medio_custo)}
+                          </td>
+                        </tr>
+                        {expandedProduto === produto.codigo_produto && (
+                          <tr key={`${produto.codigo_produto}-detalhe`}>
+                            <td colSpan={8} className="px-4 py-3 bg-gray-50">
+                              <table className="min-w-full">
+                                <thead>
+                                  <tr>
+                                    <th className="px-2 py-1 text-left text-xs text-gray-500">
+                                      Lote
+                                    </th>
+                                    <th className="px-2 py-1 text-right text-xs text-gray-500">
+                                      Quantidade
+                                    </th>
+                                    <th className="px-2 py-1 text-right text-xs text-gray-500">
+                                      Valor Unitário
+                                    </th>
+                                    <th className="px-2 py-1 text-left text-xs text-gray-500">
+                                      Data de Entrada
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {produto.lotes_detalhe.map((lote) => (
+                                    <tr key={lote.inventory_item_id}>
+                                      <td className="px-2 py-1 text-sm font-mono">{lote.lote}</td>
+                                      <td className="px-2 py-1 text-sm text-right">
+                                        {lote.quantidade}
+                                      </td>
+                                      <td className="px-2 py-1 text-sm text-right">
+                                        {formatCurrency(lote.valor_unitario)}
+                                      </td>
+                                      <td className="px-2 py-1 text-sm">
+                                        {lote.dt_entrada
+                                          ? lote.dt_entrada.toLocaleDateString('pt-BR')
+                                          : '—'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lot History Report Result */}
+        {lotHistoryReport && activeReport === 'lot-history' && (
+          <div className="bg-white rounded-lg shadow-sm border-2 border-teal-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold">
+                  Histórico do Lote — {lotHistoryReport.nome_produto} ({lotHistoryReport.lote})
+                </h2>
+                <Badge variant="secondary" className="bg-teal-100 text-teal-700">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Preview
+                </Badge>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => setLotHistoryReport(null)} variant="ghost" size="sm">
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+                <Button onClick={handleExportLotHistoryReport} variant="default" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Exportar Excel
+                </Button>
+              </div>
+            </div>
+
+            {lotHistoryReport.eventos.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-8">
+                Nenhum procedimento concluído consumiu este lote
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Data
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Procedimento
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Quantidade Consumida
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Saldo Após Evento
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {lotHistoryReport.eventos.map((evento, idx) => (
+                      <tr key={idx}>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {evento.dt_procedimento.toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {evento.identificador_procedimento}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          {evento.quantidade_consumida}
+                        </td>
+                        <td
+                          className={`px-4 py-3 text-sm text-right font-medium ${
+                            evento.saldo_apos_evento < 0 ? 'text-red-600' : 'text-gray-900'
+                          }`}
+                        >
+                          {evento.saldo_apos_evento}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
