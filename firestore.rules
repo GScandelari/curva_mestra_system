@@ -240,6 +240,20 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // inventory_activity em escopo de collectionGroup (RNF-05/UC-53) — a regra
+    // genérica de subcoleção (tenants/{tenantId}/{document=**}, acima) cobre
+    // get/list dentro de um tenant, mas NÃO se aplica a consultas
+    // collectionGroup(): confirmado manualmente contra o Firebase Emulator que
+    // uma wildcard recursiva no meio do caminho não estende automaticamente
+    // para "permission-denied: No matching allow statements" em collectionGroup,
+    // mesmo para isSystemAdmin() — é necessária uma regra dedicada nomeando a
+    // coleção no nível do grupo. Só system_admin usa collectionGroup aqui (visão
+    // cross-tenant, RF-02); clinic_admin sempre lê a subcoleção do próprio
+    // tenant via collection() normal, já coberta pela regra genérica.
+    match /{path=**}/inventory_activity/{activityId} {
+      allow read: if isSystemAdmin();
+    }
+
     // Configurações globais do sistema
     match /system_settings/{settingId} {
       // Qualquer usuário autenticado pode ler as configurações
