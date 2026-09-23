@@ -18,6 +18,7 @@ export interface ConsumptionRecord {
   quantidade: number;
   valor_unitario: number;
   solicitacao_id: string;
+  solicitacao_descricao?: string;
   dt_procedimento: Date;
 }
 
@@ -218,6 +219,7 @@ export async function getConsumptionRecords(
           quantidade: produto.quantidade || 0,
           valor_unitario: produto.valor_unitario || 0,
           solicitacao_id: doc.id,
+          solicitacao_descricao: data.descricao || undefined,
           dt_procedimento: dtProcedimentoDate,
         });
       });
