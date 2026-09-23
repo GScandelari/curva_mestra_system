@@ -3,6 +3,9 @@
  * Motor de custeio por procedimento/produto (UC-51)
  */
 
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -168,4 +171,102 @@ export function calculateMixPercentages(
   }));
 
   return resultado.sort((a, b) => b.percentual - a.percentual);
+}
+
+// ============================================================================
+// ORQUESTRADORES — LEITURA FIRESTORE
+// ============================================================================
+
+/**
+ * Lê Solicitações concluídas do tenant e achata produtos_solicitados em
+ * ConsumptionRecord[]. Sem dataInicio/dataFim, retorna todo o histórico
+ * (usado pelo Histórico do Lote, RN-05).
+ */
+export async function getConsumptionRecords(
+  tenantId: string,
+  dataInicio?: Date,
+  dataFim?: Date
+): Promise<ConsumptionRecord[]> {
+  try {
+    const solicitacoesRef = collection(db, 'tenants', tenantId, 'solicitacoes');
+    const constraints = [where('status', '==', 'concluida')];
+    if (dataInicio) {
+      constraints.push(where('dt_procedimento', '>=', Timestamp.fromDate(dataInicio)));
+    }
+    if (dataFim) {
+      constraints.push(where('dt_procedimento', '<=', Timestamp.fromDate(dataFim)));
+    }
+
+    const q = query(solicitacoesRef, ...constraints);
+    const snapshot = await getDocs(q);
+
+    const records: ConsumptionRecord[] = [];
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const dtProcedimento: Timestamp | undefined = data.dt_procedimento;
+      if (!dtProcedimento) return;
+      const dtProcedimentoDate = dtProcedimento.toDate();
+
+      const produtos = data.produtos_solicitados || [];
+      produtos.forEach((produto: any) => {
+        records.push({
+          codigo_produto: produto.produto_codigo,
+          nome_produto: produto.produto_nome,
+          inventory_item_id: produto.inventory_item_id,
+          lote: produto.lote,
+          quantidade: produto.quantidade || 0,
+          valor_unitario: produto.valor_unitario || 0,
+          solicitacao_id: doc.id,
+          dt_procedimento: dtProcedimentoDate,
+        });
+      });
+    });
+
+    return records;
+  } catch (error) {
+    console.error('Erro ao buscar registros de consumo:', error);
+    throw new Error('Falha ao calcular custeio: erro ao ler solicitações');
+  }
+}
+
+/**
+ * Para cada código de produto distinto, lê os itens de inventory (sem filtro
+ * `active`, para capturar também lotes já desativados) e monta a categoria
+ * denormalizada e a data de entrada de cada lote.
+ */
+export async function getProductCostMetadata(
+  tenantId: string,
+  codigosProduto: string[]
+): Promise<Map<string, ProductCostMetadata>> {
+  try {
+    const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
+    const resultMap = new Map<string, ProductCostMetadata>();
+
+    await Promise.all(
+      codigosProduto.map(async (codigo) => {
+        const q = query(inventoryRef, where('codigo_produto', '==', codigo));
+        const snapshot = await getDocs(q);
+
+        let categoria = 'Sem Categoria';
+        const dtEntradaByInventoryItemId = new Map<string, Date | null>();
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (categoria === 'Sem Categoria' && data.category) {
+            categoria = data.category;
+          }
+          const dtEntrada: Timestamp | undefined = data.dt_entrada;
+          dtEntradaByInventoryItemId.set(doc.id, dtEntrada ? dtEntrada.toDate() : null);
+        });
+
+        resultMap.set(codigo, { categoria, dtEntradaByInventoryItemId });
+      })
+    );
+
+    return resultMap;
+  } catch (error) {
+    console.error('Erro ao buscar metadados de custeio de produto:', error);
+    throw new Error('Falha ao calcular custeio: erro ao ler inventário');
+  }
 }
