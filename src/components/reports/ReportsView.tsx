@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Fragment } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,7 @@ interface InventoryOption {
 
 export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsViewProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeReport, setActiveReport] = useState<string | null>(null);
@@ -77,6 +78,7 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
   const [lotHistoryInventory, setLotHistoryInventory] = useState<InventoryOption[]>([]);
   const [lotHistoryProdutoCodigo, setLotHistoryProdutoCodigo] = useState('');
   const [lotHistoryInventoryItemId, setLotHistoryInventoryItemId] = useState('');
+  const [lotHistoryAutoLoadDone, setLotHistoryAutoLoadDone] = useState(false);
 
   useEffect(() => {
     const today = new Date();
@@ -113,6 +115,30 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
         console.error('Erro ao carregar produtos para histórico do lote:', error);
       });
   }, [isAdmin, tenantId]);
+
+  // Ponto de entrada a partir do detalhe do item de inventário (RF-06): se a
+  // URL trouxer ?report=lot-history&inventoryItemId=..., pré-seleciona o
+  // produto/lote correspondentes e dispara a geração automaticamente.
+  useEffect(() => {
+    if (lotHistoryAutoLoadDone || lotHistoryInventory.length === 0) return;
+
+    const report = searchParams.get('report');
+    const inventoryItemId = searchParams.get('inventoryItemId');
+    if (report !== 'lot-history' || !inventoryItemId) return;
+
+    const matched = lotHistoryInventory.find((i) => i.id === inventoryItemId);
+    if (!matched) return;
+
+    setLotHistoryProdutoCodigo(matched.codigo_produto);
+    setLotHistoryInventoryItemId(matched.id);
+    setLotHistoryAutoLoadDone(true);
+    handleGenerateLotHistoryReport(matched.id);
+    // handleGenerateLotHistoryReport é recriada a cada render (não é uma ref
+    // estável) e não deve disparar este efeito novamente -- só
+    // lotHistoryInventory/searchParams/lotHistoryAutoLoadDone determinam
+    // quando isso deve rodar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lotHistoryInventory, searchParams, lotHistoryAutoLoadDone]);
 
   async function handleGenerateStockReport() {
     try {
@@ -211,8 +237,9 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
     }
   }
 
-  async function handleGenerateLotHistoryReport() {
-    if (!lotHistoryInventoryItemId) {
+  async function handleGenerateLotHistoryReport(overrideInventoryItemId?: string) {
+    const inventoryItemId = overrideInventoryItemId ?? lotHistoryInventoryItemId;
+    if (!inventoryItemId) {
       toast({
         title: 'Selecione um lote',
         description: 'Informe o produto e o lote para consultar o histórico.',
@@ -223,7 +250,7 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
     try {
       setLoading(true);
       setActiveReport('lot-history');
-      const report = await generateLotHistoryReport(tenantId, lotHistoryInventoryItemId);
+      const report = await generateLotHistoryReport(tenantId, inventoryItemId);
       setLotHistoryReport(report);
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
@@ -492,7 +519,7 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
                 </div>
               </div>
               <Button
-                onClick={handleGenerateLotHistoryReport}
+                onClick={() => handleGenerateLotHistoryReport()}
                 disabled={loading}
                 className="w-full"
               >

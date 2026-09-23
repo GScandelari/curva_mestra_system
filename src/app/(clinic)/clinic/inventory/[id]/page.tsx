@@ -28,6 +28,7 @@ import {
   Barcode,
   Trash2,
   Loader2,
+  History,
 } from 'lucide-react';
 import {
   getInventoryItem,
@@ -285,6 +286,18 @@ export default function InventoryItemPage() {
               <StockIcon className="mr-1 h-3 w-3" />
               {stockStatus.text}
             </Badge>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  router.push(`/clinic/reports?report=lot-history&inventoryItemId=${item.id}`)
+                }
+              >
+                <History className="mr-2 h-4 w-4" />
+                Ver Histórico do Lote
+              </Button>
+            )}
             {isAdmin && item.active && (
               <Button
                 variant="destructive"
