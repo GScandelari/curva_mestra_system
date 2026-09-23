@@ -6,7 +6,7 @@
 **Status:** Rascunho
 **Módulo/Contexto:** Relatórios
 
-**Versão:** 1.0.2
+**Versão:** 1.0.3
 
 > Um usuário de clínica (`clinic_admin` ou `clinic_user`) gera, sob demanda em `/clinic/reports`, um de três relatórios independentes — Valor do Estoque, Produtos Vencendo (com antecedência configurável) e Consumo por Período — cada um calculado em tempo real no client a partir de `tenants/{tenantId}/inventory` e `tenants/{tenantId}/solicitacoes`, exibido em preview na tela e exportável para Excel (.xlsx). É a única funcionalidade de relatórios realmente implementada no sistema hoje — o componente `ReportsView` foi construído com props (`readOnly`, `backUrl`) pensadas para reuso no Portal Consultor, mas essa tela (`/consultant/reports`) ainda é um placeholder "Em Desenvolvimento", sem nenhuma chamada real a este serviço.
 
@@ -54,6 +54,7 @@ Nenhum sistema externo além do próprio Firestore (leitura client-side) e da bi
 - O relatório solicitado é exibido em um preview na própria tela (cards de totais + tabela detalhada).
 - Se o usuário clicar em "Exportar Excel": um arquivo `.xlsx` é baixado pelo navegador, nomeado `{relatorio}_{AAAA-MM-DD}.xlsx`, com os mesmos dados exibidos no preview (recalculados a partir do estado em memória, não uma nova consulta).
 - **[CORRIGIDO em v1.0.2, commit `70a38d7`]** No Relatório de Vencimento, se algum item de inventário tiver `dt_validade` inválida/não interpretável (formato desconhecido, tipo de dado inválido, ou uma data sintaticamente aceita pelo construtor `Date` mas com valor inválido, ex.: `"2025-13-45"`), ele é contado em `itens_ignorados` e um banner amarelo é exibido acima da tabela, avisando que o "Valor em Risco" pode estar subestimado — ver RN-02.
+- **[CORRIGIDO em v1.0.3, commit `1ac45ab`]** No Relatório de Consumo, a tabela `por_produto` exibe corretamente uma linha por produto distinto (código, nome, quantidade consumida, procedimentos, valor total) — ver RN-08.
 
 ### 4.2 Falha (Garantias Mínimas)
 - Se a geração do relatório falhar (erro de rede/permissão no Firestore): um `toast` destrutivo (`useToast`) exibe "Erro ao gerar relatório" / "Não foi possível gerar o relatório. Tente novamente." — corrigido no commit `53df743` (RNF-01); nenhum preview é exibido; o erro completo continua sendo registrado via `console.error`.
@@ -88,7 +89,7 @@ Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`
 1. Sistema pré-preenche "Data Início" (um mês atrás) e "Data Fim" (hoje) ao carregar a página.
 2. Usuário ajusta o período (opcional) e clica em "Gerar Relatório" no card "Consumo".
 3. Sistema valida que ambas as datas estão preenchidas (senão, exibe um `toast` destrutivo "Selecione o período" / "Informe a data inicial e final para gerar o relatório de consumo." — corrigido no commit `53df743`, RNF-01) e chama `generateConsumptionReport(tenantId, dataInicio, dataFim)`: busca `tenants/{tenantId}/solicitacoes` com `status == 'concluida'` e `dt_procedimento` dentro do intervalo, somando `quantidade`/`valor_unitario` de cada produto em `produtos_solicitados` de cada solicitação.
-4. Sistema exibe cards de "Total Procedimentos", "Produtos Consumidos" e "Valor Total", e uma tabela por produto (quantidade consumida, número de procedimentos em que apareceu, valor total).
+4. Sistema exibe cards de "Total Procedimentos", "Produtos Consumidos" e "Valor Total", e uma tabela por produto (quantidade consumida, número de procedimentos em que apareceu, valor total) — **[CORRIGIDO em v1.0.3, commit `1ac45ab`]** agrupamento por produto (`por_produto`) corrigido, ver RN-08.
 5. Usuário pode exportar ou fechar, como no fluxo principal.
 
 ### 7c. Múltiplos relatórios gerados em sequência
@@ -123,6 +124,7 @@ Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`
 | RN-05 | A exportação para Excel (`exportToExcel`) recalcula as linhas a partir do estado em memória do relatório já gerado — não dispara uma nova consulta ao Firestore. Uma função irmã, `exportToCSV`, existe no mesmo arquivo mas é **código morto**: nunca é chamada por `ReportsView` nem por nenhum outro ponto do código. | Confirmado por leitura de `handleExportStockReport`/`handleExportExpirationReport`/`handleExportConsumptionReport` (todos chamam `exportToExcel`) e por busca exaustiva por `exportToCSV` em `src/` — só a própria definição. |
 | RN-06 | Todos os três relatórios são calculados 100% client-side, sem nenhuma API route dedicada — a segurança/isolamento multi-tenant depende inteiramente da regra genérica do Firestore `tenants/{tenantId}/{document=**}`, que concede leitura/escrita a qualquer membro do tenant (`belongsToTenant`). | Confirmado por leitura de `reportService.ts` (todas as três funções usam `collection(db, 'tenants', tenantId, ...)` diretamente) e de `firestore.rules` (linha 53-62). |
 | RN-07 | **[Achado, relacionado a módulo futuro]** O componente `ReportsView` já foi construído com props `readOnly`/`backUrl` para reuso — mas a única tela que efetivamente o utiliza é `/clinic/reports`; `/consultant/reports` é um placeholder estático ("Em Desenvolvimento"), sem nenhuma chamada a `reportService.ts`. | Confirmado por busca exaustiva por `ReportsView` em `src/` (2 ocorrências: definição e uso em `clinic/reports/page.tsx`) e por leitura completa de `consultant/reports/page.tsx` (cards "opacity-60", sem nenhuma lógica de geração). |
+| RN-08 | **[CORRIGIDO em v1.0.3, commit `1ac45ab`]** Antes: o agrupamento por produto do Relatório de Consumo (`por_produto`, em `generateConsumptionReport`) lia os campos `produto.codigo_produto`/`produto.nome_produto` de cada item de `produtos_solicitados`, mas a interface `ProdutoSolicitado` (`src/types/index.ts`, linhas 204-212) grava esses dados como `produto_codigo`/`produto_nome` — `codigo_produto`/`nome_produto` só existem em `InventoryItem`, uma interface diferente. Como os dois campos lidos resolviam sempre para `undefined`, a chave de agrupamento (`keyProduto`) era `undefined` para todo item, e **todos os produtos consumidos no período colapsavam numa única linha "indefinida"** (`codigo`/`nome` também `undefined`) em vez de aparecerem separados por produto. Os totais agregados (`total_procedimentos`, `total_produtos_consumidos`, `valor_total_consumido`) não eram afetados — apenas o detalhamento `por_produto`. Agora: as leituras nas linhas 290, 293 e 294 de `generateConsumptionReport` usam `produto.produto_codigo`/`produto.produto_nome`, e a tabela agrupa corretamente por produto. Achado durante a implementação do UC-52 (`projectionService.ts`), que copiou esta função como referência de convenção e reproduziu o mesmo engano em código novo — ao corrigir o UC-52, constatou-se que o bug de origem, aqui, ainda não havia sido corrigido. | Confirmado por leitura de `reportService.ts` (commit `1ac45ab`) e da interface `ProdutoSolicitado` em `src/types/index.ts` (linhas 204-212). |
 
 ---
 
@@ -145,6 +147,7 @@ Provavelmente frequente/recorrente — é a única tela de relatórios totalment
 - **UC-10/UC-11 (Importação de NF-e)** e **UC-13/UC-14 (Inventário)** — fonte dos dados de `inventory` consumidos pelo Relatório de Valor do Estoque e de Vencimento.
 - **UC-16 a UC-19 (Procedimentos)** — fonte dos dados de `solicitacoes` (status `concluida`) consumidos pelo Relatório de Consumo.
 - **UC-42 (Executar Verificações de Alertas Manualmente)** — cálculo de "produtos vencendo" conceitualmente semelhante ao deste UC, mas com propósito e implementação totalmente independentes (um gera notificações persistidas; este gera um relatório efêmero, sem persistência).
+- **UC-52 (Projeção de Consumo/Estoque)** — `projectionService.ts` copiou `generateConsumptionReport` como referência de convenção e reproduziu o mesmo engano de campo corrigido aqui em RN-08; corrigido na mesma sessão.
 - Consultant — Relatórios (`/consultant/reports`) — tela placeholder, **não mapeada como UC** por não ter nenhuma lógica de negócio real implementada ainda (RN-07); candidata a UC futuro quando a funcionalidade for de fato construída.
 
 ---
@@ -153,12 +156,14 @@ Provavelmente frequente/recorrente — é a única tela de relatórios totalment
 - `src/app/(clinic)/clinic/reports/page.tsx` (`ReportsPage`)
 - `src/components/reports/ReportsView.tsx` (`ReportsView`, `useToast` — ver RNF-01; banner de itens ignorados — ver RN-02)
 - `src/lib/services/reportService.ts` (`generateStockValueReport`, `generateExpirationReport`, `generateConsumptionReport`, `exportToExcel`, `exportToCSV` — código morto)
+- `src/types/index.ts` (interface `ProdutoSolicitado`, linhas 204-212 — campos `produto_codigo`/`produto_nome`, ver RN-08)
 - `src/hooks/use-toast.ts` (`useToast`, padrão adotado na correção do RNF-01)
 - `src/components/clinic/ClinicLayout.tsx` (`navLinks` — inclui "Relatórios")
 - `firestore.rules` (linhas 53-62 — regra genérica de subcoleções do tenant)
 - `src/app/(consultant)/consultant/reports/page.tsx` (placeholder "Em Desenvolvimento", fora do escopo deste UC — RN-07)
 - Commit da correção: `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`) — troca `alert()` nativo por `toast()` padrão do sistema (RNF-01)
 - Commit da correção: `70a38d7` (`fix: quatro itens de media severidade (UC-39, UC-45, UC-47, UC-48)`) — adiciona contagem de `itens_ignorados` e banner de aviso no Relatório de Vencimento (RN-02)
+- Commit da correção: `1ac45ab` (`fix(reports): read produto_codigo/produto_nome instead of codigo_produto/nome_produto in consumption report`) — corrige o agrupamento por produto do Relatório de Consumo (RN-08)
 
 ---
 
@@ -170,8 +175,9 @@ Provavelmente frequente/recorrente — é a única tela de relatórios totalment
 2. **[Observação]** RN-01 — o nome "Produtos Vencendo" pode confundir usuários, já que o relatório também inclui produtos já vencidos. É intencional (nome mantido por simplicidade) ou vale renomear/ajustar a UI para deixar isso explícito?
 3. **[Observação]** RN-05 — `exportToCSV` é código morto. Remover, ou manter como alternativa futura de exportação?
 4. **[Observação, não bloqueante]** RN-07 — `/consultant/reports` é um placeholder sem lógica real; não foi mapeado como UC nesta rodada por não representar comportamento de negócio implementado. Deve ser tratado como pendência de roadmap, não como lacuna de documentação.
+5. **[RESOLVIDO — commit `1ac45ab`]** RN-08 — o agrupamento por produto do Relatório de Consumo colapsava todos os produtos em uma única linha "indefinida" por leitura de campos incorretos (`codigo_produto`/`nome_produto` em vez de `produto_codigo`/`produto_nome`); já corrigido.
 
-Nenhuma pendência bloqueante remanescente sobre RNF-01 ou RN-02 — ambos os achados críticos deste UC (feedback de erro e itens ignorados no relatório de vencimento) já foram corrigidos, respectivamente nos commits `53df743` e `70a38d7`.
+Nenhuma pendência bloqueante remanescente sobre RNF-01, RN-02 ou RN-08 — todos os achados críticos deste UC já foram corrigidos, respectivamente nos commits `53df743`, `70a38d7` e `1ac45ab`.
 
 ---
 
@@ -182,3 +188,4 @@ Nenhuma pendência bloqueante remanescente sobre RNF-01 ou RN-02 — ambos os ac
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada por leitura completa de `ReportsPage`, `ReportsView`, `reportService.ts` (as três funções de geração + utilitários de exportação), `ClinicLayout.tsx` e `firestore.rules`. Confirmado que este é o único módulo de relatórios do módulo Clinic totalmente funcional, e que a tela equivalente do Portal Consultor (`/consultant/reports`) é apenas um placeholder "Em Desenvolvimento", sem nenhuma lógica real — por isso não foi mapeada como UC separado nesta rodada (RN-07). Identificados achados: o Relatório de "Produtos Vencendo" também inclui produtos já vencidos (RN-01); itens com data de validade em formato inválido são omitidos silenciosamente (RN-02); apenas um relatório é exibido por vez, mesmo com múltiplos calculados em memória (RN-04); e `exportToCSV` é código morto (RN-05). |
 | 1.0.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-47-RNF-01): as 4 chamadas de `alert()` nativo em `ReportsView.tsx` (3 nos handlers de erro de geração de relatório, 1 na validação de período vazio do relatório de Consumo) foram substituídas por `toast()` do hook `useToast` (`@/hooks/use-toast`), corrigido no commit `53df743`. Atualizados Pós-condição 4.2, Fluxo Alternativo 7b (passo 3), Fluxo de Exceção 8a, RNF-01 (marcado `[Corrigido]`) e referências (Seção 13). Nenhum item da Seção 14 estava associado a RNF-01; nenhuma alteração feita nessa seção além de uma nota final confirmando a ausência de pendência remanescente sobre o achado corrigido. |
 | 1.0.2 | 03/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-47-RN-02), commit `70a38d7`: itens de inventário com `dt_validade` inválida/não interpretável no Relatório de Vencimento passaram a ser contabilizados em um novo campo `itens_ignorados` (interface `ExpirationReport`) — incluindo um terceiro caso antes não coberto (`Invalid Date` sintaticamente aceito pelo construtor `Date`, ex.: `"2025-13-45"`, que era descartado silenciosamente pela comparação `NaN <= limitDate`). `ReportsView.tsx` ganhou um banner de aviso amarelo (visível quando `itens_ignorados > 0`) alertando que o "Valor em Risco" pode estar subestimado. Atualizados Pós-condição de Sucesso (4.1), Fluxo Alternativo 7a, Fluxo de Exceção 8b (reescrito como histórico "[Corrigido]"), RN-02 (marcada `[CORRIGIDO]`), Referências (Seção 13) e item 1 da Seção 14 (marcado `[RESOLVIDO]`). |
+| 1.0.3 | 23/09/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-47-RN-08), commit `1ac45ab`: o agrupamento por produto do Relatório de Consumo (`por_produto`, em `generateConsumptionReport`) lia os campos `codigo_produto`/`nome_produto` de cada item de `produtos_solicitados`, mas a interface `ProdutoSolicitado` grava esses dados como `produto_codigo`/`produto_nome` — resultando em `keyProduto` sempre `undefined` e todos os produtos consumidos no período colapsando numa única linha "indefinida" no relatório, sem afetar os totais agregados. Achado durante a implementação do UC-52 (`projectionService.ts`), que copiou esta função como referência e reproduziu o mesmo engano em código novo. Atualizados Pós-condição de Sucesso (4.1), Fluxo Alternativo 7b (passo 4), nova regra RN-08 (nasce já `[CORRIGIDO]`), Casos de Uso Relacionados (Seção 12, novo vínculo com UC-52), Referências (Seção 13) e Seção 14 (novo item 5, `[RESOLVIDO]`). |
