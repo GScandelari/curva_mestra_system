@@ -7,5 +7,5 @@ export default function ReportsPage() {
   const { claims } = useAuth();
   const tenantId = claims?.tenant_id;
   if (!tenantId) return null;
-  return <ReportsView tenantId={tenantId} />;
+  return <ReportsView tenantId={tenantId} isAdmin={claims?.role === 'clinic_admin'} />;
 }

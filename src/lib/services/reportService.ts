@@ -4,8 +4,21 @@
  */
 
 import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter } from 'date-fns';
 import { db } from '@/lib/firebase';
 import type { InventoryItem } from '@/types';
+import { getInventoryItem } from '@/lib/services/inventoryService';
+import {
+  getConsumptionRecords,
+  getProductCostMetadata,
+  groupConsumptionByProduct,
+  buildLotHistory,
+  calculateTicketMedioCusto,
+  calculateMixPercentages,
+  type ProductCostSummary,
+  type LotHistoryEntry,
+  type LotHistoryEvent,
+} from '@/lib/services/costingService';
 
 // ============================================================================
 // TYPES
@@ -58,6 +71,43 @@ export interface ConsumptionReport {
     valor_total: number;
     procedimentos: number; // Quantos procedimentos usaram este produto
   }[];
+  gerado_em: Date;
+}
+
+export interface ProcedureCostReport {
+  periodo: { inicio: Date; fim: Date };
+  custo_total_periodo: number;
+  ticket_medio_custo_geral: number;
+  total_procedimentos_periodo: number;
+  por_produto: ProductCostSummary[];
+  gerado_em: Date;
+}
+
+export interface LotHistoryReport {
+  inventory_item_id: string;
+  codigo_produto: string;
+  nome_produto: string;
+  lote: string;
+  quantidade_inicial: number;
+  eventos: LotHistoryEntry[];
+  gerado_em: Date;
+}
+
+export interface MonthlyExecutiveReport {
+  mes: number;
+  ano: number;
+  valor_total_estoque: number;
+  custo_total_consumido_mes: number;
+  total_procedimentos_concluidos_mes: number;
+  top_5_produtos_custo: { codigo: string; nome: string; custo_total: number }[];
+  gerado_em: Date;
+}
+
+export interface QuarterlyMixReport {
+  trimestre: 1 | 2 | 3 | 4;
+  ano: number;
+  custo_total_trimestre: number;
+  por_produto: { codigo: string; nome: string; custo_total: number; percentual: number }[];
   gerado_em: Date;
 }
 
@@ -287,11 +337,11 @@ export async function generateConsumptionReport(
         totalProdutosConsumidos += quantidade;
         valorTotalConsumido += valorTotal;
 
-        const keyProduto = produto.codigo_produto;
+        const keyProduto = produto.produto_codigo;
         if (!produtosMap.has(keyProduto)) {
           produtosMap.set(keyProduto, {
-            codigo: produto.codigo_produto,
-            nome: produto.nome_produto,
+            codigo: produto.produto_codigo,
+            nome: produto.produto_nome,
             quantidade_consumida: 0,
             valor_total: 0,
             procedimentos: 0,
@@ -327,6 +377,176 @@ export async function generateConsumptionReport(
 }
 
 // ============================================================================
+// RELATÓRIO DE CUSTO POR PROCEDIMENTO (UC-51)
+// ============================================================================
+
+/**
+ * Gera relatório de custo por procedimento/produto, com custo médio
+ * ponderado quando múltiplos lotes do mesmo produto foram consumidos
+ * (RN-01/RN-02/RN-03 do UC-51)
+ */
+export async function generateProcedureCostReport(
+  tenantId: string,
+  dataInicio: Date,
+  dataFim: Date
+): Promise<ProcedureCostReport> {
+  try {
+    const records = await getConsumptionRecords(tenantId, dataInicio, dataFim);
+    const codigosDistintos = Array.from(new Set(records.map((r) => r.codigo_produto)));
+    const metadataByCodigo = await getProductCostMetadata(tenantId, codigosDistintos);
+
+    const porProduto = groupConsumptionByProduct(records, metadataByCodigo).sort(
+      (a, b) => b.custo_total - a.custo_total
+    );
+
+    const custoTotalPeriodo = porProduto.reduce((sum, p) => sum + p.custo_total, 0);
+    const totalProcedimentosPeriodo = new Set(records.map((r) => r.solicitacao_id)).size;
+
+    return {
+      periodo: { inicio: dataInicio, fim: dataFim },
+      custo_total_periodo: custoTotalPeriodo,
+      ticket_medio_custo_geral: calculateTicketMedioCusto(
+        custoTotalPeriodo,
+        totalProcedimentosPeriodo
+      ),
+      total_procedimentos_periodo: totalProcedimentosPeriodo,
+      por_produto: porProduto,
+      gerado_em: new Date(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar relatório de custo por procedimento:', error);
+    throw new Error('Falha ao gerar relatório');
+  }
+}
+
+// ============================================================================
+// HISTÓRICO DO LOTE (UC-51)
+// ============================================================================
+
+/**
+ * Gera o histórico cronológico de consumo de um lote específico
+ * (inventory_item_id), com saldo remanescente após cada evento (RN-05)
+ */
+export async function generateLotHistoryReport(
+  tenantId: string,
+  inventoryItemId: string
+): Promise<LotHistoryReport> {
+  try {
+    const item = await getInventoryItem(tenantId, inventoryItemId);
+    if (!item) {
+      throw new Error('Item de inventário não encontrado');
+    }
+
+    const allRecords = await getConsumptionRecords(tenantId);
+    const relevantRecords = allRecords.filter((r) => r.inventory_item_id === inventoryItemId);
+
+    const eventos: LotHistoryEvent[] = relevantRecords.map((r) => ({
+      solicitacao_id: r.solicitacao_id,
+      identificador_procedimento:
+        r.solicitacao_descricao || `SOL-${r.solicitacao_id.slice(0, 8).toUpperCase()}`,
+      dt_procedimento: r.dt_procedimento,
+      quantidade_consumida: r.quantidade,
+    }));
+
+    return {
+      inventory_item_id: inventoryItemId,
+      codigo_produto: item.codigo_produto,
+      nome_produto: item.nome_produto,
+      lote: item.lote,
+      quantidade_inicial: item.quantidade_inicial,
+      eventos: buildLotHistory(eventos, item.quantidade_inicial),
+      gerado_em: new Date(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar histórico do lote:', error);
+    throw new Error('Falha ao gerar relatório');
+  }
+}
+
+// ============================================================================
+// FECHAMENTO EXECUTIVO MENSAL (UC-51)
+// ============================================================================
+
+/**
+ * Gera o resumo executivo de um mês: valor total em estoque, custo total
+ * consumido no mês, total de procedimentos concluídos e top 5 produtos por
+ * custo (RF-08)
+ */
+export async function generateMonthlyExecutiveReport(
+  tenantId: string,
+  mes: number,
+  ano: number
+): Promise<MonthlyExecutiveReport> {
+  try {
+    const referencia = new Date(ano, mes - 1, 1);
+    const inicio = startOfMonth(referencia);
+    const fim = endOfMonth(referencia);
+
+    const [stockReport, procedureCostReport] = await Promise.all([
+      generateStockValueReport(tenantId),
+      generateProcedureCostReport(tenantId, inicio, fim),
+    ]);
+
+    return {
+      mes,
+      ano,
+      valor_total_estoque: stockReport.valor_total,
+      custo_total_consumido_mes: procedureCostReport.custo_total_periodo,
+      total_procedimentos_concluidos_mes: procedureCostReport.total_procedimentos_periodo,
+      top_5_produtos_custo: procedureCostReport.por_produto.slice(0, 5).map((p) => ({
+        codigo: p.codigo_produto,
+        nome: p.nome_produto,
+        custo_total: p.custo_total,
+      })),
+      gerado_em: new Date(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar fechamento executivo mensal:', error);
+    throw new Error('Falha ao gerar relatório');
+  }
+}
+
+// ============================================================================
+// MIX DE PRODUTOS POR TRIMESTRE (UC-51)
+// ============================================================================
+
+/**
+ * Gera a participação percentual de cada produto no custo total consumido
+ * num trimestre (RF-09)
+ */
+export async function generateQuarterlyMixReport(
+  tenantId: string,
+  trimestre: 1 | 2 | 3 | 4,
+  ano: number
+): Promise<QuarterlyMixReport> {
+  try {
+    const referencia = new Date(ano, (trimestre - 1) * 3, 1);
+    const inicio = startOfQuarter(referencia);
+    const fim = endOfQuarter(referencia);
+
+    const procedureCostReport = await generateProcedureCostReport(tenantId, inicio, fim);
+    const porProduto = calculateMixPercentages(
+      procedureCostReport.por_produto.map((p) => ({
+        codigo_produto: p.codigo_produto,
+        nome_produto: p.nome_produto,
+        custo_total: p.custo_total,
+      }))
+    );
+
+    return {
+      trimestre,
+      ano,
+      custo_total_trimestre: procedureCostReport.custo_total_periodo,
+      por_produto: porProduto,
+      gerado_em: new Date(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar mix de produtos por trimestre:', error);
+    throw new Error('Falha ao gerar relatório');
+  }
+}
+
+// ============================================================================
 // UTILITIES
 // ============================================================================
 
@@ -348,6 +568,23 @@ export function exportToExcel(data: any[], filename: string): void {
     // Gerar arquivo e fazer download
     const dateStr = new Date().toISOString().split('T')[0];
     XLSX.writeFile(workbook, `${filename}_${dateStr}.xlsx`);
+  });
+}
+
+/**
+ * Exporta relatório para PDF, client-side (jsPDF + jspdf-autotable, import
+ * dinâmico, mesmo padrão de exportToExcel/xlsx). buildDocument recebe o
+ * documento e a função autoTable para desenhar o conteúdo do relatório.
+ */
+export function exportToPdf(
+  buildDocument: (doc: any, autoTable: (doc: any, options: any) => void) => void,
+  filename: string
+): void {
+  Promise.all([import('jspdf'), import('jspdf-autotable')]).then(([{ jsPDF }, { autoTable }]) => {
+    const doc = new jsPDF();
+    buildDocument(doc, autoTable);
+    const dateStr = new Date().toISOString().split('T')[0];
+    doc.save(`${filename}_${dateStr}.pdf`);
   });
 }
 
