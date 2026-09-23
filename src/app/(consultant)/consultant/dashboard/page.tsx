@@ -5,9 +5,13 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LayoutDashboard, Building2, Search, ArrowRight, Copy } from 'lucide-react';
+import { LayoutDashboard, Building2, Search, ArrowRight, Copy, TrendingDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import {
+  getReplenishmentProjections,
+  countProjectionsWithinHorizon,
+} from '@/lib/services/projectionService';
 import type { Consultant } from '@/types';
 
 interface ClinicSummary {
@@ -23,6 +27,8 @@ export default function ConsultantDashboardPage() {
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [clinics, setClinics] = useState<ClinicSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projectionsCount, setProjectionsCount] = useState<number | null>(null);
+  const [loadingProjections, setLoadingProjections] = useState(true);
 
   const loadDashboardData = useCallback(async () => {
     if (!user) return;
@@ -64,6 +70,42 @@ export default function ConsultantDashboardPage() {
       void loadDashboardData();
     }
   }, [user, consultantId, loadDashboardData]);
+
+  // Projeção de reposição (UC-52) — agrega a contagem de todas as clínicas
+  // vinculadas ativas (RF-03/RNF-02). Falha em uma clínica individual não
+  // deve derrubar o card inteiro: soma as demais e loga a falha parcial.
+  useEffect(() => {
+    const activeClinics = clinics.filter((c) => c.active);
+    if (activeClinics.length === 0) {
+      setProjectionsCount(clinics.length === 0 ? null : 0);
+      setLoadingProjections(false);
+      return;
+    }
+
+    setLoadingProjections(true);
+    Promise.allSettled(activeClinics.map((clinic) => getReplenishmentProjections(clinic.id))).then(
+      (results) => {
+        let total = 0;
+        let hasFailure = false;
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            total += countProjectionsWithinHorizon(result.value, new Date(), 30);
+          } else {
+            hasFailure = true;
+            console.error('Erro ao carregar projeção de reposição de uma clínica:', result.reason);
+          }
+        });
+        if (hasFailure) {
+          toast({
+            title: 'Não foi possível carregar a projeção de todas as clínicas',
+            variant: 'destructive',
+          });
+        }
+        setProjectionsCount(total);
+        setLoadingProjections(false);
+      }
+    );
+  }, [clinics, toast]);
 
   const copyCode = () => {
     if (consultant?.code) {
@@ -146,6 +188,28 @@ export default function ConsultantDashboardPage() {
               <p className="text-sm text-muted-foreground">
                 Encontre e vincule-se a novas clínicas
               </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => router.push('/consultant/clinics')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Projeção de Reposição</CardTitle>
+              <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {loadingProjections ? (
+                <div className="text-sm text-muted-foreground">Carregando...</div>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{projectionsCount ?? 0}</div>
+                  <p className="text-xs text-muted-foreground">
+                    produtos em risco nas clínicas vinculadas
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

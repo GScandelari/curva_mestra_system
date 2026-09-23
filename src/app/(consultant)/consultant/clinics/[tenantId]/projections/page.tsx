@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { InventoryView } from '@/components/inventory/InventoryView';
+import { ProjectionsView } from '@/components/inventory/ProjectionsView';
 
-export default function ConsultantInventoryPage() {
+export default function ConsultantProjectionsPage() {
   const router = useRouter();
   const params = useParams();
   const tenantId = params.tenantId as string;
@@ -28,13 +28,5 @@ export default function ConsultantInventoryPage() {
     );
   }
 
-  return (
-    <InventoryView
-      tenantId={tenantId}
-      readOnly
-      onlyBrand="Rennova"
-      backUrl={`/consultant/clinics/${tenantId}`}
-      onViewProjections={() => router.push(`/consultant/clinics/${tenantId}/projections`)}
-    />
-  );
+  return <ProjectionsView tenantId={tenantId} backUrl={`/consultant/clinics/${tenantId}`} />;
 }
