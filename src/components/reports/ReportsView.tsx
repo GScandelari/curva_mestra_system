@@ -312,6 +312,7 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
       'Qtd. Consumida': item.quantidade_consumida,
       'Lotes Distintos': item.lotes_distintos,
       'Custo Total': formatDecimalBR(item.custo_total, 2),
+      'Custo Unitário Médio': formatDecimalBR(item.custo_unitario_medio, 2),
       'Ticket Médio de Custo': formatDecimalBR(item.ticket_medio_custo, 2),
     }));
     exportToExcel(data, 'relatorio_custo_por_procedimento');
@@ -884,6 +885,9 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
                         Custo Total
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Custo Unitário Médio
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                         Ticket Médio de Custo
                       </th>
                     </tr>
@@ -929,12 +933,15 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
                             {formatCurrency(produto.custo_total)}
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-gray-900">
+                            {formatCurrency(produto.custo_unitario_medio)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">
                             {formatCurrency(produto.ticket_medio_custo)}
                           </td>
                         </tr>
                         {expandedProduto === produto.codigo_produto && (
                           <tr key={`${produto.codigo_produto}-detalhe`}>
-                            <td colSpan={8} className="px-4 py-3 bg-gray-50">
+                            <td colSpan={9} className="px-4 py-3 bg-gray-50">
                               <table className="min-w-full">
                                 <thead>
                                   <tr>
