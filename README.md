@@ -102,15 +102,15 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.28, 26/08/2026):**
+**Resumo (v3.29, 23/09/2026):**
 
 | Severidade | Aberto | Corrigido | Descartado | Total   |
 | ---------- | ------ | --------- | ---------- | ------- |
 | Crítica    | 0      | 5         | 1          | 6       |
 | Alta       | 2      | 24        | 1          | 27      |
-| Média      | 3      | 33        | 1          | 37      |
+| Média      | 3      | 34        | 1          | 38      |
 | Baixa      | 60     | 24        | 1          | 85      |
-| **Total**  | **65** | **86**    | **4**      | **155** |
+| **Total**  | **65** | **87**    | **4**      | **156** |
 
 - ✅ Todos os 6 achados **críticos** já têm status final ou decisão registrada: 5 corrigidos e documentados; 1 descartado por decisão de produto (UC-14, ferramenta de auditoria de inventário removida). **`UC-46-RN-03`/`RN-04` também já corrigidos e documentados** (13/08/2026) — a página quebrada `/clinic/consultant/transfer` foi removida e substituída por `/clinic/consultant/invite` (novo UC-54)
 - ⚠️ **2 itens de severidade Alta seguem em aberto:** (1) achado ampliado de arquitetura de segurança (`UC-13-RN-09 / UC-15-RN-07`) — a regra genérica de subcoleção do tenant em `firestore.rules` concede escrita irrestrita a qualquer usuário do tenant para todas as subcoleções (semântica OR do Firestore torna regras dedicadas inefetivas), com dúvida cruzada sinalizada sobre a efetividade real de `UC-44-RN-02`/`UC-43-RN-07`/`UC-42-RN-01`/`UC-20-RN-07` (os quatro já receberam ressalva textual do `uml-use-case-writer` reconhecendo o problema, sem correção de código); requer decisão dedicada, ainda não tomada. (2) **`UC-04-Q4`** — race condition real em `src/app/(auth)/login/page.tsx` (descoberta pelo `qa-agent` ao gerar o caderno de teste retroativo de UC-04, validada por screenshot do Playwright contra o Firebase Emulator Suite): o card "Sistema Indisponível" nunca é exibido para um `clinic_user` de clínica suspensa; decisão do usuário de não corrigir agora, teste marcado com `test.fixme()`, achado ainda não incorporado à documentação formal de UC-04
