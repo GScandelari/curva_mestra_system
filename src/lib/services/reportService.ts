@@ -4,6 +4,7 @@
  */
 
 import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter } from 'date-fns';
 import { db } from '@/lib/firebase';
 import type { InventoryItem } from '@/types';
 import { getInventoryItem } from '@/lib/services/inventoryService';
@@ -13,6 +14,7 @@ import {
   groupConsumptionByProduct,
   buildLotHistory,
   calculateTicketMedioCusto,
+  calculateMixPercentages,
   type ProductCostSummary,
   type LotHistoryEntry,
   type LotHistoryEvent,
@@ -88,6 +90,24 @@ export interface LotHistoryReport {
   lote: string;
   quantidade_inicial: number;
   eventos: LotHistoryEntry[];
+  gerado_em: Date;
+}
+
+export interface MonthlyExecutiveReport {
+  mes: number;
+  ano: number;
+  valor_total_estoque: number;
+  custo_total_consumido_mes: number;
+  total_procedimentos_concluidos_mes: number;
+  top_5_produtos_custo: { codigo: string; nome: string; custo_total: number }[];
+  gerado_em: Date;
+}
+
+export interface QuarterlyMixReport {
+  trimestre: 1 | 2 | 3 | 4;
+  ano: number;
+  custo_total_trimestre: number;
+  por_produto: { codigo: string; nome: string; custo_total: number; percentual: number }[];
   gerado_em: Date;
 }
 
@@ -444,6 +464,89 @@ export async function generateLotHistoryReport(
 }
 
 // ============================================================================
+// FECHAMENTO EXECUTIVO MENSAL (UC-51)
+// ============================================================================
+
+/**
+ * Gera o resumo executivo de um mês: valor total em estoque, custo total
+ * consumido no mês, total de procedimentos concluídos e top 5 produtos por
+ * custo (RF-08)
+ */
+export async function generateMonthlyExecutiveReport(
+  tenantId: string,
+  mes: number,
+  ano: number
+): Promise<MonthlyExecutiveReport> {
+  try {
+    const referencia = new Date(ano, mes - 1, 1);
+    const inicio = startOfMonth(referencia);
+    const fim = endOfMonth(referencia);
+
+    const [stockReport, procedureCostReport] = await Promise.all([
+      generateStockValueReport(tenantId),
+      generateProcedureCostReport(tenantId, inicio, fim),
+    ]);
+
+    return {
+      mes,
+      ano,
+      valor_total_estoque: stockReport.valor_total,
+      custo_total_consumido_mes: procedureCostReport.custo_total_periodo,
+      total_procedimentos_concluidos_mes: procedureCostReport.total_procedimentos_periodo,
+      top_5_produtos_custo: procedureCostReport.por_produto.slice(0, 5).map((p) => ({
+        codigo: p.codigo_produto,
+        nome: p.nome_produto,
+        custo_total: p.custo_total,
+      })),
+      gerado_em: new Date(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar fechamento executivo mensal:', error);
+    throw new Error('Falha ao gerar relatório');
+  }
+}
+
+// ============================================================================
+// MIX DE PRODUTOS POR TRIMESTRE (UC-51)
+// ============================================================================
+
+/**
+ * Gera a participação percentual de cada produto no custo total consumido
+ * num trimestre (RF-09)
+ */
+export async function generateQuarterlyMixReport(
+  tenantId: string,
+  trimestre: 1 | 2 | 3 | 4,
+  ano: number
+): Promise<QuarterlyMixReport> {
+  try {
+    const referencia = new Date(ano, (trimestre - 1) * 3, 1);
+    const inicio = startOfQuarter(referencia);
+    const fim = endOfQuarter(referencia);
+
+    const procedureCostReport = await generateProcedureCostReport(tenantId, inicio, fim);
+    const porProduto = calculateMixPercentages(
+      procedureCostReport.por_produto.map((p) => ({
+        codigo_produto: p.codigo_produto,
+        nome_produto: p.nome_produto,
+        custo_total: p.custo_total,
+      }))
+    );
+
+    return {
+      trimestre,
+      ano,
+      custo_total_trimestre: procedureCostReport.custo_total_periodo,
+      por_produto: porProduto,
+      gerado_em: new Date(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar mix de produtos por trimestre:', error);
+    throw new Error('Falha ao gerar relatório');
+  }
+}
+
+// ============================================================================
 // UTILITIES
 // ============================================================================
 
@@ -465,6 +568,23 @@ export function exportToExcel(data: any[], filename: string): void {
     // Gerar arquivo e fazer download
     const dateStr = new Date().toISOString().split('T')[0];
     XLSX.writeFile(workbook, `${filename}_${dateStr}.xlsx`);
+  });
+}
+
+/**
+ * Exporta relatório para PDF, client-side (jsPDF + jspdf-autotable, import
+ * dinâmico, mesmo padrão de exportToExcel/xlsx). buildDocument recebe o
+ * documento e a função autoTable para desenhar o conteúdo do relatório.
+ */
+export function exportToPdf(
+  buildDocument: (doc: any, autoTable: (doc: any, options: any) => void) => void,
+  filename: string
+): void {
+  Promise.all([import('jspdf'), import('jspdf-autotable')]).then(([{ jsPDF }, { autoTable }]) => {
+    const doc = new jsPDF();
+    buildDocument(doc, autoTable);
+    const dateStr = new Date().toISOString().split('T')[0];
+    doc.save(`${filename}_${dateStr}.pdf`);
   });
 }
 
