@@ -6,6 +6,17 @@
 import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { InventoryItem } from '@/types';
+import { getInventoryItem } from '@/lib/services/inventoryService';
+import {
+  getConsumptionRecords,
+  getProductCostMetadata,
+  groupConsumptionByProduct,
+  buildLotHistory,
+  calculateTicketMedioCusto,
+  type ProductCostSummary,
+  type LotHistoryEntry,
+  type LotHistoryEvent,
+} from '@/lib/services/costingService';
 
 // ============================================================================
 // TYPES
@@ -58,6 +69,25 @@ export interface ConsumptionReport {
     valor_total: number;
     procedimentos: number; // Quantos procedimentos usaram este produto
   }[];
+  gerado_em: Date;
+}
+
+export interface ProcedureCostReport {
+  periodo: { inicio: Date; fim: Date };
+  custo_total_periodo: number;
+  ticket_medio_custo_geral: number;
+  total_procedimentos_periodo: number;
+  por_produto: ProductCostSummary[];
+  gerado_em: Date;
+}
+
+export interface LotHistoryReport {
+  inventory_item_id: string;
+  codigo_produto: string;
+  nome_produto: string;
+  lote: string;
+  quantidade_inicial: number;
+  eventos: LotHistoryEntry[];
   gerado_em: Date;
 }
 
@@ -322,6 +352,93 @@ export async function generateConsumptionReport(
     };
   } catch (error) {
     console.error('Erro ao gerar relatório de consumo:', error);
+    throw new Error('Falha ao gerar relatório');
+  }
+}
+
+// ============================================================================
+// RELATÓRIO DE CUSTO POR PROCEDIMENTO (UC-51)
+// ============================================================================
+
+/**
+ * Gera relatório de custo por procedimento/produto, com custo médio
+ * ponderado quando múltiplos lotes do mesmo produto foram consumidos
+ * (RN-01/RN-02/RN-03 do UC-51)
+ */
+export async function generateProcedureCostReport(
+  tenantId: string,
+  dataInicio: Date,
+  dataFim: Date
+): Promise<ProcedureCostReport> {
+  try {
+    const records = await getConsumptionRecords(tenantId, dataInicio, dataFim);
+    const codigosDistintos = Array.from(new Set(records.map((r) => r.codigo_produto)));
+    const metadataByCodigo = await getProductCostMetadata(tenantId, codigosDistintos);
+
+    const porProduto = groupConsumptionByProduct(records, metadataByCodigo).sort(
+      (a, b) => b.custo_total - a.custo_total
+    );
+
+    const custoTotalPeriodo = porProduto.reduce((sum, p) => sum + p.custo_total, 0);
+    const totalProcedimentosPeriodo = new Set(records.map((r) => r.solicitacao_id)).size;
+
+    return {
+      periodo: { inicio: dataInicio, fim: dataFim },
+      custo_total_periodo: custoTotalPeriodo,
+      ticket_medio_custo_geral: calculateTicketMedioCusto(
+        custoTotalPeriodo,
+        totalProcedimentosPeriodo
+      ),
+      total_procedimentos_periodo: totalProcedimentosPeriodo,
+      por_produto: porProduto,
+      gerado_em: new Date(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar relatório de custo por procedimento:', error);
+    throw new Error('Falha ao gerar relatório');
+  }
+}
+
+// ============================================================================
+// HISTÓRICO DO LOTE (UC-51)
+// ============================================================================
+
+/**
+ * Gera o histórico cronológico de consumo de um lote específico
+ * (inventory_item_id), com saldo remanescente após cada evento (RN-05)
+ */
+export async function generateLotHistoryReport(
+  tenantId: string,
+  inventoryItemId: string
+): Promise<LotHistoryReport> {
+  try {
+    const item = await getInventoryItem(tenantId, inventoryItemId);
+    if (!item) {
+      throw new Error('Item de inventário não encontrado');
+    }
+
+    const allRecords = await getConsumptionRecords(tenantId);
+    const relevantRecords = allRecords.filter((r) => r.inventory_item_id === inventoryItemId);
+
+    const eventos: LotHistoryEvent[] = relevantRecords.map((r) => ({
+      solicitacao_id: r.solicitacao_id,
+      identificador_procedimento:
+        r.solicitacao_descricao || `SOL-${r.solicitacao_id.slice(0, 8).toUpperCase()}`,
+      dt_procedimento: r.dt_procedimento,
+      quantidade_consumida: r.quantidade,
+    }));
+
+    return {
+      inventory_item_id: inventoryItemId,
+      codigo_produto: item.codigo_produto,
+      nome_produto: item.nome_produto,
+      lote: item.lote,
+      quantidade_inicial: item.quantidade_inicial,
+      eventos: buildLotHistory(eventos, item.quantidade_inicial),
+      gerado_em: new Date(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar histórico do lote:', error);
     throw new Error('Falha ao gerar relatório');
   }
 }
