@@ -317,11 +317,11 @@ export async function generateConsumptionReport(
         totalProdutosConsumidos += quantidade;
         valorTotalConsumido += valorTotal;
 
-        const keyProduto = produto.codigo_produto;
+        const keyProduto = produto.produto_codigo;
         if (!produtosMap.has(keyProduto)) {
           produtosMap.set(keyProduto, {
-            codigo: produto.codigo_produto,
-            nome: produto.nome_produto,
+            codigo: produto.produto_codigo,
+            nome: produto.produto_nome,
             quantidade_consumida: 0,
             valor_total: 0,
             procedimentos: 0,
