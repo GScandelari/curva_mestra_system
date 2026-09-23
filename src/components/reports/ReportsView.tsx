@@ -18,6 +18,8 @@ import {
   History,
   ChevronDown,
   ChevronRight,
+  Briefcase,
+  PieChart,
 } from 'lucide-react';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { useToast } from '@/hooks/use-toast';
@@ -27,7 +29,10 @@ import {
   generateConsumptionReport,
   generateProcedureCostReport,
   generateLotHistoryReport,
+  generateMonthlyExecutiveReport,
+  generateQuarterlyMixReport,
   exportToExcel,
+  exportToPdf,
   formatCurrency,
   formatDecimalBR,
   type StockValueReport,
@@ -35,6 +40,8 @@ import {
   type ConsumptionReport,
   type ProcedureCostReport,
   type LotHistoryReport,
+  type MonthlyExecutiveReport,
+  type QuarterlyMixReport,
 } from '@/lib/services/reportService';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
@@ -80,6 +87,14 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
   const [lotHistoryInventoryItemId, setLotHistoryInventoryItemId] = useState('');
   const [lotHistoryAutoLoadDone, setLotHistoryAutoLoadDone] = useState(false);
 
+  const [monthlyExecutiveReport, setMonthlyExecutiveReport] =
+    useState<MonthlyExecutiveReport | null>(null);
+  const [monthlyExecutiveMonthYear, setMonthlyExecutiveMonthYear] = useState('');
+
+  const [quarterlyMixReport, setQuarterlyMixReport] = useState<QuarterlyMixReport | null>(null);
+  const [quarterlyMixTrimestre, setQuarterlyMixTrimestre] = useState<'1' | '2' | '3' | '4'>('1');
+  const [quarterlyMixAno, setQuarterlyMixAno] = useState('');
+
   useEffect(() => {
     const today = new Date();
     const lastMonth = new Date();
@@ -88,6 +103,11 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
     setConsumptionEndDate(today.toISOString().split('T')[0]);
     setProcedureCostStartDate(lastMonth.toISOString().split('T')[0]);
     setProcedureCostEndDate(today.toISOString().split('T')[0]);
+    setMonthlyExecutiveMonthYear(
+      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+    );
+    setQuarterlyMixTrimestre(String(Math.floor(today.getMonth() / 3) + 1) as '1' | '2' | '3' | '4');
+    setQuarterlyMixAno(String(today.getFullYear()));
   }, []);
 
   // Lista de produtos/lotes para os selects em cascata do Histórico do Lote
@@ -264,6 +284,63 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
     }
   }
 
+  async function handleGenerateMonthlyExecutiveReport() {
+    if (!monthlyExecutiveMonthYear) {
+      toast({
+        title: 'Selecione o mês',
+        description: 'Informe o mês/ano para gerar o fechamento executivo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      setLoading(true);
+      setActiveReport('monthly-executive');
+      const [ano, mes] = monthlyExecutiveMonthYear.split('-').map(Number);
+      const report = await generateMonthlyExecutiveReport(tenantId, mes, ano);
+      setMonthlyExecutiveReport(report);
+    } catch (error) {
+      console.error('Erro ao gerar relatório:', error);
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o relatório. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGenerateQuarterlyMixReport() {
+    if (!quarterlyMixAno) {
+      toast({
+        title: 'Selecione o ano',
+        description: 'Informe o trimestre e o ano para gerar o mix de produtos.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      setLoading(true);
+      setActiveReport('quarterly-mix');
+      const report = await generateQuarterlyMixReport(
+        tenantId,
+        Number(quarterlyMixTrimestre) as 1 | 2 | 3 | 4,
+        Number(quarterlyMixAno)
+      );
+      setQuarterlyMixReport(report);
+    } catch (error) {
+      console.error('Erro ao gerar relatório:', error);
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o relatório. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleExportStockReport() {
     if (!stockReport) return;
     const data = stockReport.por_produto.map((item) => ({
@@ -327,6 +404,74 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
       'Saldo Após Evento': evento.saldo_apos_evento,
     }));
     exportToExcel(data, `historico_lote_${lotHistoryReport.lote}`);
+  }
+
+  function handleExportMonthlyExecutivePdf() {
+    if (!monthlyExecutiveReport) return;
+    const report = monthlyExecutiveReport;
+    exportToPdf((doc, autoTable) => {
+      doc.setFontSize(16);
+      doc.text('Fechamento Executivo Mensal', 14, 18);
+      doc.setFontSize(11);
+      doc.text(`Período: ${String(report.mes).padStart(2, '0')}/${report.ano}`, 14, 26);
+
+      doc.setFontSize(10);
+      doc.text(`Valor Total em Estoque: ${formatCurrency(report.valor_total_estoque)}`, 14, 36);
+      doc.text(
+        `Custo Total Consumido no Mês: ${formatCurrency(report.custo_total_consumido_mes)}`,
+        14,
+        43
+      );
+      doc.text(
+        `Procedimentos Concluídos no Mês: ${report.total_procedimentos_concluidos_mes}`,
+        14,
+        50
+      );
+
+      autoTable(doc, {
+        startY: 58,
+        head: [['Código', 'Produto', 'Custo Total']],
+        body: report.top_5_produtos_custo.map((p) => [
+          p.codigo,
+          p.nome,
+          formatCurrency(p.custo_total),
+        ]),
+      });
+    }, `fechamento_executivo_${report.mes}_${report.ano}`);
+  }
+
+  function handleExportQuarterlyMixPdf() {
+    if (!quarterlyMixReport) return;
+    const report = quarterlyMixReport;
+    exportToPdf((doc, autoTable) => {
+      doc.setFontSize(16);
+      doc.text('Mix de Produtos por Trimestre', 14, 18);
+      doc.setFontSize(11);
+      doc.text(
+        `Q${report.trimestre}/${report.ano} — Custo Total: ${formatCurrency(report.custo_total_trimestre)}`,
+        14,
+        26
+      );
+
+      autoTable(doc, {
+        startY: 34,
+        head: [['Código', 'Produto', 'Custo Total', '% Participação']],
+        body: report.por_produto.map((p) => [
+          p.codigo,
+          p.nome,
+          formatCurrency(p.custo_total),
+          `${formatDecimalBR(p.percentual, 1)}%`,
+        ]),
+        didDrawCell: (data: any) => {
+          if (data.section === 'body' && data.column.index === 3) {
+            const percentual = report.por_produto[data.row.index]?.percentual ?? 0;
+            const barWidth = (data.cell.width - 4) * (percentual / 100);
+            doc.setFillColor(59, 130, 246);
+            doc.rect(data.cell.x + 2, data.cell.y + data.cell.height - 3, barWidth, 1.5, 'F');
+          }
+        },
+      });
+    }, `mix_produtos_trimestre_${report.trimestre}_${report.ano}`);
   }
 
   const produtosParaHistorico = Array.from(
@@ -525,6 +670,83 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
                 className="w-full"
               >
                 {loading && activeReport === 'lot-history' ? 'Gerando...' : 'Gerar Relatório'}
+              </Button>
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <Briefcase className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Fechamento Executivo Mensal</h3>
+                  <p className="text-sm text-gray-600">Resumo do mês em PDF</p>
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className="block text-sm text-gray-600 mb-1">Mês/Ano</label>
+                <Input
+                  type="month"
+                  value={monthlyExecutiveMonthYear}
+                  onChange={(e) => setMonthlyExecutiveMonthYear(e.target.value)}
+                />
+              </div>
+              <Button
+                onClick={handleGenerateMonthlyExecutiveReport}
+                disabled={loading}
+                className="w-full"
+              >
+                {loading && activeReport === 'monthly-executive' ? 'Gerando...' : 'Gerar Relatório'}
+              </Button>
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-pink-100 rounded-lg">
+                  <PieChart className="w-6 h-6 text-pink-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Mix de Produtos por Trimestre</h3>
+                  <p className="text-sm text-gray-600">Participação percentual no custo</p>
+                </div>
+              </div>
+              <div className="space-y-2 mb-3">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Trimestre</label>
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={quarterlyMixTrimestre}
+                    onChange={(e) =>
+                      setQuarterlyMixTrimestre(e.target.value as '1' | '2' | '3' | '4')
+                    }
+                  >
+                    <option value="1">1º Trimestre</option>
+                    <option value="2">2º Trimestre</option>
+                    <option value="3">3º Trimestre</option>
+                    <option value="4">4º Trimestre</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Ano</label>
+                  <Input
+                    type="number"
+                    value={quarterlyMixAno}
+                    onChange={(e) => setQuarterlyMixAno(e.target.value)}
+                    min="2000"
+                    max="2100"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleGenerateQuarterlyMixReport}
+                disabled={loading}
+                className="w-full"
+              >
+                {loading && activeReport === 'quarterly-mix' ? 'Gerando...' : 'Gerar Relatório'}
               </Button>
             </div>
           )}
@@ -1056,6 +1278,181 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
                           }`}
                         >
                           {evento.saldo_apos_evento}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Monthly Executive Report Result */}
+        {monthlyExecutiveReport && activeReport === 'monthly-executive' && (
+          <div className="bg-white rounded-lg shadow-sm border-2 border-amber-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold">
+                  Fechamento Executivo — {String(monthlyExecutiveReport.mes).padStart(2, '0')}/
+                  {monthlyExecutiveReport.ano}
+                </h2>
+                <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Preview
+                </Badge>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => setMonthlyExecutiveReport(null)} variant="ghost" size="sm">
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+                <Button onClick={handleExportMonthlyExecutivePdf} variant="default" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Exportar PDF
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="p-4 bg-amber-50 rounded-lg">
+                <p className="text-sm text-amber-600 font-medium">Valor Total em Estoque</p>
+                <p className="text-2xl font-bold text-amber-900">
+                  {formatCurrency(monthlyExecutiveReport.valor_total_estoque)}
+                </p>
+              </div>
+              <div className="p-4 bg-indigo-50 rounded-lg">
+                <p className="text-sm text-indigo-600 font-medium">Custo Total Consumido</p>
+                <p className="text-2xl font-bold text-indigo-900">
+                  {formatCurrency(monthlyExecutiveReport.custo_total_consumido_mes)}
+                </p>
+              </div>
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <p className="text-sm text-purple-600 font-medium">Procedimentos Concluídos</p>
+                <p className="text-2xl font-bold text-purple-900">
+                  {monthlyExecutiveReport.total_procedimentos_concluidos_mes}
+                </p>
+              </div>
+            </div>
+
+            <h3 className="font-bold text-lg mb-3">Top 5 Produtos por Custo</h3>
+            {monthlyExecutiveReport.top_5_produtos_custo.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-8">
+                Nenhum produto consumido no mês informado
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Código
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Produto
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Custo Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {monthlyExecutiveReport.top_5_produtos_custo.map((produto) => (
+                      <tr key={produto.codigo}>
+                        <td className="px-4 py-3 text-sm font-mono text-gray-900">
+                          {produto.codigo}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{produto.nome}</td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                          {formatCurrency(produto.custo_total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Quarterly Mix Report Result */}
+        {quarterlyMixReport && activeReport === 'quarterly-mix' && (
+          <div className="bg-white rounded-lg shadow-sm border-2 border-pink-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold">
+                  Mix de Produtos — {quarterlyMixReport.trimestre}º Trimestre/
+                  {quarterlyMixReport.ano}
+                </h2>
+                <Badge variant="secondary" className="bg-pink-100 text-pink-700">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Preview
+                </Badge>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => setQuarterlyMixReport(null)} variant="ghost" size="sm">
+                  <X className="w-4 h-4 mr-2" />
+                  Fechar
+                </Button>
+                <Button onClick={handleExportQuarterlyMixPdf} variant="default" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Exportar PDF
+                </Button>
+              </div>
+            </div>
+
+            <div className="mb-6 p-4 bg-pink-50 rounded-lg">
+              <p className="text-sm text-pink-600 font-medium">Custo Total do Trimestre</p>
+              <p className="text-2xl font-bold text-pink-900">
+                {formatCurrency(quarterlyMixReport.custo_total_trimestre)}
+              </p>
+            </div>
+
+            {quarterlyMixReport.por_produto.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-8">
+                Nenhum produto consumido no trimestre informado
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Código
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Produto
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Custo Total
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        % Participação
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {quarterlyMixReport.por_produto.map((produto) => (
+                      <tr key={produto.codigo}>
+                        <td className="px-4 py-3 text-sm font-mono text-gray-900">
+                          {produto.codigo}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{produto.nome}</td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                          {formatCurrency(produto.custo_total)}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
+                              <div
+                                className="h-full bg-pink-500"
+                                style={{ width: `${produto.percentual}%` }}
+                              />
+                            </div>
+                            <span className="text-gray-700 whitespace-nowrap">
+                              {formatDecimalBR(produto.percentual, 1)}%
+                            </span>
+                          </div>
                         </td>
                       </tr>
                     ))}
