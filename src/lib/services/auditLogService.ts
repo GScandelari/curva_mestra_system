@@ -17,7 +17,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { buildAuditLogPayload, type NewAuditLogInput } from '@/lib/auditLogPayload';
 import type { AuditEntityType, AuditAction } from '@/types';
 
@@ -76,6 +76,28 @@ export async function writeAuditLog(input: NewAuditLogInput): Promise<void> {
   } catch (error) {
     console.error('Erro ao gravar entrada de auditoria:', error);
     throw new Error('Falha ao gravar entrada de auditoria');
+  }
+}
+
+/**
+ * Variante para páginas do portal admin: preenche o ator a partir do usuário
+ * logado (sempre system_admin) e nunca propaga erro — falha de auditoria não
+ * pode quebrar a operação administrativa principal.
+ */
+export async function writeAdminAuditLog(
+  input: Omit<NewAuditLogInput, 'actor_id' | 'actor_name' | 'actor_role'>
+): Promise<void> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+  try {
+    await writeAuditLog({
+      ...input,
+      actor_id: currentUser.uid,
+      actor_name: currentUser.displayName || currentUser.email || 'Admin',
+      actor_role: 'system_admin',
+    });
+  } catch (error) {
+    console.error(error);
   }
 }
 
