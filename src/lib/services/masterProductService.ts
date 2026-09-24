@@ -20,12 +20,39 @@ import {
   collectionGroup,
   deleteField,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { writeAuditLog } from '@/lib/services/auditLogService';
+import type { AuditAction } from '@/types';
 import {
   MasterProduct,
   CreateMasterProductData,
   UpdateMasterProductData,
 } from '@/types/masterProduct';
+
+// Este serviço só é chamado por páginas de (admin), portanto o ator é sempre system_admin.
+// Falha na auditoria nunca deve quebrar a operação principal.
+async function logMasterProductAudit(
+  productId: string,
+  action: AuditAction,
+  descricao: string
+): Promise<void> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+  try {
+    await writeAuditLog({
+      tenant_id: null,
+      entity_type: 'master_product',
+      entity_id: productId,
+      action,
+      descricao,
+      actor_id: currentUser.uid,
+      actor_name: currentUser.displayName || currentUser.email || 'Admin',
+      actor_role: 'system_admin',
+    });
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 interface ListMasterProductsParams {
   limit?: number;
@@ -201,6 +228,12 @@ export async function createMasterProduct(data: CreateMasterProductData) {
 
     const docRef = await addDoc(collection(db, 'master_products'), productData);
 
+    await logMasterProductAudit(
+      docRef.id,
+      'create',
+      `Produto master "${productData.name}" (${productData.code}) criado`
+    );
+
     return {
       productId: docRef.id,
       message: 'Produto criado com sucesso',
@@ -259,6 +292,8 @@ export async function updateMasterProduct(productId: string, data: UpdateMasterP
 
     await updateDoc(docRef, firestoreData);
 
+    await logMasterProductAudit(productId, 'update', `Produto master ${productId} editado`);
+
     return {
       productId,
       message: 'Produto atualizado com sucesso',
@@ -286,6 +321,8 @@ export async function deactivateMasterProduct(productId: string) {
       updated_at: serverTimestamp(),
     });
 
+    await logMasterProductAudit(productId, 'deactivate', `Produto master ${productId} desativado`);
+
     return {
       productId,
       message: 'Produto desativado com sucesso',
@@ -309,6 +346,8 @@ export async function reactivateMasterProduct(productId: string) {
       active: true,
       updated_at: serverTimestamp(),
     });
+
+    await logMasterProductAudit(productId, 'reactivate', `Produto master ${productId} reativado`);
 
     return {
       productId,
