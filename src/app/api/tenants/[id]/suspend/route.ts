@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { SuspensionReason } from '@/types';
+import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 
 /**
  * POST - Suspender clínica
@@ -121,6 +122,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     await Promise.all(updatePromises);
 
+    await writeAuditLogAdmin({
+      tenant_id: tenantId,
+      entity_type: 'tenant',
+      entity_id: tenantId,
+      action: 'suspend',
+      descricao: `Clínica "${tenantDoc.data()?.name}" suspensa (${reason})`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
+      metadata: { reason, details: details.trim() },
+    });
+
     console.log(`✅ Clínica ${tenantId} suspensa por ${decodedToken.email}. Motivo: ${reason}`);
 
     return NextResponse.json({
@@ -209,6 +222,17 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     });
 
     await Promise.all(updatePromises);
+
+    await writeAuditLogAdmin({
+      tenant_id: tenantId,
+      entity_type: 'tenant',
+      entity_id: tenantId,
+      action: 'reactivate',
+      descricao: `Clínica "${tenantDoc.data()?.name}" reativada`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
+    });
 
     console.log(`✅ Clínica ${tenantId} reativada por ${decodedToken.email}`);
 

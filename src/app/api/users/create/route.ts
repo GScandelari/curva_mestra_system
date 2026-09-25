@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -132,6 +133,17 @@ export async function POST(request: NextRequest) {
     };
 
     await adminDb.collection('users').doc(userRecord.uid).set(userDoc);
+
+    await writeAuditLogAdmin({
+      tenant_id: tenantId,
+      entity_type: 'user',
+      entity_id: userRecord.uid,
+      action: 'create',
+      descricao: `Usuário "${displayName}" (${role}) criado`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: isSystemAdmin ? 'system_admin' : 'clinic_admin',
+    });
 
     return NextResponse.json(
       {

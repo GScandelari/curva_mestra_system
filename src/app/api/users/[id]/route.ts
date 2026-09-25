@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
+import { determineUserAuditAction } from '@/lib/auditLogPayload';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -111,6 +113,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       role,
       active,
       updated_at: FieldValue.serverTimestamp(),
+    });
+
+    const { action, metadata } = determineUserAuditAction(
+      { role: userData?.role, active: userData?.active === true },
+      { role, active }
+    );
+    await writeAuditLogAdmin({
+      tenant_id: tenantId ?? null,
+      entity_type: 'user',
+      entity_id: userId,
+      action,
+      descricao: `Usuário "${displayName}" editado`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
+      metadata,
     });
 
     console.log(
