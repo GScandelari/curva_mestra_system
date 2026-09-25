@@ -10,7 +10,7 @@
 - `feature/uc53-instrumentar-escritas-administrativas`
 - `feature/uc53-tela-trilha-auditoria`
 **Prioridade:** Média
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Implementa o UC-53 (`ONLY_FOR_DEVS/PO_BA_Docs/UC-53-consultar-e-exportar-trilha-de-auditoria.md`, v1.0, Aprovado): uma nova coleção `audit_log` (top-level, cross-tenant) alimentada por log explícito em 14 pontos de escrita administrativa sensível (Usuários, Consultores, Clínicas, Produtos Master, Documentos Legais, Configurações Globais), unificada na apresentação com o `inventory_activity` já existente, e exposta em duas telas novas — `/admin/audit-log` (System Admin, cross-tenant) e `/clinic/audit-log` (Clinic Admin, restrito ao próprio tenant) — com exportação em CSV e PDF. Nenhum dado retroativo: a trilha só registra a partir da implementação. Esta spec resolve, como achado técnico não bloqueante (Seção 4.1), uma divergência entre a tabela RN-02 do UC-53 (que aponta `tenantServiceDirect.ts`/`updateTenant` como ponto único de hook para a edição cadastral de Clínica) e a RN-10 do mesmo UC (que exclui explicitamente do escopo a edição do próprio perfil pelo `clinic_admin`, UC-45): como `updateTenant()` é a mesma função usada pelos dois fluxos, o hook é implementado no *call site* de `/admin/tenants/[id]/page.tsx`, nunca dentro do service compartilhado.
 
@@ -573,6 +573,32 @@ Nenhuma rota nova. As 10 rotas já existentes listadas na Seção 5.2 ganham uma
 
 ### Branch C — `feature/uc53-tela-trilha-auditoria`
 
+#### STEP 11-B — Testes unitários da camada de auditoria (adicionado após PR #293)
+
+**Objetivo:** Garantir por teste unitário que a gravação de auditoria funciona e que **nunca quebra a operação principal**. Motivação: o SonarCloud reprovou o PR #293 (`new_coverage` 0% < 80%) e o usuário quer validação unitária completa da trilha de auditoria, sem depender só do E2E.
+
+**Branch:** `feature/uc53-testes-unitarios-auditlog`, criada de `gscandelari_setup` após o merge do PR #293 e **antes** da Branch C.
+
+**Arquivos afetados (criar):**
+- `src/__tests__/auditLogAdmin.test.ts`
+- `src/__tests__/auditLogService.test.ts`
+- `src/__tests__/auditLogRoutes.test.ts` (rotas de API instrumentadas)
+
+**Ações (Firebase mockado com `jest.mock`; nenhum acesso a rede/emulador):**
+1. `writeAuditLogAdmin`: chama `adminDb.collection('audit_log').add` com o payload de `buildAuditLogPayload` + `timestamp`; preserva `tenant_id: null`; **não lança** quando o `add` rejeita (só `console.error`).
+2. `actorNameFromToken`: prioridade `name` > `email` > `'Admin'`.
+3. `writeAuditLog` (client): grava payload + `serverTimestamp()`; lança `'Falha ao gravar entrada de auditoria'` quando `addDoc` rejeita.
+4. `writeAdminAuditLog`: sem `auth.currentUser` não grava e não lança; com usuário preenche `actor_id`/`actor_name` (`displayName` > `email` > `'Admin'`) e `actor_role: 'system_admin'`; **não lança** quando `writeAuditLog` falha.
+5. `listAuditLog`: unifica `audit_log` + `inventory_activity` ordenados por timestamp desc; mapeia rótulos PT-BR (`ENTITY_TYPE_LABELS`/`ACTION_LABELS`); `hasMore` verdadeiro quando alguma fonte atinge `pageSize`; exige `tenantId` para `scope: 'clinic_admin'`; `clinic_admin` usa `collection()` do próprio tenant e `system_admin` usa `collectionGroup()`.
+6. Rotas instrumentadas (ao menos `users/create`, `users/[id]` PUT, `consultants/[id]` PUT/DELETE, `tenants/[id]/suspend` POST/DELETE): 1 entrada de auditoria por operação com `entity_type`/`action` corretos; `users/[id]` PUT usa `determineUserAuditAction` (ex.: mudança de papel → `change_role` com `metadata`); **a resposta da rota continua 2xx mesmo se a gravação de auditoria falhar**; nenhuma entrada é gravada quando a escrita principal falha (4xx/5xx).
+7. Rodar `npm run test:coverage` e registrar a cobertura dos arquivos de auditoria no PR.
+
+**Validação:** `npm test` passa; cobertura dos arquivos novos de auditoria reportada; verificar se o SonarCloud (`new_coverage`) passa no PR. Se não atingir 80%, registrar o valor real no PR em vez de forçar.
+
+**Commit:** `test(admin): add unit tests for audit log write and read layer`
+
+---
+
 #### STEP 12 — Tela System Admin
 
 **Objetivo:** RF-02, RF-04 (exceto filtro de clínica fica junto), RF-05, RF-09, RF-10.
@@ -648,11 +674,13 @@ Nenhuma rota nova. As 10 rotas já existentes listadas na Seção 5.2 ganham uma
 | `buildAuditLogPayload` | `src/__tests__/auditLogPayload.test.ts` | Preserva `tenant_id: null`; omite `metadata` quando ausente; preserva `metadata` quando presente |
 | `determineUserAuditAction` | idem | `change_role`, `activate`, `deactivate`, `update`, prioridade quando ambos mudam |
 | `determineConsultantAuditAction` | idem | `reactivate`, `suspend`, `update` |
-| `writeAuditLog`, `listAuditLog` | — (não testados unitariamente) | Orquestração Firestore; segue o mesmo precedente de `reportService.ts`/`costingService.ts`/`projectionService.ts` — cobertos pelo caderno Playwright (Step 15) |
-| 14 pontos de instrumentação (API routes + services client-side) | — (não testados unitariamente) | Lógica de negócio de cada rota já é responsabilidade dela; o *fato* de gravar em `audit_log` é coberto pelo caderno Playwright, não por teste unitário |
+| `writeAuditLog`, `writeAdminAuditLog`, `listAuditLog` | `src/__tests__/auditLogService.test.ts` (Step 11-B) | Payload + timestamp; erro em `addDoc`; ator ausente/preenchido; unificação e ordenação; rótulos; `hasMore`; escopos `clinic_admin` vs `system_admin` |
+| `writeAuditLogAdmin`, `actorNameFromToken` | `src/__tests__/auditLogAdmin.test.ts` (Step 11-B) | Payload gravado; **nunca lança** se o `add` falhar; prioridade do nome do ator |
+| Rotas de API instrumentadas | `src/__tests__/auditLogRoutes.test.ts` (Step 11-B) | 1 entrada por operação com `entity_type`/`action` corretos; resposta 2xx mesmo se a auditoria falhar; nenhuma entrada se a escrita principal falhar |
+| Hooks client-side (master products, legal docs, settings, edição de clínica) | Caderno Playwright (Step 15) | O *fato* de gravar em `audit_log` na UI real é coberto pelo E2E |
 | `AuditLogQueryPage` (ambas), componentes React | — (não testado no MVP) | Coberto pelo caderno Playwright (CLAUDE.md item 8) |
 
-Regra aplicada: funções puras de diff/construção de payload são prioridade alta de teste unitário (mesmo padrão de `costingService.ts`/`projectionService.ts`); orquestradores Firestore, rotas de API e UI ficam cobertos pelo caderno E2E via `qa-agent`.
+Regra aplicada: funções puras de diff/construção de payload são prioridade alta de teste unitário (mesmo padrão de `costingService.ts`/`projectionService.ts`). **Revisão pós-PR #293:** a camada de gravação/leitura da auditoria e as rotas instrumentadas passam a ter teste unitário com Firebase mockado (Step 11-B), porque a garantia "auditoria nunca quebra a operação principal" precisa de validação determinística; a UI e os hooks client-side continuam cobertos pelo caderno E2E via `qa-agent`.
 
 ---
 
@@ -662,7 +690,9 @@ Regra aplicada: funções puras de diff/construção de payload são prioridade 
 [ ] npm run lint        — zero erros ou warnings
 [ ] npm run type-check  — zero erros TypeScript
 [ ] npm run build       — build de produção sem falhas
-[ ] npm run test        — todos os testes passando, incluindo auditLogPayload.test.ts
+[ ] npm run test        — todos os testes passando, incluindo auditLogPayload.test.ts, auditLogAdmin.test.ts, auditLogService.test.ts e auditLogRoutes.test.ts (Step 11-B)
+[ ] Testes unitários confirmam que falha ao gravar auditoria NÃO quebra a operação principal (helpers e rotas)
+[ ] Cobertura dos arquivos de auditoria reportada no PR do Step 11-B (SonarCloud new_coverage ≥ 80% ou valor real justificado)
 [ ] Multi-tenant: audit_log sempre filtrado por tenant_id na visão de clinic_admin; inventory_activity permanece isolado por subcoleção
 [ ] Segurança: firestore.rules testado manualmente contra o emulador para os 4 cenários do Step 4 (leitura cross-tenant, leitura restrita, criação com actor_id divergente, update/delete bloqueados)
 [ ] Branch pessoal: cada task branch mergeada em gscandelari_setup para validação no Firebase, antes do PR para develop
@@ -724,4 +754,5 @@ Regra aplicada: funções puras de diff/construção de payload são prioridade 
 
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|-------------|
+| 1.1 | 25/09/2026 | Claude | Adicionado Step 11-B (testes unitários da camada de auditoria: `auditLogAdmin`, `auditLogService`, rotas instrumentadas), atualizada a Estratégia de Testes (Seção 8) e o DoD (Seção 9). Motivo: SonarCloud reprovou o PR #293 por `new_coverage` 0% e o usuário pediu validação unitária completa da trilha. Step 11-B roda em branch própria após o merge do PR #293 e antes da Branch C. Registrado que a implementação usa helpers compartilhados (`writeAuditLogAdmin`, `writeAdminAuditLog`) em vez de código inline por rota. |
 | 1.0 | 23/09/2026 | Doc Writer (Claude) | Versão inicial. Spec de implementação derivada do UC-53 (v1.0, Aprovado). Investigado o código real de todos os 14 pontos de escrita mapeados pela RN-02 do UC-53 (Usuários, Consultores, Clínicas, Produtos Master, Documentos Legais, Configurações Globais), confirmando camada de escrita (Admin SDK via API route vs. Client SDK direto) e padrões já existentes de captura de nome do ator (`decodedToken.name`/`auth.currentUser.displayName`). Achado técnico principal desta investigação, não previsto no UC-53: `tenantServiceDirect.ts`/`updateTenant` é compartilhada entre UC-22 (dentro do escopo) e UC-45/onboarding (explicitamente fora de escopo pela RN-10 do próprio UC-53) — resolvido posicionando o hook no *call site* de `/admin/tenants/[id]/page.tsx`, não dentro do service compartilhado, sem necessidade de decisão adicional do usuário (a RN-10 já resolve a ambiguidade). Confirmado que `jspdf`/`jspdf-autotable` (UC-51) e `exportToCSV`/`exportToPdf` (`reportService.ts`) já existem e são diretamente reaproveitáveis, sem nenhuma dependência nova. Confirmado que `firestore.rules` não tem hoje nenhuma regra para `audit_log` (mudança real de regra, ao contrário de UC-51/UC-52) e que `firestore.indexes.json` não tem nenhum índice em escopo de grupo de coleção, exigindo uma entrada nova para a consulta `collectionGroup('inventory_activity')` da visão de System Admin. Proposto fatiamento em 3 branches sequenciais (fundação → instrumentação → tela), maior que o fatiamento de 2 branches do UC-51, proporcional ao escopo real (14 pontos de escrita + nova regra de segurança + 2 telas, contra 4 novos relatórios sem nenhuma mudança de regra no UC-51). Nenhum `⚠️ Decisão necessária` restante — o único ponto de ambiguidade técnica encontrado (Seção 1.1/RN-06) já tem resolução inequívoca a partir de uma regra já aprovada no próprio UC-53 (RN-10), não constituindo uma decisão de escopo nova. Documento sai direto em `Status: Planejamento`, pronto para o `dev-task-manager`. |
