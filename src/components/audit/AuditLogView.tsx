@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { listAuditLog, type UnifiedAuditItem } from '@/lib/services/auditLogService';
 import { listTenants } from '@/lib/services/tenantServiceDirect';
+import { exportToCSV, exportToPdf } from '@/lib/services/reportService';
 
 const PAGE_SIZE = 100;
 
@@ -129,6 +130,46 @@ export function AuditLogView({ scope, tenantId }: AuditLogViewProps) {
   function clinicLabel(item: UnifiedAuditItem): string {
     if (!item.tenant_id) return '—';
     return tenantNames[item.tenant_id] ?? item.tenant_id;
+  }
+
+  function buildExportRows(): Record<string, string>[] {
+    return filtered.map((item) => {
+      const row: Record<string, string> = {
+        'Data/Hora': formatDateTime(item.timestamp),
+        Ator: item.ator,
+        Categoria: item.categoria,
+        Ação: item.acao,
+        Descrição: item.descricao,
+      };
+      if (isSystemAdmin) row['Clínica'] = clinicLabel(item);
+      return row;
+    });
+  }
+
+  function handleExportCsv() {
+    exportToCSV(buildExportRows(), 'trilha_auditoria');
+  }
+
+  function handleExportPdf() {
+    const rows = buildExportRows();
+    if (rows.length === 0) return;
+    const columns = Object.keys(rows[0]);
+    exportToPdf((doc, autoTable) => {
+      doc.setFontSize(16);
+      doc.text('Trilha de Auditoria', 14, 18);
+      doc.setFontSize(10);
+      doc.text(
+        `Gerado em ${new Date().toLocaleString('pt-BR')} — ${rows.length} registro(s)`,
+        14,
+        25
+      );
+      autoTable(doc, {
+        startY: 31,
+        head: [columns],
+        body: rows.map((r) => columns.map((c) => r[c])),
+        styles: { fontSize: 8 },
+      });
+    }, 'trilha_auditoria');
   }
 
   const hasActiveFilter = !!(dateFrom || dateTo || categoria || acao || ator.trim() || clinica);
@@ -246,11 +287,33 @@ export function AuditLogView({ scope, tenantId }: AuditLogViewProps) {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Registros</CardTitle>
-          <CardDescription data-testid="audit-log-count">
-            {filtered.length} registro(s) exibido(s)
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
+            <CardTitle>Registros</CardTitle>
+            <CardDescription data-testid="audit-log-count">
+              {filtered.length} registro(s) exibido(s)
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={loading || filtered.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={loading || filtered.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar PDF
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
