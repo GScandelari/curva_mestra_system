@@ -188,8 +188,11 @@ export async function isMasterProductInUse(productId: string): Promise<boolean> 
     );
     const snapshot = await getDocs(q);
     return !snapshot.empty;
-  } catch {
-    // collectionGroup pode falhar se não houver índice — tratar como "não em uso" para não bloquear
+  } catch (error) {
+    // Falha aqui nunca deve bloquear a tela (fail-open) -- mas precisa ficar visível:
+    // esta checagem já falhou silenciosamente por falta de regra dedicada de
+    // collectionGroup (UC-32-RN-08), sem ninguém notar, por meses.
+    console.error('Erro ao verificar se produto master está em uso:', error);
     return false;
   }
 }

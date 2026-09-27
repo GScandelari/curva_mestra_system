@@ -254,6 +254,15 @@ service cloud.firestore {
       allow read: if isSystemAdmin();
     }
 
+    // inventory em escopo de collectionGroup (UC-32-RN-08) — mesmo motivo da regra
+    // acima: isMasterProductInUse() usa collectionGroup(db, 'inventory') para checar,
+    // cross-tenant, se um produto master está em uso em algum inventário de clínica;
+    // a regra genérica de subcoleção não cobre collectionGroup(). Só system_admin usa
+    // essa checagem (telas de Produtos Master em (admin)).
+    match /{path=**}/inventory/{itemId} {
+      allow read: if isSystemAdmin();
+    }
+
     // Configurações globais do sistema
     match /system_settings/{settingId} {
       // Qualquer usuário autenticado pode ler as configurações
