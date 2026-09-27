@@ -20,6 +20,7 @@ import {
   UserCheck,
   PackageSearch,
   Clock,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -78,6 +79,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Documentos Legais',
       href: '/admin/legal-documents',
       icon: FileText,
+    },
+    {
+      name: 'Trilha de Auditoria',
+      href: '/admin/audit-log',
+      icon: History,
     },
     {
       name: 'Configurações',

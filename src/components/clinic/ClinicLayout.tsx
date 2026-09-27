@@ -38,6 +38,7 @@ export function ClinicLayout({ children }: ClinicLayoutProps) {
     { href: '/clinic/protocolos', label: 'Protocolos' },
     { href: '/clinic/reports', label: 'Relatórios' },
     { href: '/clinic/my-clinic', label: 'Minha Clínica' },
+    ...(isAdmin ? [{ href: '/clinic/audit-log', label: 'Trilha de Auditoria' }] : []),
     { href: '/clinic/profile', label: 'Meu Perfil' },
   ];
 

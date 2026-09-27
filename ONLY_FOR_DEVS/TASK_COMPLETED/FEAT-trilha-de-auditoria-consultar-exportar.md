@@ -3,14 +3,16 @@
 **Projeto:** Curva Mestra
 **Data:** 23/09/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Scandelari
+**Data de Conclusão:** 27/09/2026
 **Tipo:** Feature
 **Branch sugerida:** três branches sequenciais a partir de `develop` (ver Seção 0 — escopo fatiado pelos mesmos critérios técnicos autorizados no UC-51):
 - `feature/uc53-audit-log-foundation`
 - `feature/uc53-instrumentar-escritas-administrativas`
 - `feature/uc53-tela-trilha-auditoria`
 **Prioridade:** Média
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Implementa o UC-53 (`ONLY_FOR_DEVS/PO_BA_Docs/UC-53-consultar-e-exportar-trilha-de-auditoria.md`, v1.0, Aprovado): uma nova coleção `audit_log` (top-level, cross-tenant) alimentada por log explícito em 14 pontos de escrita administrativa sensível (Usuários, Consultores, Clínicas, Produtos Master, Documentos Legais, Configurações Globais), unificada na apresentação com o `inventory_activity` já existente, e exposta em duas telas novas — `/admin/audit-log` (System Admin, cross-tenant) e `/clinic/audit-log` (Clinic Admin, restrito ao próprio tenant) — com exportação em CSV e PDF. Nenhum dado retroativo: a trilha só registra a partir da implementação. Esta spec resolve, como achado técnico não bloqueante (Seção 4.1), uma divergência entre a tabela RN-02 do UC-53 (que aponta `tenantServiceDirect.ts`/`updateTenant` como ponto único de hook para a edição cadastral de Clínica) e a RN-10 do mesmo UC (que exclui explicitamente do escopo a edição do próprio perfil pelo `clinic_admin`, UC-45): como `updateTenant()` é a mesma função usada pelos dois fluxos, o hook é implementado no *call site* de `/admin/tenants/[id]/page.tsx`, nunca dentro do service compartilhado.
 
@@ -754,5 +756,6 @@ Regra aplicada: funções puras de diff/construção de payload são prioridade 
 
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|-------------|
+| 1.2 | 27/09/2026 | Guilherme Scandelari | Task concluída — movida para TASK_COMPLETED. Ressalvas: spec Playwright (qa-agent) pendente de revisão humana via PR antes de virar gate de CI; E2E ainda não cobre ações via API (criar usuário/clínica/consultor), escritas client-side (produto master, documento legal, configurações), paginação "Carregar mais" e erro de carga 8a. |
 | 1.1 | 25/09/2026 | Claude | Adicionado Step 11-B (testes unitários da camada de auditoria: `auditLogAdmin`, `auditLogService`, rotas instrumentadas), atualizada a Estratégia de Testes (Seção 8) e o DoD (Seção 9). Motivo: SonarCloud reprovou o PR #293 por `new_coverage` 0% e o usuário pediu validação unitária completa da trilha. Step 11-B roda em branch própria após o merge do PR #293 e antes da Branch C. Registrado que a implementação usa helpers compartilhados (`writeAuditLogAdmin`, `writeAdminAuditLog`) em vez de código inline por rota. |
 | 1.0 | 23/09/2026 | Doc Writer (Claude) | Versão inicial. Spec de implementação derivada do UC-53 (v1.0, Aprovado). Investigado o código real de todos os 14 pontos de escrita mapeados pela RN-02 do UC-53 (Usuários, Consultores, Clínicas, Produtos Master, Documentos Legais, Configurações Globais), confirmando camada de escrita (Admin SDK via API route vs. Client SDK direto) e padrões já existentes de captura de nome do ator (`decodedToken.name`/`auth.currentUser.displayName`). Achado técnico principal desta investigação, não previsto no UC-53: `tenantServiceDirect.ts`/`updateTenant` é compartilhada entre UC-22 (dentro do escopo) e UC-45/onboarding (explicitamente fora de escopo pela RN-10 do próprio UC-53) — resolvido posicionando o hook no *call site* de `/admin/tenants/[id]/page.tsx`, não dentro do service compartilhado, sem necessidade de decisão adicional do usuário (a RN-10 já resolve a ambiguidade). Confirmado que `jspdf`/`jspdf-autotable` (UC-51) e `exportToCSV`/`exportToPdf` (`reportService.ts`) já existem e são diretamente reaproveitáveis, sem nenhuma dependência nova. Confirmado que `firestore.rules` não tem hoje nenhuma regra para `audit_log` (mudança real de regra, ao contrário de UC-51/UC-52) e que `firestore.indexes.json` não tem nenhum índice em escopo de grupo de coleção, exigindo uma entrada nova para a consulta `collectionGroup('inventory_activity')` da visão de System Admin. Proposto fatiamento em 3 branches sequenciais (fundação → instrumentação → tela), maior que o fatiamento de 2 branches do UC-51, proporcional ao escopo real (14 pontos de escrita + nova regra de segurança + 2 telas, contra 4 novos relatórios sem nenhuma mudança de regra no UC-51). Nenhum `⚠️ Decisão necessária` restante — o único ponto de ambiguidade técnica encontrado (Seção 1.1/RN-06) já tem resolução inequívoca a partir de uma regra já aprovada no próprio UC-53 (RN-10), não constituindo uma decisão de escopo nova. Documento sai direto em `Status: Planejamento`, pronto para o `dev-task-manager`. |
