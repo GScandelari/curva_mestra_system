@@ -20,9 +20,11 @@ import { TEST_PASSWORD, TEST_TENANTS, TEST_USERS } from './fixtures/seed-data';
  * 1. O seed base não contém `audit_log` nem `inventory_activity`; cada teste semeia via Admin SDK
  *    entradas com marcador único `QA-UC53-...` na descrição e as remove no `finally`, para não
  *    vazar dados entre specs (workers: 1, mesmo emulador).
- * 2. Asserções de linha são escopadas ao marcador (não a contagens absolutas), exceto os
- *    cenários 7a/7b, que pressupõem que nenhum outro spec deixa lixo em `audit_log`/
- *    `inventory_activity` das clínicas usadas.
+ * 2. Asserções de linha são escopadas ao marcador (não a contagens absolutas). Os cenários
+ *    7a/7b exigem isolamento real: outros specs da suíte (que editam usuários, clínicas etc.)
+ *    geram entradas legítimas em `audit_log`, então esses cenários limpam antes o
+ *    `audit_log` (e, no 7a, o `inventory_activity`) do tenant usado. Seguro porque
+ *    workers: 1 (execução sequencial) e nenhum outro spec lê `audit_log`.
  * 3. Nenhum usuário novo foi criado — só os de TEST_USERS.
  */
 
@@ -83,6 +85,17 @@ async function seedInventoryActivity(params: {
   });
   createdRefs.push(ref);
   return ref;
+}
+
+/** Remove entradas pré-existentes (de outros specs) para cenários que exigem isolamento. */
+async function clearTenantAuditData(tenantId: string, opts: { inventoryActivity: boolean }) {
+  const db = getEmulatorAdminFirestore();
+  const auditSnap = await db.collection('audit_log').where('tenant_id', '==', tenantId).get();
+  await Promise.all(auditSnap.docs.map((d) => d.ref.delete()));
+  if (opts.inventoryActivity) {
+    const activitySnap = await db.collection(`tenants/${tenantId}/inventory_activity`).get();
+    await Promise.all(activitySnap.docs.map((d) => d.ref.delete()));
+  }
 }
 
 test.afterEach(async () => {
@@ -157,7 +170,9 @@ test.describe('UC-53 — Consultar e Exportar Trilha de Auditoria', () => {
 
         // Visível na tela do System Admin.
         await page.goto('/admin/audit-log');
-        const row = rowsWith(page, novoNome);
+        // Escopado à descrição da entrada: a coluna Clínica também mostra o nome editado
+        // em qualquer outra entrada do tenant (ex.: geradas por outros specs).
+        const row = rowsWith(page, `Dados cadastrais da clínica "${novoNome}"`);
         await expect(row).toHaveCount(1);
         await expect(row.locator('td').nth(2)).toHaveText('Clínica');
         await expect(row.locator('td').nth(3)).toHaveText('Editar');
@@ -393,7 +408,8 @@ test.describe('UC-53 — Consultar e Exportar Trilha de Auditoria', () => {
     test('tenant sem nenhuma entrada: exibe mensagem de vazio e desabilita exportação', async ({
       page,
     }) => {
-      // Clínica B não possui audit_log nem inventory_activity no seed base.
+      // Isola a Clínica B: remove entradas geradas por outros specs da suíte.
+      await clearTenantAuditData(TENANT_B, { inventoryActivity: true });
       await loginClinicAdmin(page, TEST_USERS.clinicAdminB);
       await page.goto('/clinic/audit-log');
 
@@ -411,6 +427,8 @@ test.describe('UC-53 — Consultar e Exportar Trilha de Auditoria', () => {
     test('clinic_admin sem ações administrativas vê a lista normalmente, somente com categoria "Estoque"', async ({
       page,
     }) => {
+      // Sem nenhuma entrada de audit_log no tenant (outros specs podem ter gerado).
+      await clearTenantAuditData(TENANT_A, { inventoryActivity: false });
       await seedInventoryActivity({
         tenantId: TENANT_A,
         tipo: 'reserva',
