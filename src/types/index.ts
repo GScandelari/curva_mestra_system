@@ -493,3 +493,41 @@ export interface ConsultantTransferRequest {
   created_at: Timestamp;
   updated_at: Timestamp;
 }
+
+// ============================================================================
+// TRILHA DE AUDITORIA (UC-53)
+// ============================================================================
+
+export type AuditEntityType =
+  | 'user'
+  | 'consultant'
+  | 'tenant'
+  | 'master_product'
+  | 'legal_document'
+  | 'system_settings';
+
+export type AuditAction =
+  | 'create'
+  | 'update'
+  | 'activate'
+  | 'deactivate'
+  | 'suspend'
+  | 'reactivate'
+  | 'change_role'
+  | 'set_password'
+  | 'reset_password_link'
+  | 'delete';
+
+export interface AuditLogEntry {
+  id: string;
+  tenant_id: string | null; // null para ações sem escopo de clínica
+  entity_type: AuditEntityType;
+  entity_id: string;
+  action: AuditAction;
+  descricao: string;
+  actor_id: string;
+  actor_name: string;
+  actor_role: 'system_admin' | 'clinic_admin';
+  timestamp: Timestamp;
+  metadata?: Record<string, unknown>;
+}

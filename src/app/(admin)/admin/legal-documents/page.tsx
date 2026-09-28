@@ -17,6 +17,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { writeAdminAuditLog } from '@/lib/services/auditLogService';
 import { FileText, Plus, Edit, Trash2, Loader2, Eye } from 'lucide-react';
 import { LegalDocument, DocumentStatus } from '@/types';
 import {
@@ -85,6 +86,13 @@ export default function LegalDocumentsPage() {
       }
 
       await deleteDoc(doc(db, 'legal_documents', documentToDelete.id));
+      await writeAdminAuditLog({
+        tenant_id: null,
+        entity_type: 'legal_document',
+        entity_id: documentToDelete.id,
+        action: 'delete',
+        descricao: `Documento legal "${documentToDelete.title}" excluído`,
+      });
       toast({
         title: 'Sucesso',
         description: 'Documento excluído com sucesso',

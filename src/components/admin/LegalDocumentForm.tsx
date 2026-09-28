@@ -21,6 +21,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { writeAdminAuditLog } from '@/lib/services/auditLogService';
 import { FileText, Save, Loader2, ArrowLeft } from 'lucide-react';
 import { LegalDocument, DocumentStatus } from '@/types';
 import {
@@ -167,13 +168,20 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
     setSaving(true);
     try {
       if (mode === 'create') {
-        await addDoc(collection(db, 'legal_documents'), {
+        const newDocRef = await addDoc(collection(db, 'legal_documents'), {
           ...formData,
           slug: slugNormalizado,
           created_by: auth.currentUser!.uid,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
           published_at: formData.status === 'ativo' ? serverTimestamp() : null,
+        });
+        await writeAdminAuditLog({
+          tenant_id: null,
+          entity_type: 'legal_document',
+          entity_id: newDocRef.id,
+          action: 'create',
+          descricao: `Documento legal "${formData.title}" (v${formData.version}) criado`,
         });
         toast({ title: 'Sucesso', description: 'Documento criado com sucesso' });
       } else {
@@ -190,6 +198,13 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
         };
         if (formData.status === 'ativo') updateData.published_at = serverTimestamp();
         await updateDoc(doc(db, 'legal_documents', documentId!), updateData);
+        await writeAdminAuditLog({
+          tenant_id: null,
+          entity_type: 'legal_document',
+          entity_id: documentId!,
+          action: 'update',
+          descricao: `Documento legal "${formData.title}" (v${formData.version}) editado`,
+        });
         toast({ title: 'Sucesso', description: 'Documento atualizado com sucesso' });
       }
       router.push('/admin/legal-documents');

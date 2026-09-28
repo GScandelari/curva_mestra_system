@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { getTenant, updateTenant } from '@/lib/services/tenantServiceDirect';
+import { writeAuditLog } from '@/lib/services/auditLogService';
 import {
   SuspendTenantDialog,
   ReactivateTenantDialog,
@@ -169,6 +170,24 @@ export default function EditTenantPage() {
         phone: phone.trim(),
         address: address.trim(),
       });
+
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        try {
+          await writeAuditLog({
+            tenant_id: tenantId,
+            entity_type: 'tenant',
+            entity_id: tenantId,
+            action: 'update',
+            descricao: `Dados cadastrais da clínica "${name.trim()}" editados`,
+            actor_id: currentUser.uid,
+            actor_name: currentUser.displayName || currentUser.email || 'Admin',
+            actor_role: 'system_admin',
+          });
+        } catch (auditError) {
+          console.error(auditError);
+        }
+      }
 
       setSuccess('Clínica atualizada com sucesso!');
       setTimeout(() => {

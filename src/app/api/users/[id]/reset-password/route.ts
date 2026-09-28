@@ -16,6 +16,7 @@ import {
   generateResetPasswordEmailHtml,
 } from '@/lib/services/passwordResetService';
 import { FieldValue } from 'firebase-admin/firestore';
+import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -112,6 +113,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       passwordResetRequestedAt: FieldValue.serverTimestamp(),
       passwordResetRequestedBy: decodedToken.uid,
       updated_at: FieldValue.serverTimestamp(),
+    });
+
+    await writeAuditLogAdmin({
+      tenant_id: userData?.tenant_id ?? null,
+      entity_type: 'user',
+      entity_id: userId,
+      action: 'reset_password_link',
+      descricao: `Link de redefinição de senha enviado para "${userEmail}"`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
     });
 
     console.log(`✅ Token de reset de senha gerado para ${userEmail}`);

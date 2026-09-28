@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
+import { determineConsultantAuditAction } from '@/lib/auditLogPayload';
 
 /**
  * GET - Obter consultor por ID
@@ -178,6 +180,22 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
 
     await adminDb.collection('consultants').doc(consultantId).update(updateData);
 
+    const { action, metadata } = determineConsultantAuditAction(
+      { status: consultantDoc.data()?.status },
+      { status: updateData.status ?? consultantDoc.data()?.status }
+    );
+    await writeAuditLogAdmin({
+      tenant_id: null,
+      entity_type: 'consultant',
+      entity_id: consultantId,
+      action,
+      descricao: `Consultor "${name || consultantDoc.data()?.name}" editado`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
+      metadata,
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Consultor atualizado com sucesso',
@@ -240,6 +258,18 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       // Desativar no Firebase Auth
       await adminAuth.updateUser(consultantData.user_id, { disabled: true });
     }
+
+    await writeAuditLogAdmin({
+      tenant_id: null,
+      entity_type: 'consultant',
+      entity_id: consultantId,
+      action: 'suspend',
+      descricao: `Consultor "${consultantData?.name}" desativado`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
+      metadata: { de: consultantData?.status, para: 'inactive' },
+    });
 
     return NextResponse.json({
       success: true,
