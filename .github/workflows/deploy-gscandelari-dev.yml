@@ -70,8 +70,12 @@ jobs:
       # - as demais functions dependem dos secrets SMTP_USER/SMTP_PASS e disparam
       #   e-mail real a partir de triggers do Firestore -- deployá-las no projeto
       #   dev mudaria o comportamento do ambiente de testes;
-      # - sem `--force`, para nunca apagar functions que existam em
-      #   curva-mestra-dev e não estejam neste código.
+      # - o `--force` é necessário porque, sem terminal interativo, o CLI não cria
+      #   a política de limpeza de imagens do Artifact Registry e sai com erro
+      #   (mesmo com a function já deployada). Ele só cria a política se ela ainda
+      #   não existir. É seguro aqui: o `--only functions:<nome>` limita as functions
+      #   candidatas a exclusão (planner.js do firebase-tools), então as demais
+      #   functions de curva-mestra-dev, como as `ssr...` do hosting, não são tocadas.
       # O `--only functions:<nome>` sozinho NÃO basta: o CLI carrega o código inteiro
       # e valida os secrets de todas as functions descobertas (SMTP_USER/SMTP_PASS),
       # falhando com "Secret Manager API has not been used in project
@@ -91,7 +95,7 @@ jobs:
       - name: Deploy Scheduled Functions (dev-gscandelari)
         run: |
           set -o pipefail
-          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled --token "$FIREBASE_TOKEN_DEV" --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
+          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
         env:
           FIREBASE_TOKEN_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
 
