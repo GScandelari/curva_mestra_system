@@ -18,6 +18,15 @@ export const checkAlertsScheduled = functions.scheduler.onSchedule(
     memory: '256MiB',
   },
   async () => {
+    // admin.initializeApp() nunca é chamado em nenhum outro lugar do projeto --
+    // ao contrário de onDocumentCreated/callables (que parecem inicializar o app
+    // como efeito colateral de declarar `secrets`, comportamento não documentado
+    // e não confiável), onSchedule não faz isso. Sem esta chamada, admin.firestore()
+    // lança "The default Firebase app does not exist" -- confirmado em produção e
+    // dev via `gcloud functions logs read` após forçar a execução do job.
+    if (!admin.apps.length) {
+      admin.initializeApp();
+    }
     // admin.firestore() é acessado aqui dentro (lazy), e não no topo do módulo --
     // mesmo motivo de processEmailQueue.ts.
     const db = admin.firestore();
