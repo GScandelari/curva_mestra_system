@@ -16,6 +16,14 @@ export const processEmailQueue = functions.firestore.onDocumentCreated(
     secrets: ['SMTP_USER', 'SMTP_PASS'],
   },
   async (event) => {
+    // Defensivo: hoje esta function funciona sem chamada explícita a
+    // admin.initializeApp() (efeito colateral não documentado de declarar
+    // `secrets` -- ver checkAlertsScheduled.ts, que NÃO tinha esse efeito e
+    // falhava com "The default Firebase app does not exist"). Não é seguro
+    // depender desse comportamento implícito, então inicializa explicitamente.
+    if (!admin.apps.length) {
+      admin.initializeApp();
+    }
     // admin.firestore() é acessado aqui dentro (lazy), e não no topo do módulo:
     // chamado no escopo do módulo, quebra a etapa de introspecção do
     // `firebase deploy` (que carrega o código para gerar o manifest da função
