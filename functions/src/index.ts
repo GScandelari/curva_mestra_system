@@ -22,6 +22,9 @@ export { sendAccessRejectionEmail } from './sendRejectionEmail';
 // Firestore Triggers - Fila de E-mails
 export { processEmailQueue } from './processEmailQueue';
 
+// Scheduled Functions - Verificação Automática de Alertas
+export { checkAlertsScheduled } from './checkAlertsScheduled';
+
 // Function placeholder para evitar erro de "no functions"
 import { onRequest } from 'firebase-functions/v2/https';
 
