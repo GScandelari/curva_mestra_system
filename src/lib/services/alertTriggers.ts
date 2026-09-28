@@ -197,7 +197,10 @@ export async function checkLowStock(tenantId: string): Promise<{
           const existingNotificationQuery = query(
             notificationsRef,
             where('type', '==', 'low_stock'),
-            where('codigo_produto', '==', codigoProduto),
+            // 'codigo_produto' nunca é um campo top-level da notificação (só existe
+            // em metadata.product_code) -- esta query nunca encontrava nada, então
+            // toda checagem de estoque baixo sempre duplicava a notificação.
+            where('metadata.product_code', '==', codigoProduto),
             where('read', '==', false)
           );
 

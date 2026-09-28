@@ -55,7 +55,7 @@ async function hasUnreadNotification(
   db: admin.firestore.Firestore,
   tenantId: string,
   type: NotificationType,
-  field: 'inventory_id' | 'codigo_produto',
+  field: 'inventory_id' | 'metadata.product_code',
   value: string
 ): Promise<boolean> {
   const snap = await db
@@ -258,7 +258,13 @@ export async function checkLowStock(
       if (isLowStock(totalQty, minQuantity)) {
         try {
           if (
-            await hasUnreadNotification(db, tenantId, 'low_stock', 'codigo_produto', codigoProduto)
+            await hasUnreadNotification(
+              db,
+              tenantId,
+              'low_stock',
+              'metadata.product_code',
+              codigoProduto
+            )
           ) {
             continue;
           }
