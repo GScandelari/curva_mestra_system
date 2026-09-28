@@ -5,6 +5,13 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.9.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.9.0...v1.9.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **firebase:** call admin.initializeApp() explicitly in checkAlertsScheduled ([33bcd47](https://github.com/GScandelari/curva_mestra_system/commit/33bcd47ae319a3e1af96da0abcd74bd85ee235c7))
+
 ## [1.9.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.8.0...v1.9.0) (2026-09-28)
 
 
