@@ -12,6 +12,17 @@ import {
   getNotificationSettings,
 } from './notificationService';
 import type { InventoryItem } from '@/types';
+import {
+  parseBrDate,
+  startOfToday,
+  computeExpiryLimitDate,
+  daysUntil,
+  resolveExpiryWarningDays,
+  isWithinExpiryWindow,
+  isExpired,
+  resolveLowStockThreshold,
+  isLowStock,
+} from '@/lib/alertRules';
 
 /**
  * Verifica produtos vencendo e cria notificações automaticamente
@@ -36,14 +47,11 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
       return results;
     }
 
-    const warningDays = settings.expiry_warning_days || 30;
+    const warningDays = resolveExpiryWarningDays(settings.expiry_warning_days);
 
     // Calcular data limite (hoje + X dias)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const limitDate = new Date(today);
-    limitDate.setDate(limitDate.getDate() + warningDays);
+    const today = startOfToday();
+    const limitDate = computeExpiryLimitDate(today, warningDays);
 
     // Buscar produtos no inventário
     // Filtra active: true -- antes, lotes ja desativados (UC-13) ainda
@@ -59,20 +67,13 @@ export async function checkExpiringProducts(tenantId: string): Promise<{
       const item = { id: docSnap.id, ...docSnap.data() } as InventoryItem;
 
       // Pular se não tiver validade
-      if (!item.dt_validade) continue;
-
-      // Converter dt_validade (string DD/MM/YYYY) para Date
-      const [day, month, year] = item.dt_validade.split('/');
-      const expiryDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-
-      expiryDate.setHours(0, 0, 0, 0);
+      const expiryDate = parseBrDate(item.dt_validade);
+      if (!expiryDate) continue;
 
       // Verificar se está dentro do período de alerta
-      if (expiryDate >= today && expiryDate <= limitDate) {
+      if (isWithinExpiryWindow(expiryDate, today, limitDate)) {
         // Calcular dias até vencer
-        const daysUntilExpiry = Math.ceil(
-          (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-        );
+        const daysUntilExpiry = daysUntil(expiryDate, today);
 
         try {
           // Verificar se já existe notificação para este produto/lote
@@ -183,10 +184,13 @@ export async function checkLowStock(tenantId: string): Promise<{
       const item = representativeLot.get(codigoProduto)!;
 
       // Limite por produto, fallback para threshold global, fallback padrão 10
-      const minQuantity = stockLimitsMap.get(codigoProduto) ?? settings.low_stock_threshold ?? 10;
+      const minQuantity = resolveLowStockThreshold(
+        stockLimitsMap.get(codigoProduto),
+        settings.low_stock_threshold
+      );
 
       // Verificar se o total do produto está em estoque baixo
-      if (totalQty > 0 && totalQty <= minQuantity) {
+      if (isLowStock(totalQty, minQuantity)) {
         try {
           // Verificar se já existe notificação não lida para este produto
           const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
@@ -260,8 +264,7 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
       return results;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfToday();
 
     // Buscar produtos no inventário
     // Filtra active: true -- antes, lotes ja desativados (UC-13) ainda
@@ -276,16 +279,11 @@ export async function checkExpiredProducts(tenantId: string): Promise<{
     for (const docSnap of inventorySnap.docs) {
       const item = { id: docSnap.id, ...docSnap.data() } as InventoryItem;
 
-      if (!item.dt_validade) continue;
-
-      // Converter dt_validade (string DD/MM/YYYY) para Date
-      const [day2, month2, year2] = item.dt_validade.split('/');
-      const expiryDate = new Date(parseInt(year2), parseInt(month2) - 1, parseInt(day2));
-
-      expiryDate.setHours(0, 0, 0, 0);
+      const expiryDate = parseBrDate(item.dt_validade);
+      if (!expiryDate) continue;
 
       // Verificar se está vencido
-      if (expiryDate < today) {
+      if (isExpired(expiryDate, today)) {
         try {
           // Verificar se já existe notificação
           const notificationsRef = collection(db, `tenants/${tenantId}/notifications`);
@@ -409,9 +407,12 @@ export async function runChecksForAllTenants(): Promise<{
       const tenantId = tenantDoc.id;
       const tenantData = tenantDoc.data();
 
-      // Pular tenants inativos
-      if (tenantData.status !== 'active') {
-        console.log(`⏭️  Pulando tenant ${tenantId} (status: ${tenantData.status})`);
+      // Pular tenants inativos -- Tenant.active é o campo real (src/types/index.ts);
+      // "status" nunca existiu na coleção tenants, então este filtro sempre pulava
+      // 100% dos tenants (bug pré-existente, nunca notado porque esta função nunca
+      // foi chamada em produção até esta feature).
+      if (tenantData.active !== true) {
+        console.log(`⏭️  Pulando tenant ${tenantId} (active: ${tenantData.active})`);
         continue;
       }
 
