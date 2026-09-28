@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -67,6 +68,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         passwordSetByAdmin: decodedToken.uid,
         updated_at: FieldValue.serverTimestamp(),
       });
+
+    await writeAuditLogAdmin({
+      tenant_id: userDoc.data()?.tenant_id ?? null,
+      entity_type: 'user',
+      entity_id: userId,
+      action: 'set_password',
+      descricao: `Senha do usuário "${userDoc.data()?.full_name || userDoc.data()?.email || userId}" definida pelo administrador`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
+    });
 
     console.log(`✅ Senha definida pelo admin ${decodedToken.uid} para usuário ${userId}`);
 

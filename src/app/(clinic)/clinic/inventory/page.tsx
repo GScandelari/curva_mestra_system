@@ -26,6 +26,7 @@ function InventoryContent() {
       initialFilter={initialFilter}
       onRowClick={(id) => router.push(`/clinic/inventory/${id}`)}
       onAddProducts={() => router.push('/clinic/add-products')}
+      onViewProjections={() => router.push('/clinic/inventory/projections')}
     />
   );
 }

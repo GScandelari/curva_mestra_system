@@ -63,6 +63,7 @@ interface InventoryViewProps {
   onlyBrand?: string;
   onRowClick?: (itemId: string) => void;
   onAddProducts?: () => void;
+  onViewProjections?: () => void;
 }
 
 function parseItem(doc: { id: string; data: () => Record<string, unknown> }): InventoryItem {
@@ -200,6 +201,7 @@ export function InventoryView({
   onlyBrand,
   onRowClick,
   onAddProducts,
+  onViewProjections,
 }: InventoryViewProps) {
   const router = useRouter();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -321,6 +323,12 @@ export function InventoryView({
               <Button onClick={onAddProducts}>
                 <Plus className="mr-2 h-4 w-4" />
                 Adicionar Produtos
+              </Button>
+            )}
+            {onViewProjections && (
+              <Button variant="outline" onClick={onViewProjections}>
+                <TrendingDown className="mr-2 h-4 w-4" />
+                Ver Projeções
               </Button>
             )}
             <Button variant="outline" onClick={handleExport} disabled={loading}>

@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore, getAdminAuth } from '@/lib/firebase-admin';
 import { CreateTenantData } from '@/types/tenant';
+import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -165,6 +166,17 @@ export async function POST(request: NextRequest) {
         // Não falhar a criação por isso
       }
     }
+
+    await writeAuditLogAdmin({
+      tenant_id: tenantId,
+      entity_type: 'tenant',
+      entity_id: tenantId,
+      action: 'create',
+      descricao: `Clínica "${data.name}" criada`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
+    });
 
     // 6. Retornar sucesso
     return NextResponse.json(

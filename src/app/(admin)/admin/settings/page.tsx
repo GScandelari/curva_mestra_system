@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { writeAdminAuditLog } from '@/lib/services/auditLogService';
 import { Settings, Save, Loader2 } from 'lucide-react';
 import { SystemSettings } from '@/types';
 
@@ -78,6 +79,13 @@ export default function SystemSettingsPage() {
         ...settings,
         updated_by: auth.currentUser.uid,
         updated_at: serverTimestamp(),
+      });
+      await writeAdminAuditLog({
+        tenant_id: null,
+        entity_type: 'system_settings',
+        entity_id: 'global',
+        action: 'update',
+        descricao: 'Configurações globais do sistema atualizadas',
       });
 
       toast({

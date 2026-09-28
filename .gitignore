@@ -32,6 +32,10 @@ yarn-error.log*
 *firebase-adminsdk*.json
 serviceAccountKey.json
 
+# Contas/dados de demonstração gerados localmente (e-mails + senha compartilhada
+# de contas reais no Firebase, mesmo que fictícias)
+*.local.md
+
 # Vercel
 .vercel
 

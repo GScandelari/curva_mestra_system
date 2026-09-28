@@ -34,6 +34,7 @@ export default function ConsultantInventoryPage() {
       readOnly
       onlyBrand="Rennova"
       backUrl={`/consultant/clinics/${tenantId}`}
+      onViewProjections={() => router.push(`/consultant/clinics/${tenantId}/projections`)}
     />
   );
 }

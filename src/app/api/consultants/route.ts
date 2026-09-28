@@ -7,6 +7,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import type { UserRole, Consultant } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Query, DocumentData } from 'firebase-admin/firestore';
+import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 
 /**
  * Gera código único de 6 dígitos
@@ -297,6 +298,17 @@ export async function POST(req: NextRequest) {
         );
       throw postCreateError;
     }
+
+    await writeAuditLogAdmin({
+      tenant_id: null,
+      entity_type: 'consultant',
+      entity_id: consultantRef.id,
+      action: 'create',
+      descricao: `Consultor "${name}" criado`,
+      actor_id: decodedToken.uid,
+      actor_name: actorNameFromToken(decodedToken),
+      actor_role: 'system_admin',
+    });
 
     // Enviar e-mail de boas-vindas via fila
     try {

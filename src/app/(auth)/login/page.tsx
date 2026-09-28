@@ -123,7 +123,15 @@ function LoginForm() {
         return;
       }
 
-      const redirectedForInactiveClinic = await checkClinicStatus(claims);
+      // Falha em checkClinicStatus (ex.: instabilidade transitória do Firestore) não deve
+      // bloquear um login já autenticado com sucesso -- a real barreira de segurança para
+      // clínica inativa são os custom claims/regras, esta verificação é só UX antecipada.
+      let redirectedForInactiveClinic = false;
+      try {
+        redirectedForInactiveClinic = await checkClinicStatus(claims);
+      } catch (clinicStatusError) {
+        console.error('Erro ao verificar status da clínica:', clinicStatusError);
+      }
       if (redirectedForInactiveClinic) return;
 
       redirectByRole(claims);
