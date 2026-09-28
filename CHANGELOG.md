@@ -5,6 +5,54 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.9.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.8.0...v1.9.0) (2026-09-28)
+
+
+### Features
+
+* **admin:** add audit log hooks to consultant management API routes ([5a6676f](https://github.com/GScandelari/curva_mestra_system/commit/5a6676f2f87aa08c1133b3e6d73fd1c6e4280b4e))
+* **admin:** add audit log hooks to legal documents and system settings ([3cf09f6](https://github.com/GScandelari/curva_mestra_system/commit/3cf09f682de58ad1f8335b9a495189ac7cd4be6d))
+* **admin:** add audit log hooks to master product service ([e8f7581](https://github.com/GScandelari/curva_mestra_system/commit/e8f75815c5c43860cf73700328bccd776e6c1c82))
+* **admin:** add audit log hooks to tenant creation, suspension and edit ([6a0004d](https://github.com/GScandelari/curva_mestra_system/commit/6a0004d8c7e3850db46f6d9db50bfa86368783bd))
+* **admin:** add audit log hooks to user management API routes ([e5fad9b](https://github.com/GScandelari/curva_mestra_system/commit/e5fad9bf467af0d303d95533febc505df29b0d56))
+* **admin:** add audit log query screen for clinic_admin ([06cbfa4](https://github.com/GScandelari/curva_mestra_system/commit/06cbfa4d0249d497c7ebac04624c11fabf4cda88))
+* **admin:** add audit log query screen for system_admin ([22dfdfb](https://github.com/GScandelari/curva_mestra_system/commit/22dfdfbe0a19ecb3b22552ae0fe0c1ae81fdb922))
+* **admin:** add CSV and PDF export to audit log screens ([4630b86](https://github.com/GScandelari/curva_mestra_system/commit/4630b86ed3343a00e497ea3f85a01e8255404de9))
+* **admin:** add pure audit log payload builder and action-diff helpers ([560821c](https://github.com/GScandelari/curva_mestra_system/commit/560821c76b8cbea068a46e0fb3f43359fe77d12d))
+* **admin:** add writeAuditLog and listAuditLog to auditLogService ([4764b71](https://github.com/GScandelari/curva_mestra_system/commit/4764b712a4f147f60c52eac99a68d9fb0dbb3d4b))
+* **dashboard:** add replenishment projection card to clinic dashboard ([13a6d31](https://github.com/GScandelari/curva_mestra_system/commit/13a6d314756fb84066e309ffd0ddc8ba9344298e))
+* **dashboard:** add replenishment projection card to consultant dashboard ([59ed6c2](https://github.com/GScandelari/curva_mestra_system/commit/59ed6c2f5c32517f3f7ac439cb186f51c32bc070))
+* **firebase:** add admin sdk alert checks (mirror of client alertTriggers) ([e19c633](https://github.com/GScandelari/curva_mestra_system/commit/e19c633a1ba98545b27c87da7191aac584b6d3a3))
+* **firebase:** add checkAlertsScheduled daily onSchedule trigger ([0b647d8](https://github.com/GScandelari/curva_mestra_system/commit/0b647d861198e193e9c643c31cd62c4d2693c0b2))
+* **firebase:** add firestore.indexes.json for audit_log and inventory_activity collection group ([dcbedd5](https://github.com/GScandelari/curva_mestra_system/commit/dcbedd57898b699e885ca40c4e76d2258dee0883))
+* **firebase:** add firestore.rules for audit_log collection ([6381594](https://github.com/GScandelari/curva_mestra_system/commit/6381594ec6c2fee465caf5ac2c0f2e5e656137f7))
+* **inventory:** add firestore loader for replenishment projections ([f02bd63](https://github.com/GScandelari/curva_mestra_system/commit/f02bd63a4ad07cc3678621d99e0e21036ddd83ea))
+* **inventory:** add projections page and entry point for clinic ([645adad](https://github.com/GScandelari/curva_mestra_system/commit/645adadc036892c37b8734545259fb72a11ae62d))
+* **inventory:** add projections page and entry points for consultant portal ([b982650](https://github.com/GScandelari/curva_mestra_system/commit/b982650e99a6d99ea00d80d3e4125c82c0be2567))
+* **inventory:** add ProjectionsView table component ([23a710a](https://github.com/GScandelari/curva_mestra_system/commit/23a710a14da6a363d147b9447d8a10479fb1ab0a))
+* **inventory:** add pure replenishment projection calculation functions ([06017e8](https://github.com/GScandelari/curva_mestra_system/commit/06017e86318d893ab7345ff5a9e58f266d64a183))
+* **inventory:** extract pure alert decision logic to alertRules.ts ([10396a7](https://github.com/GScandelari/curva_mestra_system/commit/10396a7c06ff841feac34c773eee0f69ed3d65e9))
+* **reports:** add Custo por Procedimento and Histórico do Lote cards to ReportsView ([3c05de7](https://github.com/GScandelari/curva_mestra_system/commit/3c05de773d1e25cb413d5d42abb113d8d38ceaba))
+* **reports:** add Fechamento Executivo and Mix Trimestral cards with PDF export ([1756d95](https://github.com/GScandelari/curva_mestra_system/commit/1756d95164d736ae5446181145b62e69e83c2d05))
+* **reports:** add firestore loaders for consumption records and product metadata ([42562f2](https://github.com/GScandelari/curva_mestra_system/commit/42562f2ab68490984c0138e22fd6b3b586bfe725))
+* **reports:** add generateMonthlyExecutiveReport and generateQuarterlyMixReport ([b488838](https://github.com/GScandelari/curva_mestra_system/commit/b48883835a3b74f62aa8dba144b9bc3a2eaa472f))
+* **reports:** add generateProcedureCostReport and generateLotHistoryReport ([6edcab8](https://github.com/GScandelari/curva_mestra_system/commit/6edcab8acc07db498d008d38a520846078c55c1b))
+* **reports:** add lot history entry point from inventory item detail page ([710d555](https://github.com/GScandelari/curva_mestra_system/commit/710d55567614f82648e220b303796dd0a00677e1))
+* **reports:** add pure costing engine functions (weighted average cost) ([c54bb94](https://github.com/GScandelari/curva_mestra_system/commit/c54bb9489fbde919f5db50545707df1aee2dd228))
+* **types:** add AuditLogEntry, AuditEntityType and AuditAction types ([b58388c](https://github.com/GScandelari/curva_mestra_system/commit/b58388c8e212680e0695c2765f53fe45a22f6290))
+
+
+### Bug Fixes
+
+* **auth:** don't block login when checkClinicStatus fails transiently ([83ec112](https://github.com/GScandelari/curva_mestra_system/commit/83ec1127d0a20eaa20e1f9bf2ab7da1d64346222))
+* **firebase:** add dedicated collectionGroup rule for inventory_activity ([7abd563](https://github.com/GScandelari/curva_mestra_system/commit/7abd5637022a0c011c253a3df1b4b69cd1523791))
+* **firebase:** fix isMasterProductInUse collectionGroup permission bug ([0929833](https://github.com/GScandelari/curva_mestra_system/commit/09298336ce59c835d3c31179cdfdb8c90bca5638))
+* **firebase:** move inventory_activity index to fieldOverrides ([3405e9f](https://github.com/GScandelari/curva_mestra_system/commit/3405e9f64da4d12d358645daa4e933d9de35ec08))
+* **inventory:** fix low-stock notification dedup querying wrong field ([bd66c8f](https://github.com/GScandelari/curva_mestra_system/commit/bd66c8fd02e31e26bd975d0d605ff223579f547c))
+* **inventory:** read produto_codigo instead of codigo_produto from solicitacoes ([3137a42](https://github.com/GScandelari/curva_mestra_system/commit/3137a421ccfad349e357635855243d5595411c51))
+* **reports:** expose custo_unitario_medio in Custo por Procedimento table ([32fde3c](https://github.com/GScandelari/curva_mestra_system/commit/32fde3c6439eaf9412681e411dac472e503f8b4e))
+* **reports:** read produto_codigo/produto_nome instead of codigo_produto/nome_produto in consumption report ([1ac45ab](https://github.com/GScandelari/curva_mestra_system/commit/1ac45ab6c16fdffbf71da72361e0abec9b1f170a))
+
 ## [1.8.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.7.1...v1.8.0) (2026-09-21)
 
 
