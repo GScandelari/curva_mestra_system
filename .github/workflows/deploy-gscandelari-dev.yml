@@ -66,6 +66,34 @@ jobs:
           path: firebase-hosting-debug.log
           retention-days: 7
 
+      # Só a Scheduled Function de alertas é deployada aqui, de propósito:
+      # - as demais functions dependem dos secrets SMTP_USER/SMTP_PASS e disparam
+      #   e-mail real a partir de triggers do Firestore -- deployá-las no projeto
+      #   dev mudaria o comportamento do ambiente de testes;
+      # - sem `--force`, para nunca apagar functions que existam em
+      #   curva-mestra-dev e não estejam neste código.
+      # Para incluir outra function, acrescente `,functions:<nome>` ao --only.
+      - name: Install Functions dependencies and build
+        run: |
+          cd functions
+          npm ci
+          npx tsc
+
+      - name: Deploy Scheduled Functions (dev-gscandelari)
+        run: |
+          set -o pipefail
+          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled --token "$FIREBASE_TOKEN_DEV" --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
+        env:
+          FIREBASE_TOKEN_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
+
+      - name: Upload Functions Debug Log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-functions-debug-log
+          path: firebase-functions-debug.log
+          retention-days: 7
+
       - name: Deployment Summary
         run: |
           echo "Deploy concluido: https://dev-gscandelari.web.app"
