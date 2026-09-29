@@ -9,8 +9,11 @@
  */
 
 /** Converte "DD/MM/YYYY" em Date à meia-noite (hora local), ou null se inválido. */
-export function parseBrDate(value: string | undefined | null): Date | null {
-  if (!value) return null;
+export function parseBrDate(value: unknown): Date | null {
+  // dt_validade é tipado como string, mas dados reais (Timestamp do Firestore,
+  // number, etc.) já apareceram em produção -- tratar como "sem validade" em vez
+  // de derrubar a checagem (TypeError: value.split is not a function).
+  if (!value || typeof value !== 'string') return null;
   const [day, month, year] = value.split('/');
   if (!day || !month || !year) return null;
   const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
