@@ -5,6 +5,13 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.9.2](https://github.com/GScandelari/curva_mestra_system/compare/v1.9.1...v1.9.2) (2026-09-29)
+
+
+### Bug Fixes
+
+* **inventory:** guard parseBrDate against non-string dt_validade ([d362aca](https://github.com/GScandelari/curva_mestra_system/commit/d362aca6f85b7916f3eac8be971d1821d6bd1488))
+
 ## [1.9.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.9.0...v1.9.1) (2026-09-28)
 
 
