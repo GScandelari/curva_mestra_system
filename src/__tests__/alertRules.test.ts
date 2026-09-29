@@ -27,6 +27,13 @@ describe('parseBrDate', () => {
   it('retorna null para formato inválido (sem duas barras)', () => {
     expect(parseBrDate('2027-03-15')).toBeNull();
   });
+
+  it('retorna null (sem lançar) para valor de tipo errado, ex.: Timestamp/number/objeto', () => {
+    expect(parseBrDate(12345)).toBeNull();
+    expect(parseBrDate({ seconds: 1, nanoseconds: 0 })).toBeNull();
+    expect(parseBrDate(['15', '03', '2027'])).toBeNull();
+    expect(parseBrDate(true)).toBeNull();
+  });
 });
 
 describe('computeExpiryLimitDate', () => {
