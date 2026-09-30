@@ -531,3 +531,35 @@ export interface AuditLogEntry {
   timestamp: Timestamp;
   metadata?: Record<string, unknown>;
 }
+
+export type EmailTemplateCategory = 'email' | 'internal_notification' | 'special_mechanism';
+
+export interface EmailTemplateVariable {
+  key: string; // usado como {{key}} no assunto/corpo
+  label: string; // rótulo exibido no editor
+  required: boolean;
+  sample: string; // valor usado no preview (RF-03) e no envio de teste (RF-04)
+}
+
+export interface EmailTemplateDoc {
+  tipo: string; // = id do documento, redundante por conveniência de export/list
+  label: string; // ex.: "Aprovação de Solicitação de Acesso"
+  category: EmailTemplateCategory;
+  related_uc: string; // ex.: "UC-02"
+  subject: string;
+  body: string; // HTML completo
+  variables: EmailTemplateVariable[]; // fixa, não editável pela UI nesta v1 (RN-02)
+  updated_at: Timestamp;
+  updated_by: string; // uid
+  updated_by_name: string;
+}
+
+export interface EmailTemplateVersion {
+  id: string;
+  subject: string;
+  body: string;
+  variables: EmailTemplateVariable[]; // snapshot no momento da substituição
+  replaced_at: Timestamp;
+  replaced_by: string;
+  replaced_by_name: string;
+}
