@@ -18,6 +18,7 @@ export { onAccessRequestCreated } from './onAccessRequestCreated';
 export { sendCustomEmail } from './sendCustomEmail';
 export { sendTempPasswordEmail } from './sendTemporaryPasswordEmail';
 export { sendAccessRejectionEmail } from './sendRejectionEmail';
+export { sendTemplateTestEmail } from './sendTemplateTestEmail';
 
 // Firestore Triggers - Fila de E-mails
 export { processEmailQueue } from './processEmailQueue';
