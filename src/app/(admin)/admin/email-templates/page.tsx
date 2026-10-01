@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,11 +29,7 @@ export default function EmailTemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<EmailTemplateDoc[]>([]);
 
-  useEffect(() => {
-    void loadTemplates();
-  }, []);
-
-  async function loadTemplates() {
+  const loadTemplates = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -58,7 +54,11 @@ export default function EmailTemplatesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, toast]);
+
+  useEffect(() => {
+    void loadTemplates();
+  }, [loadTemplates]);
 
   if (loading) {
     return (

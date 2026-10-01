@@ -4,6 +4,7 @@
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import * as admin from 'firebase-admin';
 import { sendEmail, getPlanName } from './services/emailService';
 import { getRenderedEmailTemplate } from './services/emailTemplateService';
 import { defineSecret } from 'firebase-functions/params';
@@ -27,6 +28,15 @@ export const onTenantCreated = onDocumentCreated(
 
     const tenantData = snapshot.data();
     const { name, email, plan_id } = tenantData;
+
+    // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts:
+    // declarar `secrets` NÃO garante admin.initializeApp() de forma confiável
+    // (efeito colateral não documentado, visto falhar mesmo quando presente)
+    // -- chamada explícita aqui, no mesmo arquivo que acaba lendo o Firestore
+    // (via getRenderedEmailTemplate), não só dentro do helper compartilhado.
+    if (!admin.apps.length) {
+      admin.initializeApp();
+    }
 
     try {
       console.log(`📧 Notificando admin sobre nova clínica: ${name}...`);

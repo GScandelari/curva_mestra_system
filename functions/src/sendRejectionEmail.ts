@@ -5,6 +5,7 @@
  */
 
 import * as functions from 'firebase-functions/v2';
+import * as admin from 'firebase-admin';
 import { sendEmail } from './services/emailService';
 import { getRenderedEmailTemplate } from './services/emailTemplateService';
 import { defineSecret } from 'firebase-functions/params';
@@ -58,6 +59,15 @@ export const sendAccessRejectionEmail = functions.https.onCall(
     const emailRegex = /^[^@\s]+@[^@\s]+$/;
     if (!emailRegex.test(data.email)) {
       throw new functions.https.HttpsError('invalid-argument', 'Formato de e-mail inválido');
+    }
+
+    // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts:
+    // declarar `secrets` NÃO garante admin.initializeApp() de forma confiável
+    // (efeito colateral não documentado, visto falhar mesmo quando presente)
+    // -- chamada explícita aqui, no mesmo arquivo que acaba lendo o Firestore
+    // (via getRenderedEmailTemplate), não só dentro do helper compartilhado.
+    if (!admin.apps.length) {
+      admin.initializeApp();
     }
 
     try {
