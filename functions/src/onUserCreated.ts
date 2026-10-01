@@ -4,6 +4,7 @@
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import * as admin from 'firebase-admin';
 import { sendEmail, getRoleName } from './services/emailService';
 import { getRenderedEmailTemplate } from './services/emailTemplateService';
 import { defineSecret } from 'firebase-functions/params';
@@ -38,6 +39,15 @@ export const onUserCreated = onDocumentCreated(
         `Usuário ${email} já recebeu um e-mail de boas-vindas específico, pulando o genérico`
       );
       return;
+    }
+
+    // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts:
+    // declarar `secrets` NÃO garante admin.initializeApp() de forma confiável
+    // (efeito colateral não documentado, visto falhar mesmo quando presente)
+    // -- chamada explícita aqui, no mesmo arquivo que acaba lendo o Firestore
+    // (via getRenderedEmailTemplate), não só dentro do helper compartilhado.
+    if (!admin.apps.length) {
+      admin.initializeApp();
     }
 
     try {

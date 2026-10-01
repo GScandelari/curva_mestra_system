@@ -4,6 +4,7 @@
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import * as admin from 'firebase-admin';
 import { defineString } from 'firebase-functions/params';
 import { sendEmail } from './services/emailService';
 import { getRenderedEmailTemplate } from './services/emailTemplateService';
@@ -61,6 +62,15 @@ export const onAccessRequestCreated = onDocumentCreated(
 
     // Formatar documento para o título do e-mail
     const formattedDocument = formatDocument(documentNumber, documentType);
+
+    // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts:
+    // declarar `secrets` NÃO garante admin.initializeApp() de forma confiável
+    // (efeito colateral não documentado, visto falhar mesmo quando presente)
+    // -- chamada explícita aqui, no mesmo arquivo que acaba lendo o Firestore
+    // (via getRenderedEmailTemplate), não só dentro do helper compartilhado.
+    if (!admin.apps.length) {
+      admin.initializeApp();
+    }
 
     try {
       const { subject, html } = await getRenderedEmailTemplate('access_request_created', {
