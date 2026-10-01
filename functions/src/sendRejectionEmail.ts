@@ -5,7 +5,8 @@
  */
 
 import * as functions from 'firebase-functions/v2';
-import { sendRejectionEmail } from './services/emailService';
+import { sendEmail } from './services/emailService';
+import { getRenderedEmailTemplate } from './services/emailTemplateService';
 import { defineSecret } from 'firebase-functions/params';
 
 // Secrets do Firebase para credenciais SMTP
@@ -61,12 +62,15 @@ export const sendAccessRejectionEmail = functions.https.onCall(
 
     try {
       // Enviar e-mail de rejeição
-      await sendRejectionEmail(
-        data.email,
-        data.displayName,
-        data.businessName,
-        data.rejectionReason
-      );
+      const motivoBlock = data.rejectionReason
+        ? `<p><strong>Motivo:</strong></p><p>${data.rejectionReason}</p>`
+        : '';
+      const { subject, html } = await getRenderedEmailTemplate('access_request_rejected', {
+        displayName: data.displayName,
+        businessName: data.businessName,
+        motivoBlock,
+      });
+      await sendEmail({ to: data.email, subject, html });
 
       console.log(`✅ E-mail de rejeição enviado para: ${data.email}`);
 
