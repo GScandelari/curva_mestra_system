@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import type { AccessRequest, Tenant, UserRole } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * Gera uma senha temporária usando crypto.randomBytes (CSPRNG).
@@ -20,64 +21,6 @@ import { FieldValue } from 'firebase-admin/firestore';
 function generateTempPassword(): string {
   // 24 bytes → 32 caracteres base64url; cryptographically secure (CSPRNG)
   return crypto.randomBytes(24).toString('base64url');
-}
-
-/**
- * Gera o HTML do e-mail de boas-vindas com link para definir a senha.
- */
-function generateWelcomeEmailHtml(
-  displayName: string,
-  email: string,
-  businessName: string,
-  passwordResetLink: string
-): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #c9a24a 0%, #8a6b22 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="margin: 0;">Sua Solicitação foi Aprovada!</h1>
-        </div>
-        <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-          <p>Olá <strong>${displayName}</strong>,</p>
-
-          <p>Sua solicitação de acesso ao <strong>Curva Mestra</strong> foi aprovada! O acesso ao sistema está liberado.</p>
-
-          <div style="background: #d1fae5; border: 1px solid #10b981; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p style="margin: 0; color: #065f46;"><strong>Conta Ativada com Sucesso!</strong></p>
-            <p style="margin: 10px 0 0 0; color: #065f46;">Clique no botão abaixo para definir sua senha e acessar o sistema.</p>
-          </div>
-
-          <p><strong>Seu e-mail de acesso:</strong> ${email}</p>
-
-          <div style="text-align: center; margin: 28px 0;">
-            <a href="${passwordResetLink}" style="display: inline-block; padding: 14px 34px; background: #c9a24a; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Definir minha senha →</a>
-          </div>
-
-          <p style="font-size: 13px; color: #6b7280;">Este link é de uso único e expira em 24 horas. Se precisar de um novo link, acesse <a href="https://curvamestra.com.br/login">curvamestra.com.br/login</a> e clique em "Esqueci a senha".</p>
-
-          <p><strong>Próximos passos após definir a senha:</strong></p>
-          <ol>
-            <li>Faça login com seu e-mail em <a href="https://curvamestra.com.br/login">curvamestra.com.br/login</a></li>
-            <li>Configure o perfil da clínica</li>
-            <li>Importe seu primeiro inventário</li>
-          </ol>
-
-          <p>Se você tiver alguma dúvida, entre em contato conosco.</p>
-
-          <p>Atenciosamente,<br><strong>Equipe Curva Mestra</strong></p>
-        </div>
-        <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-          <p>&copy; ${new Date().getFullYear()} Curva Mestra - Gestão Inteligente de Estoque</p>
-          <p><strong>IMPORTANTE:</strong> Nunca compartilhe sua senha com terceiros.</p>
-        </div>
-      </body>
-    </html>
-  `;
 }
 
 /**
@@ -184,6 +127,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           phone: request.phone,
           role: 'clinic_admin' as UserRole,
           active: true,
+          skip_welcome_email: true,
           created_at: FieldValue.serverTimestamp(),
           updated_at: FieldValue.serverTimestamp(),
         });
@@ -210,17 +154,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
       // 6. Enviar e-mail de boas-vindas com link de redefinição via fila de emails
       try {
-        const emailHtml = generateWelcomeEmailHtml(
-          request.full_name,
-          request.email,
-          request.business_name,
-          passwordResetLink
-        );
+        const { subject, body } = await getRenderedEmailTemplate('welcome_approval', {
+          displayName: request.full_name,
+          email: request.email,
+          businessName: request.business_name,
+          passwordResetLink,
+        });
 
         await adminDb.collection('email_queue').add({
           to: request.email,
-          subject: 'Sua Solicitação foi Aprovada - Curva Mestra',
-          body: emailHtml,
+          subject,
+          body,
           status: 'pending',
           type: 'welcome_approval',
           metadata: {

@@ -10,11 +10,8 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import {
-  createPasswordResetToken,
-  generateResetLink,
-  generateResetPasswordEmailHtml,
-} from '@/lib/services/passwordResetService';
+import { createPasswordResetToken, generateResetLink } from '@/lib/services/passwordResetService';
+import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 
@@ -89,15 +86,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const resetLink = generateResetLink(resetToken);
 
     // Adicionar email à fila
-    const emailHtml = generateResetPasswordEmailHtml(
-      userRecord.displayName || userData?.full_name || 'Usuário',
-      resetLink
-    );
+    const { subject, body } = await getRenderedEmailTemplate('password_reset', {
+      displayName: userRecord.displayName || userData?.full_name || 'Usuário',
+      resetLink,
+    });
 
     await adminDb.collection('email_queue').add({
       to: userEmail,
-      subject: 'Redefinição de Senha - Curva Mestra',
-      body: emailHtml,
+      subject,
+      body,
       status: 'pending',
       type: 'password_reset',
       metadata: {
