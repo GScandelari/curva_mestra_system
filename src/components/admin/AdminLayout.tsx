@@ -21,6 +21,7 @@ import {
   PackageSearch,
   Clock,
   History,
+  Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -89,6 +90,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Configurações',
       href: '/admin/settings',
       icon: Settings,
+    },
+    {
+      name: 'Templates de E-mail',
+      href: '/admin/email-templates',
+      icon: Mail,
     },
   ];
 
