@@ -10,11 +10,8 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import {
-  createPasswordResetToken,
-  generateResetLink,
-  generateResetPasswordEmailHtml,
-} from '@/lib/services/passwordResetService';
+import { createPasswordResetToken, generateResetLink } from '@/lib/services/passwordResetService';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 
@@ -89,24 +86,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const resetLink = generateResetLink(resetToken);
 
     // Adicionar email à fila
-    const emailHtml = generateResetPasswordEmailHtml(
-      userRecord.displayName || userData?.full_name || 'Usuário',
-      resetLink
-    );
-
-    await adminDb.collection('email_queue').add({
-      to: userEmail,
-      subject: 'Redefinição de Senha - Curva Mestra',
-      body: emailHtml,
-      status: 'pending',
-      type: 'password_reset',
-      metadata: {
-        user_id: userId,
-        tenant_id: userData?.tenant_id,
-        expires_at: expiresAt.toISOString(),
+    await enqueueTemplatedEmail(
+      'password_reset',
+      userEmail,
+      {
+        displayName: userRecord.displayName || userData?.full_name || 'Usuário',
+        resetLink,
       },
-      created_at: FieldValue.serverTimestamp(),
-    });
+      {
+        metadata: {
+          user_id: userId,
+          tenant_id: userData?.tenant_id,
+          expires_at: expiresAt.toISOString(),
+        },
+      }
+    );
 
     // Registrar no Firestore para auditoria
     await adminDb.collection('users').doc(userId).update({
