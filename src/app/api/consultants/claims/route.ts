@@ -5,7 +5,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp, WriteBatch } from 'firebase-admin/firestore';
 import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
 import { computeExpiresAt, isRequestExpired } from '@/lib/consultantRequests';
-import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * POST - Vincular consultor a uma clínica (auto-link) ou iniciar transferência
@@ -194,20 +194,11 @@ export async function POST(req: NextRequest) {
     // Notificar consultor atual por email
     try {
       if (currentConsultantData?.email) {
-        const { subject, body } = await getRenderedEmailTemplate('consultant_transfer_request', {
+        await enqueueTemplatedEmail('consultant_transfer_request', currentConsultantData.email, {
           currentConsultantName: currentConsultantData.name,
           requestingConsultantName: consultantData?.name,
           requestingConsultantCode: consultantData?.code,
           tenantName: tenantData?.name,
-        });
-
-        await adminDb.collection('email_queue').add({
-          to: currentConsultantData.email,
-          subject,
-          body,
-          status: 'pending',
-          type: 'consultant_transfer_request',
-          created_at: FieldValue.serverTimestamp(),
         });
       }
     } catch (emailError) {

@@ -9,7 +9,7 @@ import {
   isInviteRequest,
   isRequestExpired,
 } from '@/lib/consultantRequests';
-import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -94,20 +94,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
         if (requestingConsultantData?.email) {
           const motivoBlock = reason ? `<p><strong>Motivo:</strong> ${reason}</p>` : '';
-          const { subject, body } = await getRenderedEmailTemplate('consultant_transfer_rejected', {
-            requestingConsultantName: requestingConsultantData.name,
-            tenantName: transferData.tenant_name,
-            motivoBlock,
-          });
-
-          await adminDb.collection('email_queue').add({
-            to: requestingConsultantData.email,
-            subject,
-            body,
-            status: 'pending',
-            type: 'consultant_transfer_rejected',
-            created_at: FieldValue.serverTimestamp(),
-          });
+          await enqueueTemplatedEmail(
+            'consultant_transfer_rejected',
+            requestingConsultantData.email,
+            {
+              requestingConsultantName: requestingConsultantData.name,
+              tenantName: transferData.tenant_name,
+              motivoBlock,
+            }
+          );
         }
       } catch (emailError) {
         console.warn('Erro ao enviar email:', emailError);

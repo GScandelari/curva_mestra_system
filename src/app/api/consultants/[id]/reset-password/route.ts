@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { createPasswordResetToken, generateResetLink } from '@/lib/services/passwordResetService';
-import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -64,24 +64,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     );
 
     const resetLink = generateResetLink(resetToken);
-    const { subject, body } = await getRenderedEmailTemplate('password_reset', {
-      displayName: userRecord.displayName || consultantData.name || 'Consultor',
-      resetLink,
-    });
-
-    await adminDb.collection('email_queue').add({
-      to: userEmail,
-      subject,
-      body,
-      status: 'pending',
-      type: 'password_reset',
-      metadata: {
-        user_id: userId,
-        consultant_id: consultantId,
-        expires_at: expiresAt.toISOString(),
+    await enqueueTemplatedEmail(
+      'password_reset',
+      userEmail,
+      {
+        displayName: userRecord.displayName || consultantData.name || 'Consultor',
+        resetLink,
       },
-      created_at: FieldValue.serverTimestamp(),
-    });
+      {
+        metadata: {
+          user_id: userId,
+          consultant_id: consultantId,
+          expires_at: expiresAt.toISOString(),
+        },
+      }
+    );
 
     await adminDb.collection('consultants').doc(consultantId).update({
       passwordResetRequestedAt: FieldValue.serverTimestamp(),

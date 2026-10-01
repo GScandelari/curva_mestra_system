@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { computeExpiresAt, isRequestExpired } from '@/lib/consultantRequests';
-import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * GET - Obter o convite pendente e não expirado atual da clínica (RF-13)
@@ -162,18 +162,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // Notificar o consultor convidado por email
     try {
       if (consultantData?.email) {
-        const { subject, body } = await getRenderedEmailTemplate('consultant_invite_created', {
+        await enqueueTemplatedEmail('consultant_invite_created', consultantData.email, {
           consultantName: consultantData.name,
           tenantName: tenantData?.name,
-        });
-
-        await adminDb.collection('email_queue').add({
-          to: consultantData.email,
-          subject,
-          body,
-          status: 'pending',
-          type: 'consultant_invite_created',
-          created_at: FieldValue.serverTimestamp(),
         });
       }
     } catch (emailError) {

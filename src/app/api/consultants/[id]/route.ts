@@ -12,7 +12,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 import { determineConsultantAuditAction } from '@/lib/auditLogPayload';
-import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * GET - Obter consultor por ID
@@ -135,32 +135,21 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       // silenciosamente e o consultor só descobria ao falhar o próximo login.
       if (previousEmail && previousEmail !== emailLower) {
         try {
-          const { subject: notifySubject, body: notifyBody } = await getRenderedEmailTemplate(
+          const emailChangedVariables = {
+            name: consultantData?.name || '',
+            previousEmail,
+            newEmail: emailLower,
+          };
+          await enqueueTemplatedEmail(
             'consultant_email_changed',
-            {
-              name: consultantData?.name || '',
-              previousEmail,
-              newEmail: emailLower,
-            }
+            previousEmail,
+            emailChangedVariables
           );
-
-          await adminDb.collection('email_queue').add({
-            to: previousEmail,
-            subject: notifySubject,
-            body: notifyBody,
-            status: 'pending',
-            type: 'consultant_email_changed',
-            created_at: FieldValue.serverTimestamp(),
-          });
-
-          await adminDb.collection('email_queue').add({
-            to: emailLower,
-            subject: notifySubject,
-            body: notifyBody,
-            status: 'pending',
-            type: 'consultant_email_changed',
-            created_at: FieldValue.serverTimestamp(),
-          });
+          await enqueueTemplatedEmail(
+            'consultant_email_changed',
+            emailLower,
+            emailChangedVariables
+          );
         } catch (emailError) {
           console.warn('Erro ao enfileirar e-mail de aviso de troca de e-mail:', emailError);
         }

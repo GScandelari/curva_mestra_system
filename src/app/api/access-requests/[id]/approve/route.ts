@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import type { AccessRequest, Tenant, UserRole } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * Gera uma senha temporária usando crypto.randomBytes (CSPRNG).
@@ -154,25 +154,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
       // 6. Enviar e-mail de boas-vindas com link de redefinição via fila de emails
       try {
-        const { subject, body } = await getRenderedEmailTemplate('welcome_approval', {
-          displayName: request.full_name,
-          email: request.email,
-          businessName: request.business_name,
-          passwordResetLink,
-        });
-
-        await adminDb.collection('email_queue').add({
-          to: request.email,
-          subject,
-          body,
-          status: 'pending',
-          type: 'welcome_approval',
-          metadata: {
-            user_id,
-            tenant_id,
+        await enqueueTemplatedEmail(
+          'welcome_approval',
+          request.email,
+          {
+            displayName: request.full_name,
+            email: request.email,
+            businessName: request.business_name,
+            passwordResetLink,
           },
-          created_at: FieldValue.serverTimestamp(),
-        });
+          { metadata: { user_id, tenant_id } }
+        );
 
         console.log(`✅ E-mail de boas-vindas adicionado à fila para ${request.email}`);
       } catch (emailError) {

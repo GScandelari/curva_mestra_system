@@ -8,7 +8,7 @@ import type { UserRole, Consultant } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Query, DocumentData } from 'firebase-admin/firestore';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
-import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * Gera código único de 6 dígitos
@@ -256,24 +256,12 @@ export async function POST(req: NextRequest) {
 
     // Enviar e-mail de boas-vindas via fila
     try {
-      const { subject, body } = await getRenderedEmailTemplate('consultant_welcome', {
-        name,
-        email: emailLower,
-        code,
-      });
-
-      await adminDb.collection('email_queue').add({
-        to: emailLower,
-        subject,
-        body,
-        status: 'pending',
-        type: 'consultant_welcome',
-        metadata: {
-          user_id: userId,
-          consultant_id: consultantRef.id,
-        },
-        created_at: FieldValue.serverTimestamp(),
-      });
+      await enqueueTemplatedEmail(
+        'consultant_welcome',
+        emailLower,
+        { name, email: emailLower, code },
+        { metadata: { user_id: userId, consultant_id: consultantRef.id } }
+      );
 
       console.log(`E-mail de boas-vindas adicionado à fila para ${emailLower}`);
     } catch (emailError) {
