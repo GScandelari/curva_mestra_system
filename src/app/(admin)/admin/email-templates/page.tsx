@@ -30,7 +30,7 @@ export default function EmailTemplatesPage() {
   const [templates, setTemplates] = useState<EmailTemplateDoc[]>([]);
 
   useEffect(() => {
-    loadTemplates();
+    void loadTemplates();
   }, []);
 
   async function loadTemplates() {
@@ -69,7 +69,8 @@ export default function EmailTemplatesPage() {
   }
 
   const grouped = templates.reduce<Record<string, EmailTemplateDoc[]>>((acc, template) => {
-    (acc[template.category] ??= []).push(template);
+    acc[template.category] ??= [];
+    acc[template.category].push(template);
     return acc;
   }, {});
 

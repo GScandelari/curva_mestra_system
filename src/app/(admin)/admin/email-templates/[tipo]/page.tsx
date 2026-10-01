@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { httpsCallable } from 'firebase/functions';
@@ -75,7 +75,7 @@ export default function EmailTemplateEditorPage() {
   }, [user, tipo, toast]);
 
   useEffect(() => {
-    loadTemplate();
+    void loadTemplate();
   }, [loadTemplate]);
 
   function sampleValues(): Record<string, string> {
@@ -206,6 +206,47 @@ export default function EmailTemplateEditorPage() {
   }
 
   const preview = renderedPreview();
+
+  let historyContent: ReactNode;
+  if (loadingVersions) {
+    historyContent = (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  } else if (versions.length === 0) {
+    historyContent = (
+      <p className="text-sm text-muted-foreground py-4">Nenhuma versão anterior salva.</p>
+    );
+  } else {
+    historyContent = (
+      <div className="space-y-2 max-h-96 overflow-y-auto">
+        {versions.map((v) => (
+          <div key={v.id} className="flex items-center justify-between border rounded p-3 gap-3">
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{v.subject}</p>
+              <p className="text-xs text-muted-foreground">
+                {v.replaced_by_name} • {formatTimestamp(v.replaced_at)}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleRevert(v.id)}
+              disabled={revertingId === v.id}
+            >
+              {revertingId === v.id ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Reverter
+            </Button>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
@@ -339,42 +380,7 @@ export default function EmailTemplateEditorPage() {
               apagada.
             </DialogDescription>
           </DialogHeader>
-          {loadingVersions ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : versions.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">Nenhuma versão anterior salva.</p>
-          ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {versions.map((v) => (
-                <div
-                  key={v.id}
-                  className="flex items-center justify-between border rounded p-3 gap-3"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{v.subject}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {v.replaced_by_name} • {formatTimestamp(v.replaced_at)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleRevert(v.id)}
-                    disabled={revertingId === v.id}
-                  >
-                    {revertingId === v.id ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                    )}
-                    Reverter
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
+          {historyContent}
         </DialogContent>
       </Dialog>
     </div>
