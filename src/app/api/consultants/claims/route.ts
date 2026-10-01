@@ -5,6 +5,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp, WriteBatch } from 'firebase-admin/firestore';
 import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
 import { computeExpiresAt, isRequestExpired } from '@/lib/consultantRequests';
+import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * POST - Vincular consultor a uma clínica (auto-link) ou iniciar transferência
@@ -193,13 +194,17 @@ export async function POST(req: NextRequest) {
     // Notificar consultor atual por email
     try {
       if (currentConsultantData?.email) {
+        const { subject, body } = await getRenderedEmailTemplate('consultant_transfer_request', {
+          currentConsultantName: currentConsultantData.name,
+          requestingConsultantName: consultantData?.name,
+          requestingConsultantCode: consultantData?.code,
+          tenantName: tenantData?.name,
+        });
+
         await adminDb.collection('email_queue').add({
           to: currentConsultantData.email,
-          subject: 'Pedido de transferência de clínica - Curva Mestra',
-          body: `<p>Olá ${currentConsultantData.name},</p>
-<p>O consultor <strong>${consultantData?.name} (${consultantData?.code})</strong> solicitou assumir a consultoria da clínica <strong>${tenantData?.name}</strong>, atualmente vinculada a você.</p>
-<p>Acesse o Portal do Consultor para aprovar ou rejeitar este pedido.</p>
-<p>Atenciosamente,<br>Equipe Curva Mestra</p>`,
+          subject,
+          body,
           status: 'pending',
           type: 'consultant_transfer_request',
           created_at: FieldValue.serverTimestamp(),

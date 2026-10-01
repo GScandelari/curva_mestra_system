@@ -12,6 +12,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 import { determineConsultantAuditAction } from '@/lib/auditLogPayload';
+import { getRenderedEmailTemplate } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * GET - Obter consultor por ID
@@ -134,14 +135,18 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       // silenciosamente e o consultor só descobria ao falhar o próximo login.
       if (previousEmail && previousEmail !== emailLower) {
         try {
-          const notifyBody = `<p>Olá ${consultantData?.name || ''},</p>
-<p>O e-mail de acesso da sua conta de consultor no Curva Mestra foi alterado de <strong>${previousEmail}</strong> para <strong>${emailLower}</strong>.</p>
-<p>A partir de agora, use o novo e-mail para fazer login. Se você não reconhece esta alteração, entre em contato com o suporte.</p>
-<p>Atenciosamente,<br>Equipe Curva Mestra</p>`;
+          const { subject: notifySubject, body: notifyBody } = await getRenderedEmailTemplate(
+            'consultant_email_changed',
+            {
+              name: consultantData?.name || '',
+              previousEmail,
+              newEmail: emailLower,
+            }
+          );
 
           await adminDb.collection('email_queue').add({
             to: previousEmail,
-            subject: 'Seu e-mail de acesso foi alterado - Curva Mestra',
+            subject: notifySubject,
             body: notifyBody,
             status: 'pending',
             type: 'consultant_email_changed',
@@ -150,7 +155,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
 
           await adminDb.collection('email_queue').add({
             to: emailLower,
-            subject: 'Seu e-mail de acesso foi alterado - Curva Mestra',
+            subject: notifySubject,
             body: notifyBody,
             status: 'pending',
             type: 'consultant_email_changed',
