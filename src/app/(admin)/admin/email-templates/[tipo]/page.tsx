@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Eye, Send, History, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Send, History, RotateCcw } from 'lucide-react';
 import { renderTemplate } from '@/lib/emailTemplateRendering';
 import { formatTimestamp } from '@/lib/utils';
 import type { EmailTemplateDoc, EmailTemplateVersion } from '@/types';
@@ -37,8 +37,6 @@ export default function EmailTemplateEditorPage() {
   const [template, setTemplate] = useState<EmailTemplateDoc | null>(null);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-
-  const [previewOpen, setPreviewOpen] = useState(false);
 
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testEmail, setTestEmail] = useState('');
@@ -249,7 +247,7 @@ export default function EmailTemplateEditorPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl">
+    <div className="p-6 space-y-6 max-w-6xl">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.push('/admin/email-templates')}>
@@ -264,10 +262,6 @@ export default function EmailTemplateEditorPage() {
           <Button variant="outline" onClick={handleOpenHistory}>
             <History className="mr-2 h-4 w-4" />
             Histórico
-          </Button>
-          <Button variant="outline" onClick={() => setPreviewOpen(true)}>
-            <Eye className="mr-2 h-4 w-4" />
-            Pré-visualizar
           </Button>
           <Button variant="outline" onClick={() => setTestDialogOpen(true)}>
             <Send className="mr-2 h-4 w-4" />
@@ -306,38 +300,38 @@ export default function EmailTemplateEditorPage() {
         <CardHeader>
           <CardTitle>Assunto</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-2">
           <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+          <p className="text-sm text-muted-foreground truncate">
+            Pré-visualização: {preview.subject}
+          </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Corpo (HTML)</CardTitle>
+          <CardDescription>
+            A pré-visualização à direita atualiza em tempo real, com os valores de exemplo de cada
+            variável.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={20}
-            className="font-mono text-sm"
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={24}
+              className="font-mono text-sm resize-none min-h-[600px]"
+            />
+            <iframe
+              srcDoc={preview.body}
+              title="Pré-visualização do corpo do e-mail"
+              className="w-full min-h-[600px] border rounded-md bg-white"
+            />
+          </div>
         </CardContent>
       </Card>
-
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Pré-visualização</DialogTitle>
-            <DialogDescription>Assunto: {preview.subject}</DialogDescription>
-          </DialogHeader>
-          <iframe
-            srcDoc={preview.body}
-            title="Pré-visualização do e-mail"
-            className="w-full h-[500px] border rounded"
-          />
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
         <DialogContent>
