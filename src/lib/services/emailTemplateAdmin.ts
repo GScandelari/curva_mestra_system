@@ -37,6 +37,29 @@ export async function getRenderedEmailTemplate(
   };
 }
 
+/**
+ * Renderiza `tipo` com `variables` e grava o resultado em `email_queue` —
+ * os 8 pontos de chamada migrados nas Branches C/D do UC-55 só diferem no
+ * destinatário, nas variáveis e em campos opcionais de `metadata`.
+ */
+export async function enqueueTemplatedEmail(
+  tipo: string,
+  to: string,
+  variables: Record<string, string>,
+  extraFields?: Record<string, unknown>
+): Promise<void> {
+  const { subject, body } = await getRenderedEmailTemplate(tipo, variables);
+  await adminDb.collection('email_queue').add({
+    to,
+    subject,
+    body,
+    status: 'pending',
+    type: tipo,
+    created_at: FieldValue.serverTimestamp(),
+    ...extraFields,
+  });
+}
+
 export async function saveEmailTemplateVersion(
   tipo: string,
   content: { subject: string; body: string },

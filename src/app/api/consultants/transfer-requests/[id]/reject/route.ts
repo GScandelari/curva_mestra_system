@@ -9,6 +9,7 @@ import {
   isInviteRequest,
   isRequestExpired,
 } from '@/lib/consultantRequests';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -92,17 +93,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         const requestingConsultantData = requestingConsultantDoc.data();
 
         if (requestingConsultantData?.email) {
-          await adminDb.collection('email_queue').add({
-            to: requestingConsultantData.email,
-            subject: 'Pedido de transferência não aprovado - Curva Mestra',
-            body: `<p>Olá ${requestingConsultantData.name},</p>
-<p>Seu pedido de transferência para a clínica <strong>${transferData.tenant_name}</strong> não foi aprovado pelo consultor atual.</p>
-${reason ? `<p><strong>Motivo:</strong> ${reason}</p>` : ''}
-<p>Atenciosamente,<br>Equipe Curva Mestra</p>`,
-            status: 'pending',
-            type: 'consultant_transfer_rejected',
-            created_at: FieldValue.serverTimestamp(),
-          });
+          const motivoBlock = reason ? `<p><strong>Motivo:</strong> ${reason}</p>` : '';
+          await enqueueTemplatedEmail(
+            'consultant_transfer_rejected',
+            requestingConsultantData.email,
+            {
+              requestingConsultantName: requestingConsultantData.name,
+              tenantName: transferData.tenant_name,
+              motivoBlock,
+            }
+          );
         }
       } catch (emailError) {
         console.warn('Erro ao enviar email:', emailError);

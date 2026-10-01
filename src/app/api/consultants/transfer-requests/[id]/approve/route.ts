@@ -10,6 +10,7 @@ import {
   isInviteRequest,
   isRequestExpired,
 } from '@/lib/consultantRequests';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -159,17 +160,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // aprovador é o destinatário natural, um email aqui seria redundante).
     if (!isInvite) {
       try {
-        await adminDb.collection('email_queue').add({
-          to: requestingConsultantData.email,
-          subject: 'Transferência aprovada - Curva Mestra',
-          body: `<p>Olá ${requestingConsultantData.name},</p>
-<p>Sua solicitação de transferência para a clínica <strong>${transferData.tenant_name}</strong> foi aprovada!</p>
-<p>Você já pode acessar os dados da clínica no Portal do Consultor.</p>
-<p>Atenciosamente,<br>Equipe Curva Mestra</p>`,
-          status: 'pending',
-          type: 'consultant_transfer_approved',
-          created_at: FieldValue.serverTimestamp(),
-        });
+        await enqueueTemplatedEmail(
+          'consultant_transfer_approved',
+          requestingConsultantData.email,
+          {
+            requestingConsultantName: requestingConsultantData.name,
+            tenantName: transferData.tenant_name,
+          }
+        );
       } catch (emailError) {
         console.warn('Erro ao enviar email:', emailError);
       }
