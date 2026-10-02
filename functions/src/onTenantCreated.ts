@@ -4,7 +4,9 @@
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { sendNewTenantNotification } from './services/emailService';
+import * as admin from 'firebase-admin';
+import { sendEmail, getPlanName } from './services/emailService';
+import { getRenderedEmailTemplate } from './services/emailTemplateService';
 import { defineSecret } from 'firebase-functions/params';
 
 // Secrets do Firebase para credenciais SMTP
@@ -27,10 +29,25 @@ export const onTenantCreated = onDocumentCreated(
     const tenantData = snapshot.data();
     const { name, email, plan_id } = tenantData;
 
+    // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts
+    // -- e confirmado em produção que `admin.apps.length` não é suficiente
+    // aqui (ficava > 0 sem o app "[DEFAULT]" existir, pulando a inicialização
+    // real) -- ver emailTemplateService.ts para o detalhe completo.
+    try {
+      admin.app();
+    } catch {
+      admin.initializeApp();
+    }
+
     try {
       console.log(`📧 Notificando admin sobre nova clínica: ${name}...`);
 
-      await sendNewTenantNotification(name, email, plan_id);
+      const { subject, html } = await getRenderedEmailTemplate('new_tenant_notification', {
+        tenantName: name,
+        tenantEmail: email,
+        planName: getPlanName(plan_id),
+      });
+      await sendEmail({ to: 'scandelari.guilherme@curvamestra.com.br', subject, html });
 
       console.log(`✅ Notificação enviada com sucesso`);
     } catch (error) {

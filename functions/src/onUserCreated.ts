@@ -4,7 +4,9 @@
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { sendWelcomeEmail } from './services/emailService';
+import * as admin from 'firebase-admin';
+import { sendEmail, getRoleName } from './services/emailService';
+import { getRenderedEmailTemplate } from './services/emailTemplateService';
 import { defineSecret } from 'firebase-functions/params';
 
 // Secrets do Firebase para credenciais SMTP
@@ -25,17 +27,38 @@ export const onUserCreated = onDocumentCreated(
     }
 
     const userData = snapshot.data();
-    const { email, full_name, role } = userData;
+    const { email, full_name, role, skip_welcome_email } = userData;
 
     if (!email || !full_name) {
       console.log('Usuário sem e-mail ou nome, pulando envio');
       return;
     }
 
+    if (skip_welcome_email === true) {
+      console.log(
+        `Usuário ${email} já recebeu um e-mail de boas-vindas específico, pulando o genérico`
+      );
+      return;
+    }
+
+    // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts
+    // -- e confirmado em produção que `admin.apps.length` não é suficiente
+    // aqui (ficava > 0 sem o app "[DEFAULT]" existir, pulando a inicialização
+    // real) -- ver emailTemplateService.ts para o detalhe completo.
+    try {
+      admin.app();
+    } catch {
+      admin.initializeApp();
+    }
+
     try {
       console.log(`📧 Enviando e-mail de boas-vindas para ${email}...`);
 
-      await sendWelcomeEmail(email, full_name, role);
+      const { subject, html } = await getRenderedEmailTemplate('generic_user_welcome', {
+        displayName: full_name,
+        role: getRoleName(role),
+      });
+      await sendEmail({ to: email, subject, html });
 
       console.log(`✅ E-mail enviado com sucesso para ${email}`);
     } catch (error) {

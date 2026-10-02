@@ -5,7 +5,8 @@
 
 import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
-import { sendWelcomeEmail } from './services/emailService';
+import { sendEmail, getRoleName } from './services/emailService';
+import { getRenderedEmailTemplate } from './services/emailTemplateService';
 
 // Definir secrets localmente
 const SMTP_USER = defineSecret('SMTP_USER');
@@ -34,7 +35,11 @@ export const testEmail = onRequest(
 
     try {
       if (type === 'welcome') {
-        await sendWelcomeEmail(email, 'Guilherme Scandelari', 'system_admin');
+        const { subject, html } = await getRenderedEmailTemplate('generic_user_welcome', {
+          displayName: 'Guilherme Scandelari',
+          role: getRoleName('system_admin'),
+        });
+        await sendEmail({ to: email, subject, html });
       } else {
         res.status(400).json({
           error: "Tipo de e-mail inválido. Use 'welcome'",

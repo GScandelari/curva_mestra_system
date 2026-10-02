@@ -66,10 +66,15 @@ jobs:
           path: firebase-hosting-debug.log
           retention-days: 7
 
-      # Só a Scheduled Function de alertas é deployada aqui, de propósito:
-      # - as demais functions dependem dos secrets SMTP_USER/SMTP_PASS e disparam
-      #   e-mail real a partir de triggers do Firestore -- deployá-las no projeto
-      #   dev mudaria o comportamento do ambiente de testes;
+      # Apenas as functions abaixo são deployadas aqui, de propósito -- as
+      # demais ainda não têm equivalente de teste seguro no projeto dev (ex.:
+      # sendCustomEmail, sendTempPasswordEmail, processEmailQueue continuam de
+      # fora por ora):
+      # - checkAlertsScheduled não depende de secrets;
+      # - onUserCreated/onTenantCreated/onAccessRequestCreated/
+      #   sendAccessRejectionEmail/sendTemplateTestEmail (UC-55) dependem dos
+      #   secrets SMTP_USER/SMTP_PASS, já configurados no projeto dev via
+      #   `firebase functions:secrets:set` (Secret Manager habilitado).
       # - o `--force` é necessário porque, sem terminal interativo, o CLI não cria
       #   a política de limpeza de imagens do Artifact Registry e sai com erro
       #   (mesmo com a function já deployada). Ele só cria a política se ela ainda
@@ -77,25 +82,32 @@ jobs:
       #   candidatas a exclusão (planner.js do firebase-tools), então as demais
       #   functions de curva-mestra-dev, como as `ssr...` do hosting, não são tocadas.
       # O `--only functions:<nome>` sozinho NÃO basta: o CLI carrega o código inteiro
-      # e valida os secrets de todas as functions descobertas (SMTP_USER/SMTP_PASS),
-      # falhando com "Secret Manager API has not been used in project
-      # curva-mestra-dev". Por isso, só neste deploy, o entrypoint compilado
-      # (lib/index.js, gitignored) é trocado por um que exporta apenas a function
-      # agendada -- functions/src/index.ts não é alterado.
+      # e valida os secrets de TODAS as functions descobertas, falhando com "Secret
+      # Manager API has not been used in project curva-mestra-dev" para qualquer
+      # function cujo secret não esteja configurado. Por isso, só neste deploy, o
+      # entrypoint compilado (lib/index.js, gitignored) é trocado por um que exporta
+      # apenas as functions abaixo -- functions/src/index.ts não é alterado.
       # Para incluir outra function: exporte-a no lib/index.js abaixo E acrescente
-      # `,functions:<nome>` ao --only (e habilite o Secret Manager + crie os secrets
-      # no projeto dev se ela usar secrets).
+      # `,functions:<nome>` ao --only (e configure o secret no projeto dev primeiro,
+      # se ela usar algum).
       - name: Install Functions dependencies and build
         run: |
           cd functions
           npm ci
           npx tsc
-          echo "exports.checkAlertsScheduled = require('./checkAlertsScheduled').checkAlertsScheduled;" > lib/index.js
+          {
+            echo "exports.checkAlertsScheduled = require('./checkAlertsScheduled').checkAlertsScheduled;"
+            echo "exports.onUserCreated = require('./onUserCreated').onUserCreated;"
+            echo "exports.onTenantCreated = require('./onTenantCreated').onTenantCreated;"
+            echo "exports.onAccessRequestCreated = require('./onAccessRequestCreated').onAccessRequestCreated;"
+            echo "exports.sendAccessRejectionEmail = require('./sendRejectionEmail').sendAccessRejectionEmail;"
+            echo "exports.sendTemplateTestEmail = require('./sendTemplateTestEmail').sendTemplateTestEmail;"
+          } > lib/index.js
 
       - name: Deploy Scheduled Functions (dev-gscandelari)
         run: |
           set -o pipefail
-          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
+          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled,functions:onUserCreated,functions:onTenantCreated,functions:onAccessRequestCreated,functions:sendAccessRejectionEmail,functions:sendTemplateTestEmail --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
         env:
           FIREBASE_TOKEN_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
 
