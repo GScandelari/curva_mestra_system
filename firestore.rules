@@ -61,6 +61,19 @@ service cloud.firestore {
     // compartilhamento de NF-e com o consultor, se vier a existir, será
     // opt-in explícito do clinic_admin, não o padrão).
     //
+    // IMPORTANTE — `{collectionId}/{document=**}` em vez de só `{document=**}`:
+    // a primeira versão desta correção usava `match
+    // /tenants/{tenantId}/{document=**}` com `document[0] != 'nf_imports'`
+    // (indexação do wildcard recursivo). Isso funciona para `get`, mas quebra
+    // TODO `list`/query em QUALQUER subcoleção do tenant — confirmado contra
+    // o Firebase Emulator: "Variable [document] is not bound in path
+    // template" para `list`, porque o wildcard recursivo não é vinculável em
+    // operações de lista quando usado para indexação condicional. Isso
+    // derrubou UC-05/UC-51/UC-52/UC-53 em CI (PR #344) por depender de
+    // `getDocs(query(...))`. `{collectionId}` é um wildcard de UM segmento
+    // (não recursivo) — vinculado corretamente tanto para `get` quanto para
+    // `list`, validado com `@firebase/rules-unit-testing` antes de aplicar.
+    //
     // ESCRITA NÃO é concedida aqui propositalmente (achado de segurança
     // UC-13-RN-09 / UC-15-RN-07 / UC-20-RN-07 — ver
     // ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md): a versão
@@ -71,19 +84,16 @@ service cloud.firestore {
     // Agora, toda escrita sensível depende de uma regra dedicada abaixo —
     // qualquer subcoleção sem bloco de escrita próprio fica fail-closed (só
     // system_admin escreve), por design, não por omissão.
-    match /tenants/{tenantId}/{document=**} {
+    match /tenants/{tenantId}/{collectionId}/{document=**} {
       // System admins têm acesso total
       allow read, write: if isSystemAdmin();
 
       // Usuários do tenant podem ler qualquer subcoleção do próprio tenant,
-      // exceto nf_imports (regra dedicada abaixo). `document` é o wildcard
-      // recursivo capturado por `{document=**}` (tipo `path`); `document[0]`
-      // é o primeiro segmento do caminho relativo a este tenant (ex.:
-      // "nf_imports" em tenants/{tenantId}/nf_imports/{id}).
-      allow read: if belongsToTenant(tenantId) && document[0] != 'nf_imports';
+      // exceto nf_imports (regra dedicada abaixo).
+      allow read: if belongsToTenant(tenantId) && collectionId != 'nf_imports';
 
       // Consultores têm acesso READ-ONLY às subcoleções, mesma exceção.
-      allow read: if consultantHasAccess(tenantId) && document[0] != 'nf_imports';
+      allow read: if consultantHasAccess(tenantId) && collectionId != 'nf_imports';
     }
 
     // Regras dedicadas de ESCRITA por subcoleção do tenant — causa raiz do
@@ -136,7 +146,7 @@ service cloud.firestore {
     // nf_imports — leitura E escrita restritas a clinic_admin (defesa em
     // profundidade; nenhuma tela de clinic_user acessa esta subcoleção hoje,
     // UC-10/UC-11). Excluída do fallback de leitura genérico acima
-    // (document[0] != 'nf_imports') propositalmente: diferente das outras
+    // (collectionId != 'nf_imports') propositalmente: diferente das outras
     // subcoleções deste bloco, aqui também restringimos LEITURA, não só
     // escrita, porque não há nenhum caso de uso documentado que exija
     // clinic_user ou consultor lendo notas fiscais importadas. Consultor
@@ -332,8 +342,8 @@ service cloud.firestore {
     }
 
     // inventory_activity em escopo de collectionGroup (RNF-05/UC-53) — a regra
-    // genérica de subcoleção (tenants/{tenantId}/{document=**}, acima) cobre
-    // get/list dentro de um tenant, mas NÃO se aplica a consultas
+    // genérica de subcoleção (tenants/{tenantId}/{collectionId}/{document=**},
+    // acima) cobre get/list dentro de um tenant, mas NÃO se aplica a consultas
     // collectionGroup(): confirmado manualmente contra o Firebase Emulator que
     // uma wildcard recursiva no meio do caminho não estende automaticamente
     // para "permission-denied: No matching allow statements" em collectionGroup,

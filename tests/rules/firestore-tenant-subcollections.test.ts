@@ -12,6 +12,15 @@
  * exatamente o vetor do achado original, por isso a ferramenta certa é
  * `@firebase/rules-unit-testing`, não Playwright.
  *
+ * IMPORTANTE (lição da regressão em PR #344, UC-05/UC-51/UC-52/UC-53 no CI):
+ * toda operação é testada tanto via `getDoc` (get de um documento específico)
+ * quanto via `getDocs(query(...))` (list/query de uma coleção) -- as duas
+ * são avaliadas de formas diferentes pelo Firestore e uma regra pode se
+ * comportar corretamente para uma e quebrar silenciosamente para a outra
+ * (foi exatamente o que aconteceu: `document[0]` de um wildcard recursivo
+ * funciona para `get`, mas não é vinculável para `list`). A primeira versão
+ * desta suíte só testava `getDoc`, por isso não pegou a regressão.
+ *
  * Complementar ao caderno de teste obrigatório do CLAUDE.md (item 8); não o
  * substitui.
  */
@@ -23,7 +32,16 @@ import {
   assertFails,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import {
+  doc,
+  collection,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  deleteDoc,
+  updateDoc,
+} from 'firebase/firestore';
 
 const PROJECT_ID = 'demo-curva-mestra-e2e';
 
@@ -119,20 +137,31 @@ describe.each([
 ])('tenants/{tenantId}/%s', (collectionName, sampleData) => {
   const docPathA = `tenants/${TENANT_A}/${collectionName}/doc1`;
   const docPathB = `tenants/${TENANT_B}/${collectionName}/doc1`;
+  const collectionPathA = `tenants/${TENANT_A}/${collectionName}`;
 
   beforeEach(async () => {
     await seed(docPathA, sampleData);
     await seed(docPathB, sampleData);
   });
 
-  it('clinic_admin do tenant correto lê', async () => {
+  it('clinic_admin do tenant correto lê (get)', async () => {
     const db = clinicAdmin(TENANT_A).firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
   });
 
-  it('clinic_user do tenant correto lê', async () => {
+  it('clinic_admin do tenant correto lê (list/query)', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('clinic_user do tenant correto lê (get)', async () => {
     const db = clinicUser(TENANT_A).firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
+  });
+
+  it('clinic_user do tenant correto lê (list/query)', async () => {
+    const db = clinicUser(TENANT_A).firestore();
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
   });
 
   it('clinic_admin do tenant correto escreve', async () => {
@@ -155,9 +184,14 @@ describe.each([
     await assertFails(deleteDoc(doc(db, docPathA)));
   });
 
-  it('usuário (qualquer role) de outro tenant NÃO lê', async () => {
+  it('usuário (qualquer role) de outro tenant NÃO lê (get)', async () => {
     const dbAdminB = clinicAdmin(TENANT_B).firestore();
     await assertFails(getDoc(doc(dbAdminB, docPathA)));
+  });
+
+  it('usuário (qualquer role) de outro tenant NÃO lê (list/query)', async () => {
+    const dbAdminB = clinicAdmin(TENANT_B).firestore();
+    await assertFails(getDocs(query(collection(dbAdminB, collectionPathA))));
   });
 
   it('usuário (qualquer role) de outro tenant NÃO escreve', async () => {
@@ -165,22 +199,54 @@ describe.each([
     await assertFails(updateDoc(doc(dbAdminB, docPathA), { updated_by_test: true }));
   });
 
-  it('system_admin lê e escreve, cross-tenant, sem regressão', async () => {
+  it('system_admin lê (get e list) e escreve, cross-tenant, sem regressão', async () => {
     const db = systemAdmin().firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
     await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
-  it('consultor com acesso ao tenant lê, mas não escreve', async () => {
+  it('consultor com acesso ao tenant lê (get e list), mas não escreve', async () => {
     const db = consultantWithAccess(TENANT_A).firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
     await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
-  it('consultor sem acesso ao tenant não lê nem escreve', async () => {
+  it('consultor sem acesso ao tenant não lê (get nem list) nem escreve', async () => {
     const db = consultantWithoutAccess(TENANT_A).firestore();
     await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
     await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+  });
+});
+
+// --- tenants/{tenantId}/users: subcoleção "morta" (UC-05/RN-04) -- nenhum
+// fluxo real do sistema escreve aqui (usuários reais ficam na coleção raiz
+// `/users`, filtrada por tenant_id), mas `getTenantLimits()`
+// (accessRequestService.ts) faz `getDocs(query(...))` nela para contar
+// "usuários ativos". Precisa continuar lendo (list) normalmente -- uma lista
+// vazia é o comportamento correto e esperado (bug RN-04 já documentado,
+// não desta correção); um `permission-denied` aqui é que seria regressão
+// nova (foi exatamente a causa de UC-05 falhar no CI da primeira versão
+// desta correção). ------------------------------------------------------
+
+describe('tenants/{tenantId}/users (subcoleção morta, RN-04)', () => {
+  const collectionPathA = `tenants/${TENANT_A}/users`;
+
+  it('clinic_admin lista (list/query) sem permission-denied, mesmo vazia', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('clinic_user lista (list/query) sem permission-denied, mesmo vazia', async () => {
+    const db = clinicUser(TENANT_A).firestore();
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('usuário de outro tenant NÃO lista', async () => {
+    const db = clinicAdmin(TENANT_B).firestore();
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
   });
 });
 
@@ -191,26 +257,30 @@ describe.each([
 
 describe('tenants/{tenantId}/nf_imports', () => {
   const docPathA = `tenants/${TENANT_A}/nf_imports/nf1`;
+  const collectionPathA = `tenants/${TENANT_A}/nf_imports`;
 
   beforeEach(async () => {
     await seed(docPathA, { numero: '026229', status: 'success' });
   });
 
-  it('clinic_admin do tenant correto lê e escreve', async () => {
+  it('clinic_admin do tenant correto lê (get e list) e escreve', async () => {
     const db = clinicAdmin(TENANT_A).firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
     await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
-  it('clinic_user do tenant correto NÃO lê nem escreve', async () => {
+  it('clinic_user do tenant correto NÃO lê (get nem list) nem escreve', async () => {
     const db = clinicUser(TENANT_A).firestore();
     await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
     await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
   it('consultor com acesso ao tenant NÃO lê (sem opt-in do clinic_admin, hoje inexistente)', async () => {
     const db = consultantWithAccess(TENANT_A).firestore();
     await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
   });
 
   it('usuário de outro tenant NÃO lê nem escreve', async () => {
@@ -219,9 +289,10 @@ describe('tenants/{tenantId}/nf_imports', () => {
     await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
-  it('system_admin lê e escreve, cross-tenant', async () => {
+  it('system_admin lê (get e list) e escreve, cross-tenant', async () => {
     const db = systemAdmin().firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
     await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 });
@@ -231,15 +302,17 @@ describe('tenants/{tenantId}/nf_imports', () => {
 
 describe('tenants/{tenantId}/notifications', () => {
   const docPathA = `tenants/${TENANT_A}/notifications/notif1`;
+  const collectionPathA = `tenants/${TENANT_A}/notifications`;
 
   beforeEach(async () => {
     await seed(docPathA, { read: false, title: 'Produto vencendo' });
   });
 
-  it('clinic_admin e clinic_user leem e marcam como lida (update)', async () => {
+  it('clinic_admin e clinic_user leem (get e list) e marcam como lida (update)', async () => {
     for (const ctx of [clinicAdmin(TENANT_A), clinicUser(TENANT_A)]) {
       const db = ctx.firestore();
       await assertSucceeds(getDoc(doc(db, docPathA)));
+      await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
       await assertSucceeds(updateDoc(doc(db, docPathA), { read: true }));
     }
   });
@@ -258,9 +331,10 @@ describe('tenants/{tenantId}/notifications', () => {
     await assertSucceeds(deleteDoc(doc(db, docPathA)));
   });
 
-  it('usuário de outro tenant não lê nem escreve', async () => {
+  it('usuário de outro tenant não lê (get nem list) nem escreve', async () => {
     const db = clinicAdmin(TENANT_B).firestore();
     await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
   });
 });
 
