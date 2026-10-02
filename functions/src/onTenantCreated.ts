@@ -5,13 +5,22 @@
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
-import { sendEmail, getPlanName } from './services/emailService';
+import { sendEmail } from './services/emailService';
 import { getRenderedEmailTemplate } from './services/emailTemplateService';
 import { defineSecret } from 'firebase-functions/params';
 
 // Secrets do Firebase para credenciais SMTP
 const SMTP_USER = defineSecret('SMTP_USER');
 const SMTP_PASS = defineSecret('SMTP_PASS');
+
+// O sistema não tem mais o conceito de "plano" (nenhum fluxo de criação de
+// clínica grava plan_id há tempos -- o antigo getPlanName(plan_id) sempre
+// recebia undefined). A classificação hoje é por tipo de documento, já
+// presente em toda clínica (document_type, cpf ou cnpj).
+const TIPO_CADASTRO_LABEL: Record<string, string> = {
+  cpf: 'Pessoa Física',
+  cnpj: 'Pessoa Jurídica',
+};
 
 export const onTenantCreated = onDocumentCreated(
   {
@@ -27,7 +36,7 @@ export const onTenantCreated = onDocumentCreated(
     }
 
     const tenantData = snapshot.data();
-    const { name, email, plan_id } = tenantData;
+    const { name, email, document_type } = tenantData;
 
     // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts
     // -- e confirmado em produção que `admin.apps.length` não é suficiente
@@ -45,7 +54,7 @@ export const onTenantCreated = onDocumentCreated(
       const { subject, html } = await getRenderedEmailTemplate('new_tenant_notification', {
         tenantName: name,
         tenantEmail: email,
-        planName: getPlanName(plan_id),
+        tipoCadastro: TIPO_CADASTRO_LABEL[document_type] || document_type,
       });
       await sendEmail({ to: 'scandelari.guilherme@curvamestra.com.br', subject, html });
 

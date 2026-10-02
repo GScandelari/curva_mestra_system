@@ -3,7 +3,9 @@
 **Projeto:** Curva Mestra
 **Data:** 30/09/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Stanke Scandelari
+**Data de Conclusão:** 02/10/2026
 **Tipo:** Feature
 **Branch sugerida:** cinco branches sequenciais a partir de `develop` (ver Seção 0 — escopo fatiado por fronteira técnica, precedente de UC-51/2 branches e UC-53/3 branches, escalado pelo tamanho real do escopo: 13 RNs, dois runtimes de deploy distintos — `src/` via Next.js/Hosting e `functions/src/` via Cloud Functions —, uma correção de bug (RN-04) e uma migração de mecanismo (RN-11)):
 - `feature/uc55-email-templates-foundation`
@@ -12,7 +14,7 @@
 - `feature/uc55-migrar-cloud-functions-e-fix-duplicidade`
 - `feature/uc55-caderno-playwright`
 **Prioridade:** Média
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Implementa o UC-55 (`ONLY_FOR_DEVS/PO_BA_Docs/UC-55-editar-templates-de-email.md`, v1.1, Aprovado): nova coleção Firestore `email_templates/{tipo}` como fonte única de verdade para 12 dos 13 gatilhos de e-mail hoje com corpo hardcoded (o 13º, gatilho #9 de corpo livre por criação, é explicitamente excluído do mecanismo por RN-14 do UC), uma tela nova `/admin/email-templates` com editor por gatilho (assunto+corpo, preview, envio de teste, histórico de versões revertível), a correção da duplicidade de e-mail de boas-vindas (UC-02/UC-28, RN-04) e a migração do mecanismo isolado de UC-03 (RN-11) para o mesmo Firestore. **A decisão técnica real encontrada na investigação de código (escrita mediada por API route vs. regra direta do Firestore) foi confirmada pelo usuário como Opção A — escrita mediada por API route (Admin SDK) — e está incorporada em todo o restante desta spec (ver Seção 4.0).**
 
@@ -694,3 +696,4 @@ Regra aplicada (CLAUDE.md item 8): funções puras de renderização/validação
 |--------|------|-------|-------------|
 | 1.0 | 30/09/2026 | Doc Writer (Claude) | Versão inicial. Spec de implementação derivada do UC-55 (v1.1, Aprovado). Investigado o código real dos 13 gatilhos (9 arquivos de rota via `email_queue` + 4 arquivos de `functions/src/`), confirmando que o gatilho #9 (RN-14 do UC) fica fora do mecanismo Firestore. Encontrada uma contradição objetiva entre RNF-02 (regra `isSystemAdmin()`, implica escrita client-direct) e RN-07/RNF-05 (validação de variáveis que a linguagem de regras do Firestore não expressa de forma confiável) — registrada como `⚠️ Decisão necessária` na Seção 4.0, com duas opções mutuamente exclusivas apresentadas; `Status: Aguardando decisão`. Resolvidas por conta própria, com base em texto explícito do UC que já delega à fase de implementação: o mecanismo exato de supressão da duplicidade (RN-04, campo `skip_welcome_email`) e o ponto de leitura de UC-03/RN-11 (dentro de `functions/src/sendRejectionEmail.ts`). Adotado o padrão de espelho manual (`functions/src/emailTemplateRendering.ts`) já estabelecido em `FEAT-agendamento-automatico-verificacao-alertas.md` para a fronteira de empacotamento entre `src/` e `functions/src/`. Proposto fatiamento em 5 branches sequenciais, maior que o precedente de UC-51 (2) e UC-53 (3), proporcional ao escopo real (13 RNs, dois runtimes de deploy, um bug fix e uma migração de mecanismo). |
 | 1.1 | 30/09/2026 | Doc Writer (Claude) | Decisão da Seção 4.0 confirmada pelo usuário: Opção A (escrita mediada por API route com Admin SDK, validação RN-07/RNF-05 em TypeScript, histórico de versões em transação atômica, regra do Firestore `allow read, write: if false`, mesmo padrão de `password_reset_tokens`). Seção 4.0 reescrita para registrar a decisão confirmada (deixou de ser pendente); Seção 4.2 ganhou a Opção B como alternativa descartada; RNF-02/RNF-05 (3.2), Mapa de Impacto (5.2/5.4), STEP 4 (7) e Checklist/Riscos (9/10) atualizados para o texto final da regra do Firestore, sem ramificação condicional por opção. Confirmado, antes de alterar o Status, que as Seções 5, 6 e 7 já estavam integralmente escritas assumindo a Opção A, sem necessidade de ajuste de conteúdo técnico. `Status: Aguardando decisão` → `Planejamento`. |
+| 1.2 | 02/10/2026 | Guilherme Stanke Scandelari | Task concluída — movida para TASK_COMPLETED. As 5 branches (A-fundação, B-editor/tela admin, C-migrar consumidores email_queue, D-migrar Cloud Functions + fix duplicidade RN-04, E-caderno Playwright) implementadas, mergeadas até `develop`, com validação funcional real em `gscandelari_setup` (incluindo correção de um bug real de `admin.initializeApp()` encontrado via teste real). Spec Playwright `tests/e2e/UC-55-editar-templates-de-email.spec.ts` gerada pelo qa-agent e revisada por humano (5 falhas reais de strict-mode-violation corrigidas); `npm run test:coverage` passa integralmente (17/17 suites, 243/243 testes, `emailTemplateRendering.ts` em 100% de cobertura); `npm run test:e2e` passa, exceto falha pré-existente e não relacionada do UC-09. `Status: Planejamento` → `Concluído`. |
