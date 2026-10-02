@@ -8,6 +8,7 @@ import type { UserRole, Consultant } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Query, DocumentData } from 'firebase-admin/firestore';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * Gera código único de 6 dígitos
@@ -33,64 +34,6 @@ async function generateUniqueCode(): Promise<string> {
   } while (attempts < 10);
 
   throw new Error('Falha ao gerar código único após 10 tentativas');
-}
-
-/**
- * Gera o HTML do e-mail de boas-vindas para o consultor
- */
-function generateConsultantWelcomeEmail(name: string, email: string, code: string): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="margin: 0;">Bem-vindo ao Curva Mestra!</h1>
-          <p style="margin: 10px 0 0 0; font-size: 18px;">Portal do Consultor</p>
-        </div>
-        <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-          <p>Olá <strong>${name}</strong>,</p>
-
-          <p>Sua conta de consultor foi criada com sucesso no <strong>Curva Mestra</strong>.</p>
-
-          <div style="background: #dbeafe; border: 1px solid #3b82f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-            <p style="margin: 0; color: #1e40af; font-size: 14px;">Seu código de consultor:</p>
-            <p style="margin: 10px 0 0 0; font-size: 32px; font-weight: bold; color: #1e40af; letter-spacing: 4px;">${code}</p>
-            <p style="margin: 10px 0 0 0; color: #1e40af; font-size: 12px;">Use este código para se vincular às clínicas</p>
-          </div>
-
-          <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p style="margin: 0; color: #92400e;"><strong>Dados de acesso:</strong></p>
-            <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #92400e;">
-              <li><strong>E-mail:</strong> ${email}</li>
-            </ul>
-            <p style="margin: 10px 0 0 0; color: #92400e; font-size: 12px;">Sua senha de acesso não é enviada por e-mail. Você será solicitado a defini-la/trocá-la no primeiro acesso.</p>
-          </div>
-
-          <div style="text-align: center;">
-            <a href="https://curvamestra.com.br/login" style="display: inline-block; padding: 12px 30px; background: #0ea5e9; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Fazer Login</a>
-          </div>
-
-          <p><strong>O que você pode fazer:</strong></p>
-          <ul>
-            <li>Visualizar dados das clínicas vinculadas (read-only)</li>
-            <li>Acompanhar estoque e procedimentos</li>
-            <li>Gerar relatórios consolidados</li>
-          </ul>
-
-          <p>Se você tiver alguma dúvida, entre em contato conosco.</p>
-
-          <p>Atenciosamente,<br><strong>Equipe Curva Mestra</strong></p>
-        </div>
-        <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-          <p>&copy; ${new Date().getFullYear()} Curva Mestra - Gestão Inteligente de Estoque</p>
-        </div>
-      </body>
-    </html>
-  `;
 }
 
 /**
@@ -284,6 +227,7 @@ export async function POST(req: NextRequest) {
           tenant_id: null,
           active: true,
           requirePasswordChange: true,
+          skip_welcome_email: true,
           created_at: FieldValue.serverTimestamp(),
           updated_at: FieldValue.serverTimestamp(),
         });
@@ -312,20 +256,12 @@ export async function POST(req: NextRequest) {
 
     // Enviar e-mail de boas-vindas via fila
     try {
-      const emailHtml = generateConsultantWelcomeEmail(name, emailLower, code);
-
-      await adminDb.collection('email_queue').add({
-        to: emailLower,
-        subject: 'Bem-vindo ao Curva Mestra - Portal do Consultor',
-        body: emailHtml,
-        status: 'pending',
-        type: 'consultant_welcome',
-        metadata: {
-          user_id: userId,
-          consultant_id: consultantRef.id,
-        },
-        created_at: FieldValue.serverTimestamp(),
-      });
+      await enqueueTemplatedEmail(
+        'consultant_welcome',
+        emailLower,
+        { name, email: emailLower, code },
+        { metadata: { user_id: userId, consultant_id: consultantRef.id } }
+      );
 
       console.log(`E-mail de boas-vindas adicionado à fila para ${emailLower}`);
     } catch (emailError) {

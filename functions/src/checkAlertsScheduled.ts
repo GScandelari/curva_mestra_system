@@ -24,7 +24,13 @@ export const checkAlertsScheduled = functions.scheduler.onSchedule(
     // e não confiável), onSchedule não faz isso. Sem esta chamada, admin.firestore()
     // lança "The default Firebase app does not exist" -- confirmado em produção e
     // dev via `gcloud functions logs read` após forçar a execução do job.
-    if (!admin.apps.length) {
+    // Checar `admin.apps.length` (em vez do app "[DEFAULT]" especificamente) não
+    // é suficiente em todo caso -- ver o mesmo achado em emailTemplateService.ts --
+    // mantido aqui por consistência mesmo que este guard específico já esteja
+    // confirmado funcionando.
+    try {
+      admin.app();
+    } catch {
       admin.initializeApp();
     }
     // admin.firestore() é acessado aqui dentro (lazy), e não no topo do módulo --

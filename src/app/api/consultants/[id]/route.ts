@@ -12,6 +12,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
 import { determineConsultantAuditAction } from '@/lib/auditLogPayload';
+import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 
 /**
  * GET - Obter consultor por ID
@@ -134,28 +135,21 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       // silenciosamente e o consultor só descobria ao falhar o próximo login.
       if (previousEmail && previousEmail !== emailLower) {
         try {
-          const notifyBody = `<p>Olá ${consultantData?.name || ''},</p>
-<p>O e-mail de acesso da sua conta de consultor no Curva Mestra foi alterado de <strong>${previousEmail}</strong> para <strong>${emailLower}</strong>.</p>
-<p>A partir de agora, use o novo e-mail para fazer login. Se você não reconhece esta alteração, entre em contato com o suporte.</p>
-<p>Atenciosamente,<br>Equipe Curva Mestra</p>`;
-
-          await adminDb.collection('email_queue').add({
-            to: previousEmail,
-            subject: 'Seu e-mail de acesso foi alterado - Curva Mestra',
-            body: notifyBody,
-            status: 'pending',
-            type: 'consultant_email_changed',
-            created_at: FieldValue.serverTimestamp(),
-          });
-
-          await adminDb.collection('email_queue').add({
-            to: emailLower,
-            subject: 'Seu e-mail de acesso foi alterado - Curva Mestra',
-            body: notifyBody,
-            status: 'pending',
-            type: 'consultant_email_changed',
-            created_at: FieldValue.serverTimestamp(),
-          });
+          const emailChangedVariables = {
+            name: consultantData?.name || '',
+            previousEmail,
+            newEmail: emailLower,
+          };
+          await enqueueTemplatedEmail(
+            'consultant_email_changed',
+            previousEmail,
+            emailChangedVariables
+          );
+          await enqueueTemplatedEmail(
+            'consultant_email_changed',
+            emailLower,
+            emailChangedVariables
+          );
         } catch (emailError) {
           console.warn('Erro ao enfileirar e-mail de aviso de troca de e-mail:', emailError);
         }
