@@ -21,7 +21,11 @@ export const processEmailQueue = functions.firestore.onDocumentCreated(
     // `secrets` -- ver checkAlertsScheduled.ts, que NÃO tinha esse efeito e
     // falhava com "The default Firebase app does not exist"). Não é seguro
     // depender desse comportamento implícito, então inicializa explicitamente.
-    if (!admin.apps.length) {
+    // Checar o app "[DEFAULT]" especificamente, não `admin.apps.length` -- ver
+    // o mesmo achado em emailTemplateService.ts.
+    try {
+      admin.app();
+    } catch {
       admin.initializeApp();
     }
     // admin.firestore() é acessado aqui dentro (lazy), e não no topo do módulo:

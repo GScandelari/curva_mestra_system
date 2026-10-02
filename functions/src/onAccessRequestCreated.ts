@@ -63,12 +63,13 @@ export const onAccessRequestCreated = onDocumentCreated(
     // Formatar documento para o título do e-mail
     const formattedDocument = formatDocument(documentNumber, documentType);
 
-    // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts:
-    // declarar `secrets` NÃO garante admin.initializeApp() de forma confiável
-    // (efeito colateral não documentado, visto falhar mesmo quando presente)
-    // -- chamada explícita aqui, no mesmo arquivo que acaba lendo o Firestore
-    // (via getRenderedEmailTemplate), não só dentro do helper compartilhado.
-    if (!admin.apps.length) {
+    // Mesmo achado/correção de checkAlertsScheduled.ts e processEmailQueue.ts
+    // -- e confirmado em produção que `admin.apps.length` não é suficiente
+    // aqui (ficava > 0 sem o app "[DEFAULT]" existir, pulando a inicialização
+    // real) -- ver emailTemplateService.ts para o detalhe completo.
+    try {
+      admin.app();
+    } catch {
       admin.initializeApp();
     }
 

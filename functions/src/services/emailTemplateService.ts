@@ -15,7 +15,16 @@ export async function getRenderedEmailTemplate(
   // onSchedule/onDocumentCreated/callables não garantem admin.initializeApp()
   // ter sido chamado (ver checkAlertsScheduled.ts) -- chamada aqui dentro
   // (lazy), não no topo do módulo, para não rodar no momento do import.
-  if (!admin.apps.length) {
+  // IMPORTANTE: checar `admin.apps.length` não basta -- confirmado em
+  // produção (via `firebase functions:log`) que onTenantCreated/
+  // onAccessRequestCreated têm `admin.apps.length > 0` mesmo sem o app
+  // "[DEFAULT]" existir (algum app com outro nome já registrado por secrets/
+  // params), fazendo esse guard pular a inicialização e admin.firestore()
+  // seguir lançando "The default Firebase app does not exist". Checar
+  // especificamente o app "[DEFAULT]" via admin.app() (lança se não existir).
+  try {
+    admin.app();
+  } catch {
     admin.initializeApp();
   }
 
