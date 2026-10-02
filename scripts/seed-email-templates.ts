@@ -501,7 +501,12 @@ const TEMPLATES: SeedTemplate[] = [
     variables: [
       v('tenantName', 'Nome da clínica criada', true, 'Clínica Exemplo'),
       v('tenantEmail', 'E-mail de contato da clínica', true, 'contato@clinicaexemplo.com.br'),
-      v('planName', 'Nome legível do plano (já resolvido pelo chamador)', true, 'Profissional'),
+      v(
+        'tipoCadastro',
+        'Classificação do cadastro (já resolvida pelo chamador a partir de document_type)',
+        true,
+        'Pessoa Jurídica'
+      ),
     ],
     body: `
     <!DOCTYPE html>
@@ -527,7 +532,7 @@ const TEMPLATES: SeedTemplate[] = [
           <div class="info-box">
             <p><strong>Nome:</strong> {{tenantName}}</p>
             <p><strong>E-mail:</strong> {{tenantEmail}}</p>
-            <p><strong>Plano:</strong> {{planName}}</p>
+            <p><strong>Tipo de Cadastro:</strong> {{tipoCadastro}}</p>
             <p><strong>Data:</strong> ${SEEDED_AT}</p>
           </div>
 
