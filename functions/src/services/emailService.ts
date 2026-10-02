@@ -231,14 +231,3 @@ export function getRoleName(role: string): string {
   };
   return roles[role] || role;
 }
-
-/**
- * Helper para obter nome legível do plano
- */
-export function getPlanName(planId: string): string {
-  const plans: Record<string, string> = {
-    semestral: 'Plano Semestral (R$ 59,90/mês)',
-    anual: 'Plano Anual (R$ 59,90/mês)',
-  };
-  return plans[planId] || planId;
-}
