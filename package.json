@@ -15,6 +15,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:rules": "cross-env FIREBASE_CLI_EXPERIMENTS=webframeworks firebase emulators:exec --project demo-curva-mestra-e2e --only firestore \"jest --config jest.rules.config.js\"",
     "test:e2e": "cross-env FIREBASE_CLI_EXPERIMENTS=webframeworks firebase emulators:exec --project demo-curva-mestra-e2e --only auth,firestore,storage \"tsx scripts/seed-emulator.ts && tsx scripts/seed-email-templates.ts && playwright test\"",
     "test:e2e:seed": "tsx scripts/seed-emulator.ts && tsx scripts/seed-email-templates.ts",
     "prepare": "husky"
@@ -56,6 +57,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@playwright/test": "^1.49.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
