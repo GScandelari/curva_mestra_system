@@ -5,6 +5,42 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.10.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.9.2...v1.10.0) (2026-10-02)
+
+
+### Features
+
+* **admin:** add /admin/email-templates editor screen with preview, test send and version history ([a863acf](https://github.com/GScandelari/curva_mestra_system/commit/a863acfa4b640f25fbf90949e6d65100a61fe0d4))
+* **admin:** add /admin/email-templates list screen ([08b1d6f](https://github.com/GScandelari/curva_mestra_system/commit/08b1d6f3b9c56f926914b918eb0ba1b591432060))
+* **admin:** add Email Templates menu item to AdminLayout ([500604d](https://github.com/GScandelari/curva_mestra_system/commit/500604ddea66acf94f539d5f4aa5e41cac9c6d16))
+* **admin:** add email-templates list, get and save API routes ([56cb9e5](https://github.com/GScandelari/curva_mestra_system/commit/56cb9e5401a866336687312b2722c17f428c3370))
+* **admin:** add email-templates version history and revert API routes ([6386b7c](https://github.com/GScandelari/curva_mestra_system/commit/6386b7cc0facc9a98910e2323ef002dc040e254e))
+* **admin:** add emailTemplateAdmin service (get, save version, list/revert versions) ([acc55a8](https://github.com/GScandelari/curva_mestra_system/commit/acc55a8e23c1261a73b9329e8bcd21bef531005e))
+* **admin:** add getRenderedEmailTemplate to functions/src emailTemplateService ([e52ce84](https://github.com/GScandelari/curva_mestra_system/commit/e52ce841e808c279aaa171604f2c61bdf284fedc))
+* **admin:** add pure email template rendering and validation module ([7e45996](https://github.com/GScandelari/curva_mestra_system/commit/7e45996ec0581153df4f5f0a07803c2c97d79578))
+* **admin:** add sendTemplateTestEmail callable function ([1885044](https://github.com/GScandelari/curva_mestra_system/commit/1885044e6e916e4a061547186cd1c790ba71e511))
+* **admin:** migrate onAccessRequestCreated notification to email_templates ([6ba36d6](https://github.com/GScandelari/curva_mestra_system/commit/6ba36d6369b36ab2c49fb42daaeef74d36f85598))
+* **admin:** migrate onTenantCreated notification to email_templates ([864ef77](https://github.com/GScandelari/curva_mestra_system/commit/864ef778a3db2628179840e7f895a9d58f001f4d))
+* **admin:** mirror email template rendering module into functions/src ([7edca65](https://github.com/GScandelari/curva_mestra_system/commit/7edca65e073cc7a7d3d14f1ad2cc8a3bdc1f7560))
+* **admin:** split email-templates editor into live side-by-side preview ([6b52c56](https://github.com/GScandelari/curva_mestra_system/commit/6b52c56a73bf121ca2ffc5337a1297d42398db2b))
+* **firebase:** add firestore.rules for email_templates collection ([42fdc8f](https://github.com/GScandelari/curva_mestra_system/commit/42fdc8f2ae248b796426436756f61705562430e1))
+* **requests:** migrate consultant_welcome to email_templates and suppress duplicate welcome email ([ea4da3f](https://github.com/GScandelari/curva_mestra_system/commit/ea4da3fa6a1993773538423cab637344d8e2ce39))
+* **requests:** migrate remaining 5 consultant email_queue triggers to email_templates ([55c68e1](https://github.com/GScandelari/curva_mestra_system/commit/55c68e13c414875f2e899fd1ec6406762ee1eafe))
+* **requests:** migrate welcome_approval and password_reset to email_templates ([7312570](https://github.com/GScandelari/curva_mestra_system/commit/73125700579b7ca055aeaf178e173c4a4f4ac4a7))
+* **types:** add EmailTemplateDoc, EmailTemplateVariable and EmailTemplateVersion types ([a4bfcb8](https://github.com/GScandelari/curva_mestra_system/commit/a4bfcb8e45abd54cb59b04340b9b636a9cdd54f0))
+
+
+### Bug Fixes
+
+* **admin:** fix infinite loading on /admin/email-templates ([2cf37e2](https://github.com/GScandelari/curva_mestra_system/commit/2cf37e2015544a75065d771af061cb75c7ee7e09))
+* **admin:** migrate onUserCreated to email_templates and suppress duplicate welcome email ([4e2204b](https://github.com/GScandelari/curva_mestra_system/commit/4e2204b2e166f7de8e00ca7e287237fa3d209721))
+* **admin:** migrate sendAccessRejectionEmail to read template from email_templates ([68c0cd3](https://github.com/GScandelari/curva_mestra_system/commit/68c0cd32d5228d27d3313da69dc0856afe92daf3))
+* **admin:** replace plan concept with document type in new tenant notification ([dde1680](https://github.com/GScandelari/curva_mestra_system/commit/dde168098d2378571671b96ce1eba4c5be5ee4fb))
+* **admin:** resolve SonarCloud findings in email-templates screens ([382fcc5](https://github.com/GScandelari/curva_mestra_system/commit/382fcc5bff1daac7e21175480a705c9db5fe3725))
+* **e2e:** seed email_templates before running the Playwright suite ([5ee85de](https://github.com/GScandelari/curva_mestra_system/commit/5ee85ded2005eda08e52af8cf2bc276574b4c8fd))
+* **functions:** check the [DEFAULT] app specifically, not admin.apps.length ([5661e82](https://github.com/GScandelari/curva_mestra_system/commit/5661e82f3fbf11c2b1f54d247246e9dbfa85f660))
+* **functions:** guard admin.initializeApp() in email_templates triggers ([7acdae4](https://github.com/GScandelari/curva_mestra_system/commit/7acdae443bc077033a982cbb987e8357a885704d))
+
 ## [1.9.2](https://github.com/GScandelari/curva_mestra_system/compare/v1.9.1...v1.9.2) (2026-09-29)
 
 
