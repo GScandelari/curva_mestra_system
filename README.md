@@ -102,7 +102,7 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 
 📋 **Mapa completo:** [`_MAPA-DE-BUGS-E-MELHORIAS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md)
 
-**Resumo (v3.44, 02/10/2026):**
+**Resumo (v3.45, 03/10/2026):**
 
 | Severidade | Aberto | Corrigido | Descartado | Total   |
 | ---------- | ------ | --------- | ---------- | ------- |
@@ -119,6 +119,7 @@ O sistema mantém um mapa vivo de bugs, achados de segurança, débitos técnico
 - ✉️ **1 UC fora do fluxo normal de UC, já escrito e aprovado** (Seção 8.1 do mapa): `UC-55` ("Editar Templates de E-mail (System Admin)", v1.1), nascido de pedido direto do usuário após observar que o corpo do e-mail de aprovação de acesso (UC-02) "precisa de uma revisão geral" — escopo fechado: Firestore (`email_templates/{tipo}`) como fonte única de verdade para os 13 gatilhos de e-mail com chamador ativo, editor por gatilho com preview/teste/versionamento, correção da duplicidade UC-02/UC-28 e migração de UC-03 para o mesmo Firestore
 - 🎨 **1 registro de divergências de padrão visual de UI** (Seção 8.2 do mapa), pedido direto do usuário: auditoria do subagente `ui-consistency-auditor` contra `ONLY_FOR_DEVS/PO_BA_Docs/_PADRAO-VISUAL-UI.md` (v1.0) — 70 telas avaliadas, 13 arquivos `page.tsx` + 2 layouts compartilhados (Admin/Consultor) com divergência confirmada frente ao padrão shadcn/ui já dominante; destaques: fundo `bg-[#f5f3ef]` hardcoded em Admin/Consultor (vs. token `bg-background` da Clínica), dashboards Admin/Clínica com `<h2>` em vez de `<h1>`, 5 telas de configuração do Admin sem a classe `container`, `Input` reimplementado manualmente (4 ocorrências) e `Badge` sem variante `success`/`info`. Status Aberto, sem decisão de priorização ainda tomada
 - 🔐 **1 pedido de produto novo** (Seção 8.3 do mapa), surgido durante o planejamento da correção de segurança de `firestore.rules` (branch `bugfix/firestore-rules-tenant-role-enforcement`, relacionada a `UC-13-RN-09 / UC-15-RN-07` e `UC-20-RN-07`): o `clinic_admin` deverá poder consentir (opt-in) com o compartilhamento de dados fiscais — a começar por `nf_imports`, podendo abranger outras subcoleções sensíveis — com o Consultor Rennova vinculado à clínica; por padrão, esse acesso fica restrito apenas ao `clinic_admin`. Nenhum campo de autorização nem UI para o consentimento existe hoje; nenhum UC aberto ainda, status Aberto/sem decisão de priorização
+- 📊 **Inventário de relatórios e roadmap de relatórios** (Seção 8.4 do mapa), pedido direto do usuário: levantamento de todos os relatórios por perfil em [`_INVENTARIO-DE-RELATORIOS.md`](./ONLY_FOR_DEVS/PO_BA_Docs/_INVENTARIO-DE-RELATORIOS.md) e 14 itens de roadmap (REL-01 a REL-14) — destaque para a tela de Relatórios do Consultor ainda como placeholder, a falta de relatórios gerenciais para o System Admin e a padronização dos formatos de exportação. Todos abertos, aguardando priorização do PO; não alteram a contagem por severidade acima.
 - 📝 12 dos 55 UCs mapeados ainda não estão com status "Aprovado" (em revisão ou rascunho) — ver Seção 1 do mapa para detalhes
 
 > Este resumo é um retrato do mapa no momento da última atualização deste README. Para o estado atual item a item, sempre consulte o arquivo do mapa diretamente — ele é atualizado a cada correção ou novo achado.
