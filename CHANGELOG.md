@@ -5,6 +5,14 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.10.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.10.0...v1.10.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **firebase:** enforce clinic_admin-only writes on tenant subcollections ([f3ce046](https://github.com/GScandelari/curva_mestra_system/commit/f3ce0467aa81f856397ef38b2f46a14fdc017a3f))
+* **firebase:** fix list query regression in tenant subcollection rule ([94cbe2e](https://github.com/GScandelari/curva_mestra_system/commit/94cbe2ebb74b13ff45423b6aab6de550805e3b4a))
+
 ## [1.10.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.9.2...v1.10.0) (2026-10-02)
 
 
