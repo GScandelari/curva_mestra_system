@@ -54,16 +54,108 @@ service cloud.firestore {
       allow read: if consultantHasAccess(tenantId);
     }
 
-    // Subcoleções do tenant
-    match /tenants/{tenantId}/{document=**} {
+    // Subcoleções do tenant — fallback de LEITURA ampla para qualquer
+    // subcoleção do tenant, EXCETO `nf_imports` (ver bloco dedicado abaixo:
+    // só clinic_admin lê, defesa em profundidade — hoje nenhuma tela de
+    // clinic_user/consultor precisa; decisão de produto é que o
+    // compartilhamento de NF-e com o consultor, se vier a existir, será
+    // opt-in explícito do clinic_admin, não o padrão).
+    //
+    // IMPORTANTE — `{collectionId}/{document=**}` em vez de só `{document=**}`:
+    // a primeira versão desta correção usava `match
+    // /tenants/{tenantId}/{document=**}` com `document[0] != 'nf_imports'`
+    // (indexação do wildcard recursivo). Isso funciona para `get`, mas quebra
+    // TODO `list`/query em QUALQUER subcoleção do tenant — confirmado contra
+    // o Firebase Emulator: "Variable [document] is not bound in path
+    // template" para `list`, porque o wildcard recursivo não é vinculável em
+    // operações de lista quando usado para indexação condicional. Isso
+    // derrubou UC-05/UC-51/UC-52/UC-53 em CI (PR #344) por depender de
+    // `getDocs(query(...))`. `{collectionId}` é um wildcard de UM segmento
+    // (não recursivo) — vinculado corretamente tanto para `get` quanto para
+    // `list`, validado com `@firebase/rules-unit-testing` antes de aplicar.
+    //
+    // ESCRITA NÃO é concedida aqui propositalmente (achado de segurança
+    // UC-13-RN-09 / UC-15-RN-07 / UC-20-RN-07 — ver
+    // ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md): a versão
+    // anterior desta regra concedia `write` irrestrito a qualquer usuário do
+    // tenant para TODAS as subcoleções, e a semântica OR do Firestore entre
+    // blocos `match` tornava qualquer regra dedicada mais restrita
+    // (`notifications`, `settings/notifications`) inefetiva isoladamente.
+    // Agora, toda escrita sensível depende de uma regra dedicada abaixo —
+    // qualquer subcoleção sem bloco de escrita próprio fica fail-closed (só
+    // system_admin escreve), por design, não por omissão.
+    match /tenants/{tenantId}/{collectionId}/{document=**} {
       // System admins têm acesso total
       allow read, write: if isSystemAdmin();
 
-      // Usuários do tenant têm acesso apenas aos seus dados
-      allow read, write: if belongsToTenant(tenantId);
+      // Usuários do tenant podem ler qualquer subcoleção do próprio tenant,
+      // exceto nf_imports (regra dedicada abaixo).
+      allow read: if belongsToTenant(tenantId) && collectionId != 'nf_imports';
 
-      // Consultores têm acesso READ-ONLY às subcoleções
-      allow read: if consultantHasAccess(tenantId);
+      // Consultores têm acesso READ-ONLY às subcoleções, mesma exceção.
+      allow read: if consultantHasAccess(tenantId) && collectionId != 'nf_imports';
+    }
+
+    // Regras dedicadas de ESCRITA por subcoleção do tenant — causa raiz do
+    // achado UC-13-RN-09 / UC-15-RN-07 / UC-20-RN-07: a regra genérica acima
+    // nunca concede `write`, então cada subcoleção sensível precisa do seu
+    // próprio bloco. Leitura continua vindo do bloco genérico acima (exceto
+    // nf_imports, que também restringe leitura aqui).
+
+    // inventory — leitura ampla (bloco genérico); escrita só clinic_admin.
+    // Cobre criação de itens via NF-e (UC-10/UC-11), desativação com/sem
+    // redistribuição forçada (UC-13) e consumo/reserva/liberação de estoque
+    // nos fluxos de procedimento (UC-16 a UC-19) — todas essas ações já são
+    // restritas a clinic_admin na UI; esta regra torna a restrição real.
+    match /tenants/{tenantId}/inventory/{itemId} {
+      allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+    }
+
+    // stock_limits — leitura ampla (InventoryView usa para badge de estoque
+    // baixo, visível a clinic_admin e clinic_user); escrita só clinic_admin
+    // (UC-15).
+    match /tenants/{tenantId}/stock_limits/{limitId} {
+      allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+    }
+
+    // protocolos — leitura ampla (listagem visível a clinic_user, sem botões
+    // de ação, UC-20); criação/edição/remoção só clinic_admin.
+    match /tenants/{tenantId}/protocolos/{protocoloId} {
+      allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+    }
+
+    // solicitacoes — leitura ampla (`/clinic/requests` visível a ambos os
+    // roles); criação/edição/conclusão/cancelamento só clinic_admin (UC-16 a
+    // UC-19).
+    match /tenants/{tenantId}/solicitacoes/{solicitacaoId} {
+      allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+    }
+
+    // inventory_activity — leitura ampla (dashboard "Atividade Recente" é
+    // visível a clinic_admin e clinic_user, sem gate de role); ESCRITA só
+    // clinic_admin. Diferente das demais subcoleções deste bloco, esta regra
+    // de escrita não é opcional: `writeActivityLogs` (solicitacaoService.ts)
+    // grava aqui diretamente pelo client SDK, dentro das mesmas transações de
+    // UC-16 a UC-19 (sempre disparadas por clinic_admin) — sem este bloco,
+    // essas transações passariam a falhar com permission-denied depois que a
+    // regra genérica deixou de conceder `write`.
+    match /tenants/{tenantId}/inventory_activity/{activityId} {
+      allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+    }
+
+    // nf_imports — leitura E escrita restritas a clinic_admin (defesa em
+    // profundidade; nenhuma tela de clinic_user acessa esta subcoleção hoje,
+    // UC-10/UC-11). Excluída do fallback de leitura genérico acima
+    // (collectionId != 'nf_imports') propositalmente: diferente das outras
+    // subcoleções deste bloco, aqui também restringimos LEITURA, não só
+    // escrita, porque não há nenhum caso de uso documentado que exija
+    // clinic_user ou consultor lendo notas fiscais importadas. Consultor
+    // também fica de fora por padrão — compartilhamento de NF-e com
+    // consultor, se vier a existir, será opt-in explícito do clinic_admin
+    // (requisito de produto novo, fora do escopo desta correção; registrado
+    // separadamente no mapa de bugs para elicitação de UC dedicado).
+    match /tenants/{tenantId}/nf_imports/{nfImportId} {
+      allow read, write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
     }
 
     // Regras específicas para notificações (dentro de tenants)
@@ -250,8 +342,8 @@ service cloud.firestore {
     }
 
     // inventory_activity em escopo de collectionGroup (RNF-05/UC-53) — a regra
-    // genérica de subcoleção (tenants/{tenantId}/{document=**}, acima) cobre
-    // get/list dentro de um tenant, mas NÃO se aplica a consultas
+    // genérica de subcoleção (tenants/{tenantId}/{collectionId}/{document=**},
+    // acima) cobre get/list dentro de um tenant, mas NÃO se aplica a consultas
     // collectionGroup(): confirmado manualmente contra o Firebase Emulator que
     // uma wildcard recursiva no meio do caminho não estende automaticamente
     // para "permission-denied: No matching allow statements" em collectionGroup,
