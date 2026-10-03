@@ -5,6 +5,13 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.10.2](https://github.com/GScandelari/curva_mestra_system/compare/v1.10.1...v1.10.2) (2026-10-03)
+
+
+### Bug Fixes
+
+* **auth:** guard login redirect against submit race condition ([c287322](https://github.com/GScandelari/curva_mestra_system/commit/c287322cb2b26e92d7f4f0ce6bc907fb99996b3a))
+
 ## [1.10.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.10.0...v1.10.1) (2026-10-03)
 
 
