@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Inventário
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Um Clinic Admin faz upload do XML de uma NF-e SEFAZ v4.00 para importar automaticamente os produtos recebidos para o estoque da própria clínica — sem OCR, com extração direta do XML (número, produtos, lotes, validades, natureza da operação, forma de pagamento) e checagem de duplicidade por número da NF antes de qualquer gravação.
 
@@ -35,7 +35,7 @@ flowchart LR
 ## 2. Atores
 
 ### 2.1 Ator Primário
-**Clinic Admin** (`role: "clinic_admin"`) — único role autorizado a acessar `/clinic/upload` (a própria tela bloqueia explicitamente qualquer outro role com a mensagem "Apenas administradores podem fazer upload de NF-e").
+**Clinic Admin** (`role: "clinic_admin"`) — único role autorizado a acessar `/clinic/upload` (a própria tela bloqueia explicitamente qualquer outro role com a mensagem "Apenas administradores podem fazer upload de NF-e"). **[CORRIGIDO — PR #344, ver RN-11]** Até o PR #344, isso era uma restrição apenas de interface: a regra do Firestore para `tenants/{tenantId}/nf_imports` caía na regra genérica de subcoleção do tenant, que permitia leitura e escrita a qualquer usuário do tenant. Hoje, `nf_imports` tem um bloco dedicado próprio no Firestore, com leitura **e** escrita restritas a `clinic_admin`.
 
 ### 2.2 Atores Secundários / Sistemas Externos
 - **Firebase Storage:** armazena o arquivo XML original, em `danfe/{tenantId}/{timestamp}_{nome do arquivo}`.
@@ -166,6 +166,7 @@ O Clinic Admin acessa `/clinic/upload`, seleciona um arquivo XML e clica em "Imp
 | RN-08 | O matching entre um produto do XML e o catálogo master é feito por **igualdade exata** de código (`cProd` do XML == `code` de `master_products`) — sem correspondência parcial, por nome, ou tolerância a diferenças de formatação. | Confirmado em `getMasterProductByCode` (`where('code', '==', code)`). |
 | RN-09 | `forma_pagamento` é derivada do `<detPag>` de **maior** `vPag` entre os existentes — implementado para descartar um `<detPag>` "fantasma" que a SEFAZ por vezes inclui com `vPag=0.00` além do pagamento real. | Comentário explícito em `parseNfeXml.ts` confirma esse comportamento como intencional, não um bug. |
 | RN-10 | `tipo_nota` é inferido por correspondência de palavra-chave (case-insensitive, sem acentos) no texto de `<natOp>`: contém "bonific" → `bonificacao`; contém "venda" → `venda`; qualquer outro texto (ou ausente) → `outro`. | Classificação heurística simples, sem lista fechada de naturezas de operação possíveis (ver seção 14). |
+| RN-11 | **[NOVO — CORRIGIDO/REFORÇADO — PR #344, commits `f3ce046` (restrição inicial) + `94cbe2e` (correção de regressão em `list`/query), branch `bugfix/firestore-rules-tenant-role-enforcement`, mergeado em `gscandelari_setup`, deploy confirmado em `curva-mestra-dev`]** A restrição de que apenas `clinic_admin` pode importar/ler notas fiscais, antes aplicada só na interface, agora também é reforçada no Firestore: a coleção `tenants/{tenantId}/nf_imports` ganhou um bloco dedicado próprio — `match /tenants/{tenantId}/nf_imports/{nfImportId} { allow read, write: if belongsToTenant(tenantId) && hasRole('clinic_admin'); }` — e foi explicitamente excluída do fallback de leitura ampla da regra genérica de subcoleção do tenant (`collectionId != 'nf_imports'`). Diferente de outras subcoleções do tenant (`inventory`, `stock_limits`, `protocolos`, `solicitacoes`, `inventory_activity`), aqui a restrição cobre também **leitura** — nem `clinic_user` nem consultor conseguem ler NF-e importadas, mesmo que tentem contornar a UI chamando o Firestore diretamente (defesa em profundidade; nenhuma tela de `clinic_user`/consultor precisa ler `nf_imports` hoje). Compartilhamento futuro de NF-e com o consultor, se vier a existir, será opt-in explícito do `clinic_admin` — requisito de produto novo, fora do escopo desta correção, registrado separadamente no mapa de bugs. Antes desta correção, a regra genérica `tenants/{tenantId}/{document=**}` concedia leitura e escrita irrestritas a qualquer usuário do tenant para `nf_imports` como para qualquer outra subcoleção — mesmo achado estrutural documentado em UC-13/RN-09 e UC-15/RN-07, corrigido em conjunto no mesmo PR. | Confirmado por leitura de `firestore.rules` pós-deploy — bloco dedicado `tenants/{tenantId}/nf_imports/{nfImportId}` com `allow read, write` restrito a `hasRole('clinic_admin')`, e exclusão explícita de `nf_imports` do fallback de leitura genérico (`collectionId != 'nf_imports'`); cross-referência com UC-13/RN-09 (detalhamento técnico completo da história do fix em duas etapas). |
 
 ---
 
@@ -188,7 +189,8 @@ Alta — é o principal mecanismo de entrada de estoque da clínica, usado a cad
 ## 12. Casos de Uso Relacionados
 - **"Gerenciar Catálogo Master de Produtos" (System Admin, UC ainda não mapeado)** é pré-condição indireta: só é possível resolver um produto do XML se ele já existir em `master_products`.
 - **"Resolver Produtos Pendentes" (System Admin, `/admin/pending-products`, UC ainda não mapeado)** é o passo seguinte quando esta importação termina com `novo_produto_pendente`.
-- Um eventual **"Importar NF-e Manualmente"** (origem `"manual"`, mencionada nas regras de `checkNumeroNFStatus` mas cuja tela não foi investigada nesta rodada) compartilha a mesma coleção `nf_imports` e as mesmas regras de bloqueio por `numero_nf` (RN-01/RN-02) — candidato a UC futuro.
+- **UC-11 (Inserir Nota Fiscal Manualmente)** compartilha a mesma coleção `nf_imports` e a mesma função de checagem de duplicidade (`checkNumeroNFStatus`) — e, desde o PR #344, a mesma regra dedicada de leitura/escrita restrita a `clinic_admin` (RN-11).
+- **UC-13/UC-15 (Inventário)** — origem do achado de severidade Alta (regra genérica de subcoleção do tenant tornava inefetiva qualquer regra dedicada mais restrita) referenciado em RN-11 deste UC, corrigido em conjunto no PR #344.
 
 ---
 
@@ -203,6 +205,7 @@ Alta — é o principal mecanismo de entrada de estoque da clínica, usado a cad
 - `src/components/upload/FileUpload.tsx`
 - `src/components/inventory/TipoNotaBadge.tsx`
 - `src/types/nf.ts` (`ParsedNF`, `NFProduct`, `NFImport`, `NFNumeroStatus`, `TipoNota`)
+- `firestore.rules` (bloco dedicado `tenants/{tenantId}/nf_imports/{nfImportId}`, leitura e escrita restritas a `hasRole('clinic_admin')`, excluído do fallback de leitura genérico — RN-11, corrigido/reforçado no PR #344, commits `f3ce046`/`94cbe2e`)
 
 ---
 
@@ -212,6 +215,7 @@ Alta — é o principal mecanismo de entrada de estoque da clínica, usado a cad
 2. **[Observação]** RN-01 usa apenas `numero_nf` (não a chave de acesso completa nem a série) para deduplicação — pode haver cenários (ex.: séries diferentes com o mesmo número, ou reemissão) não cobertos. Não confirmado se isso é intencional ou uma simplificação a revisar, junto com o item 1.
 3. **[Observação]** RN-10 (classificação heurística de `tipo_nota` por palavra-chave) não tem lista fechada de naturezas de operação possíveis — qualquer natureza fora de "bonific"/"venda" cai em "outro". Não confirmado se há necessidade de mais categorias.
 4. **[Nota de rastreabilidade]** Duas telas relacionadas ainda não foram mapeadas como UC formal: "Gerenciar Catálogo Master de Produtos" e "Resolver Produtos Pendentes" (`/admin/pending-products`), ambas do System Admin.
+5. **[RESOLVIDO em v1.1 — PR #344, commits `f3ce046`/`94cbe2e`]** RN-11 — a restrição de role para ler/escrever `nf_imports`, antes só de interface, agora também é reforçada no Firestore via bloco dedicado (leitura e escrita restritas a `clinic_admin`, com exclusão explícita do fallback de leitura genérico). Fora de escopo desta correção, e não decidido aqui: o eventual compartilhamento de leitura com o consultor (opt-in futuro, registrado separadamente no mapa de bugs).
 
 ---
 
@@ -220,3 +224,4 @@ Alta — é o principal mecanismo de entrada de estoque da clínica, usado a cad
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 13/07/2026 | Guilherme Scandelari | Versão inicial. Documentado a partir de contexto detalhado fornecido pelo usuário (que implementou este fluxo nesta mesma sessão de trabalho, em PRs recentes já mergeados) e confirmado por leitura direta e completa de todos os arquivos envolvidos: `upload/page.tsx`, `api/parse-nf-xml/route.ts`, `parseNfeXml.ts`, `nfImportService.ts`, `inventoryService.ts` (funções relevantes), `masterProductService.ts`, `pendingMasterProductService.ts`, `FileUpload.tsx`, `TipoNotaBadge.tsx` e `types/nf.ts`. Registrado como aviso explícito, a pedido do próprio usuário, que a regra de duplicidade v1 (RN-02) está sujeita a revisão. |
+| 1.1 | 02/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Correção/reforço de segurança real implementado e mergeado (PR #344, branch `bugfix/firestore-rules-tenant-role-enforcement`, commits `f3ce046` + `94cbe2e`, deploy confirmado em `curva-mestra-dev`)**: nova regra RN-11 — `nf_imports` ganhou um bloco dedicado no Firestore com leitura e escrita restritas a `clinic_admin`, excluído do fallback de leitura genérico da regra de subcoleção do tenant (`collectionId != 'nf_imports'`), reforçando no banco de dados a restrição que antes só existia na UI. Seção 2.1, RN-11 (seção 9), item 5 da seção 14, e seções 12/13 atualizados de acordo. Mesma correção estrutural aplicada em conjunto a UC-13/RN-09 e UC-15/RN-07 (achado original) — esta é a primeira vez que o achado é documentado do ponto de vista da subcoleção `nf_imports`, que nunca teve RN de segurança própria antes desta revisão. |
