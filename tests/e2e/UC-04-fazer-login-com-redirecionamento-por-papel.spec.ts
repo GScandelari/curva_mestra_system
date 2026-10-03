@@ -73,6 +73,22 @@ async function submitLoginForm(page: Page, email: string, password: string): Pro
   await page.getByRole('button', { name: 'Entrar' }).click();
 }
 
+/**
+ * Registra um listener de navegação no frame principal e retorna o array (vivo) de
+ * URLs visitadas a partir deste ponto -- usado para provar que uma navegação
+ * intermediária indevida NUNCA ocorre (ex.: regressão da corrida corrigida em
+ * UC-04-RN-11), não só que o estado final está correto.
+ */
+function trackMainFrameNavigations(page: Page): string[] {
+  const urls: string[] = [];
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) {
+      urls.push(frame.url());
+    }
+  });
+  return urls;
+}
+
 /** Troca temporariamente as custom claims de um UID já semeado, restaurando ao final. */
 async function withTemporaryClaims<T>(
   uid: string,
@@ -378,28 +394,25 @@ test.describe('UC-04 — Fazer Login com Redirecionamento por Papel', () => {
   });
 
   test.describe('Fluxo de Exceção 8d — clínica inativa/suspensa, role clinic_user (RN-03, RN-04)', () => {
-    // ACHADO REAL (não é bug de teste): investigação empírica contra o emulador
-    // mostrou que o card "Sistema Indisponível" nunca chega a aparecer -- o
-    // screenshot salvo em falha mostra o formulário de login vazio/resetado, não
-    // o card. Hipótese: em src/app/(auth)/login/page.tsx, o useEffect reativo que
-    // redireciona qualquer usuário autenticado ("Redirecionar se já estiver
-    // autenticado") corre em paralelo com a checagem manual de tenant.active
-    // dentro de handleSubmit/checkClinicStatus. Se o efeito reativo disparar
-    // primeiro (via onAuthStateChanged), o usuário é levado para /clinic/dashboard
-    // antes do handleInactiveClinic() do handleSubmit rodar; o signOut() desse
-    // último então força volta a /login com uma instância NOVA do componente,
-    // cujo estado local `clinicInactiveMessage` nasce em false -- explicando o
-    // formulário vazio observado. Não corrigido aqui por decisão do usuário
-    // (mexe em fluxo real de autenticação) -- registrado no mapa de bugs para
-    // avaliação numa task dedicada.
-    test.fixme(
-      true,
-      'Race condition real entre o redirect reativo e a checagem manual de tenant.active em login/page.tsx -- ver comentário acima. Registrado no _MAPA-DE-BUGS-E-MELHORIAS.md.'
-    );
-    test('tenant.active === false desconecta o clinic_user e mostra o card "Sistema Indisponível" em /login', async ({
+    // CORRIGIDO (UC-04-RN-11): o card "Sistema Indisponível" deixava de aparecer por
+    // uma condição de corrida real em src/app/(auth)/login/page.tsx -- o useEffect
+    // reativo "Redirecionar se já estiver autenticado" competia com a checagem manual
+    // sequencial de tenant.active dentro de handleSubmit/checkClinicStatus. Se o efeito
+    // reativo disparasse primeiro (via onAuthStateChanged), o usuário era levado
+    // brevemente a /clinic/dashboard antes do handleInactiveClinic() do handleSubmit
+    // rodar; o signOut() desse último forçava volta a /login com uma instância NOVA do
+    // componente, cujo estado local `clinicInactiveMessage` nascia em false -- o card
+    // nunca chegava a aparecer. Corrigido com um guard (`loginInProgressRef`, useRef)
+    // que impede o efeito reativo de redirecionar enquanto handleSubmit está em voo --
+    // mesmo idioma de guarda já usado em src/hooks/useSessionTimeout.ts. A asserção
+    // sobre `navigatedUrls` abaixo é a prova direta de que a corrida foi eliminada (não
+    // só que o estado final já estava correto).
+    test('tenant.active === false desconecta o clinic_user e mostra o card "Sistema Indisponível" em /login, sem navegar por /clinic/dashboard', async ({
       page,
     }) => {
       await withTenantActive(TEST_TENANTS.clinicA.tenant_id, false, async () => {
+        const navigatedUrls = trackMainFrameNavigations(page);
+
         await submitLoginForm(page, TEST_USERS.clinicUserA.email, TEST_PASSWORD);
 
         await expect(page).toHaveURL(/\/login/);
@@ -410,6 +423,11 @@ test.describe('UC-04 — Fazer Login com Redirecionamento por Papel', () => {
           )
         ).toBeVisible();
         await expect(page.getByRole('link', { name: 'suporte@curvamestra.com.br' })).toBeVisible();
+
+        // UC-04-RN-11 (corrigido): prova direta de que a corrida foi eliminada -- o
+        // frame principal nunca deve navegar para /clinic/dashboard, nem mesmo
+        // brevemente, enquanto a checagem de tenant.active ainda está em voo.
+        expect(navigatedUrls.some((url) => url.includes('/clinic/dashboard'))).toBe(false);
 
         // Passo 3 do Fluxo de Exceção 8d: "Voltar ao login" limpa o estado e reexibe o
         // formulário normal (retorna ao passo 2 do Fluxo Principal).

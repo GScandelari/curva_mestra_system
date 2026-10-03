@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,6 +31,17 @@ function LoginForm() {
   const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
   const [clinicInactiveMessage, setClinicInactiveMessage] = useState(false);
 
+  // Guarda contra condição de corrida (UC-04-RN-11): enquanto handleSubmit está
+  // em voo (entre o signIn() e a decisão final de navegação/estado), o useEffect
+  // reativo abaixo não deve redirecionar por conta própria -- ele compete com a
+  // checagem sequencial de tenant.active feita dentro do handleSubmit e, se vencer
+  // a corrida, pode levar um clinic_user de clínica suspensa a /clinic/dashboard
+  // antes do signOut() do fluxo manual o trazer de volta, remontando a página e
+  // perdendo o estado local `clinicInactiveMessage`. Mesmo idioma de guarda já
+  // usado em src/hooks/useSessionTimeout.ts para evitar que um efeito assíncrono
+  // atue depois que o contexto mudou.
+  const loginInProgressRef = useRef(false);
+
   // Verificar se foi redirecionado por timeout
   useEffect(() => {
     if (searchParams.get('timeout') === 'true') {
@@ -40,6 +51,8 @@ function LoginForm() {
 
   // Redirecionar se já estiver autenticado
   useEffect(() => {
+    if (loginInProgressRef.current) return;
+
     if (!authLoading && isAuthenticated && claims) {
       // Verificar se precisa trocar a senha primeiro
       if (claims.requirePasswordChange) {
@@ -98,6 +111,10 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Ativa o guard antes de qualquer await -- fecha a janela inteira entre o
+    // signIn() (que dispara onAuthStateChanged/useAuth de forma assíncrona e
+    // independente) e a decisão final de navegação/estado deste fluxo manual.
+    loginInProgressRef.current = true;
     setError('');
     setLoading(true);
 
@@ -138,6 +155,10 @@ function LoginForm() {
     } catch (err: any) {
       setError(translateFirebaseError(err.message));
     } finally {
+      // Libera o guard só depois que a decisão de navegação/estado já foi tomada
+      // (toda saída do try acima passa por aqui antes de devolver o controle ao
+      // useEffect reativo).
+      loginInProgressRef.current = false;
       setLoading(false);
     }
   };
