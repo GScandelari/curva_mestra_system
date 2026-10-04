@@ -556,7 +556,7 @@ export default function SolicitacaoDetalhesPage() {
         destructive={confirmAction?.status === 'cancelada'}
         onConfirm={() => {
           if (confirmAction) {
-            handleStatusUpdate(confirmAction.status, confirmAction.observacao);
+            void handleStatusUpdate(confirmAction.status, confirmAction.observacao);
           }
           setConfirmAction(null);
         }}

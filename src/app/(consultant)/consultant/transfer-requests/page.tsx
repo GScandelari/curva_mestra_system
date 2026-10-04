@@ -329,7 +329,7 @@ export default function TransferRequestsPage() {
         confirmLabel="Aprovar"
         onConfirm={() => {
           if (approveTarget) {
-            handleApprove(approveTarget);
+            void handleApprove(approveTarget);
           }
           setApproveTarget(null);
         }}
