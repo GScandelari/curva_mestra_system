@@ -19,7 +19,7 @@ export default function ConsultantProfilePage() {
 
   useEffect(() => {
     if (user && consultantId) {
-      loadProfile();
+      void loadProfile();
     }
   }, [user, consultantId]);
 

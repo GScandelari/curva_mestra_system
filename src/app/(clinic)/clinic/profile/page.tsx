@@ -44,7 +44,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return;
 
-    runTermsLoad(
+    void runTermsLoad(
       async () => {
         const acceptancesRef = collection(db, 'user_document_acceptances');
         const q = query(acceptancesRef, where('user_id', '==', user.uid));

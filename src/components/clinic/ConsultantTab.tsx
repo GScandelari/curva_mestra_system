@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,43 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { UserCheck, Mail, Phone, Copy, AlertTriangle, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { useAsyncState } from '@/hooks/useAsyncState';
-import type { Consultant } from '@/types';
+import { useLinkedConsultant } from '@/hooks/useLinkedConsultant';
 
 export default function ConsultantTab() {
-  const { user, tenantId, role } = useAuth();
+  const { role } = useAuth();
   const { toast } = useToast();
   // Mesmo padrão de gate das abas "Usuários"/"Limite de Estoque" em my-clinic/page.tsx
   const isAdmin = role === 'clinic_admin';
-  const [consultant, setConsultant] = useState<Consultant | null>(null);
-  const { loading, error, setError, run } = useAsyncState();
-
-  useEffect(() => {
-    if (user && tenantId) {
-      loadData();
-    }
-  }, [user, tenantId]);
-
-  const loadData = () =>
-    run(
-      async () => {
-        if (!user || !tenantId) return;
-        const token = await user.getIdToken();
-
-        const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const consultantData = await consultantRes.json();
-        if (consultantRes.ok) {
-          setConsultant(consultantData.data ?? null);
-        } else {
-          setConsultant(null);
-          setError(consultantData.error || 'Não foi possível carregar o consultor vinculado.');
-        }
-      },
-      'Erro ao carregar dados do consultor:',
-      'Não foi possível carregar o consultor vinculado. Tente novamente mais tarde.'
-    );
+  const { consultant, loading, error } = useLinkedConsultant();
 
   const copyCode = () => {
     if (consultant?.code) {
