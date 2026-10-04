@@ -526,7 +526,7 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
                 <AlertTriangle className="w-6 h-6 text-orange-600" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">Produtos Vencendo</h3>
+                <h3 className="font-bold text-gray-900">Produtos Vencendo ou Vencidos</h3>
                 <p className="text-sm text-gray-600">Próximos ao vencimento</p>
               </div>
             </div>
@@ -846,7 +846,7 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
           <div className="bg-white rounded-lg shadow-sm border-2 border-orange-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold">Produtos Próximos ao Vencimento</h2>
+                <h2 className="text-xl font-bold">Produtos Vencendo ou Vencidos</h2>
                 <Badge variant="secondary" className="bg-orange-100 text-orange-700">
                   <Eye className="w-3 h-3 mr-1" />
                   Preview

@@ -16,6 +16,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { translateFirestoreError } from '@/lib/firestoreErrors';
 import { FileText, Loader2, CheckCircle2 } from 'lucide-react';
 import { LegalDocument } from '@/types';
 import ReactMarkdown from 'react-markdown';
@@ -93,7 +94,7 @@ export default function AcceptTermsPage() {
     } catch (error: any) {
       toast({
         title: 'Erro ao carregar documentos',
-        description: error.message,
+        description: translateFirestoreError(error.code),
         variant: 'destructive',
       });
     } finally {
@@ -148,7 +149,7 @@ export default function AcceptTermsPage() {
     } catch (error: any) {
       toast({
         title: 'Erro ao salvar',
-        description: error.message,
+        description: translateFirestoreError(error.code),
         variant: 'destructive',
       });
     } finally {

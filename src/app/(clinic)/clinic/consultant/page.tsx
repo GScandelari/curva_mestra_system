@@ -1,46 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { UserCheck, Mail, Phone, Copy, AlertTriangle } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import type { Consultant } from '@/types';
+import { useLinkedConsultant } from '@/hooks/useLinkedConsultant';
 
 export default function ClinicConsultantPage() {
-  const { user, tenantId } = useAuth();
   const { toast } = useToast();
-  const [consultant, setConsultant] = useState<Consultant | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const loadData = useCallback(async () => {
-    if (!user || !tenantId) return;
-
-    try {
-      setLoading(true);
-      const token = await user.getIdToken();
-
-      const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const consultantData = await consultantRes.json();
-      if (consultantRes.ok && consultantData.data) {
-        setConsultant(consultantData.data);
-      } else {
-        setConsultant(null);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, tenantId]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  const { consultant, loading, error } = useLinkedConsultant();
 
   const copyCode = () => {
     if (consultant?.code) {
@@ -55,6 +24,14 @@ export default function ClinicConsultantPage() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container py-8 max-w-3xl">
+        <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-md">{error}</div>
       </div>
     );
   }

@@ -97,7 +97,7 @@ export default function UsersManagementPage() {
   // Set password states
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [forcePasswordChange, setForcePasswordChange] = useState(false);
+  const [forcePasswordChange, setForcePasswordChange] = useState(true);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [settingPassword, setSettingPassword] = useState(false);
   const [setPasswordSuccess, setSetPasswordSuccess] = useState(false);
@@ -229,7 +229,7 @@ export default function UsersManagementPage() {
     setResetEmailAddress(null);
     setNewPassword('');
     setConfirmPassword('');
-    setForcePasswordChange(false);
+    setForcePasswordChange(true);
     setShowNewPassword(false);
     setSetPasswordSuccess(false);
     setEditDialogOpen(true);
