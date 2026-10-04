@@ -5,6 +5,33 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.11.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.10.2...v1.11.0) (2026-10-04)
+
+
+### Features
+
+* **admin:** preenche codigo e nome ao cadastrar produto pendente ([262584f](https://github.com/GScandelari/curva_mestra_system/commit/262584f1146c4cf13cba7328eb41d1cc54818441))
+* **ui:** adiciona dialogo de confirmacao reutilizavel ([12cc326](https://github.com/GScandelari/curva_mestra_system/commit/12cc3265e5ed39e2edc2ce5bdbe9c7acb225135a))
+
+
+### Bug Fixes
+
+* **admin:** alinha default da troca de senha obrigatória entre telas ([5470cfb](https://github.com/GScandelari/curva_mestra_system/commit/5470cfbf96bc199031bedd1b826bf6cb29b15718))
+* **admin:** corrige escape unicode no gerador de slug de documentos legais ([402a3e4](https://github.com/GScandelari/curva_mestra_system/commit/402a3e4c2cdb339969d3e4301cb315f404988afb))
+* **admin:** evita reenvio de email sem alteracao na edicao de consultor ([e034269](https://github.com/GScandelari/curva_mestra_system/commit/e0342694f55dc5498e1bb1652cce5aaac18c8206))
+* **admin:** remove escrita morta de published_at em documento legal ([69a6921](https://github.com/GScandelari/curva_mestra_system/commit/69a69216ea54c14dabee724017b9d09a3bba26d7))
+* **admin:** valida campos no dialogo de criacao de usuario ([fc5445a](https://github.com/GScandelari/curva_mestra_system/commit/fc5445a9a204241ffcb461be92949731c293d6d2))
+* **admin:** valida duplicidade de slug e ordem em documentos legais ([89ec129](https://github.com/GScandelari/curva_mestra_system/commit/89ec129836aa984973fe102d94ed66da21fa71ca))
+* **auth:** traduz erros do firestore ao aceitar termos legais ([259364f](https://github.com/GScandelari/curva_mestra_system/commit/259364fa6d928b698b9228821040992e92eef21d))
+* **inventory:** adiciona feedback de erro ao configurar limite de estoque ([5891a00](https://github.com/GScandelari/curva_mestra_system/commit/5891a0015436b9c64aca1c33829bdfc62d98e8c3))
+* **inventory:** atualiza texto de estado vazio da lista de inventário ([8b5ab87](https://github.com/GScandelari/curva_mestra_system/commit/8b5ab878b314eb87ec773a72f43694bb39133715))
+* **reports:** renomeia relatorio de vencimento para incluir vencidos ([0b8e6b6](https://github.com/GScandelari/curva_mestra_system/commit/0b8e6b63f3d1dee6688b9b2ed1884499071ba73d))
+* **requests:** valida duplicidade de nome de protocolo ([de4b0e6](https://github.com/GScandelari/curva_mestra_system/commit/de4b0e62d64d49b5e5cc1a2175a4fd5c8a7c86dc))
+* **tenant:** exige confirmacao para aprovar vinculo de consultor ([d5d412a](https://github.com/GScandelari/curva_mestra_system/commit/d5d412ace7798058a9fca1404a6b404de3f07475))
+* **types:** declara campos de auditoria de senha definida pelo admin ([e984f4b](https://github.com/GScandelari/curva_mestra_system/commit/e984f4bfe3e1e13ca2e4043c2433efff172bf119))
+* **ui:** exibe erro visível ao falhar carregamento de perfil/consultor ([5cce33c](https://github.com/GScandelari/curva_mestra_system/commit/5cce33cf49b4833e91ba78b950ccfec92588d004))
+* **ui:** marca promises soltas dos dialogos de confirmacao com void ([53bd781](https://github.com/GScandelari/curva_mestra_system/commit/53bd781d0e5d4b5f330e82db9b1858f7f7d35567))
+
 ## [1.10.2](https://github.com/GScandelari/curva_mestra_system/compare/v1.10.1...v1.10.2) (2026-10-03)
 
 
