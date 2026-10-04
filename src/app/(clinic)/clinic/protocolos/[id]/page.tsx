@@ -11,6 +11,7 @@ import {
   getHistoricalProducts,
   updateProtocolo,
   listProtocolos,
+  DUPLICATE_PROTOCOLO_NAME_ERROR,
   type ProdutoHistorico,
 } from '@/lib/services/protocoloService';
 import type { Protocolo, ProtocoloItem } from '@/types';
@@ -77,8 +78,12 @@ export default function EditarProtocoloPage() {
       });
       toast({ title: 'Protocolo atualizado com sucesso!' });
       router.push('/clinic/protocolos');
-    } catch {
-      toast({ title: 'Erro ao atualizar protocolo', variant: 'destructive' });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message === DUPLICATE_PROTOCOLO_NAME_ERROR
+          ? error.message
+          : 'Erro ao atualizar protocolo';
+      toast({ title: message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
