@@ -9,6 +9,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { isDuplicateValue } from '@/lib/duplicateValidation';
 import type { Protocolo, ProtocoloItem } from '@/types';
 
 export interface ProdutoHistorico {
@@ -44,11 +45,37 @@ export interface CreateProtocoloInput {
   itens: ProtocoloItem[];
 }
 
+// Nenhum protocolo do mesmo tenant pode compartilhar o mesmo nome
+// (UC-20-RN-06) -- antes, createProtocolo/updateProtocolo gravavam sem
+// nenhuma checagem de unicidade.
+export const DUPLICATE_PROTOCOLO_NAME_ERROR = 'Já existe um protocolo com este nome';
+
+async function assertProtocoloNameIsUnique(
+  tenantId: string,
+  nome: string,
+  excludeId?: string
+): Promise<void> {
+  const existing = await listProtocolos(tenantId);
+  if (
+    isDuplicateValue(
+      existing,
+      nome,
+      (p) => p.nome,
+      excludeId,
+      (p) => p.id
+    )
+  ) {
+    throw new Error(DUPLICATE_PROTOCOLO_NAME_ERROR);
+  }
+}
+
 export async function createProtocolo(
   tenantId: string,
   userId: string,
   input: CreateProtocoloInput
 ): Promise<string> {
+  await assertProtocoloNameIsUnique(tenantId, input.nome);
+
   const now = Timestamp.now();
   const ref = await addDoc(collection(db, 'tenants', tenantId, 'protocolos'), {
     tenant_id: tenantId,
@@ -68,6 +95,10 @@ export async function updateProtocolo(
   id: string,
   input: Partial<CreateProtocoloInput>
 ): Promise<void> {
+  if (input.nome !== undefined) {
+    await assertProtocoloNameIsUnique(tenantId, input.nome, id);
+  }
+
   const updates: Record<string, unknown> = { updated_at: Timestamp.now() };
   if (input.nome !== undefined) updates.nome = input.nome;
   if (input.descricao !== undefined) updates.descricao = input.descricao;

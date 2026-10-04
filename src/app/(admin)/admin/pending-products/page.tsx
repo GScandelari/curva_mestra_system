@@ -175,7 +175,11 @@ export default function PendingProductsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => router.push('/admin/products/new')}
+                          onClick={() =>
+                            router.push(
+                              `/admin/products/new?codigo=${encodeURIComponent(row.codigo)}&nome=${encodeURIComponent(row.nome_produto)}`
+                            )
+                          }
                         >
                           <ExternalLink className="mr-1 h-4 w-4" />
                           Cadastrar Produto

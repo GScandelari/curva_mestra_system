@@ -142,7 +142,13 @@ export default function ConsultantDetailPage() {
         },
         body: JSON.stringify({
           name: formData.name,
-          email: formData.email.toLowerCase(),
+          // So reenvia o email se ele de fato mudou em relacao ao valor
+          // carregado -- antes, o formulario sempre reenviava o email atual,
+          // fazendo a API sempre checar duplicidade e tentar atualizar o
+          // Firebase Auth mesmo sem alteracao real (UC-29-RN-05).
+          ...(formData.email.toLowerCase() !== consultant?.email
+            ? { email: formData.email.toLowerCase() }
+            : {}),
           phone: formData.phone,
         }),
       });

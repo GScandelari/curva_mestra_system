@@ -19,9 +19,18 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  doc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { writeAdminAuditLog } from '@/lib/services/auditLogService';
+import { isDuplicateValue } from '@/lib/duplicateValidation';
 import { FileText, Save, Loader2, ArrowLeft } from 'lucide-react';
 import { LegalDocument, DocumentStatus } from '@/types';
 import {
@@ -133,6 +142,50 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
       toast({
         title: 'Erro de validação',
         description: 'A versão é obrigatória',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Sem verificação de duplicidade de slug/ordem antes desta correção, dois
+    // documentos podiam ser criados com o mesmo slug (gerado automaticamente
+    // do mesmo título) ou a mesma ordem de exibição (UC-33-RN-01/RN-02).
+    const slugParaChecar = generateSlug(formData.slug || formData.title!);
+    const existingDocsSnap = await getDocs(collection(db, 'legal_documents'));
+    const existingDocs = existingDocsSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as LegalDocument
+    );
+
+    if (
+      isDuplicateValue(
+        existingDocs,
+        slugParaChecar,
+        (d) => d.slug,
+        documentId,
+        (d) => d.id
+      )
+    ) {
+      toast({
+        title: 'Erro de validação',
+        description: 'Já existe um documento com este slug. Ajuste o título ou o slug manualmente.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (
+      formData.order !== undefined &&
+      isDuplicateValue(
+        existingDocs,
+        formData.order,
+        (d) => d.order,
+        documentId,
+        (d) => d.id
+      )
+    ) {
+      toast({
+        title: 'Erro de validação',
+        description: 'Já existe um documento com esta ordem de exibição. Escolha outro valor.',
         variant: 'destructive',
       });
       return;
