@@ -36,6 +36,7 @@ import {
 } from '@/lib/services/solicitacaoService';
 import { formatTimestamp } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function SolicitacaoDetalhesPage() {
   const { claims, user } = useAuth();
@@ -51,6 +52,10 @@ export default function SolicitacaoDetalhesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    status: 'concluida' | 'cancelada';
+    observacao?: string;
+  } | null>(null);
 
   useEffect(() => {
     async function loadSolicitacao() {
@@ -150,6 +155,14 @@ export default function SolicitacaoDetalhesPage() {
     }
   };
 
+  // Concluir/cancelar sao acoes irreversiveis -- antes, o clique no botao
+  // ja disparava a chamada ao service diretamente, sem nenhuma confirmacao
+  // (UC-19-RN-06). Agora abre o ConfirmDialog compartilhado e so executa a
+  // mudanca de status apos a confirmacao.
+  const requestStatusUpdate = (status: 'concluida' | 'cancelada', observacao?: string) => {
+    setConfirmAction({ status, observacao });
+  };
+
   if (loading) {
     return (
       <div className="container py-8">
@@ -217,7 +230,7 @@ export default function SolicitacaoDetalhesPage() {
                     </Button>
 
                     <Button
-                      onClick={() => handleStatusUpdate('concluida', 'Procedimento concluído')}
+                      onClick={() => requestStatusUpdate('concluida', 'Procedimento concluído')}
                       disabled={updating}
                       variant="default"
                       className="bg-green-600 hover:bg-green-700"
@@ -228,7 +241,7 @@ export default function SolicitacaoDetalhesPage() {
 
                     <Button
                       onClick={() =>
-                        handleStatusUpdate('cancelada', 'Cancelado pelo administrador')
+                        requestStatusUpdate('cancelada', 'Cancelado pelo administrador')
                       }
                       disabled={updating}
                       variant="outline"
@@ -242,7 +255,7 @@ export default function SolicitacaoDetalhesPage() {
                 {/* EFETUADA → apenas Concluir (legado: registros anteriores à auto-conclusão) */}
                 {solicitacao.status === 'efetuada' && (
                   <Button
-                    onClick={() => handleStatusUpdate('concluida', 'Procedimento concluído')}
+                    onClick={() => requestStatusUpdate('concluida', 'Procedimento concluído')}
                     disabled={updating}
                     variant="default"
                     className="bg-blue-600 hover:bg-blue-700"
@@ -256,7 +269,7 @@ export default function SolicitacaoDetalhesPage() {
                 {solicitacao.status === 'aprovada' && (
                   <>
                     <Button
-                      onClick={() => handleStatusUpdate('concluida', 'Procedimento concluído')}
+                      onClick={() => requestStatusUpdate('concluida', 'Procedimento concluído')}
                       disabled={updating}
                       variant="default"
                       className="bg-blue-600 hover:bg-blue-700"
@@ -267,7 +280,7 @@ export default function SolicitacaoDetalhesPage() {
 
                     <Button
                       onClick={() =>
-                        handleStatusUpdate('cancelada', 'Cancelado pelo administrador')
+                        requestStatusUpdate('cancelada', 'Cancelado pelo administrador')
                       }
                       disabled={updating}
                       variant="outline"
@@ -523,6 +536,31 @@ export default function SolicitacaoDetalhesPage() {
           </Alert>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+        title={
+          confirmAction?.status === 'concluida'
+            ? 'Concluir procedimento?'
+            : 'Cancelar procedimento?'
+        }
+        description={
+          confirmAction?.status === 'concluida'
+            ? 'Esta acao e irreversivel. Confirma a conclusao deste procedimento?'
+            : 'Esta acao e irreversivel. Confirma o cancelamento deste procedimento? Os produtos reservados serao liberados de acordo com o status atual.'
+        }
+        confirmLabel={confirmAction?.status === 'concluida' ? 'Concluir' : 'Cancelar Procedimento'}
+        destructive={confirmAction?.status === 'cancelada'}
+        onConfirm={() => {
+          if (confirmAction) {
+            handleStatusUpdate(confirmAction.status, confirmAction.observacao);
+          }
+          setConfirmAction(null);
+        }}
+      />
     </div>
   );
 }
