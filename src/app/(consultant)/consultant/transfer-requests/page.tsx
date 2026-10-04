@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatTimestamp } from '@/lib/utils';
 import { getPendencyTypeLabel, isInviteRequest, isRequestExpired } from '@/lib/consultantRequests';
 import type { ConsultantTransferRequest } from '@/types';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function TransferRequestsPage() {
   const { user } = useAuth();
@@ -32,6 +33,7 @@ export default function TransferRequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState<ConsultantTransferRequest | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [approveTarget, setApproveTarget] = useState<ConsultantTransferRequest | null>(null);
 
   useEffect(() => {
     if (user) loadRequests();
@@ -169,7 +171,7 @@ export default function TransferRequestsPage() {
             <Button
               size="sm"
               className="flex-1"
-              onClick={() => handleApprove(request)}
+              onClick={() => setApproveTarget(request)}
               disabled={processing || expired}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -313,6 +315,25 @@ export default function TransferRequestsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Approve Confirmation -- aprovar e tao impactante quanto rejeitar
+          (troca/vinculo de consultor de uma clinica), mas antes executava
+          sem nenhuma confirmacao (UC-26-RN-01 / UC-27-RN-03) */}
+      <ConfirmDialog
+        open={approveTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setApproveTarget(null);
+        }}
+        title="Aprovar pedido?"
+        description={`Confirma a aprovacao do pedido da clinica ${approveTarget?.tenant_name}? Esta acao e irreversivel.`}
+        confirmLabel="Aprovar"
+        onConfirm={() => {
+          if (approveTarget) {
+            void handleApprove(approveTarget);
+          }
+          setApproveTarget(null);
+        }}
+      />
     </div>
   );
 }

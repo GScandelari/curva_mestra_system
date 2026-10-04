@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { getTenant, updateTenant } from '@/lib/services/tenantServiceDirect';
+import { validateEmail, validatePassword } from '@/lib/validations/serverValidations';
 import { writeAuditLog } from '@/lib/services/auditLogService';
 import {
   SuspendTenantDialog,
@@ -202,6 +203,26 @@ export default function EditTenantPage() {
   };
 
   const handleCreateUser = async () => {
+    // Nenhum campo deste dialogo tinha validacao client-side -- toda a
+    // validacao dependia do backend, que tambem nao valida formato de email
+    // nem comprimento minimo de senha explicitamente (UC-39-RN-01).
+    if (!newUserName.trim()) {
+      setError('Nome completo é obrigatório');
+      return;
+    }
+
+    const emailValidation = validateEmail(newUserEmail);
+    if (!emailValidation.valid) {
+      setError(emailValidation.error || 'Email inválido');
+      return;
+    }
+
+    const passwordValidation = validatePassword(newUserPassword, { minLength: 6 });
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.error || 'Senha inválida');
+      return;
+    }
+
     try {
       setCreatingUser(true);
       setError('');

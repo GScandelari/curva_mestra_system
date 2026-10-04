@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,40 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { UserCheck, Mail, Phone, Copy, AlertTriangle, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import type { Consultant } from '@/types';
+import { useLinkedConsultant } from '@/hooks/useLinkedConsultant';
 
 export default function ConsultantTab() {
-  const { user, tenantId, role } = useAuth();
+  const { role } = useAuth();
   const { toast } = useToast();
   // Mesmo padrão de gate das abas "Usuários"/"Limite de Estoque" em my-clinic/page.tsx
   const isAdmin = role === 'clinic_admin';
-  const [consultant, setConsultant] = useState<Consultant | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user && tenantId) {
-      loadData();
-    }
-  }, [user, tenantId]);
-
-  const loadData = async () => {
-    if (!user || !tenantId) return;
-
-    try {
-      setLoading(true);
-      const token = await user.getIdToken();
-
-      const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const consultantData = await consultantRes.json();
-      setConsultant(consultantRes.ok && consultantData.data ? consultantData.data : null);
-    } catch (error) {
-      console.error('Erro ao carregar dados do consultor:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { consultant, loading, error } = useLinkedConsultant();
 
   const copyCode = () => {
     if (consultant?.code) {
@@ -56,6 +29,10 @@ export default function ConsultantTab() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  if (error) {
+    return <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-md">{error}</div>;
   }
 
   return (

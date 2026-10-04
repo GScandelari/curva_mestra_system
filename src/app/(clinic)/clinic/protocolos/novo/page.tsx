@@ -10,6 +10,7 @@ import { ProtocoloForm } from '@/components/protocolos/ProtocoloForm';
 import {
   getHistoricalProducts,
   createProtocolo,
+  DUPLICATE_PROTOCOLO_NAME_ERROR,
   type ProdutoHistorico,
 } from '@/lib/services/protocoloService';
 import type { ProtocoloItem } from '@/types';
@@ -59,8 +60,12 @@ export default function NovoProtocoloPage() {
       });
       toast({ title: 'Protocolo criado com sucesso!' });
       router.push('/clinic/protocolos');
-    } catch {
-      toast({ title: 'Erro ao criar protocolo', variant: 'destructive' });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message === DUPLICATE_PROTOCOLO_NAME_ERROR
+          ? error.message
+          : 'Erro ao criar protocolo';
+      toast({ title: message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
