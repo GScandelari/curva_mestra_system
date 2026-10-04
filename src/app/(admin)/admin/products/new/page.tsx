@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,7 @@ import { Timestamp } from 'firebase/firestore';
 
 export default function NewProductPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -95,6 +96,16 @@ export default function NewProductPage() {
   const formatCodeInput = (value: string) => {
     return value.replace(/\D/g, '').slice(0, 7);
   };
+
+  // Preenche codigo/nome quando chegamos aqui a partir da fila de produtos
+  // pendentes (/admin/pending-products) -- antes, o botao 'Cadastrar Produto'
+  // nao levava nenhum dado, exigindo redigitar tudo manualmente (UC-12-RN-01).
+  useEffect(() => {
+    const codigoParam = searchParams.get('codigo');
+    const nomeParam = searchParams.get('nome');
+    if (codigoParam) setCode(formatCodeInput(codigoParam));
+    if (nomeParam) setName(nomeParam);
+  }, [searchParams]);
 
   return (
     <div className="container max-w-2xl py-8">
