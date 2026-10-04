@@ -227,7 +227,6 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
           created_by: auth.currentUser!.uid,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
-          published_at: formData.status === 'ativo' ? serverTimestamp() : null,
         });
         await writeAdminAuditLog({
           tenant_id: null,
@@ -249,7 +248,6 @@ export function LegalDocumentForm({ mode, documentId }: LegalDocumentFormProps) 
           order: formData.order,
           updated_at: serverTimestamp(),
         };
-        if (formData.status === 'ativo') updateData.published_at = serverTimestamp();
         await updateDoc(doc(db, 'legal_documents', documentId!), updateData);
         await writeAdminAuditLog({
           tenant_id: null,

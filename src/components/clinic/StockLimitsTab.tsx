@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,6 +26,7 @@ import { agruparProdutosPorCodigo, type ProdutoAgrupado } from '@/lib/inventoryU
 export default function StockLimitsTab() {
   const { claims } = useAuth();
   const tenantId = claims?.tenant_id;
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [produtos, setProdutos] = useState<ProdutoAgrupado[]>([]);
@@ -61,13 +63,27 @@ export default function StockLimitsTab() {
   const handleSave = async (codigo: string) => {
     if (!tenantId) return;
     const valor = parseInt(editValue, 10);
-    if (isNaN(valor) || valor < 0) return;
+    if (isNaN(valor) || valor < 0) {
+      toast({
+        title: 'Valor inválido',
+        description: 'Informe um número inteiro maior ou igual a zero.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSaving(true);
     try {
       await updateStockLimit(tenantId, codigo, valor);
       setLimitsMap((prev) => new Map(prev).set(codigo, valor));
       setEditingCode(null);
+    } catch (error) {
+      console.error('Erro ao salvar limite de estoque:', error);
+      toast({
+        title: 'Erro ao salvar',
+        description: 'Não foi possível salvar o limite de estoque. Tente novamente.',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
