@@ -14,25 +14,30 @@ export default function ClinicConsultantPage() {
   const { toast } = useToast();
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const loadData = useCallback(async () => {
     if (!user || !tenantId) return;
 
     try {
       setLoading(true);
+      setError('');
       const token = await user.getIdToken();
 
       const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const consultantData = await consultantRes.json();
-      if (consultantRes.ok && consultantData.data) {
-        setConsultant(consultantData.data);
+      if (consultantRes.ok) {
+        setConsultant(consultantData.data ?? null);
       } else {
         setConsultant(null);
+        setError(consultantData.error || 'Não foi possível carregar o consultor vinculado.');
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
+      setConsultant(null);
+      setError('Não foi possível carregar o consultor vinculado. Tente novamente mais tarde.');
     } finally {
       setLoading(false);
     }
@@ -55,6 +60,14 @@ export default function ClinicConsultantPage() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container py-8 max-w-3xl">
+        <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-md">{error}</div>
       </div>
     );
   }

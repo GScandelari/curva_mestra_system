@@ -17,6 +17,7 @@ export default function ConsultantTab() {
   const isAdmin = role === 'clinic_admin';
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (user && tenantId) {
@@ -29,15 +30,23 @@ export default function ConsultantTab() {
 
     try {
       setLoading(true);
+      setError('');
       const token = await user.getIdToken();
 
       const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const consultantData = await consultantRes.json();
-      setConsultant(consultantRes.ok && consultantData.data ? consultantData.data : null);
+      if (consultantRes.ok) {
+        setConsultant(consultantData.data ?? null);
+      } else {
+        setConsultant(null);
+        setError(consultantData.error || 'Não foi possível carregar o consultor vinculado.');
+      }
     } catch (error) {
       console.error('Erro ao carregar dados do consultor:', error);
+      setConsultant(null);
+      setError('Não foi possível carregar o consultor vinculado. Tente novamente mais tarde.');
     } finally {
       setLoading(false);
     }
@@ -56,6 +65,10 @@ export default function ConsultantTab() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  if (error) {
+    return <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-md">{error}</div>;
   }
 
   return (

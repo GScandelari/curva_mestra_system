@@ -15,6 +15,7 @@ export default function ConsultantProfilePage() {
   const { toast } = useToast();
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (user && consultantId) {
@@ -27,6 +28,7 @@ export default function ConsultantProfilePage() {
 
     try {
       setLoading(true);
+      setError('');
       const token = await user.getIdToken();
 
       const response = await fetch(`/api/consultants/${consultantId}`, {
@@ -36,9 +38,12 @@ export default function ConsultantProfilePage() {
       const data = await response.json();
       if (response.ok) {
         setConsultant(data.data);
+      } else {
+        setError(data.error || 'Não foi possível carregar seu perfil.');
       }
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
+      setError('Não foi possível carregar seu perfil. Tente novamente mais tarde.');
     } finally {
       setLoading(false);
     }
@@ -57,6 +62,14 @@ export default function ConsultantProfilePage() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600"></div>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container py-8 max-w-3xl">
+        <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-md">{error}</div>
       </div>
     );
   }

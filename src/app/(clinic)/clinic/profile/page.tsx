@@ -38,6 +38,7 @@ export default function ProfilePage() {
   // Terms acceptance
   const [termsAcceptances, setTermsAcceptances] = useState<any[]>([]);
   const [termsLoading, setTermsLoading] = useState(true);
+  const [termsError, setTermsError] = useState('');
 
   // Load terms acceptances
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function ProfilePage() {
 
       try {
         setTermsLoading(true);
+        setTermsError('');
         const acceptancesRef = collection(db, 'user_document_acceptances');
         const q = query(acceptancesRef, where('user_id', '==', user.uid));
         const snapshot = await getDocs(q);
@@ -83,6 +85,7 @@ export default function ProfilePage() {
         setTermsAcceptances(acceptancesWithTitles);
       } catch (error) {
         console.error('Erro ao carregar aceitações de termos:', error);
+        setTermsError('Não foi possível carregar o histórico de termos aceitos.');
       } finally {
         setTermsLoading(false);
       }
@@ -258,6 +261,10 @@ export default function ProfilePage() {
                 <div className="space-y-3">
                   <Skeleton className="h-12 w-full" />
                   <Skeleton className="h-12 w-full" />
+                </div>
+              ) : termsError ? (
+                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                  {termsError}
                 </div>
               ) : termsAcceptances.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum termo aceito ainda</p>
