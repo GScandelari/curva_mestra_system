@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { User, Copy, Building2, Mail, Phone, Calendar } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useAsyncState } from '@/hooks/useAsyncState';
 import { formatTimestamp } from '@/lib/utils';
 import type { Consultant } from '@/types';
 
@@ -14,8 +15,7 @@ export default function ConsultantProfilePage() {
   const { user, consultantId } = useAuth();
   const { toast } = useToast();
   const [consultant, setConsultant] = useState<Consultant | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { loading, error, setError, run } = useAsyncState();
 
   useEffect(() => {
     if (user && consultantId) {
@@ -23,31 +23,26 @@ export default function ConsultantProfilePage() {
     }
   }, [user, consultantId]);
 
-  const loadProfile = async () => {
-    if (!user) return;
+  const loadProfile = () =>
+    run(
+      async () => {
+        if (!user) return;
+        const token = await user.getIdToken();
 
-    try {
-      setLoading(true);
-      setError('');
-      const token = await user.getIdToken();
+        const response = await fetch(`/api/consultants/${consultantId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      const response = await fetch(`/api/consultants/${consultantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setConsultant(data.data);
-      } else {
-        setError(data.error || 'Não foi possível carregar seu perfil.');
-      }
-    } catch (error) {
-      console.error('Erro ao carregar perfil:', error);
-      setError('Não foi possível carregar seu perfil. Tente novamente mais tarde.');
-    } finally {
-      setLoading(false);
-    }
-  };
+        const data = await response.json();
+        if (response.ok) {
+          setConsultant(data.data);
+        } else {
+          setError(data.error || 'Não foi possível carregar seu perfil.');
+        }
+      },
+      'Erro ao carregar perfil:',
+      'Não foi possível carregar seu perfil. Tente novamente mais tarde.'
+    );
 
   const copyCode = () => {
     if (consultant?.code) {

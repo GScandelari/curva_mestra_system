@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useAsyncState } from '@/hooks/useAsyncState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,17 +38,14 @@ export default function ProfilePage() {
 
   // Terms acceptance
   const [termsAcceptances, setTermsAcceptances] = useState<any[]>([]);
-  const [termsLoading, setTermsLoading] = useState(true);
-  const [termsError, setTermsError] = useState('');
+  const { loading: termsLoading, error: termsError, run: runTermsLoad } = useAsyncState();
 
   // Load terms acceptances
   useEffect(() => {
-    async function loadTermsAcceptances() {
-      if (!user) return;
+    if (!user) return;
 
-      try {
-        setTermsLoading(true);
-        setTermsError('');
+    runTermsLoad(
+      async () => {
         const acceptancesRef = collection(db, 'user_document_acceptances');
         const q = query(acceptancesRef, where('user_id', '==', user.uid));
         const snapshot = await getDocs(q);
@@ -83,16 +81,11 @@ export default function ProfilePage() {
         );
 
         setTermsAcceptances(acceptancesWithTitles);
-      } catch (error) {
-        console.error('Erro ao carregar aceitações de termos:', error);
-        setTermsError('Não foi possível carregar o histórico de termos aceitos.');
-      } finally {
-        setTermsLoading(false);
-      }
-    }
-
-    loadTermsAcceptances();
-  }, [user]);
+      },
+      'Erro ao carregar aceitações de termos:',
+      'Não foi possível carregar o histórico de termos aceitos.'
+    );
+  }, [user, runTermsLoad]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();

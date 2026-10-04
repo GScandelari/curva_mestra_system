@@ -7,41 +7,38 @@ import { Badge } from '@/components/ui/badge';
 import { UserCheck, Mail, Phone, Copy, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useAsyncState } from '@/hooks/useAsyncState';
 import type { Consultant } from '@/types';
 
 export default function ClinicConsultantPage() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const [consultant, setConsultant] = useState<Consultant | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { loading, error, setError, run } = useAsyncState();
 
-  const loadData = useCallback(async () => {
-    if (!user || !tenantId) return;
+  const loadData = useCallback(
+    () =>
+      run(
+        async () => {
+          if (!user || !tenantId) return;
+          const token = await user.getIdToken();
 
-    try {
-      setLoading(true);
-      setError('');
-      const token = await user.getIdToken();
-
-      const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const consultantData = await consultantRes.json();
-      if (consultantRes.ok) {
-        setConsultant(consultantData.data ?? null);
-      } else {
-        setConsultant(null);
-        setError(consultantData.error || 'Não foi possível carregar o consultor vinculado.');
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      setConsultant(null);
-      setError('Não foi possível carregar o consultor vinculado. Tente novamente mais tarde.');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, tenantId]);
+          const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const consultantData = await consultantRes.json();
+          if (consultantRes.ok) {
+            setConsultant(consultantData.data ?? null);
+          } else {
+            setConsultant(null);
+            setError(consultantData.error || 'Não foi possível carregar o consultor vinculado.');
+          }
+        },
+        'Erro ao carregar dados:',
+        'Não foi possível carregar o consultor vinculado. Tente novamente mais tarde.'
+      ),
+    [user, tenantId, run, setError]
+  );
 
   useEffect(() => {
     void loadData();

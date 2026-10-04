@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserCheck, Mail, Phone, Copy, AlertTriangle, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useAsyncState } from '@/hooks/useAsyncState';
 import type { Consultant } from '@/types';
 
 export default function ConsultantTab() {
@@ -16,8 +17,7 @@ export default function ConsultantTab() {
   // Mesmo padrão de gate das abas "Usuários"/"Limite de Estoque" em my-clinic/page.tsx
   const isAdmin = role === 'clinic_admin';
   const [consultant, setConsultant] = useState<Consultant | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { loading, error, setError, run } = useAsyncState();
 
   useEffect(() => {
     if (user && tenantId) {
@@ -25,32 +25,26 @@ export default function ConsultantTab() {
     }
   }, [user, tenantId]);
 
-  const loadData = async () => {
-    if (!user || !tenantId) return;
+  const loadData = () =>
+    run(
+      async () => {
+        if (!user || !tenantId) return;
+        const token = await user.getIdToken();
 
-    try {
-      setLoading(true);
-      setError('');
-      const token = await user.getIdToken();
-
-      const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const consultantData = await consultantRes.json();
-      if (consultantRes.ok) {
-        setConsultant(consultantData.data ?? null);
-      } else {
-        setConsultant(null);
-        setError(consultantData.error || 'Não foi possível carregar o consultor vinculado.');
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados do consultor:', error);
-      setConsultant(null);
-      setError('Não foi possível carregar o consultor vinculado. Tente novamente mais tarde.');
-    } finally {
-      setLoading(false);
-    }
-  };
+        const consultantRes = await fetch(`/api/tenants/${tenantId}/consultant`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const consultantData = await consultantRes.json();
+        if (consultantRes.ok) {
+          setConsultant(consultantData.data ?? null);
+        } else {
+          setConsultant(null);
+          setError(consultantData.error || 'Não foi possível carregar o consultor vinculado.');
+        }
+      },
+      'Erro ao carregar dados do consultor:',
+      'Não foi possível carregar o consultor vinculado. Tente novamente mais tarde.'
+    );
 
   const copyCode = () => {
     if (consultant?.code) {
