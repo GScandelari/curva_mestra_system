@@ -32,6 +32,8 @@ export interface User {
   requirePasswordChange?: boolean; // Flag para forçar troca de senha no próximo login
   passwordResetAt?: Timestamp; // Data da última redefinição de senha pelo admin
   passwordChangedAt?: Timestamp; // Data da última troca de senha pelo próprio usuário
+  passwordSetByAdminAt?: Timestamp; // Data em que o admin definiu a senha manualmente (UC-37)
+  passwordSetByAdmin?: string; // UID do admin que definiu a senha manualmente (UC-37)
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -417,6 +419,9 @@ export interface Consultant {
   phone: string;
   status: ConsultantStatus;
   authorized_tenants: string[]; // Lista de tenant_ids autorizados
+  requirePasswordChange?: boolean; // Flag para forçar troca de senha no próximo login (UC-30)
+  passwordSetByAdminAt?: Timestamp; // Data em que o admin definiu a senha manualmente (UC-30)
+  passwordSetByAdmin?: string; // UID do admin que definiu a senha manualmente (UC-30)
   created_at: Timestamp;
   updated_at: Timestamp;
   created_by?: string; // UID do admin que criou
