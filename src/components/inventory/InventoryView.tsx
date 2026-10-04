@@ -481,7 +481,7 @@ export function InventoryView({
                     ? 'Tente ajustar os filtros ou busca'
                     : readOnly
                       ? 'Esta clínica ainda não possui produtos no estoque'
-                      : 'Faça upload de uma DANFE para adicionar produtos'}
+                      : 'Importe o XML da NF-e para adicionar produtos'}
                 </p>
               </div>
             ) : (

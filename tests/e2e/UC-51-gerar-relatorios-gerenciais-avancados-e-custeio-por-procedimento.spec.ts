@@ -241,7 +241,7 @@ test.describe('UC-51 — Gerar Relatórios Gerenciais Avançados e Custeio por P
         page.getByRole('heading', { name: 'Valor do Estoque', exact: true })
       ).toBeVisible();
       await expect(
-        page.getByRole('heading', { name: 'Produtos Vencendo', exact: true })
+        page.getByRole('heading', { name: 'Produtos Vencendo ou Vencidos', exact: true })
       ).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Consumo', exact: true })).toBeVisible();
       await expect(
@@ -272,7 +272,7 @@ test.describe('UC-51 — Gerar Relatórios Gerenciais Avançados e Custeio por P
         page.getByRole('heading', { name: 'Valor do Estoque', exact: true })
       ).toBeVisible();
       await expect(
-        page.getByRole('heading', { name: 'Produtos Vencendo', exact: true })
+        page.getByRole('heading', { name: 'Produtos Vencendo ou Vencidos', exact: true })
       ).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Consumo', exact: true })).toBeVisible();
       await expect(
