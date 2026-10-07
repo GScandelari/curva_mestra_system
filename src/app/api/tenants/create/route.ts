@@ -139,8 +139,44 @@ export async function POST(request: NextRequest) {
 
       console.log(`✅ Custom claims definidos para usuário: ${userId}`);
     } catch (claimsError: any) {
+      // Claims ausentes/divergentes quebram TODO acesso ao Firestore escopado
+      // por tenant (toda regra depende de request.auth.token.tenant_id ==
+      // tenantId) -- diferente dos passos 5/6 (e-mail/audit log), que são
+      // best-effort por natureza, uma falha aqui não pode ser engolida
+      // silenciosamente (bug real já observado em produção: usuário ficou
+      // com claims vazios e nenhuma tela carregava). Mesmo padrão de rollback
+      // dos Passos 2 e 3 desta rota: desfazer tudo que já foi criado e
+      // retornar erro, em vez de 201 "sucesso".
       console.error('❌ Erro ao definir custom claims:', claimsError);
-      // Não falhar a criação por isso, mas registrar o erro
+
+      try {
+        await db.collection('users').doc(userId).delete();
+      } catch (cleanupError: any) {
+        console.error(
+          '❌ Erro ao desfazer documento do usuário após falha de custom claims:',
+          cleanupError
+        );
+      }
+
+      try {
+        await auth.deleteUser(userId);
+      } catch (cleanupError: any) {
+        console.error(
+          '❌ Erro ao desfazer usuário Auth após falha de custom claims:',
+          cleanupError
+        );
+      }
+
+      try {
+        await db.collection('tenants').doc(tenantId).delete();
+      } catch (cleanupError: any) {
+        console.error('❌ Erro ao desfazer tenant após falha de custom claims:', cleanupError);
+      }
+
+      return NextResponse.json(
+        { error: `Erro ao definir permissões do usuário: ${claimsError.message}` },
+        { status: 500 }
+      );
     }
 
     // 5. Enviar e-mail de boas-vindas (se solicitado)
