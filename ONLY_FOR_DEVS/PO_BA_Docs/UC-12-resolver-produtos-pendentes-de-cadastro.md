@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Inventário
-**Versão:** 1.2
+**Versão:** 1.2.1
 
-> Quando um produto de uma NF-e importada via XML (UC-10) não existe no catálogo master, ele vira uma pendência visível ao System Admin em `/admin/pending-products`. Resolver a pendência é feito em duas ações desacopladas: o admin cadastra o produto em outra tela (sem nenhum vínculo automático com a pendência) e depois remove a pendência da fila. Desde o commit `216b3a0`, a remoção ("Marcar Resolvido") **valida** que o produto foi de fato cadastrado (e está ativo) no catálogo master antes de permitir a remoção — antes, era apenas uma limpeza de fila, sem nenhuma validação real.
+> Quando um produto de uma NF-e importada via XML (UC-10) não existe no catálogo master, ele vira uma pendência visível ao System Admin em `/admin/pending-products`. Resolver a pendência é feito em duas ações desacopladas: o admin cadastra o produto em outra tela e depois remove a pendência da fila. Desde o commit `216b3a0`, a remoção ("Marcar Resolvido") **valida** que o produto foi de fato cadastrado (e está ativo) no catálogo master antes de permitir a remoção — antes, era apenas uma limpeza de fila, sem nenhuma validação real. **[CORRIGIDO no commit `262584f` — RN-01]** O botão "Cadastrar Produto" agora leva o código e o nome do produto pendente como parâmetros de URL, pré-preenchendo o formulário de cadastro em `/admin/products/new`.
 
 ---
 
@@ -27,7 +27,7 @@ flowchart LR
     ClinicAdmin -.->|produto não encontrado no catálogo, durante| UC10
     UC10 -->|registra a pendência| UC12
     SystemAdmin --> UC12
-    UC12 -.->|"Cadastrar Produto" leva a, sem prefill| UC31
+    UC12 -.->|"Cadastrar Produto" leva a,\ncom codigo/nome pré-preenchidos (RN-01)| UC31
     UC12 -.->|"Marcar Resolvido" agora valida contra, desde 216b3a0| UC31
 ```
 
@@ -56,7 +56,7 @@ flowchart LR
 - Se o produto não existir ou não estiver ativo, a ação é bloqueada com um toast de erro orientando o admin a cadastrar o produto primeiro — nenhuma pendência é removida nesse caso (ver Fluxo de Exceção 8c).
 
 ### 4.1b Sucesso — "Cadastrar Produto"
-- Admin é redirecionado para `/admin/products/new`, a tela de cadastro de produto do catálogo master (UC-31 — Cadastrar Produto no Catálogo Master), **sem nenhum dado pré-preenchido** (nem código, nem nome) — precisa digitar tudo manualmente, inclusive reescrever o código exibido na fila (RN-01).
+- **[CORRIGIDO no commit `262584f` — UC-12-RN-01]** Admin é redirecionado para `/admin/products/new?codigo={codigo}&nome={nome_produto}`, a tela de cadastro de produto do catálogo master (UC-31), **com o código e o nome do produto já pré-preenchidos** nos respectivos campos — não precisa mais redigitar esses dois valores manualmente.
 - O cadastro em si (UC-31) **não remove automaticamente** a pendência correspondente.
 
 ### 4.2 Falha (Garantias Mínimas)
@@ -81,9 +81,9 @@ Duplo, dependendo do ator:
 6. Se não houver pendências, exibe o estado vazio: "Nenhuma pendência" / "Todos os produtos das NFs importadas estão cadastrados no catálogo master".
 
 **7a. System Admin clica em "Cadastrar Produto":**
-   1. Sistema navega para `/admin/products/new` — tela de cadastro de produto do catálogo master (UC-31), sem nenhum parâmetro/prefill vindo da pendência.
-   2. Admin digita manualmente todos os campos do novo produto (incluindo reescrever o código, copiando-o visualmente da coluna "Código" da fila).
-   3. (O cadastro em si é o UC-31 — Cadastrar Produto no Catálogo Master.)
+   1. **[CORRIGIDO no commit `262584f` — UC-12-RN-01]** Sistema navega para `/admin/products/new?codigo={row.codigo}&nome={row.nome_produto}` (valores codificados via `encodeURIComponent`) — tela de cadastro de produto do catálogo master (UC-31).
+   2. A tela de cadastro lê `searchParams.get('codigo')`/`searchParams.get('nome')` em um `useEffect` e pré-preenche os campos "Código" e "Nome" correspondentes, caso presentes na URL.
+   3. Admin revisa os valores pré-preenchidos e completa os demais campos do novo produto. (O cadastro em si é o UC-31 — Cadastrar Produto no Catálogo Master.)
    4. Ao concluir (ou desistir), o admin normalmente volta para `/admin/pending-products` manualmente e prossegue no passo 7b para tirar a pendência da fila.
 
 **7b. System Admin clica em "Marcar Resolvido":**
@@ -129,7 +129,7 @@ Duplo, dependendo do ator:
 
 | ID | Regra | Justificativa |
 |----|-------|----------------|
-| RN-01 | O botão "Cadastrar Produto" não carrega nenhum dado da pendência na tela de cadastro (`/admin/products/new`, UC-31) — nenhum parâmetro de URL, nenhum prefill de código ou nome. O admin precisa copiar manualmente o código (e demais dados) exibidos na fila. | Confirmado por leitura do handler (`router.push('/admin/products/new')` sem argumentos) e da própria tela de cadastro (sem leitura de `searchParams`) — reconfirmado durante o mapeamento de UC-31 (RN-04 daquele UC). |
+| RN-01 | **[CORRIGIDO no commit `262584f`, PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0 — UC-12-RN-01]** O botão "Cadastrar Produto" agora navega para `/admin/products/new?codigo={codigo}&nome={nome_produto}` (valores da pendência, codificados via `encodeURIComponent`), em vez de navegar sem nenhum parâmetro. A tela de cadastro (`admin/products/new/page.tsx`) ganhou um `useEffect` que lê `searchParams.get('codigo')`/`searchParams.get('nome')` e pré-preenche os campos "Código" (via `formatCodeInput`) e "Nome" correspondentes, quando presentes na URL. O admin ainda precisa completar manualmente os demais campos do cadastro (categoria, fragmentável, etc.), mas não precisa mais redigitar código e nome, copiando-os visualmente da fila. **Nota histórica:** até esta correção, o botão não carregava nenhum dado da pendência na tela de cadastro — nenhum parâmetro de URL, nenhum prefill de código ou nome; o admin precisava copiar manualmente o código (e demais dados) exibidos na fila. | Confirmado por leitura de `pending-products/page.tsx` pós-correção — `router.push` com querystring `codigo`/`nome`; e de `admin/products/new/page.tsx` — novo `useEffect` com `searchParams.get('codigo')`/`searchParams.get('nome')`, usando `useSearchParams` de `next/navigation`. |
 | RN-02 | **[CORRIGIDO — commit `216b3a0`]** Até a v1.1, "Marcar Resolvido" era uma ação de limpeza de fila pura — `resolvePendingMasterProduct` apenas deletava o documento da pendência, sem consultar `master_products` para confirmar que o produto com aquele código de fato existia (e estava ativo). Um admin podia marcar como resolvido por engano (ou antes de terminar o cadastro), e a pendência desaparecia da fila mesmo que o produto continuasse inexistente no catálogo. Corrigido: `handleResolve` (que passou a receber também o `codigo` do produto pendente) agora chama `getMasterProductByCode(codigo)` antes de prosseguir; se o produto não existir ou não estiver `active: true`, a ação é bloqueada com um toast de erro, e `resolvePendingMasterProduct` só é chamado quando a validação passa. | Corrigido por leitura direta de `handleResolve` (`pending-products/page.tsx`), commit `216b3a0` — usa a função já existente `getMasterProductByCode` (`masterProductService.ts`). |
 | RN-03 | **[Consequência confirmada da combinação RN-02 + UC-10 — cenário mais estreito desde a correção de RN-02 no commit `216b3a0`]** Se uma pendência for removida sem o produto ter sido de fato cadastrado, e o Clinic Admin reenviar o mesmo XML depois, `registerPendingMasterProducts` não encontra mais nenhuma pendência prévia para aquele (`tenant_id`, `nf_id`, `codigo`) — logo, cria uma pendência **nova** em vez de perceber que já houve uma tentativa anterior. Não há nenhum histórico do que já esteve pendente e foi removido sem resolução real. Desde a correção de RN-02, este cenário só pode ocorrer se o produto for cadastrado, a pendência resolvida validamente, e depois desativado no catálogo master (UC-32) — não mais por uma resolução prematura sem cadastro algum. | Consequência lógica confirmada pela combinação do comportamento de `resolvePendingMasterProduct` (RN-02) com a deduplicação de `registerPendingMasterProducts` (que só evita duplicar pendências que **ainda existem**, não as já deletadas). Escopo reavaliado após a correção de RN-02 no commit `216b3a0`. |
 | RN-04 | A dedução de "pendência já existe" em `registerPendingMasterProducts` (usada em UC-10) é por igualdade exata de (`tenant_id`, `nf_id`, `codigo`) — a mesma NF reenviada várias vezes com o mesmo produto ausente não cria pendências duplicadas, mas o mesmo produto ausente em NFs diferentes (`nf_id` diferente) do mesmo tenant gera uma pendência por NF. | Confirmado por leitura de `registerPendingMasterProducts` (query com os três campos). |
@@ -145,6 +145,7 @@ Duplo, dependendo do ator:
 | RNF-01 | O nome do tenant é resolvido com um cache em memória por execução do carregamento (evita repetir `getTenant` para tenants com múltiplas pendências na mesma leva), mas não é persistido nem reaproveitado entre reloads. | Performance |
 | RNF-02 | Acesso restrito a `system_admin` pelo layout do grupo de rotas `(admin)` — sem divergência de escopo encontrada aqui (diferente do que foi confirmado em UC-11 para `/clinic/add-products`). | Segurança |
 | RNF-03 | Sem realtime listener — a lista só é atualizada ao carregar a página ou clicar manualmente em "Atualizar"; múltiplos admins resolvendo pendências simultaneamente podem ver dados momentaneamente desatualizados. | Confiabilidade |
+| RNF-04 | **[RESOLVIDO no commit `262584f` — RN-01]** Risco de erro de digitação de código ao copiar manualmente da fila para a tela de cadastro foi eliminado — o código e o nome agora chegam pré-preenchidos via parâmetros de URL. | Usabilidade / Confiabilidade de Dados |
 
 ---
 
@@ -155,20 +156,21 @@ Ocasional — depende de quantos produtos novos (ainda não cadastrados no catá
 
 ## 12. Casos de Uso Relacionados
 - **UC-10 (Importar NF-e via Upload de XML)** é pré-condição — é onde a pendência nasce (RN-07 daquele UC), e é para onde o ciclo retorna quando o Clinic Admin reenvia o XML após o cadastro.
-- **UC-31 (Cadastrar Produto no Catálogo Master)** é o passo intermediário real (fora deste UC) entre ver a pendência e resolvê-la de fato — sem nenhuma integração/vínculo automático com este UC-12 (RN-01), mas desde o commit `216b3a0` é a fonte consultada por `getMasterProductByCode` para validar "Marcar Resolvido" (RN-02).
+- **UC-31 (Cadastrar Produto no Catálogo Master)** é o passo intermediário real (fora deste UC) entre ver a pendência e resolvê-la de fato — desde o commit `262584f`, recebe código e nome pré-preenchidos via parâmetros de URL vindos da pendência (RN-01); e, desde o commit `216b3a0`, é a fonte consultada por `getMasterProductByCode` para validar "Marcar Resolvido" (RN-02).
 - **UC-32 (Editar, Ativar e Desativar Produto no Catálogo Master)** — se o produto pendente já existir no catálogo mas desativado, ou precisar de correção antes de "casar" com o XML na reimportação, é resolvido por aquele UC, não por este; também é o UC que pode reabrir o cenário de RN-03 se um produto já validado por "Marcar Resolvido" for desativado depois.
 
 ---
 
 ## 13. Referências
-- `src/app/(admin)/admin/pending-products/page.tsx`
+- `src/app/(admin)/admin/pending-products/page.tsx` (`router.push` com `codigo`/`nome` na URL, commit `262584f` — RN-01)
 - `src/lib/services/pendingMasterProductService.ts`
 - `src/lib/services/masterProductService.ts` (`getMasterProductByCode` — usada pela validação de RN-02 desde o commit `216b3a0`)
 - `src/app/(admin)/layout.tsx` (`ProtectedRoute allowedRoles`)
 - `src/lib/services/tenantServiceDirect.ts` (`getTenant`)
 - `src/types/pendingMasterProduct.ts`
 - `firestore.rules` (regra de `pending_master_products`)
-- `src/app/(admin)/admin/products/new/page.tsx` (destino do botão "Cadastrar Produto" — confirmado sem prefill; ver UC-31)
+- `src/app/(admin)/admin/products/new/page.tsx` (destino do botão "Cadastrar Produto"; desde o commit `262584f`, lê `searchParams.get('codigo')`/`searchParams.get('nome')` para prefill — RN-01; ver UC-31)
+- Commit da correção: `262584f` (`feat(admin): preenche codigo e nome ao cadastrar produto pendente`), PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0 — adiciona prefill de código/nome via parâmetros de URL (RN-01)
 
 ---
 
@@ -176,7 +178,7 @@ Ocasional — depende de quantos produtos novos (ainda não cadastrados no catá
 
 1. **[RESOLVIDO em v1.2 — commit `216b3a0`]** RN-02 — "Marcar Resolvido" agora valida, via `getMasterProductByCode`, que o produto foi de fato cadastrado e está ativo no catálogo master antes de remover a pendência da fila; antes, era uma limpeza pura, sem nenhuma verificação real.
 2. **[Consequência confirmada, escopo reduzido após a correção de RN-02]** RN-03 — remover uma pendência sem o produto ter sido cadastrado levava à criação de uma pendência nova (não reaproveitada) no próximo reenvio do XML. Desde o commit `216b3a0`, esse cenário só pode ocorrer se o produto for desativado (UC-32) depois de uma resolução já validada — não mais por uma resolução prematura.
-3. **[Observação]** RN-01 — nenhum prefill entre a fila de pendências e a tela de cadastro (UC-31); poderia reduzir erro de digitação de código se implementado, mas não foi pedido para corrigir nesta rodada.
+3. ~~**[Observação]** RN-01 — nenhum prefill entre a fila de pendências e a tela de cadastro (UC-31); poderia reduzir erro de digitação de código se implementado, mas não foi pedido para corrigir nesta rodada.~~ **[RESOLVIDO no commit `262584f` — UC-12-RN-01]** O botão "Cadastrar Produto" agora leva código e nome como parâmetros de URL, pré-preenchendo os campos correspondentes na tela de cadastro.
 
 ---
 
@@ -187,3 +189,4 @@ Ocasional — depende de quantos produtos novos (ainda não cadastrados no catá
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, mapeada a partir de contexto detalhado fornecido pelo usuário e confirmada por leitura direta e completa de `pending-products/page.tsx`, `pendingMasterProductService.ts`, `firestore.rules` (regra de `pending_master_products`), `admin/products/new/page.tsx` (confirmado sem prefill) e do layout do grupo `(admin)`. |
 | 1.1 | 15/07/2026 | Guilherme Scandelari | Seção 1 (diagrama), 4.1b, 6 (passo 7a) e 12 atualizadas para referenciar o UC-31 (Cadastrar Produto no Catálogo Master), recém-mapeado — antes citado apenas como "UC não mapeado". Seção 12 também passou a referenciar o UC-32 (Editar/Ativar/Desativar Produto). Nenhuma mudança de escopo ou de conteúdo investigativo — apenas rastreabilidade entre documentos. |
 | 1.2 | 25/07/2026 | Guilherme Scandelari | **Correção de bug de severidade Média (commit `216b3a0`)**: RN-02 corrigido — "Marcar Resolvido" agora valida, via nova chamada a `getMasterProductByCode(codigo)`, que o produto está cadastrado e ativo no catálogo master antes de permitir a remoção da pendência; antes, era uma limpeza de fila sem nenhuma validação. Seções 1 (diagrama), 4.1, 6 (passo 7b, passo 8), 9 (RN-02, RN-03 com escopo reavaliado), 12, 13 e 14 (itens 1 e 2) atualizadas de acordo. Novo Fluxo de Exceção 8c documenta o bloqueio da ação quando o produto ainda não existe/não está ativo. |
+| 1.2.1 | 07/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Fechamento de RN-01 (severidade Baixa), commit `262584f`, PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0.** O botão "Cadastrar Produto" (`pending-products/page.tsx`) passou a navegar para `/admin/products/new?codigo={codigo}&nome={nome_produto}`; `admin/products/new/page.tsx` ganhou um `useEffect` que lê esses parâmetros via `useSearchParams` e pré-preenche os campos "Código"/"Nome" do formulário. Atualizados resumo do cabeçalho, diagrama (Seção 1), Pós-condição 4.1b, Fluxo Principal (passo 7a), RN-01 (marcada `[CORRIGIDO]`, nascida resolvida), RNF-04 (marcada `[RESOLVIDO]`), Casos de Uso Relacionados (Seção 12), Referências (Seção 13) e item 3 da Seção 14 (marcado `[RESOLVIDO]`). |

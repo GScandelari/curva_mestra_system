@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Portal do Consultor (Vínculo com Clínicas)
-**Versão:** 1.1
+**Versão:** 1.1.1
 
-> O consultor que deve decidir sobre uma pendência — o consultor atual (pedido de transferência, UC-25) ou o consultor convidado (convite, UC-54) — pode rejeitá-la, com um motivo opcional. A mesma tela, o mesmo diálogo de rejeição e a mesma rota atendem os dois cenários. **Atualização (v1.1):** até a v1.0, esta tela dependia de um pedido `pending` que, na prática, nunca era criado (UC-25 sem gatilho de UI). Ambos os gatilhos (UC-25 e o novo UC-54) foram implementados; a rota passou a resolver "quem rejeita" via `getApproverConsultantId`, a checar expiração (15 dias), e — novidade nesta revisão — a rejeição de um **convite** passou a notificar a clínica in-app, efeito colateral que não existe para a rejeição de uma transferência. Ver Seção 15.
+> O consultor que deve decidir sobre uma pendência — o consultor atual (pedido de transferência, UC-25) ou o consultor convidado (convite, UC-54) — pode rejeitá-la, com um motivo opcional. A mesma tela, o mesmo diálogo de rejeição e a mesma rota atendem os dois cenários. **Atualização (v1.1):** até a v1.0, esta tela dependia de um pedido `pending` que, na prática, nunca era criado (UC-25 sem gatilho de UI). Ambos os gatilhos (UC-25 e o novo UC-54) foram implementados; a rota passou a resolver "quem rejeita" via `getApproverConsultantId`, a checar expiração (15 dias), e a rejeição de um **convite** passou a notificar a clínica in-app, efeito colateral que não existe para a rejeição de uma transferência. **Atualização (v1.1.1):** a assimetria de confirmação entre Aprovar e Rejeitar (RN-03) deixou de existir — desde o commit `d5d412a`, "Aprovar" (UC-26) também passou a exigir confirmação explícita, através do mesmo componente `ConfirmDialog` reutilizável. A rejeição em si (diálogo próprio, com campo de motivo) não foi alterada por essa correção. Ver Seção 15.
 
 ---
 
@@ -42,7 +42,7 @@ flowchart LR
 
 ### 2.2 Atores Secundários / Sistemas Externos
 - **Consultor Rennova (solicitante)** — apenas em `type: 'transfer'`: recebe um e-mail informando a rejeição, incluindo o motivo, se informado. Não existe "consultor solicitante" distinto do aprovador em `type: 'invite'`.
-- **Clínica (tenant)** — apenas em `type: 'invite'`: recebe uma notificação in-app informando que o convite foi recusado (novidade desta revisão, RN-04).
+- **Clínica (tenant)** — apenas em `type: 'invite'`: recebe uma notificação in-app informando que o convite foi recusado (RN-04).
 - **System Admin** — também pode rejeitar qualquer pendência, de ambos os tipos (mesma regra de permissão do UC-26 — RN-02).
 
 ---
@@ -79,7 +79,7 @@ Consultor aprovador acessa `/consultant/transfer-requests`, aba "Pendentes", cli
 
 1. Consultor acessa `/consultant/transfer-requests` (mesma tela do UC-26).
 2. Para uma pendência pendente e não expirada, clica em "Rejeitar".
-3. Sistema abre um diálogo modal com um campo de texto livre "Motivo (opcional)" e os botões "Cancelar"/"Confirmar Rejeição" — **esta é a única das duas ações (aprovar/rejeitar) que exibe algum tipo de confirmação/diálogo** (RN-03, em contraste com a RN-01 do UC-26).
+3. Sistema abre um diálogo modal próprio (não o `ConfirmDialog` genérico usado por UC-26) com um campo de texto livre "Motivo (opcional)" e os botões "Cancelar"/"Confirmar Rejeição" — esta ação sempre exigiu confirmação, desde a v1.0 deste documento (RN-03, achado histórico de assimetria frente a "Aprovar" agora resolvido — ver UC-26-RN-01).
 4. Consultor opcionalmente digita um motivo e clica em "Confirmar Rejeição".
 5. Sistema chama `POST /api/consultants/transfer-requests/{id}/reject` com `{ reason }` e o Bearer token.
 6. API busca o documento; resolve o aprovador esperado via `getApproverConsultantId(transferData)`; valida permissão (mesma regra do UC-26: `is_system_admin` OU `is_consultant && consultant_id === approverConsultantId`); verifica que `status === 'pending'`; verifica que o pedido **não está expirado**, retornando 400 caso esteja (RN-06).
@@ -128,11 +128,11 @@ Nenhum identificado além do fluxo principal.
 |----|-------|----------------|
 | RN-01 | A rejeição, para os dois tipos de pendência, continua sendo a operação mais simples entre as duas (aprovar/rejeitar): apenas um `updateDoc` no próprio documento — não há `batch`, não há alteração em `tenants`/`consultants`, não há sincronização de custom claims. **[Nuance adicionada em v1.1]** Esse grau de simplicidade não se aplica mais de forma absolutamente universal: quando `type === 'invite'`, a rejeição passa a incluir uma escrita adicional (a notificação in-app para a clínica, RN-04) — ainda assim, sem `batch` nem `arrayRemove`/`arrayUnion`, permanecendo a operação mais simples e segura do módulo em relação à Aprovação (UC-26). | Confirmado por leitura literal de `POST /api/consultants/transfer-requests/[id]/reject/route.ts` — ausência de `batch` ou escrita fora de `consultant_transfer_requests` e, condicionalmente, de `tenants/{tenant_id}/notifications`. |
 | RN-02 | Mesma regra de permissão do UC-26: `system_admin` OU o aprovador resolvido por `getApproverConsultantId` podem rejeitar. Nenhuma tela admin dedicada com ação de aprovar/rejeitar existe para isso. | Confirmado por leitura da checagem de permissão, idêntica à de `approve/route.ts`, agora via `getApproverConsultantId`. |
-| RN-03 | **[Achado de inconsistência de UX entre as duas ações irmãs, inalterado]** Rejeitar exige a abertura de um diálogo modal (com campo de motivo opcional) antes de confirmar, enquanto Aprovar (UC-26, RN-01) executa a ação imediatamente com um único clique, sem qualquer confirmação — para os dois tipos de pendência. | Confirmado por comparação direta entre `handleApprove` (sem diálogo) e `handleRejectConfirm`/diálogo modal (com campo de motivo) na mesma tela. |
-| RN-04 | **[Novo, v1.1]** A rejeição de um **convite** (`type === 'invite'`) gera uma notificação in-app para a clínica (`tenants/{tenant_id}/notifications`, novo `type: 'consultant_invite_rejected'`, `action_url: '/clinic/consultant/invite'`) — canal que já existe para a clínica (usado em UC-24/UC-26) e passa a ser reaproveitado aqui. Nenhum e-mail é enviado nesse caso (não há "consultor solicitante" distinto do aprovador). | Confirmado por leitura de `reject/route.ts`, bloco `if (isInvite) { ... adminDb.collection('tenants/{id}/notifications').add(...) }`. |
-| RN-05 | **[Novo, v1.1]** A rejeição de uma **transferência** (`type === 'transfer'`) continua **sem** notificar a clínica — comportamento 100% herdado, inalterado desde a v1.0: apenas um e-mail é enviado ao consultor solicitante. A clínica não precisa agir nesse caso, pois o vínculo atual simplesmente permanece como estava. | Confirmado por leitura de `reject/route.ts` — o `else` do bloco condicional preserva exatamente a lógica pré-existente de envio de e-mail, sem nenhuma escrita em `notifications`. |
-| RN-06 | **[Novo, v1.1]** Uma pendência `pending` cujo `expires_at` (created_at + 15 dias) já passou não pode mais ser rejeitada — a API retorna 400 ("Este pedido expirou") sem alterar o documento. Documentos legados sem `expires_at` nunca são considerados expirados. | Confirmado por leitura de `isRequestExpired` e da pré-checagem em `reject/route.ts`, antes da atualização do documento. |
-| RN-07 | **[Renumerado, antiga RN-04]** Este fluxo depende de uma pendência `pending` e não expirada dirigida ao consultor autenticado — criada por UC-25 (transferência) ou UC-54 (convite), ambos agora com gatilho de UI implementado. A tela **não está mais condenada a ficar sempre vazia**. | Consequência direta da implementação de UC-25/UC-54. |
+| RN-03 | **[RESOLVIDO no commit `d5d412a` — achado de inconsistência de UX entre as duas ações irmãs, antes aberto]** Rejeitar sempre exigiu a abertura de um diálogo modal (com campo de motivo opcional) antes de confirmar, enquanto Aprovar (UC-26) executava a ação imediatamente com um único clique, sem qualquer confirmação. Desde o commit `d5d412a`, Aprovar (UC-26, RN-01) também passou a exigir confirmação explícita — através do componente reutilizável `ConfirmDialog` (`src/components/ui/confirm-dialog.tsx`), diferente do diálogo próprio com campo de motivo usado aqui. A assimetria de **confirmação** deixou de existir; a diferença remanescente entre as duas telas é apenas de **conteúdo** do diálogo (Rejeitar tem campo de motivo opcional; Aprovar não tem nenhum campo, apenas confirmação binária) — o que é esperado, já que só a rejeição tem um motivo a registrar. | Confirmado por comparação direta entre `handleApprove`/`ConfirmDialog` (UC-26, pós-correção) e `handleRejectConfirm`/diálogo modal próprio (com campo de motivo, inalterado aqui) na mesma tela `transfer-requests/page.tsx`. |
+| RN-04 | A rejeição de um **convite** (`type === 'invite'`) gera uma notificação in-app para a clínica (`tenants/{tenant_id}/notifications`, `type: 'consultant_invite_rejected'`, `action_url: '/clinic/consultant/invite'`) — canal que já existe para a clínica (usado em UC-24/UC-26) e é reaproveitado aqui. Nenhum e-mail é enviado nesse caso (não há "consultor solicitante" distinto do aprovador). | Confirmado por leitura de `reject/route.ts`, bloco `if (isInvite) { ... adminDb.collection('tenants/{id}/notifications').add(...) }`. |
+| RN-05 | A rejeição de uma **transferência** (`type === 'transfer'`) continua **sem** notificar a clínica — comportamento 100% herdado, inalterado desde a v1.0: apenas um e-mail é enviado ao consultor solicitante. A clínica não precisa agir nesse caso, pois o vínculo atual simplesmente permanece como estava. | Confirmado por leitura de `reject/route.ts` — o `else` do bloco condicional preserva exatamente a lógica pré-existente de envio de e-mail, sem nenhuma escrita em `notifications`. |
+| RN-06 | Uma pendência `pending` cujo `expires_at` (created_at + 15 dias) já passou não pode mais ser rejeitada — a API retorna 400 ("Este pedido expirou") sem alterar o documento. Documentos legados sem `expires_at` nunca são considerados expirados. | Confirmado por leitura de `isRequestExpired` e da pré-checagem em `reject/route.ts`, antes da atualização do documento. |
+| RN-07 | Este fluxo depende de uma pendência `pending` e não expirada dirigida ao consultor autenticado — criada por UC-25 (transferência) ou UC-54 (convite), ambos agora com gatilho de UI implementado. A tela **não está mais condenada a ficar sempre vazia**. | Consequência direta da implementação de UC-25/UC-54. |
 
 ---
 
@@ -152,24 +152,25 @@ Recém-implementado — sem dados de uso em produção ainda. Deixa de ser "nula
 ## 12. Casos de Uso Relacionados
 - **UC-25 (Solicitar Transferência de Clínica Já Vinculada)** — cria pendências `type: 'transfer'` consumidas por este UC.
 - **UC-54 (Convidar Consultor para a Clínica)** — cria pendências `type: 'invite'` também consumidas por este UC, na mesma tela e rota; a rejeição de um convite tem o efeito colateral adicional de RN-04, ausente em UC-54 em si.
-- **UC-26 (Aprovar Pedido de Transferência de Clínica)** — ação alternativa disponível na mesma tela, para a mesma pendência; ver RN-03 sobre a assimetria de UX entre as duas.
+- **UC-26 (Aprovar Pedido de Transferência de Clínica)** — ação alternativa disponível na mesma tela, para a mesma pendência. Desde o commit `d5d412a`, também exige confirmação explícita (através de `ConfirmDialog`, diferente do diálogo próprio com motivo usado aqui) — ver RN-03, resolvida.
 
 ---
 
 ## 13. Referências
-- `src/app/(consultant)/consultant/transfer-requests/page.tsx` (mesma tela do UC-26, diálogo de rejeição)
+- `src/app/(consultant)/consultant/transfer-requests/page.tsx` (mesma tela do UC-26, diálogo de rejeição — inalterado por esta correção)
 - `src/app/api/consultants/transfer-requests/[id]/reject/route.ts` (generalizado para dois tipos, expiração e notificação in-app condicional)
 - `src/lib/consultantRequests.ts` (`getApproverConsultantId`, `isInviteRequest`, `isRequestExpired`)
 - `src/types/index.ts` (`ConsultantTransferRequest`, `ConsultantTransferRequestStatus`, `ConsultantPendencyType`)
 - `src/types/notification.ts` (`consultant_invite_rejected`)
 - `ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-unificacao-vinculo-transferencia-consultor.md` (spec de implementação)
+- Commit da correção equivalente em UC-26: `d5d412a` (`fix(tenant): exige confirmacao para aprovar vinculo de consultor`), PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0 — resolve a assimetria de confirmação registrada aqui em RN-03, sem alterar código deste UC
 
 ---
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
 1. ~~**[RN-07, herdado do UC-25]** Este UC só passa a ser útil na prática se o gatilho do UC-25 for implementado.~~ **[RESOLVIDO em v1.1]** Gatilho de UC-25 implementado, e novo gatilho de UC-54 (convite) adicionado.
-2. **[RN-03]** Vale avaliar se a assimetria de confirmação entre Aprovar (sem diálogo) e Rejeitar (com diálogo) é intencional ou um descuido de UX — a ação de aprovar (mais impactante) hoje tem menos fricção que a de rejeitar. Ainda em aberto, inalterado por esta feature.
+2. ~~**[RN-03]** Vale avaliar se a assimetria de confirmação entre Aprovar (sem diálogo) e Rejeitar (com diálogo) é intencional ou um descuido de UX — a ação de aprovar (mais impactante) hoje tem menos fricção que a de rejeitar. Ainda em aberto, inalterado por esta feature.~~ **[RESOLVIDO no commit `d5d412a` — UC-26-RN-01]** Aprovar passou a exigir confirmação explícita também, eliminando a assimetria. Nenhuma alteração de código foi necessária neste UC-27 — a resolução ocorreu inteiramente do lado de UC-26.
 
 ---
 
@@ -179,3 +180,4 @@ Recém-implementado — sem dados de uso em produção ainda. Deixa de ser "nula
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero. Fluxo de rejeição documentado como a operação mais simples e segura do módulo (sem batch, sem custom claims — RN-01), mas dependente do mesmo gatilho ausente identificado no UC-25 (RN-04). Identificada uma assimetria de UX entre Aprovar (sem confirmação) e Rejeitar (com diálogo de confirmação e motivo) — RN-03. Último dos 4 UCs do módulo "Consultor — vínculo com clínicas" (UC-24 a UC-27). |
 | 1.1 | 13/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Revisão pós-implementação de `feature/consultor-vinculo-convite-transferencia`: a rota e a tela passam a tratar dois tipos de pendência (`transfer` e o novo `invite`, criado por UC-54), com a resolução de "quem rejeita" centralizada em `getApproverConsultantId`; pendências expiradas (15 dias) passam a ser rejeitadas com 400, sem alteração do documento (novo RN-06); a rejeição de um **convite** passa a gerar notificação in-app para a clínica (novo RN-04), enquanto a rejeição de uma **transferência** permanece sem notificar a clínica, comportamento herdado (novo RN-05). RN-01 ganhou nuance sobre a escrita adicional condicional. Ator primário generalizado para "consultor aprovador"; título do diagrama, atores, pré/pós-condições, gatilho e fluxo principal atualizados. Antiga RN-04 (dependência de UC-25) renumerada para RN-07 e marcada como resolvida. Frequência de uso deixa de ser "nula". |
+| 1.1.1 | 04/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Fechamento de RN-03 (severidade Baixa) como efeito colateral da correção aplicada em UC-26, commit `d5d412a`, PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0.** Nenhuma alteração de código foi feita neste UC-27 — a assimetria de confirmação entre Aprovar e Rejeitar foi resolvida inteiramente do lado de UC-26 (RN-01), que passou a usar o componente `ConfirmDialog` antes de aprovar. Atualizados resumo do cabeçalho, Fluxo Principal (passo 3, nota sobre a resolução da assimetria), RN-03 (marcada `[RESOLVIDO]`), Casos de Uso Relacionados (Seção 12), Referências (Seção 13) e item 2 da Seção 14 (marcado `[RESOLVIDO]`). |
