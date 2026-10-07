@@ -26,6 +26,9 @@ export { processEmailQueue } from './processEmailQueue';
 // Scheduled Functions - Verificação Automática de Alertas
 export { checkAlertsScheduled } from './checkAlertsScheduled';
 
+// Scheduled Function - Verificação de Integridade de Custom Claims
+export { checkClaimsIntegrityScheduled } from './checkClaimsIntegrityScheduled';
+
 // Function placeholder para evitar erro de "no functions"
 import { onRequest } from 'firebase-functions/v2/https';
 
