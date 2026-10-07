@@ -9,16 +9,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, auth, functions } from '@/lib/firebase';
 import { writeAdminAuditLog } from '@/lib/services/auditLogService';
-import { Settings, Save, Loader2 } from 'lucide-react';
+import { Settings, Save, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { SystemSettings } from '@/types';
+
+interface ClaimsMismatch {
+  uid: string;
+  email: string;
+  tenant_id: string;
+  role: string;
+  issues: string[];
+}
+
+interface ClaimsIntegrityCheckResult {
+  checked: number;
+  mismatches: ClaimsMismatch[];
+}
 
 export default function SystemSettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [checkingClaims, setCheckingClaims] = useState(false);
+  const [claimsResult, setClaimsResult] = useState<ClaimsIntegrityCheckResult | null>(null);
 
   const [settings, setSettings] = useState<SystemSettings>({
     id: 'global',
@@ -100,6 +116,38 @@ export default function SystemSettingsPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCheckClaimsIntegrity() {
+    setCheckingClaims(true);
+    setClaimsResult(null);
+    try {
+      const checkClaimsIntegrity = httpsCallable(functions, 'checkClaimsIntegrityOnDemand');
+      const result = await checkClaimsIntegrity();
+      const data = result.data as ClaimsIntegrityCheckResult;
+      setClaimsResult(data);
+
+      if (data.mismatches.length === 0) {
+        toast({
+          title: 'Nenhuma divergência encontrada',
+          description: `${data.checked} usuário(s) verificado(s) — custom claims consistentes com o Firestore.`,
+        });
+      } else {
+        toast({
+          title: 'Divergências encontradas',
+          description: `${data.mismatches.length} de ${data.checked} usuário(s) com claims divergentes. Um e-mail de alerta foi enviado.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao verificar integridade de claims',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckingClaims(false);
     }
   }
 
@@ -207,6 +255,73 @@ export default function SystemSettingsPage() {
               }
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Integridade de Custom Claims */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Integridade de Custom Claims</CardTitle>
+          <CardDescription>
+            Verifica se os custom claims (Firebase Auth) de cada usuário de clínica batem com o
+            documento correspondente no Firestore. Essa verificação também roda automaticamente
+            todos os dias — use o botão abaixo para checar sob demanda.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={handleCheckClaimsIntegrity} disabled={checkingClaims} variant="outline">
+            {checkingClaims ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Verificando...
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Verificar agora
+              </>
+            )}
+          </Button>
+
+          {claimsResult && (
+            <div className="pt-2 space-y-3">
+              {claimsResult.mismatches.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <ShieldCheck className="h-4 w-4 text-green-600" />
+                  {claimsResult.checked} usuário(s) verificado(s) — nenhuma divergência encontrada.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                    <ShieldAlert className="h-4 w-4" />
+                    {claimsResult.mismatches.length} de {claimsResult.checked} usuário(s) com
+                    divergência de claims:
+                  </div>
+                  <div className="space-y-2">
+                    {claimsResult.mismatches.map((mismatch) => (
+                      <div
+                        key={mismatch.uid}
+                        className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm"
+                      >
+                        <p className="font-medium">
+                          {mismatch.email}{' '}
+                          <span className="text-muted-foreground">({mismatch.uid})</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          Tenant: {mismatch.tenant_id} · Role: {mismatch.role}
+                        </p>
+                        <ul className="list-disc pl-5 text-muted-foreground">
+                          {mismatch.issues.map((issue, idx) => (
+                            <li key={idx}>{issue}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
