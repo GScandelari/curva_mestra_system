@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Autenticação
-**Versão:** 1.4.1
+**Versão:** 1.4.2
 
 > Um usuário autenticado — seja um usuário existente notificado de um novo termo obrigatório publicado (`/accept-terms`), seja um usuário em onboarding de uma nova clínica aceitando termos pela primeira vez (`/clinic/setup/terms`) — deve aceitar todos os documentos legais ativos e obrigatórios antes de continuar usando o sistema. Um componente global (`TermsInterceptor`) decide, em toda navegação, se há termos pendentes e redireciona automaticamente para a variante correta.
 
@@ -59,6 +59,7 @@ flowchart LR
 ### 4.2 Falha (Garantias Mínimas)
 - Nenhum registro de aceite é criado.
 - Usuário permanece na tela de aceite, vendo o erro ou o aviso específico.
+- **[CORRIGIDO PARCIALMENTE no commit `259364f` — UC-09-RNF-03]** Na Variante A (`/accept-terms`), mensagens de erro do Firestore (carregamento de documentos ou gravação do aceite) passaram a ser traduzidas para PT-BR, em vez de exibidas cruas. Na Variante B (`/clinic/setup/terms`), o comportamento permanece inalterado — mensagens de erro ainda são exibidas cruas (ver RNF-03).
 
 ---
 
@@ -144,10 +145,11 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 
 **Comportamento anterior (histórico, antes da correção):** a Variante B não verificava `authLoading` nem `user` antes de decidir se chamava `loadDocuments()` — o `useEffect` continha apenas `if (user) { loadDocuments(); }`, sem `else` nem redirecionamento; um usuário deslogado que, por algum caminho hipotético, alcançasse esta página sem passar pelo `ProtectedRoute` do layout pai ficaria com a tela presa em estado de carregamento indefinidamente.
 
-### 8e. Erro ao carregar documentos ou salvar aceites
+### 8e. [CORRIGIDO PARCIALMENTE no commit `259364f`] Erro ao carregar documentos ou salvar aceites
 1. Exceção lançada durante a leitura (`getDocs`) ou a gravação (`addDoc`) no Firestore.
-2. Sistema exibe um toast destructive com a mensagem crua do Firestore (`error.message`), sem tradução — ver RNF-03.
-3. Caso de uso retorna à etapa anterior (carregamento) ou permanece no formulário (gravação).
+2. **Na Variante A** (`/accept-terms`): sistema exibe um toast destructive com a mensagem traduzida para PT-BR, via o novo helper `translateFirestoreError` (`src/lib/firestoreErrors.ts`, que mapeia `error.code` — ex.: `permission-denied`, `unavailable`, `not-found`, `deadline-exceeded`, `resource-exhausted`, `unauthenticated`, `cancelled` — para uma frase amigável, com um fallback genérico "Ocorreu um erro inesperado. Tente novamente." para códigos não mapeados) — **[CORRIGIDO — UC-09-RNF-03]**, em vez da mensagem crua do Firestore (`error.message`) exibida antes desta correção.
+3. **Na Variante B** (`/clinic/setup/terms`): comportamento **inalterado** — continua exibindo a mensagem crua do Firestore (`error.message`), sem tradução. Esta correção não foi aplicada a essa tela (ver RNF-03 e item 6 da Seção 14).
+4. Caso de uso retorna à etapa anterior (carregamento) ou permanece no formulário (gravação).
 
 ### 8f. [Corrigido — UC-34] Documento excluído permanentemente pelo System Admin (apenas se nunca aceito)
 1. Um System Admin exclui um documento (UC-34) na listagem `/admin/legal-documents`.
@@ -177,7 +179,7 @@ O `TermsInterceptor` (componente global, montado em `ClientProviders`) detecta, 
 |----|-----------|-----------|
 | RNF-01 | `TermsInterceptor` é montado globalmente (`ClientProviders`) e roda a cada mudança de `pathname`/usuário/claims — toda navegação autenticada passa por essa checagem, exceto as rotas em `PUBLIC_ROUTES` (`/login`, `/register`, `/accept-terms`, `/clinic/setup/terms`, `/`). | Segurança / Compliance |
 | RNF-02 | Toda a leitura de `legal_documents`/`user_document_acceptances` e a escrita do aceite ocorrem client-side, direto no Firestore (sem API route própria) — a segurança depende inteiramente das regras do Firestore (RN-05, e leitura de `legal_documents` liberada a qualquer usuário autenticado). | Segurança |
-| RNF-03 | Mensagens de erro do Firestore são exibidas cruas ao usuário (`error.message`), sem tradução para português — diferente do padrão de outras telas do sistema (ex.: UC-04, UC-06). | Usabilidade |
+| RNF-03 | **[CORRIGIDO PARCIALMENTE no commit `259364f` — UC-09-RNF-03]** Mensagens de erro do Firestore na **Variante A** (`/accept-terms`) deixaram de ser exibidas cruas e passaram a usar o novo helper `translateFirestoreError` (`src/lib/firestoreErrors.ts`), que mapeia os principais códigos de erro do SDK (`permission-denied`, `unavailable`, `not-found`, `deadline-exceeded`, `resource-exhausted`, `unauthenticated`, `cancelled`) para mensagens amigáveis em PT-BR, com um fallback genérico para códigos não mapeados — alinhado ao padrão de outras telas do sistema (ex.: UC-04, UC-06). **A Variante B (`/clinic/setup/terms`) não foi alterada por esta correção** — continua exibindo `error.message` cru, sem tradução (ver Fluxo de Exceção 8e e item 6 da Seção 14). | Usabilidade |
 
 ---
 
@@ -196,8 +198,9 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 ---
 
 ## 13. Referências
-- `src/app/(auth)/accept-terms/page.tsx`
-- `src/app/(clinic)/clinic/setup/terms/page.tsx` (guard defensivo de usuário deslogado adicionado no commit `c3f18d4` — ver Fluxo de Exceção 8d)
+- `src/app/(auth)/accept-terms/page.tsx` (Variante A; passou a usar `translateFirestoreError` no commit `259364f` — RNF-03)
+- `src/lib/firestoreErrors.ts` (`translateFirestoreError` — novo helper, commit `259364f`, usado apenas pela Variante A até o momento, RNF-03)
+- `src/app/(clinic)/clinic/setup/terms/page.tsx` (Variante B; guard defensivo de usuário deslogado adicionado no commit `c3f18d4` — ver Fluxo de Exceção 8d; **não** recebeu a tradução de erros do commit `259364f` — RNF-03)
 - `src/components/auth/TermsInterceptor.tsx`
 - `src/hooks/usePendingTerms.ts`
 - `src/app/(clinic)/layout.tsx` (já envolve as rotas do grupo `(clinic)` com `ProtectedRoute`, redirecionando usuários deslogados antes do componente montar — motivo pelo qual o achado do Fluxo 8d não era reproduzível pelo caminho normal de navegação)
@@ -205,6 +208,7 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 - `src/app/(clinic)/clinic/profile/page.tsx` (exibição somente-leitura do histórico de aceites do próprio usuário — formalizado em UC-41)
 - `src/types/index.ts` (`LegalDocument`, `UserDocumentAcceptance`)
 - `firestore.rules` (regras de `legal_documents` e `user_document_acceptances`)
+- Commit da correção: `259364f` (`fix(auth): traduz erros do firestore ao aceitar termos legais`), PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0 — adiciona `translateFirestoreError`, aplicado apenas em `accept-terms/page.tsx` (RNF-03)
 
 ---
 
@@ -215,6 +219,7 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 3. **[Observação]** RN-07 — `ip_address` nunca é de fato capturado, apesar de existir no schema; pode ser relevante dependendo do requisito legal/de compliance real por trás desse campo.
 4. **[Resolvido — UC-34]** RN-05/Fluxo 8f — exclusão permanente de documentos legais já aceitos (sem checagem de dependências) era um risco de compliance identificado durante o mapeamento de UC-34; corrigido em UC-34 (RN-03, commit `4561a2a`): a exclusão passou a ser bloqueada sempre que existirem aceites registrados.
 5. **[RESOLVIDO — defesa em profundidade, commit `c3f18d4`]** A Variante B (`/clinic/setup/terms`) não tinha guard próprio para usuário deslogado, ao contrário da Variante A (achado citado no Fluxo de Exceção 8d desde a v1.0, sem item formal correspondente nesta seção até agora). Investigação confirmou que o loading infinito descrito não se reproduz hoje pelo caminho normal de navegação, pois `(clinic)/layout.tsx` já envolve a rota com `ProtectedRoute`, redirecionando usuários deslogados antes mesmo do componente montar. Ainda assim, o guard foi implementado como defesa em profundidade (mesmo padrão já usado na Variante A), protegendo contra futuros refactors que removam esse wrapper ou caminhos de acesso direto hoje inexistentes.
+6. **[RESOLVIDO PARCIALMENTE no commit `259364f` — nova pendência residual]** RNF-03 — mensagens de erro do Firestore eram exibidas cruas ao usuário, nas duas variantes. Corrigido apenas para a Variante A (`/accept-terms`), via o novo helper `translateFirestoreError` (`src/lib/firestoreErrors.ts`). **Pendência residual, não resolvida nesta correção:** a Variante B (`/clinic/setup/terms`) continua exibindo `error.message` cru — não confirmado se essa omissão foi deliberada (ex.: por essa tela ser de onboarding único, considerado de menor risco) ou um esquecimento da correção; recomenda-se aplicar o mesmo helper à Variante B em uma próxima rodada, por consistência.
 
 ---
 
@@ -229,3 +234,4 @@ Ocasional — ocorre uma vez por documento legal obrigatório novo/atualizado, p
 | 1.3.1 | 16/07/2026 | Guilherme Scandelari | Cross-reference: o bug de exclusão órfã documentado em UC-34 (RN-03) foi corrigido no commit `4561a2a` (bloqueio de exclusão quando existem aceites registrados). Atualizado o diagrama (seção 1), Fluxo de Exceção 8f, RN-05 e seção 12 para refletir que a exclusão permanente de documento legal só ocorre quando ele nunca foi aceito; item 4 da seção 14 marcado como resolvido. Nenhum outro conteúdo deste UC foi alterado. |
 | 1.4 | 20/07/2026 | Guilherme Scandelari | **Correção de bug (commit `16877f1`)**: RN-02 e RN-03 corrigidos — `accept-terms/page.tsx` e `clinic/setup/terms/page.tsx` agora usam exatamente o mesmo critério de "documento pendente" que `usePendingTerms`/`TermsInterceptor` (união `required_for_registration || required_for_existing_users` na query, e `Map<document_id, document_version>` com checagem de versão em vez de `Set` por `document_id`). Isso elimina o loop de redirecionamento descrito nos Fluxos de Exceção 8a e 8b, ambos reescritos como histórico "[Corrigido]". Seções 3, 6 (passos 3-6 de ambas as variantes), 9 (RN-01 a RN-03) e 14 (itens 1 e 2) atualizadas para refletir a correção. |
 | 1.4.1 | 26/07/2026 | Guilherme Scandelari | **Correção defensiva (commit `c3f18d4`)**: Fluxo de Exceção 8d reescrito — a Variante B (`clinic/setup/terms/page.tsx`) ganhou o mesmo guard já usado na Variante A (`accept-terms/page.tsx`): aguarda `authLoading` resolver, redireciona para `/login` se `!user`, só então chama `loadDocuments()`. **Nuance registrada:** a investigação confirmou que o loading infinito descrito no achado original não se reproduz hoje pelo caminho normal de navegação, pois `(clinic)/layout.tsx` já envolve todas as rotas do grupo com `ProtectedRoute`, que redireciona usuários deslogados antes do componente montar — a correção foi implementada como defesa em profundidade (proteção contra refactors futuros ou caminhos de acesso hoje inexistentes), não como resposta a um bug ativo. Seções 6 (passo 2 da Variante B), 8 (Fluxo 8d, reescrito), 13 e 14 (novo item 5) atualizadas. |
+| 1.4.2 | 07/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Fechamento parcial de RNF-03 (severidade Baixa), commit `259364f`, PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0.** `accept-terms/page.tsx` (Variante A) passou a usar o novo helper `src/lib/firestoreErrors.ts` (`translateFirestoreError`) para traduzir mensagens de erro do Firestore em PT-BR, em vez de exibir `error.message` cru. **A Variante B (`clinic/setup/terms/page.tsx`) não foi alterada por este commit** — continua exibindo mensagens cruas; essa lacuna residual foi registrada explicitamente como pendência (item 6 da Seção 14), em vez de assumida como corrigida. Atualizados Pós-condição de Falha (4.2), Fluxo de Exceção 8e (reescrito, distinguindo as duas variantes), RNF-03 (marcada `[CORRIGIDO PARCIALMENTE]`), Referências (Seção 13) e novo item 6 da Seção 14 (pendência residual documentada, não fechada). |

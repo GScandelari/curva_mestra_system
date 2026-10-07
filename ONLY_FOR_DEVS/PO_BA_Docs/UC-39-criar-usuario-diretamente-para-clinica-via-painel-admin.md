@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Em Revisão
 **Módulo/Contexto:** Administração do Sistema (Gestão de Usuários)
-**Versão:** 1.2.2
+**Versão:** 1.2.3
 
-> Um System Admin, na seção "Usuários da Clínica" da tela `admin/tenants/[id]/page.tsx` (mesma tela de UC-21/UC-22/UC-23), cria diretamente um novo usuário (`clinic_admin` ou `clinic_user`) para uma clínica específica, escolhendo o e-mail e a senha no próprio formulário — sem que exista nenhuma solicitação de acesso prévia. É o caminho equivalente, do lado do System Admin, ao que o próprio `clinic_admin` faz em `clinic/users/page.tsx` (ainda não mapeado como UC formal, citado em UC-05): ambos chamam exatamente a mesma rota `POST /api/users/create`, diferenciados apenas pelo parâmetro `tenant_id_override`, exclusivo deste fluxo.
+> Um System Admin, na seção "Usuários da Clínica" da tela `admin/tenants/[id]/page.tsx` (mesma tela de UC-21/UC-22/UC-23), cria diretamente um novo usuário (`clinic_admin` ou `clinic_user`) para uma clínica específica, escolhendo o e-mail e a senha no próprio formulário — sem que exista nenhuma solicitação de acesso prévia. É o caminho equivalente, do lado do System Admin, ao que o próprio `clinic_admin` faz em `clinic/users/page.tsx` (ainda não mapeado como UC formal, citado em UC-05): ambos chamam exatamente a mesma rota `POST /api/users/create`, diferenciados apenas pelo parâmetro `tenant_id_override`, exclusivo deste fluxo. **[CORRIGIDO no commit `fc5445a` — RN-01]** O diálogo "Adicionar Novo Usuário" passou a validar e-mail e senha no client, antes de chamar a API, reaproveitando os mesmos helpers `validateEmail`/`validatePassword` já usados no restante do sistema.
 
 ---
 
@@ -27,6 +27,7 @@ flowchart LR
     end
 
     SystemAdmin --> UC39
+    UC39 -.->|valida client-side com\nvalidateEmail/validatePassword, RN-01| UC39
     UC39 -.->|mesma tela| UC22
     UC39 -.->|mesma tela| UC23
     UC39 -.->|adminAuth.createUser +\nsetCustomUserClaims| FirebaseAuth
@@ -53,6 +54,7 @@ flowchart LR
 - Existe um tenant com o id da URL (`/admin/tenants/{id}`).
 - **[CORRIGIDO em v1.2.2, commit `70a38d7`]** O tenant deve estar ativo (`tenant.active !== false`) — até então, a API não verificava esse campo e permitia criar usuários mesmo para uma clínica desativada (UC-22); ver RN-05 e Fluxo de Exceção 8j.
 - A quantidade de usuários já cadastrados para o tenant (`users` onde `tenant_id === tenantId`, incluindo inativos) é menor que `tenant.max_users`.
+- **[CORRIGIDO no commit `fc5445a`]** `email` deve ter formato válido e `password` deve atender ao requisito mínimo de comprimento — agora verificado também no client, antes de qualquer chamada à API (ver RN-01).
 
 ---
 
@@ -66,7 +68,8 @@ flowchart LR
 - Sistema exibe "Usuário criado com sucesso!", fecha o diálogo, limpa o formulário e recarrega a lista "Usuários da Clínica" na mesma tela.
 
 ### 4.2 Falha (Garantias Mínimas)
-- Se qualquer validação falhar (campos obrigatórios ausentes, limite de usuários atingido, e-mail já existente, senha rejeitada pelo Firebase Auth, **tenant inativo — RN-05, `[CORRIGIDO]`**): nenhum usuário é criado, nenhum documento é escrito; a mensagem de erro é exibida na própria página (fora do diálogo, na seção `error` compartilhada com UC-22/UC-23), e o diálogo permanece aberto.
+- **[CORRIGIDO em v1.2.3, commit `fc5445a`]** Se a validação client-side falhar (e-mail em formato inválido, ou senha menor que o mínimo exigido): nenhuma chamada é feita à API; o erro é exibido imediatamente, dentro do próprio diálogo.
+- Se qualquer validação server-side falhar (campos obrigatórios ausentes, limite de usuários atingido, e-mail já existente, senha rejeitada pelo Firebase Auth, tenant inativo — RN-05): nenhum usuário é criado, nenhum documento é escrito; a mensagem de erro é exibida na própria página (fora do diálogo, na seção `error` compartilhada com UC-22/UC-23), e o diálogo permanece aberto.
 
 ---
 
@@ -80,21 +83,22 @@ System Admin, na tela `/admin/tenants/{id}`, clica em "Adicionar Usuário" (bot�
 1. System Admin acessa `/admin/tenants/{id}` e visualiza a seção "Usuários da Clínica", com a contagem `{clinicUsers.length} de {tenant.max_users || 5} usuários`.
 2. Clica em "Adicionar Usuário" — botão desabilitado quando `clinicUsers.length >= (tenant.max_users || 5)` (checagem de UX apenas client-side; a validação real e definitiva do limite ocorre no backend, RN-06).
 3. Sistema abre o diálogo "Adicionar Novo Usuário", com o texto **[CORRIGIDO no commit `f6e9161` — RN-02]** "Crie um novo usuário para esta clínica. A senha definida aqui não é enviada por e-mail — comunique-a ao usuário por fora do sistema. Ele será solicitado a trocá-la no primeiro acesso." — texto anterior ("O usuário receberá as credenciais por email.") não correspondia ao comportamento real do sistema; a frase final já era verdadeira desde a correção de RN-03 (commit `467f462`).
-4. System Admin preenche "Nome Completo", "Email", "Senha" (placeholder "Mínimo 6 caracteres", **sem nenhum atributo `required` ou `minLength` nos campos do diálogo** — RN-01) e escolhe "Função" (`select`: "Usuário" — `clinic_user`, padrão — ou "Administrador" — `clinic_admin`).
+4. System Admin preenche "Nome Completo", "Email", "Senha" (placeholder "Mínimo 6 caracteres") e escolhe "Função" (`select`: "Usuário" — `clinic_user`, padrão — ou "Administrador" — `clinic_admin`).
 5. Clica em "Criar Usuário".
-6. Sistema obtém o Bearer token do admin (`auth.currentUser.getIdToken()`) e chama `POST /api/users/create` com `{ email, password, displayName, role, tenant_id_override: tenantId }`.
-7. API valida o token e confirma que o chamador é `is_system_admin === true` ou `role === 'clinic_admin'` — neste fluxo, sempre o primeiro caso.
-8. Como `isSystemAdmin && tenant_id_override` são ambos verdadeiros, a API usa `tenantId = tenant_id_override` — o `tenant_id` do próprio token do chamador (que sequer existe, já que `system_admin` não tem `tenant_id` nos claims) é ignorado por completo; o admin pode, assim, criar o usuário em **qualquer** clínica do sistema, não apenas na que estiver "selecionada" em algum outro contexto (RN-07).
-9. API valida os campos obrigatórios (`email`, `displayName`, `password`, `role`) e que `role` seja `clinic_admin` ou `clinic_user`.
-10. API busca o tenant pelo `tenantId`; retorna 404 se não existir. **[CORRIGIDO em v1.2.2, commit `70a38d7`]** Logo em seguida, a API verifica `tenantData?.active === false` e retorna 403 antes de prosseguir — ver Fluxo de Exceção 8j (RN-05).
-11. API conta os usuários existentes na coleção raiz `users` filtrados por `tenant_id === tenantId` (incluindo inativos) e compara com `tenant.max_users`; retorna 400 se o limite já foi atingido (mesma lógica correta já usada, por outro caminho, em UC-05 RN-01, e correta aqui também).
-12. API cria o usuário no Firebase Auth (`adminAuth.createUser`) com a senha **exata** informada pelo admin no formulário — diferente de UC-02 (que sempre gera uma senha aleatória via CSPRNG e nunca reutiliza a senha de um formulário).
-13. API define os custom claims (`tenant_id`, `role`, `active: true`, `is_system_admin: false`, **`requirePasswordChange: true`**) — desde o commit `467f462`, o mesmo padrão já usado por UC-02/UC-28 (RN-03, `[CORRIGIDO]`).
-14. API cria o documento `users/{uid}` na coleção raiz do Firestore, incluindo `requirePasswordChange: true` (mesma correção, RN-03).
-15. A criação do documento dispara a Cloud Function `onUserCreated`, que envia o e-mail de boas-vindas genérico ao novo usuário — sem a senha (RN-02).
-16. API retorna 201 com `{ success: true, user: { uid, email, displayName, role }, message }`.
-17. Sistema exibe "Usuário criado com sucesso!", limpa os campos do formulário (`newUserEmail`, `newUserPassword`, `newUserName`, `newUserRole` volta a `clinic_user`), fecha o diálogo, e chama `loadUsers()` para recarregar a lista "Usuários da Clínica".
-18. Caso de uso é concluído com sucesso.
+6. **[CORRIGIDO no commit `fc5445a` — UC-39-RN-01]** Sistema valida no client, antes de qualquer chamada à API: `validateEmail(newUserEmail)` (`src/lib/validations/serverValidations.ts`) — se inválido, exibe `setError(emailValidation.error || 'Email inválido')` e interrompe; `validatePassword(newUserPassword, { minLength: 6 })` — se inválido, exibe `setError(passwordValidation.error || 'Senha inválida')` e interrompe. Ambas as checagens reaproveitam os mesmos helpers compartilhados já usados por outras telas do sistema, em vez de depender exclusivamente da revalidação do backend.
+7. Sistema obtém o Bearer token do admin (`auth.currentUser.getIdToken()`) e chama `POST /api/users/create` com `{ email, password, displayName, role, tenant_id_override: tenantId }`.
+8. API valida o token e confirma que o chamador é `is_system_admin === true` ou `role === 'clinic_admin'` — neste fluxo, sempre o primeiro caso.
+9. Como `isSystemAdmin && tenant_id_override` são ambos verdadeiros, a API usa `tenantId = tenant_id_override` — o `tenant_id` do próprio token do chamador (que sequer existe, já que `system_admin` não tem `tenant_id` nos claims) é ignorado por completo; o admin pode, assim, criar o usuário em **qualquer** clínica do sistema, não apenas na que estiver "selecionada" em algum outro contexto (RN-07).
+10. API valida os campos obrigatórios (`email`, `displayName`, `password`, `role`) e que `role` seja `clinic_admin` ou `clinic_user` — mesma validação de formato já feita no client no passo 6, agora revalidada no servidor.
+11. API busca o tenant pelo `tenantId`; retorna 404 se não existir. **[CORRIGIDO em v1.2.2, commit `70a38d7`]** Logo em seguida, a API verifica `tenantData?.active === false` e retorna 403 antes de prosseguir — ver Fluxo de Exceção 8j (RN-05).
+12. API conta os usuários existentes na coleção raiz `users` filtrados por `tenant_id === tenantId` (incluindo inativos) e compara com `tenant.max_users`; retorna 400 se o limite já foi atingido (mesma lógica correta já usada, por outro caminho, em UC-05 RN-01, e correta aqui também).
+13. API cria o usuário no Firebase Auth (`adminAuth.createUser`) com a senha **exata** informada pelo admin no formulário — diferente de UC-02 (que sempre gera uma senha aleatória via CSPRNG e nunca reutiliza a senha de um formulário).
+14. API define os custom claims (`tenant_id`, `role`, `active: true`, `is_system_admin: false`, **`requirePasswordChange: true`**) — desde o commit `467f462`, o mesmo padrão já usado por UC-02/UC-28 (RN-03, `[CORRIGIDO]`).
+15. API cria o documento `users/{uid}` na coleção raiz do Firestore, incluindo `requirePasswordChange: true` (mesma correção, RN-03).
+16. A criação do documento dispara a Cloud Function `onUserCreated`, que envia o e-mail de boas-vindas genérico ao novo usuário — sem a senha (RN-02).
+17. API retorna 201 com `{ success: true, user: { uid, email, displayName, role }, message }`.
+18. Sistema exibe "Usuário criado com sucesso!", limpa os campos do formulário (`newUserEmail`, `newUserPassword`, `newUserName`, `newUserRole` volta a `clinic_user`), fecha o diálogo, e chama `loadUsers()` para recarregar a lista "Usuários da Clínica".
+19. Caso de uso é concluído com sucesso.
 
 ---
 
@@ -106,42 +110,42 @@ Nenhum identificado como caminho de UI genuinamente distinto — a escolha de "F
 
 ## 8. Fluxos de Exceção
 
-### 8a. Campos obrigatórios ausentes (a partir do passo 6)
-1. O diálogo não valida nenhum campo antes de enviar (RN-01) — se `email`, `displayName`, `password` ou o formulário for submetido incompleto, a API retorna 400 ("Campos obrigatórios: email, displayName, password, role").
-2. Sistema exibe a mensagem de erro na página (fora do diálogo).
+### 8a. [CORRIGIDO no commit `fc5445a`] E-mail em formato inválido (a partir do passo 6)
+1. `validateEmail(newUserEmail)` retorna `valid: false` (ex.: campo vazio, ou sem formato de e-mail reconhecível).
+2. Sistema exibe `setError(emailValidation.error || 'Email inválido')` na página (fora do diálogo); nenhuma chamada à API é feita. **Nota histórica:** até esta correção, o diálogo não validava nenhum campo antes de enviar — qualquer formato de e-mail era aceito pelo client e só rejeitado (ou não) pelo backend/Firebase Auth.
 
-### 8b. E-mail já cadastrado no Firebase Auth (a partir do passo 12)
+### 8b. [CORRIGIDO no commit `fc5445a`] Senha menor que o mínimo exigido (a partir do passo 6)
+1. `validatePassword(newUserPassword, { minLength: 6 })` retorna `valid: false`.
+2. Sistema exibe `setError(passwordValidation.error || 'Senha inválida')` na página (fora do diálogo); nenhuma chamada à API é feita. **Nota histórica:** até esta correção, nenhum campo do diálogo tinha validação client-side de fato — toda a validação de senha dependia exclusivamente do backend, que também não validava explicitamente o comprimento (apenas encaminhava ao Firebase Auth, que rejeitava com `auth/weak-password` se menor que 6 caracteres).
+
+### 8c. Campos obrigatórios ausentes no servidor (a partir do passo 10)
+1. Cenário residual, só alcançável contornando a validação client-side do passo 6 (ex.: chamada direta à API) — `email`, `displayName`, `password` ou `role` ausentes/inválidos.
+2. API retorna 400 ("Campos obrigatórios: email, displayName, password, role"); sistema exibe a mensagem de erro na página (fora do diálogo).
+
+### 8d. E-mail já cadastrado no Firebase Auth (a partir do passo 13)
 1. Firebase Auth retorna `auth/email-already-exists` — o mesmo e-mail não pode ser usado por dois usuários em nenhuma clínica, já que a unicidade é global no projeto Firebase Auth, não por tenant.
 2. API retorna 400 ("Este email já está cadastrado no sistema"); sistema exibe a mensagem.
 
-### 8c. E-mail inválido (a partir do passo 12)
-1. Firebase Auth retorna `auth/invalid-email`.
+### 8e. E-mail inválido detectado apenas pelo Firebase Auth (a partir do passo 13)
+1. Firebase Auth retorna `auth/invalid-email` — cenário residual, já que `validateEmail` (RN-01) cobre a maioria dos formatos inválidos no client.
 2. API retorna 400 ("Email inválido").
 
-### 8d. Senha rejeitada pelo Firebase Auth (a partir do passo 12)
-1. Firebase Auth retorna `auth/weak-password` (senha com menos de 6 caracteres — mínimo do próprio Firebase Auth, já que nem o client nem o backend desta rota validam explicitamente o comprimento da senha, RN-01).
+### 8f. Senha rejeitada pelo Firebase Auth (a partir do passo 13)
+1. Firebase Auth retorna `auth/weak-password` — cenário residual, já que `validatePassword` (RN-01) já bloqueia senhas menores que 6 caracteres no client.
 2. API retorna 400 ("Senha muito fraca. Use pelo menos 6 caracteres").
 
-### 8e. Limite de usuários atingido (a partir do passo 11)
+### 8g. Limite de usuários atingido (a partir do passo 12)
 1. `currentUserCount >= maxUsers`.
 2. API retorna 400 com `{ error, currentCount, maxUsers }`; sistema exibe a mensagem de erro.
 
-### 8f. Tenant não encontrado (a partir do passo 10)
+### 8h. Tenant não encontrado (a partir do passo 11)
 1. Só alcançável se o `id` da URL for inválido — não é um caminho comum pela UI, já que o admin chega a esta tela a partir de uma listagem de tenants existentes.
 2. API retorna 404 ("Clínica não encontrada").
 
-### 8g. Token ausente ou inválido (a partir do passo 7)
+### 8i. Token ausente ou inválido (a partir do passo 8)
 1. API retorna 401 ("Não autorizado").
 
-### 8h. Chamador sem permissão (a partir do passo 7)
-1. Não alcançável pela UI desta tela (restrita a `system_admin`), mas a API aceitaria a chamada de um `clinic_admin` legítimo também (mesma rota usada por `clinic/users/page.tsx`, fora do escopo deste UC).
-2. Se nenhuma das duas condições (`is_system_admin` ou `clinic_admin`) for satisfeita, API retorna 403 ("Apenas administradores podem criar usuários").
-
-### 8i. Erro genérico não mapeado (a partir dos passos 12-14)
-1. Qualquer outra exceção do Firebase Admin SDK.
-2. API retorna 500 ("Erro ao criar usuário. Tente novamente.").
-
-### 8j. [CORRIGIDO — commit `70a38d7`] Clínica inativa (a partir do passo 10)
+### 8j. [CORRIGIDO — commit `70a38d7`] Clínica inativa (a partir do passo 11)
 1. `tenantData?.active === false` — a clínica foi desativada (UC-22).
 2. API retorna 403 ("Não é possível criar usuários para uma clínica inativa"), tanto para o fluxo de `system_admin` (com `tenant_id_override`, este UC) quanto para `clinic_admin` (tenant do próprio token, UC-40).
 3. Sistema exibe a mensagem de erro na página; diálogo permanece aberto; nenhum usuário é criado.
@@ -154,12 +158,12 @@ Nenhum identificado como caminho de UI genuinamente distinto — a escolha de "F
 
 | ID | Regra | Justificativa |
 |----|-------|----------------|
-| RN-01 | **[Achado]** Nenhum campo do diálogo "Adicionar Novo Usuário" tem validação client-side de fato (`required`, `minLength`, formato de e-mail) — todos os campos são `Input`s simples, sem atributos de validação HTML nem checagem em `handleCreateUser` antes da chamada à API. Toda a validação depende inteiramente do backend (`POST /api/users/create`), que também não valida explicitamente o comprimento da senha (apenas encaminha ao Firebase Auth, que rejeita com `auth/weak-password` se menor que 6 caracteres). | Confirmado por leitura completa do JSX do diálogo e de `handleCreateUser` — nenhuma checagem antes do `fetch`. |
+| RN-01 | **[CORRIGIDO no commit `fc5445a`, PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0 — UC-39-RN-01]** O diálogo "Adicionar Novo Usuário" agora valida `email` e `password` no client antes de chamar `POST /api/users/create`, reaproveitando os helpers compartilhados `validateEmail`/`validatePassword` (`src/lib/validations/serverValidations.ts`) — os mesmos já usados por outras telas do sistema (ex.: autenticação). `handleCreateUser` passou a chamar `validateEmail(newUserEmail)` e, se válido, `validatePassword(newUserPassword, { minLength: 6 })`, interrompendo a submissão e exibindo o erro específico (via `setError`) antes de qualquer `fetch`. **Nota histórica:** até esta correção, nenhum campo do diálogo tinha validação client-side de fato (`required`, `minLength`, formato de e-mail) — todos os campos eram `Input`s simples, sem atributos de validação HTML nem checagem em `handleCreateUser` antes da chamada à API; toda a validação dependia inteiramente do backend. | Confirmado por leitura de `admin/tenants/[id]/page.tsx` pós-correção — `handleCreateUser` importa e chama `validateEmail`/`validatePassword` de `@/lib/validations/serverValidations`, antes do `fetch` a `/api/users/create`. |
 | RN-02 | **[CORRIGIDO no commit `f6e9161` — decisão do PO pela opção (a) da Seção 14]** Antes: o texto do diálogo afirmava "O usuário receberá as credenciais por email", mas o único e-mail efetivamente disparado (via trigger `onUserCreated`, `functions/src/onUserCreated.ts` → `sendWelcomeEmail`) era um e-mail de boas-vindas **genérico**: nome, papel (badge) e um botão "Acessar o Sistema" — o corpo do e-mail nunca inclui a senha nem qualquer outra credencial, porque a função que o gera (`sendWelcomeEmail`) só recebe `email`, `full_name` e `role` do documento Firestore (que nunca armazena a senha em texto). Agora: o `DialogDescription` em `admin/tenants/[id]/page.tsx` foi alterado para "Crie um novo usuário para esta clínica. A senha definida aqui não é enviada por e-mail — comunique-a ao usuário por fora do sistema. Ele será solicitado a trocá-la no primeiro acesso." — texto que reflete o comportamento real do sistema (nunca envia a senha) e reforça, na própria UI, a orientação para o admin comunicá-la por fora, além de citar a troca obrigatória no primeiro acesso (já garantida desde a correção de RN-03, commit `467f462`). Decisão do PO, explícita: das duas alternativas registradas na v1.1/v1.2 deste UC, optou-se pela opção **(a)** — corrigir o texto da UI — em vez da opção (b) — implementar envio de senha em texto plano por e-mail —, por segurança. | Correção confirmada por leitura do commit `f6e9161` (`src/app/(admin)/admin/tenants/[id]/page.tsx`) — novo texto do `DialogDescription`. Decisão de escopo (opção "a") relatada pelo autor da correção e registrada aqui. |
 | RN-03 | **[CORRIGIDO em v1.2 — commit `467f462`]** Antes: diferente de UC-02 (aprovação de solicitação, que gera uma senha aleatória via CSPRNG e envia um link de redefinição de senha) e de UC-28 (criação de consultor, que sempre nasce com `requirePasswordChange: true`), o usuário criado por este fluxo nascia com a senha exata escolhida pelo System Admin e **sem** a claim `requirePasswordChange` — nunca era obrigado a trocá-la no primeiro acesso; UC-06 nunca era acionado por este caminho de criação. Agora: `POST /api/users/create` define `requirePasswordChange: true` tanto nas custom claims (`adminAuth.setCustomUserClaims`) quanto no documento Firestore (`userDoc`, `users/{uid}`), alinhando este fluxo ao padrão já usado em UC-02/UC-28 — o usuário criado por um System Admin é obrigado a trocar a senha escolhida pelo admin no primeiro login, acionando UC-06. | Correção confirmada por leitura do commit `467f462` (`src/app/api/users/create/route.ts`) — `requirePasswordChange: true` adicionado tanto no objeto de custom claims quanto no `userDoc` gravado em `users/{uid}`. |
 | RN-04 | A contagem de usuários para verificar o limite (`max_users`) é feita corretamente, consultando a coleção raiz `users` filtrada por `tenant_id` (incluindo inativos) — mesma fonte de verdade correta já confirmada em UC-05 (RN-01), diferente do cálculo incorreto de `getTenantLimits()` documentado naquele mesmo UC (RN-04, tela `clinic/access-requests`). | Confirmado por leitura literal do handler — `adminDb.collection('users').where('tenant_id', '==', tenantId).get()`. |
 | RN-05 | **[CORRIGIDO — commit `70a38d7`]** Antes: a API não verificava se o tenant estava ativo (`tenant.active`) antes de permitir a criação do usuário — um System Admin podia adicionar um novo usuário a uma clínica desativada (UC-22) através desta mesma tela, sem nenhum aviso ou bloqueio; a desativação em cascata de UC-22 afetava apenas os usuários já existentes no momento da suspensão, nunca bloqueava a criação de novos. Agora: logo após buscar `tenantDoc` e antes do cálculo de `maxUsers`, a API verifica `tenantData?.active === false` e retorna 403 ("Não é possível criar usuários para uma clínica inativa") — aplicado tanto ao fluxo de `system_admin` (`tenant_id_override`, este UC) quanto ao de `clinic_admin` (UC-40). | Correção confirmada por leitura do commit `70a38d7` (`src/app/api/users/create/route.ts`) — checagem adicionada logo após `const tenantData = tenantDoc.data();`. |
-| RN-06 | O botão "Adicionar Usuário" é desabilitado no client quando `clinicUsers.length >= (tenant.max_users \|\| 5)`, mas essa é apenas uma conveniência de UX — a validação real e definitiva do limite é sempre revalidada no backend (RN-04), sem brecha de segurança caso o botão seja contornado (ex.: chamada direta à API). | Confirmado pela existência de checagem equivalente e independente no backend (passo 11 do Fluxo Principal). |
+| RN-06 | O botão "Adicionar Usuário" é desabilitado no client quando `clinicUsers.length >= (tenant.max_users \|\| 5)`, mas essa é apenas uma conveniência de UX — a validação real e definitiva do limite é sempre revalidada no backend (RN-04), sem brecha de segurança caso o botão seja contornado (ex.: chamada direta à API). | Confirmado pela existência de checagem equivalente e independente no backend (passo 12 do Fluxo Principal). |
 | RN-07 | **[Achado, mesma rota de UC-05]** Este fluxo compartilha exatamente a mesma rota `POST /api/users/create` usada pelo próprio `clinic_admin` para adicionar usuários à própria clínica (`clinic/users/page.tsx`, ainda sem UC formal — citado em UC-05, seção 14). A única diferença de comportamento entre as duas origens está no parâmetro `tenant_id_override`: quando presente e o chamador é `system_admin`, a API ignora completamente qualquer `tenant_id` do próprio chamador (que nem existe nos claims de um `system_admin`) e usa o tenant escolhido livremente pelo admin nesta tela — permitindo criar um usuário para **qualquer** clínica do sistema, não apenas uma clínica à qual o chamador esteja de alguma forma associado. | Confirmado por leitura literal da árvore de decisão de `tenantId` no handler (`if (isSystemAdmin && tenant_id_override) ... else if (isClinicAdmin) ...`). |
 | RN-08 | Assim como em UC-36, nenhum campo de auditoria é gravado no documento `users/{uid}` indicando que este usuário específico foi criado diretamente por um System Admin (via `tenant_id_override`) em vez de ter passado por UC-02 (aprovação de solicitação) — não há como distinguir, olhando apenas o documento do usuário, qual das origens de criação foi usada. | Confirmado por leitura do objeto `userDoc` gravado pelo handler — nenhum campo do tipo `created_by`/`created_via`. |
 
@@ -171,7 +175,8 @@ Nenhum identificado como caminho de UI genuinamente distinto — a escolha de "F
 |----|-----------|-----------|
 | RNF-01 | Toda comunicação de erro/sucesso desta ação usa os mesmos estados `error`/`success` compartilhados com UC-22/UC-23 (mesma tela) — exibidos fora do diálogo, na página principal, não dentro do próprio `Dialog`. | Consistência de UI |
 | RNF-02 | **[Mitigado no commit `f6e9161`, RN-02]** Ausência de qualquer envio de credenciais por e-mail continua sendo a decisão de produto vigente (opção "a"), mas o texto da UI foi corrigido para não mais prometer um comportamento que o sistema não executa — reduzindo o risco de confusão tanto para o admin quanto para o usuário-alvo. | UX / Suporte |
-| RNF-03 | A senha escolhida pelo próprio System Admin nunca expira (RN-03 apenas força a troca no primeiro acesso, não impõe complexidade) — risco de segurança leve se o admin reutilizar senhas previsíveis/fracas ao criar múltiplos usuários (nenhuma validação de complexidade é aplicada além do mínimo de 6 caracteres do próprio Firebase Auth, RN-01). | Segurança |
+| RNF-03 | A senha escolhida pelo próprio System Admin nunca expira (RN-03 apenas força a troca no primeiro acesso, não impõe complexidade) — risco de segurança leve se o admin reutilizar senhas previsíveis/fracas ao criar múltiplos usuários. **[Nota, v1.2.3]** A correção de RN-01 passou a bloquear senhas menores que 6 caracteres já no client, mas não introduziu nenhuma validação de complexidade adicional (letra, número, símbolo) — permanece apenas o mínimo de comprimento do próprio Firebase Auth. | Segurança |
+| RNF-04 | **[RESOLVIDO no commit `fc5445a` — RN-01]** Ausência de validação client-side no diálogo de criação de usuário foi corrigida — `email` e `password` agora são validados antes de qualquer chamada à API, reduzindo o número de round-trips desnecessários ao backend para erros de formato facilmente detectáveis no client. | Usabilidade |
 
 ---
 
@@ -192,7 +197,8 @@ Ocasional — usado quando o `clinic_admin` de uma clínica não consegue ou nã
 ---
 
 ## 13. Referências
-- `src/app/(admin)/admin/tenants/[id]/page.tsx` (seção "Usuários da Clínica", `handleCreateUser`, diálogo "Adicionar Novo Usuário" — texto corrigido no commit `f6e9161`, RN-02)
+- `src/app/(admin)/admin/tenants/[id]/page.tsx` (seção "Usuários da Clínica", `handleCreateUser`, diálogo "Adicionar Novo Usuário" — texto corrigido no commit `f6e9161`, RN-02; validação client-side adicionada no commit `fc5445a`, RN-01)
+- `src/lib/validations/serverValidations.ts` (`validateEmail`, `validatePassword` — reaproveitados por `handleCreateUser` desde o commit `fc5445a`, RN-01)
 - `src/app/api/users/create/route.ts` (linhas alteradas pelo commit `467f462` — `requirePasswordChange: true` nas custom claims e no `userDoc`, RN-03; e pelo commit `70a38d7` — checagem de `tenant.active`, RN-05)
 - `functions/src/onUserCreated.ts` (trigger `onDocumentCreated` em `users/{userId}`)
 - `functions/src/services/emailService.ts` (`sendWelcomeEmail` — RN-02)
@@ -200,6 +206,7 @@ Ocasional — usado quando o `clinic_admin` de uma clínica não consegue ou nã
 - `firestore.rules` (`users/{userId}`)
 - Commit da correção: `f6e9161` (`fix: tres itens de alta severidade (UC-32, UC-04, UC-39)`) — corrige o texto do `DialogDescription` em `admin/tenants/[id]/page.tsx` (RN-02, decisão do PO pela opção "a")
 - Commit da correção: `70a38d7` (`fix: quatro itens de media severidade (UC-39, UC-45, UC-47, UC-48)`) — adiciona checagem de `tenant.active` em `src/app/api/users/create/route.ts`, bloqueando a criação de usuários para clínicas inativas (RN-05)
+- Commit da correção: `fc5445a` (`fix(admin): valida campos no dialogo de criacao de usuario`), PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0 — adiciona validação client-side de e-mail/senha ao diálogo "Adicionar Novo Usuário" (RN-01)
 
 ---
 
@@ -208,7 +215,7 @@ Ocasional — usado quando o `clinic_admin` de uma clínica não consegue ou nã
 1. **[RESOLVIDO no commit `f6e9161` — decisão do PO]** RN-02, achado crítico: o texto do diálogo prometia o envio de credenciais por e-mail, o que não ocorria. Das duas alternativas registradas (a: corrigir o texto da UI; b: implementar envio de senha em texto plano por e-mail), o PO optou pela **opção (a)**, por segurança — implementada no commit `f6e9161`, que corrigiu o `DialogDescription` para deixar claro que a senha não é enviada por e-mail e deve ser comunicada por fora do sistema.
 2. **[RESOLVIDO em v1.2 — commit `467f462`]** RN-03 — implementado: `requirePasswordChange: true` agora é definido tanto nas custom claims quanto no documento `users/{uid}`, alinhando este fluxo ao padrão já usado em UC-02/UC-28. O usuário criado por este caminho agora aciona UC-06 no primeiro acesso.
 3. **[RESOLVIDO — commit `70a38d7`]** RN-05 — a API agora bloqueia (403) a criação de usuários para uma clínica inativa, fechando a lacuna da desativação em cascata de UC-22.
-4. **[RN-01]** Ausência de validação client-side no diálogo (nenhum campo obrigatório/comprimento mínimo) — avaliação de necessidade de correção não solicitada até o momento.
+4. ~~**[RN-01]** Ausência de validação client-side no diálogo (nenhum campo obrigatório/comprimento mínimo) — avaliação de necessidade de correção não solicitada até o momento.~~ **[RESOLVIDO no commit `fc5445a` — UC-39-RN-01]** O diálogo agora valida `email` e `password` no client, via `validateEmail`/`validatePassword`, antes de qualquer chamada à API.
 5. **[Nota de rastreabilidade — resolvida]** O caminho equivalente usado pelo próprio `clinic_admin` (`clinic/users/page.tsx`, mesma rota, sem `tenant_id_override`) foi mapeado como **UC-40 (Criar Usuário para a Própria Clínica)**.
 
 ---
@@ -222,3 +229,4 @@ Ocasional — usado quando o `clinic_admin` de uma clínica não consegue ou nã
 | 1.2 | 18/07/2026 | Guilherme Scandelari | RN-03 marcada como `[CORRIGIDO]`, citando o commit `467f462` ("fix: dois itens de alta severidade (UC-50, UC-39)") — `POST /api/users/create` agora define `requirePasswordChange: true` nas custom claims e no documento `users/{uid}`, obrigando o usuário criado a trocar a senha escolhida pelo System Admin no primeiro acesso (aciona UC-06), alinhando este fluxo ao padrão já usado em UC-02/UC-28. Seções 4.1, 6 (passos 13-14), 9 (RN-03), 10 (RNF-03), 12 (relacionados) e 14 (item 2) atualizadas de acordo. |
 | 1.2.1 | 20/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-39-RN-02), decisão do PO pela opção (a): o texto do diálogo "Adicionar Novo Usuário", que prometia "O usuário receberá as credenciais por email" apesar de o e-mail real nunca incluir a senha, foi corrigido no commit `f6e9161` para "Crie um novo usuário para esta clínica. A senha definida aqui não é enviada por e-mail — comunique-a ao usuário por fora do sistema. Ele será solicitado a trocá-la no primeiro acesso." Atualizados resumo de Pós-condição 4.1, passo 3 do Fluxo Principal, RN-02 (marcado `[CORRIGIDO]`, com a decisão do PO documentada), RNF-02, Casos de Uso Relacionados (Seção 12), Referências (Seção 13) e item 1 da Seção 14 (marcado `[RESOLVIDO]`). |
 | 1.2.2 | 03/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-39-RN-05), commit `70a38d7`: `POST /api/users/create` passou a verificar `tenantData?.active === false` logo após buscar o tenant, retornando 403 ("Não é possível criar usuários para uma clínica inativa") antes de prosseguir para o cálculo de `maxUsers` — aplicado tanto ao fluxo de `system_admin` (`tenant_id_override`, este UC) quanto ao de `clinic_admin` (UC-40). Fecha a lacuna em que a desativação em cascata de UC-22 só afetava usuários já existentes, nunca bloqueava a criação de novos. Atualizadas Pré-condições (seção 3), Pós-condição de Falha (4.2), Fluxo Principal (passo 10), nova Exceção 8j, RN-05 (marcada `[CORRIGIDO]`), Seção 12, Seção 13 e item 3 da Seção 14 (marcado `[RESOLVIDO]`). |
+| 1.2.3 | 07/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Fechamento de RN-01 (severidade Baixa), commit `fc5445a`, PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0.** `handleCreateUser` (`admin/tenants/[id]/page.tsx`) passou a validar `email` e `password` no client antes de chamar `POST /api/users/create`, reaproveitando os helpers compartilhados `validateEmail`/`validatePassword` (`src/lib/validations/serverValidations.ts`) — qualquer erro de formato é exibido imediatamente, sem round-trip ao backend. Atualizados resumo do cabeçalho, diagrama (Seção 1), Pré-condições (Seção 3), Pós-condição de Falha (4.2), Fluxo Principal (novo passo 6, renumeração), Fluxos de Exceção 8a/8b (novos, reescritos de histórico) e 8c/8e/8f (notas de "cenário residual"), RN-01 (marcada `[CORRIGIDO]`), RNF-03 (nota) e RNF-04 (marcada `[RESOLVIDO]`), Referências (Seção 13) e item 4 da Seção 14 (marcado `[RESOLVIDO]`). |
