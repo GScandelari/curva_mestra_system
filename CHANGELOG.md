@@ -5,6 +5,20 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.12.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.11.0...v1.12.0) (2026-10-07)
+
+
+### Features
+
+* **admin:** add on-demand claims integrity check callable + UI ([c41f805](https://github.com/GScandelari/curva_mestra_system/commit/c41f80537ec0d58598f0e04263e17b8af5dcbf6b))
+* **tenant:** add pure claims diff helper with unit tests ([d8f638e](https://github.com/GScandelari/curva_mestra_system/commit/d8f638e8139acf23ae100fdbc16fd95fdccbfc5a))
+* **tenant:** add scheduled claims integrity check function ([3ac4480](https://github.com/GScandelari/curva_mestra_system/commit/3ac4480f4662aa4f3f7b00255b01496b26758b9d))
+
+
+### Bug Fixes
+
+* **tenant:** rollback tenant creation when custom claims fail ([b955659](https://github.com/GScandelari/curva_mestra_system/commit/b95565932a20e5e4619a15e77215c3caa739d9d8))
+
 ## [1.11.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.10.2...v1.11.0) (2026-10-04)
 
 
