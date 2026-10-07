@@ -6,9 +6,9 @@
 **Status:** Rascunho
 **Módulo/Contexto:** Relatórios
 
-**Versão:** 1.0.3
+**Versão:** 1.0.4
 
-> Um usuário de clínica (`clinic_admin` ou `clinic_user`) gera, sob demanda em `/clinic/reports`, um de três relatórios independentes — Valor do Estoque, Produtos Vencendo (com antecedência configurável) e Consumo por Período — cada um calculado em tempo real no client a partir de `tenants/{tenantId}/inventory` e `tenants/{tenantId}/solicitacoes`, exibido em preview na tela e exportável para Excel (.xlsx). É a única funcionalidade de relatórios realmente implementada no sistema hoje — o componente `ReportsView` foi construído com props (`readOnly`, `backUrl`) pensadas para reuso no Portal Consultor, mas essa tela (`/consultant/reports`) ainda é um placeholder "Em Desenvolvimento", sem nenhuma chamada real a este serviço.
+> Um usuário de clínica (`clinic_admin` ou `clinic_user`) gera, sob demanda em `/clinic/reports`, um de três relatórios independentes — Valor do Estoque, Produtos Vencendo ou Vencidos (com antecedência configurável) e Consumo por Período — cada um calculado em tempo real no client a partir de `tenants/{tenantId}/inventory` e `tenants/{tenantId}/solicitacoes`, exibido em preview na tela e exportável para Excel (.xlsx). É a única funcionalidade de relatórios realmente implementada no sistema hoje — o componente `ReportsView` foi construído com props (`readOnly`, `backUrl`) pensadas para reuso no Portal Consultor, mas essa tela (`/consultant/reports`) ainda é um placeholder "Em Desenvolvimento", sem nenhuma chamada real a este serviço.
 
 ---
 
@@ -55,6 +55,7 @@ Nenhum sistema externo além do próprio Firestore (leitura client-side) e da bi
 - Se o usuário clicar em "Exportar Excel": um arquivo `.xlsx` é baixado pelo navegador, nomeado `{relatorio}_{AAAA-MM-DD}.xlsx`, com os mesmos dados exibidos no preview (recalculados a partir do estado em memória, não uma nova consulta).
 - **[CORRIGIDO em v1.0.2, commit `70a38d7`]** No Relatório de Vencimento, se algum item de inventário tiver `dt_validade` inválida/não interpretável (formato desconhecido, tipo de dado inválido, ou uma data sintaticamente aceita pelo construtor `Date` mas com valor inválido, ex.: `"2025-13-45"`), ele é contado em `itens_ignorados` e um banner amarelo é exibido acima da tabela, avisando que o "Valor em Risco" pode estar subestimado — ver RN-02.
 - **[CORRIGIDO em v1.0.3, commit `1ac45ab`]** No Relatório de Consumo, a tabela `por_produto` exibe corretamente uma linha por produto distinto (código, nome, quantidade consumida, procedimentos, valor total) — ver RN-08.
+- **[CORRIGIDO em v1.0.4, commit `0b8e6b6`]** O Relatório de Vencimento, incluindo o título do card de preview e o cabeçalho da seção, passou a se chamar "Produtos Vencendo ou Vencidos" — nome que deixa explícito, sem ambiguidade, que o relatório também inclui produtos já vencidos (ver RN-01).
 
 ### 4.2 Falha (Garantias Mínimas)
 - Se a geração do relatório falhar (erro de rede/permissão no Firestore): um `toast` destrutivo (`useToast`) exibe "Erro ao gerar relatório" / "Não foi possível gerar o relatório. Tente novamente." — corrigido no commit `53df743` (RNF-01); nenhum preview é exibido; o erro completo continua sendo registrado via `console.error`.
@@ -62,13 +63,13 @@ Nenhum sistema externo além do próprio Firestore (leitura client-side) e da bi
 ---
 
 ## 5. Gatilho (Trigger)
-Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`) e clica em um dos três botões "Gerar Relatório" (Valor do Estoque, Produtos Vencendo, Consumo).
+Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`) e clica em um dos três botões "Gerar Relatório" (Valor do Estoque, Produtos Vencendo ou Vencidos, Consumo).
 
 ---
 
 ## 6. Fluxo Principal (Basic Flow) — Relatório de Valor do Estoque
 
-1. Usuário acessa `/clinic/reports`; sistema exibe três cards (Valor do Estoque, Produtos Vencendo, Consumo), cada um com seu próprio botão "Gerar Relatório" e, quando aplicável, campos de parâmetro.
+1. Usuário acessa `/clinic/reports`; sistema exibe três cards (Valor do Estoque, Produtos Vencendo ou Vencidos, Consumo), cada um com seu próprio botão "Gerar Relatório" e, quando aplicável, campos de parâmetro.
 2. Usuário clica em "Gerar Relatório" no card "Valor do Estoque".
 3. Sistema chama `generateStockValueReport(tenantId)`: busca todos os documentos de `tenants/{tenantId}/inventory` com `active == true`, agrupa por `codigo_produto`, somando quantidade e valor (`quantidade_disponivel * valor_unitario`) por produto e no total, e contando o número de lotes (documentos) por produto.
 4. Sistema exibe o preview: cards de "Total de Produtos", "Total de Itens" e "Valor Total", seguidos de uma tabela por produto (código, nome, quantidade total, número de lotes, valor unitário, valor total), ordenada por valor total decrescente.
@@ -79,10 +80,10 @@ Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`
 
 ## 7. Fluxos Alternativos
 
-### 7a. Relatório de Produtos Vencendo (variação do gatilho)
-1. Usuário informa "Antecedência (dias)" (padrão 30, mín. 1, máx. 365 — validado apenas por atributos HTML, sem checagem explícita no handler) e clica em "Gerar Relatório" no card correspondente.
-2. Sistema chama `generateExpirationReport(tenantId, dias)`: busca `inventory` com `active == true`, calcula `dias_para_vencer` para cada item e inclui no relatório **todo item cuja validade seja menor ou igual a `hoje + dias`** — ou seja, inclui tanto produtos a vencer dentro do prazo quanto produtos **já vencidos** (RN-01), desde que `quantidade > 0`. **[CORRIGIDO em v1.0.2, commit `70a38d7`]** Itens com `dt_validade` inválida/não interpretável são contados em `itens_ignorados` (não incluídos no relatório) — ver RN-02.
-3. Sistema exibe cards de "Produtos em Risco" e "Valor em Risco" e, **[CORRIGIDO em v1.0.2]** se `itens_ignorados > 0`, um banner de aviso amarelo logo antes da tabela; e uma tabela ordenada por urgência (`dias_para_vencer` crescente), destacando em vermelho linhas com `dias_para_vencer <= 7`.
+### 7a. [CORRIGIDO no commit `0b8e6b6`] Relatório de Produtos Vencendo ou Vencidos (variação do gatilho)
+1. Usuário informa "Antecedência (dias)" (padrão 30, mín. 1, máx. 365 — validado apenas por atributos HTML, sem checagem explícita no handler) e clica em "Gerar Relatório" no card "Produtos Vencendo ou Vencidos".
+2. Sistema chama `generateExpirationReport(tenantId, dias)`: busca `inventory` com `active == true`, calcula `dias_para_vencer` para cada item e inclui no relatório **todo item cuja validade seja menor ou igual a `hoje + dias`** — ou seja, inclui tanto produtos a vencer dentro do prazo quanto produtos **já vencidos** (RN-01, nome do relatório atualizado para deixar isso explícito), desde que `quantidade > 0`. **[CORRIGIDO em v1.0.2, commit `70a38d7`]** Itens com `dt_validade` inválida/não interpretável são contados em `itens_ignorados` (não incluídos no relatório) — ver RN-02.
+3. Sistema exibe cards de "Produtos em Risco" e "Valor em Risco" e, **[CORRIGIDO em v1.0.2]** se `itens_ignorados > 0`, um banner de aviso amarelo logo antes da tabela; e uma tabela ordenada por urgência (`dias_para_vencer` crescente), destacando em vermelho linhas com `dias_para_vencer <= 7`. O cabeçalho da seção e o título do card de preview exibem **"Produtos Vencendo ou Vencidos"** (commit `0b8e6b6`).
 4. Usuário pode exportar ou fechar, como no fluxo principal.
 
 ### 7b. Relatório de Consumo por Período (variação do gatilho)
@@ -107,7 +108,7 @@ Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`
 ### 8b. [CORRIGIDO — commit `70a38d7`] Data de validade em formato não reconhecido ou inválida (Relatório de Vencimento, a partir do passo 2 do fluxo 7a)
 1. `dt_validade` do item de inventário não é `Timestamp`, `Date`, nem string em formato `DD/MM/YYYY` ou `YYYY-MM-DD` reconhecível — **ou** é uma string sintaticamente aceita pelo construtor `Date` mas com valor inválido (ex.: `"2025-13-45"`), resultando em `Invalid Date` (`isNaN(dtValidade.getTime())`).
 2. Sistema registra um `console.warn` e **pula** esse item — ele não aparece no relatório — mas agora incrementa o contador `itensIgnorados`, retornado como `itens_ignorados` no objeto do relatório.
-3. `ReportsView` exibe um banner de aviso amarelo (visível apenas quando `itens_ignorados > 0`) logo antes da tabela de produtos vencendo, informando quantos itens foram ignorados e alertando que o "Valor em Risco" pode estar subestimado.
+3. `ReportsView` exibe um banner de aviso amarelo (visível apenas quando `itens_ignorados > 0`) logo antes da tabela de produtos vencendo ou vencidos, informando quantos itens foram ignorados e alertando que o "Valor em Risco" pode estar subestimado.
 
 **Comportamento anterior (histórico, antes da correção):** os dois ramos de erro (formato desconhecido; tipo de dado inválido) apenas faziam `console.warn` e `return` (equivalente a `continue` dentro do `forEach`), sem incrementar nenhum contador visível ao usuário. Além disso, datas sintaticamente aceitas pelo construtor `Date` mas com valores inválidos geravam silenciosamente um `Invalid Date`, sem cair em nenhum dos ramos de warning, e comparavam `false` em `dtValidade <= limitDate` (comparação com `NaN`), excluindo o item do relatório sem log algum — um terceiro caminho de exclusão silenciosa que não existia nos dois ramos originais. Resultado: o "Valor em Risco" do relatório de vencimento podia estar subestimado sem qualquer aviso ao usuário.
 
@@ -117,7 +118,7 @@ Usuário navega para `/clinic/reports` (via menu "Relatórios" do `ClinicLayout`
 
 | ID | Regra | Justificativa |
 |----|-------|----------------|
-| RN-01 | O Relatório de "Produtos Vencendo" inclui, apesar do nome, também produtos **já vencidos** (`dt_validade` no passado) — o filtro é `dt_validade <= hoje + diasAntecedencia`, sem piso inferior. O comentário no código confirma que essa é a intenção: "produtos vencidos até produtos que vencem nos próximos X dias". | Confirmado por leitura literal de `generateExpirationReport` — não há filtro `dt_validade >= now`. |
+| RN-01 | **[CORRIGIDO no commit `0b8e6b6`, PR #354 (branch `chore/patch-10-correcoes-baixa-severidade`), release v1.11.0 — UC-47-RN-01]** O Relatório inclui, além de produtos a vencer, também produtos **já vencidos** (`dt_validade` no passado) — o filtro é `dt_validade <= hoje + diasAntecedencia`, sem piso inferior; o comentário no código confirma que essa é a intenção: "produtos vencidos até produtos que vencem nos próximos X dias". O nome do relatório foi alterado de "Produtos Vencendo" para **"Produtos Vencendo ou Vencidos"** (card de preview e cabeçalho da seção, em `ReportsView.tsx`), deixando explícito esse comportamento em vez de depender de o usuário descobrir sozinho que vencidos também aparecem ali. A lógica de seleção de itens (`generateExpirationReport`) não foi alterada — apenas o rótulo exibido ao usuário. | Confirmado por leitura literal de `generateExpirationReport` (sem alteração de lógica) e de `ReportsView.tsx` pós-correção — título do card e cabeçalho da seção agora "Produtos Vencendo ou Vencidos"; spec `tests/e2e/UC-51-gerar-relatorios-gerenciais-avancados-e-custeio-por-procedimento.spec.ts` (que também exercita este componente compartilhado) ajustado para o novo texto. |
 | RN-02 | **[CORRIGIDO — commit `70a38d7`]** Antes: itens de inventário com `dt_validade` em formato não reconhecido, ou sintaticamente aceito pelo construtor `Date` mas com valor inválido (ex.: `"2025-13-45"`, gerando `Invalid Date`), eram silenciosamente excluídos do Relatório de Vencimento (apenas um `console.warn`, ou nem isso no caso de `Invalid Date` — que era descartado só pela comparação `NaN <= limitDate`), o que podia subestimar o "Valor em Risco" sem que o usuário soubesse. Agora: novo campo `itens_ignorados: number` na interface `ExpirationReport`; nova variável `itensIgnorados` incrementada nos dois ramos de warning já existentes; novo terceiro check logo após a conversão de string para `Date` (`if (isNaN(dtValidade.getTime())) { ...; itensIgnorados++; return; }`), cobrindo o caso de `Invalid Date` que antes escapava de qualquer contabilização; `itens_ignorados` incluído no retorno da função; e um banner de aviso amarelo em `ReportsView.tsx` (visível apenas quando `itens_ignorados > 0`), exibido logo antes da tabela de produtos vencendo, informando a quantidade de itens ignorados e alertando que o "Valor em Risco" pode estar subestimado. | Correção confirmada por leitura do commit `70a38d7` (`src/lib/services/reportService.ts`, `src/components/reports/ReportsView.tsx`). |
 | RN-03 | O Relatório de Consumo só considera solicitações com `status === 'concluida'` — solicitações `agendada`, `aprovada`, `cancelada` etc. nunca aparecem, mesmo que o período do filtro as inclua. | Confirmado por leitura literal do `where('status', '==', 'concluida')` em `generateConsumptionReport`; consistente com o entendimento de "concluída = produtos efetivamente consumidos" já usado nos UCs de procedimentos (UC-19). |
 | RN-04 | **[Achado de UX]** Apenas um relatório é exibido por vez (`activeReport`, variável única) — gerar um segundo tipo de relatório oculta o preview do primeiro, mesmo que ambos permaneçam calculados em memória. Não há abas ou exibição simultânea. | Confirmado por leitura das condições de renderização (`stockReport && activeReport === 'stock'`, etc.) — todas dependem da mesma variável `activeReport`. |
@@ -148,22 +149,25 @@ Provavelmente frequente/recorrente — é a única tela de relatórios totalment
 - **UC-16 a UC-19 (Procedimentos)** — fonte dos dados de `solicitacoes` (status `concluida`) consumidos pelo Relatório de Consumo.
 - **UC-42 (Executar Verificações de Alertas Manualmente)** — cálculo de "produtos vencendo" conceitualmente semelhante ao deste UC, mas com propósito e implementação totalmente independentes (um gera notificações persistidas; este gera um relatório efêmero, sem persistência).
 - **UC-52 (Projeção de Consumo/Estoque)** — `projectionService.ts` copiou `generateConsumptionReport` como referência de convenção e reproduziu o mesmo engano de campo corrigido aqui em RN-08; corrigido na mesma sessão.
+- **UC-51 (Gerar Relatórios Gerenciais Avançados e Custeio por Procedimento)** — **[Novo, v1.0.4]** o spec de teste `tests/e2e/UC-51-gerar-relatorios-gerenciais-avancados-e-custeio-por-procedimento.spec.ts` também exercita o componente `ReportsView` compartilhado por este UC, e foi ajustado no commit `0b8e6b6` para refletir o novo título "Produtos Vencendo ou Vencidos" (RN-01).
 - Consultant — Relatórios (`/consultant/reports`) — tela placeholder, **não mapeada como UC** por não ter nenhuma lógica de negócio real implementada ainda (RN-07); candidata a UC futuro quando a funcionalidade for de fato construída.
 
 ---
 
 ## 13. Referências
 - `src/app/(clinic)/clinic/reports/page.tsx` (`ReportsPage`)
-- `src/components/reports/ReportsView.tsx` (`ReportsView`, `useToast` — ver RNF-01; banner de itens ignorados — ver RN-02)
+- `src/components/reports/ReportsView.tsx` (`ReportsView`, `useToast` — ver RNF-01; banner de itens ignorados — ver RN-02; título "Produtos Vencendo ou Vencidos" — RN-01)
 - `src/lib/services/reportService.ts` (`generateStockValueReport`, `generateExpirationReport`, `generateConsumptionReport`, `exportToExcel`, `exportToCSV` — código morto)
 - `src/types/index.ts` (interface `ProdutoSolicitado`, linhas 204-212 — campos `produto_codigo`/`produto_nome`, ver RN-08)
 - `src/hooks/use-toast.ts` (`useToast`, padrão adotado na correção do RNF-01)
 - `src/components/clinic/ClinicLayout.tsx` (`navLinks` — inclui "Relatórios")
 - `firestore.rules` (linhas 53-62 — regra genérica de subcoleções do tenant)
 - `src/app/(consultant)/consultant/reports/page.tsx` (placeholder "Em Desenvolvimento", fora do escopo deste UC — RN-07)
+- `tests/e2e/UC-51-gerar-relatorios-gerenciais-avancados-e-custeio-por-procedimento.spec.ts` (ajustado no commit `0b8e6b6` para o novo título do relatório, RN-01)
 - Commit da correção: `53df743` (`fix: lote de correções de baixa severidade (UC-04, UC-08, UC-30, UC-37, UC-47)`) — troca `alert()` nativo por `toast()` padrão do sistema (RNF-01)
 - Commit da correção: `70a38d7` (`fix: quatro itens de media severidade (UC-39, UC-45, UC-47, UC-48)`) — adiciona contagem de `itens_ignorados` e banner de aviso no Relatório de Vencimento (RN-02)
 - Commit da correção: `1ac45ab` (`fix(reports): read produto_codigo/produto_nome instead of codigo_produto/nome_produto in consumption report`) — corrige o agrupamento por produto do Relatório de Consumo (RN-08)
+- Commit da correção: `0b8e6b6` (`fix(reports): renomeia relatorio de vencimento para incluir vencidos`), PR #354 (branch `chore/patch-10-correcoes-baixa-severidade`), release v1.11.0 — renomeia "Produtos Vencendo" para "Produtos Vencendo ou Vencidos" (RN-01)
 
 ---
 
@@ -172,12 +176,12 @@ Provavelmente frequente/recorrente — é a única tela de relatórios totalment
 ⚠️ Os itens abaixo são achados confirmados por leitura de código que representam decisões de produto pendentes de confirmação — não foram decididos unilateralmente por este documento.
 
 1. **[RESOLVIDO — commit `70a38d7`]** RN-02 — itens com data de validade inválida/não interpretável agora são contados em `itens_ignorados` e sinalizados por um banner de aviso amarelo no relatório, deixando explícito que o "Valor em Risco" pode estar subestimado.
-2. **[Observação]** RN-01 — o nome "Produtos Vencendo" pode confundir usuários, já que o relatório também inclui produtos já vencidos. É intencional (nome mantido por simplicidade) ou vale renomear/ajustar a UI para deixar isso explícito?
+2. ~~**[Observação]** RN-01 — o nome "Produtos Vencendo" pode confundir usuários, já que o relatório também inclui produtos já vencidos. É intencional (nome mantido por simplicidade) ou vale renomear/ajustar a UI para deixar isso explícito?~~ **[RESOLVIDO no commit `0b8e6b6` — UC-47-RN-01]** Decisão de produto adotada: renomear para "Produtos Vencendo ou Vencidos", em vez de alterar a lógica de seleção de itens.
 3. **[Observação]** RN-05 — `exportToCSV` é código morto. Remover, ou manter como alternativa futura de exportação?
 4. **[Observação, não bloqueante]** RN-07 — `/consultant/reports` é um placeholder sem lógica real; não foi mapeado como UC nesta rodada por não representar comportamento de negócio implementado. Deve ser tratado como pendência de roadmap, não como lacuna de documentação.
 5. **[RESOLVIDO — commit `1ac45ab`]** RN-08 — o agrupamento por produto do Relatório de Consumo colapsava todos os produtos em uma única linha "indefinida" por leitura de campos incorretos (`codigo_produto`/`nome_produto` em vez de `produto_codigo`/`produto_nome`); já corrigido.
 
-Nenhuma pendência bloqueante remanescente sobre RNF-01, RN-02 ou RN-08 — todos os achados críticos deste UC já foram corrigidos, respectivamente nos commits `53df743`, `70a38d7` e `1ac45ab`.
+Nenhuma pendência bloqueante remanescente sobre RNF-01, RN-01, RN-02 ou RN-08 — todos os achados críticos deste UC já foram corrigidos, respectivamente nos commits `53df743`, `0b8e6b6`, `70a38d7` e `1ac45ab`.
 
 ---
 
@@ -189,3 +193,4 @@ Nenhuma pendência bloqueante remanescente sobre RNF-01, RN-02 ou RN-08 — todo
 | 1.0.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-47-RNF-01): as 4 chamadas de `alert()` nativo em `ReportsView.tsx` (3 nos handlers de erro de geração de relatório, 1 na validação de período vazio do relatório de Consumo) foram substituídas por `toast()` do hook `useToast` (`@/hooks/use-toast`), corrigido no commit `53df743`. Atualizados Pós-condição 4.2, Fluxo Alternativo 7b (passo 3), Fluxo de Exceção 8a, RNF-01 (marcado `[Corrigido]`) e referências (Seção 13). Nenhum item da Seção 14 estava associado a RNF-01; nenhuma alteração feita nessa seção além de uma nota final confirmando a ausência de pendência remanescente sobre o achado corrigido. |
 | 1.0.2 | 03/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-47-RN-02), commit `70a38d7`: itens de inventário com `dt_validade` inválida/não interpretável no Relatório de Vencimento passaram a ser contabilizados em um novo campo `itens_ignorados` (interface `ExpirationReport`) — incluindo um terceiro caso antes não coberto (`Invalid Date` sintaticamente aceito pelo construtor `Date`, ex.: `"2025-13-45"`, que era descartado silenciosamente pela comparação `NaN <= limitDate`). `ReportsView.tsx` ganhou um banner de aviso amarelo (visível quando `itens_ignorados > 0`) alertando que o "Valor em Risco" pode estar subestimado. Atualizados Pós-condição de Sucesso (4.1), Fluxo Alternativo 7a, Fluxo de Exceção 8b (reescrito como histórico "[Corrigido]"), RN-02 (marcada `[CORRIGIDO]`), Referências (Seção 13) e item 1 da Seção 14 (marcado `[RESOLVIDO]`). |
 | 1.0.3 | 23/09/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-47-RN-08), commit `1ac45ab`: o agrupamento por produto do Relatório de Consumo (`por_produto`, em `generateConsumptionReport`) lia os campos `codigo_produto`/`nome_produto` de cada item de `produtos_solicitados`, mas a interface `ProdutoSolicitado` grava esses dados como `produto_codigo`/`produto_nome` — resultando em `keyProduto` sempre `undefined` e todos os produtos consumidos no período colapsando numa única linha "indefinida" no relatório, sem afetar os totais agregados. Achado durante a implementação do UC-52 (`projectionService.ts`), que copiou esta função como referência e reproduziu o mesmo engano em código novo. Atualizados Pós-condição de Sucesso (4.1), Fluxo Alternativo 7b (passo 4), nova regra RN-08 (nasce já `[CORRIGIDO]`), Casos de Uso Relacionados (Seção 12, novo vínculo com UC-52), Referências (Seção 13) e Seção 14 (novo item 5, `[RESOLVIDO]`). |
+| 1.0.4 | 04/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Fechamento de RN-01 (severidade Baixa), commit `0b8e6b6`, PR #354 (branch `chore/patch-10-correcoes-baixa-severidade`), release v1.11.0.** O Relatório de Vencimento foi renomeado de "Produtos Vencendo" para "Produtos Vencendo ou Vencidos" (título do card de preview e cabeçalho da seção, `ReportsView.tsx`), deixando explícito que o relatório também inclui produtos já vencidos — sem nenhuma alteração na lógica de seleção de itens (`generateExpirationReport`). O spec `tests/e2e/UC-51-gerar-relatorios-gerenciais-avancados-e-custeio-por-procedimento.spec.ts`, que também exercita este componente compartilhado, foi ajustado para o novo texto. Atualizados título do documento (referências ao nome do relatório em toda a seção de fluxos), Pós-condição 4.1, Gatilho (Seção 5), Fluxo Principal, Fluxo Alternativo 7a, Fluxo de Exceção 8b, RN-01 (marcada `[CORRIGIDO]`), Casos de Uso Relacionados (Seção 12, novo vínculo com UC-51), Referências (Seção 13) e item 2 da Seção 14 (marcado `[RESOLVIDO]`). |
