@@ -6,7 +6,7 @@
 **Status:** Rascunho
 **Módulo/Contexto:** Portal do Consultor
 
-**Versão:** 1.0
+**Versão:** 1.0.1
 
 > Um Consultor consulta, em `/consultant/profile`, os próprios dados cadastrais (código, nome, status, e-mail, telefone, data de cadastro) e um resumo do número de clínicas vinculadas. Diferente das telas de perfil dos demais roles (UC-38 para System Admin, UC-41 para usuários de clínica), esta tela é **inteiramente somente-leitura**: não há nenhum campo editável, nenhuma opção de trocar a própria senha, e o próprio texto da tela orienta o consultor a "entrar em contato com o suporte do sistema" para qualquer alteração cadastral.
 
@@ -54,7 +54,7 @@ Nenhum.
 - Sistema exibe: código do consultor (destacado, com botão de copiar), nome, badge de status (Ativo/Inativo), e-mail, telefone, data de cadastro (`created_at`, formatada) e a contagem de `authorized_tenants` (clínicas vinculadas).
 
 ### 4.2 Falha (Garantias Mínimas)
-- Se `GET /api/consultants/{consultantId}` falhar: erro apenas registrado via `console.error`; a tela permanece com `consultant: null`, exibindo campos vazios/undefined sem nenhuma mensagem de erro visível.
+- **[CORRIGIDO no commit `5cce33c` — UC-49-RN-03]** Se `GET /api/consultants/{consultantId}` falhar: o erro continua sendo registrado via `console.error`, mas agora a tela exibe um bloco de erro visível ("Não foi possível carregar seu perfil. Tente novamente mais tarde.") em vez dos cards com campos vazios/undefined.
 
 ---
 
@@ -66,7 +66,7 @@ Consultor navega para `/consultant/profile` (menu "Meu Perfil" do Portal do Cons
 ## 6. Fluxo Principal (Basic Flow)
 
 1. Consultor acessa `/consultant/profile`.
-2. Sistema chama `GET /api/consultants/{consultantId}` (usando o `consultantId` do próprio usuário autenticado, vindo de `useAuth`).
+2. Sistema chama `GET /api/consultants/{consultantId}` (usando o `consultantId` do próprio usuário autenticado, vindo de `useAuth`), através do hook compartilhado `useAsyncState` (`src/hooks/useAsyncState.ts` — ver RN-03).
 3. API verifica autenticação e permissão: apenas `system_admin` ou o próprio consultor (`decodedToken.consultant_id === consultantId`) podem ler — garantindo que um consultor nunca visualize o perfil de outro.
 4. Sistema exibe o card de código (destaque visual, com botão "Copiar" via `navigator.clipboard`), seguido do card "Informações Pessoais" (nome, badge de status, e-mail, telefone, data de cadastro) e do card "Clínicas Vinculadas" (contagem numérica de `authorized_tenants.length`).
 5. Sistema exibe um card de ajuda fixo: "Para alterar seus dados cadastrais, entre em contato com o suporte do sistema" — não há nenhum link, botão ou formulário de edição na tela.
@@ -81,9 +81,9 @@ Nenhum identificado — a tela não tem parâmetros, filtros ou variações de e
 
 ## 8. Fluxos de Exceção
 
-### 8a. Falha ao carregar o perfil (a partir do passo 2)
+### 8a. [CORRIGIDO no commit `5cce33c`] Falha ao carregar o perfil (a partir do passo 2)
 1. `fetch` lança exceção, ou a API retorna erro (403/404/500).
-2. Erro é apenas registrado via `console.error('Erro ao carregar perfil:', error)`; a tela renderiza os cards normalmente, mas com todos os campos de `consultant` como `undefined` (React renderiza como vazio) — sem nenhuma mensagem de erro visível ao usuário.
+2. Sistema registra o erro via `console.error('Erro ao carregar perfil:', error)` **e** exibe um bloco de erro visível ("Não foi possível carregar seu perfil. Tente novamente mais tarde."), no lugar dos cards de dados, através do hook compartilhado `useAsyncState`. **Nota histórica:** antes desta correção, o erro era apenas registrado no console; a tela renderizava os cards normalmente, mas com todos os campos de `consultant` como `undefined` (React renderiza como vazio) — sem nenhuma mensagem de erro visível ao usuário.
 
 ---
 
@@ -93,7 +93,7 @@ Nenhum identificado — a tela não tem parâmetros, filtros ou variações de e
 |----|-------|----------------|
 | RN-01 | **[Achado — assimetria confirmada entre roles]** Diferente de UC-38 (System Admin) e UC-41 (Usuário de Clínica), que permitem autoedição de nome e senha, o Consultor **não tem nenhum mecanismo de autoatendimento** para alterar seus próprios dados cadastrais ou senha — a única orientação da própria tela é contatar o suporte. Não foi encontrada, em nenhum ponto do código, uma rota `PUT`/`PATCH` que um consultor possa chamar sobre seu próprio registro. | Confirmado por leitura completa de `ConsultantProfilePage` (nenhum formulário/botão de edição) e por busca em `src/app/api/consultants/` por rotas de atualização acessíveis ao próprio consultor — `PUT /api/consultants/[id]` (visto em UC-29) é restrita a `system_admin`. |
 | RN-02 | A API restringe a leitura ao próprio consultor (`consultant_id` do token) ou a `system_admin` — nunca a outro consultor nem a usuários de clínica, mesmo que soubessem o ID. | Confirmado por leitura de `GET /api/consultants/[id]/route.ts`, linhas 31-37. |
-| RN-03 | Falha de carregamento não é tratada com nenhum estado de erro — os campos apenas aparecem vazios, indistinguíveis de um consultor com dados genuinamente ausentes no cadastro. | Confirmado por leitura de `loadProfile` — `catch` apenas com `console.error`, sem `setError`. |
+| RN-03 | **[CORRIGIDO no commit `5cce33c` — UC-49-RN-03]** Falha de carregamento agora exibe um estado de erro visível ("Não foi possível carregar seu perfil. Tente novamente mais tarde."), através do novo hook compartilhado `useAsyncState` (`src/hooks/useAsyncState.ts`, extraído no mesmo lote para eliminar a duplicação do padrão loading/error entre esta tela, UC-41 e UC-46). **Nota histórica:** até esta correção, os campos apenas apareciam vazios, indistinguível de um consultor com dados genuinamente ausentes no cadastro — o `catch` de `loadProfile` só chamava `console.error`, sem `setError`. | Confirmado por leitura de `loadProfile` (`consultant/profile/page.tsx`) — agora usa `run(...)` de `useAsyncState`, que popula `error` e é renderizado em um bloco de erro visível antes dos cards. |
 
 ---
 
@@ -102,7 +102,7 @@ Nenhum identificado — a tela não tem parâmetros, filtros ou variações de e
 | ID | Descrição | Categoria |
 |----|-----------|-----------|
 | RNF-01 | Ausência total de autoatendimento (RN-01) — todo pedido de alteração cadastral do consultor depende de um canal de suporte fora do sistema, diferente do padrão dos outros dois roles. | Usabilidade / Suporte |
-| RNF-02 | Nenhum feedback de erro visível em caso de falha de carregamento (RN-03). | Usabilidade |
+| RNF-02 | **[CORRIGIDO no commit `5cce33c` — RN-03]** Falha de carregamento agora exibe feedback de erro visível, em vez de campos simplesmente vazios. | Usabilidade |
 
 ---
 
@@ -112,7 +112,7 @@ Ocasional — consulta pontual do próprio consultor para conferir ou compartilh
 ---
 
 ## 12. Casos de Uso Relacionados
-- **UC-38 (Editar Perfil e Trocar Senha do System Admin)** e **UC-41 (Editar Perfil e Trocar Senha do Usuário de Clínica)** — telas equivalentes de outros roles, mas com edição real; contraste direto com a ausência de autoedição aqui (RN-01).
+- **UC-38 (Editar Perfil e Trocar Senha do System Admin)** e **UC-41 (Editar Perfil e Trocar Senha do Usuário de Clínica)** — telas equivalentes de outros roles, mas com edição real; contraste direto com a ausência de autoedição aqui (RN-01). Desde o commit `5cce33c`/PR #354, esta tela também compartilha com UC-41 (e com UC-46) o hook `useAsyncState` usado para padronizar o tratamento de erro (RN-03).
 - **UC-30 (Redefinir Senha do Consultor via Link)** e **UC-30-adjacente** — mecanismos de troca de senha do consultor, mas sempre iniciados pelo `system_admin`, nunca pelo próprio consultor.
 - **UC-48 (Consultar Clínicas Vinculadas e Estoque)** — outra tela somente-leitura do mesmo portal; juntas, cobrem toda a navegação de consulta do Portal do Consultor.
 
@@ -122,6 +122,8 @@ Ocasional — consulta pontual do próprio consultor para conferir ou compartilh
 - `src/app/(consultant)/consultant/profile/page.tsx`
 - `src/app/api/consultants/[id]/route.ts` (`GET`)
 - `src/types/index.ts` (`Consultant`)
+- `src/hooks/useAsyncState.ts` (hook compartilhado de loading/error, usado por esta tela desde o commit `5cce33c` — RN-03)
+- Commit da correção: `5cce33c` (`fix(ui): exibe erro visível ao falhar carregamento de perfil/consultor`), PR #354 (branch `chore/patch-10-correcoes-baixa-severidade`), release v1.11.0 — tela passa a usar `useAsyncState`, exibindo erro visível em vez de campos vazios (RN-03)
 
 ---
 
@@ -130,7 +132,7 @@ Ocasional — consulta pontual do próprio consultor para conferir ou compartilh
 ⚠️ Os itens abaixo são achados confirmados por leitura de código que representam decisões de produto pendentes de confirmação — não foram decididos unilateralmente por este documento.
 
 1. **[Achado, requer decisão de produto]** RN-01 — é intencional que o Consultor nunca possa autoeditar nome/senha (delegando sempre ao suporte/System Admin), diferente dos outros dois roles? Se não for intencional, é uma lacuna de funcionalidade a implementar.
-2. **[Observação]** RN-03 — vale conectar tratamento de erro visível, hoje silencioso?
+2. ~~**[Observação]** RN-03 — vale conectar tratamento de erro visível, hoje silencioso?~~ **[RESOLVIDO no commit `5cce33c` — UC-49-RN-03]** A tela agora exibe um bloco de erro visível em caso de falha de carregamento, via o novo hook compartilhado `useAsyncState`.
 
 ---
 
@@ -139,3 +141,4 @@ Ocasional — consulta pontual do próprio consultor para conferir ou compartilh
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada por leitura completa de `ConsultantProfilePage` e `GET /api/consultants/[id]/route.ts`. Identificado achado principal: diferente de UC-38/UC-41, o Consultor não tem nenhum mecanismo de autoatendimento para editar os próprios dados ou senha — a tela é inteiramente somente-leitura, orientando contato com o suporte para qualquer alteração (RN-01). |
+| 1.0.1 | 04/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Fechamento de RN-03 (severidade Baixa), commit `5cce33c`, PR #354 (branch `chore/patch-10-correcoes-baixa-severidade`), release v1.11.0.** `ConsultantProfilePage` passou a usar o novo hook compartilhado `src/hooks/useAsyncState.ts` (extraído no mesmo lote para eliminar a duplicação do padrão loading/error entre esta tela, UC-41 e UC-46) e agora exibe um bloco de erro visível quando `GET /api/consultants/{consultantId}` falha, em vez de renderizar os cards com campos vazios/undefined. Atualizados Pós-condição 4.2, Fluxo de Exceção 8a (marcado `[CORRIGIDO]`), RN-03 e RNF-02 (marcados `[CORRIGIDO]`), Casos de Uso Relacionados (Seção 12), Referências (Seção 13) e item 2 da Seção 14 (marcado `[RESOLVIDO]`). |

@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Clínica (Autoatendimento)
-**Versão:** 1.0.2
+**Versão:** 1.0.3
 
 > Um usuário de clínica (`clinic_admin` ou `clinic_user`), na tela `clinic/profile/page.tsx` (link "Meu Perfil" no menu do Portal da Clínica), atualiza o próprio nome de exibição e/ou troca a própria senha — duas ações independentes, ambas executadas inteiramente client-side via Firebase Auth SDK, sem nenhuma API route de backend envolvida. A mesma tela também exibe, em modo somente-leitura, o histórico de aceites de termos legais do próprio usuário (`user_document_acceptances`) — escopo já citado como "fora do escopo" em UC-09 e formalmente coberto aqui. É estruturalmente análogo a UC-38 (mesmo padrão para System Admin), mas sem nenhuma distinção de comportamento entre `clinic_admin` e `clinic_user`.
 
@@ -70,7 +70,7 @@ flowchart LR
 
 ### 4.2 Falha (Garantias Mínimas)
 - Nenhuma alteração é feita no Firebase Auth; a mensagem de erro específica é exibida na seção correspondente (perfil ou senha, cada uma com seu próprio estado de erro independente).
-- Falha ao carregar o histórico de aceites não bloqueia o restante da tela — o erro é apenas logado no console (`console.error`), sem toast nem mensagem visível ao usuário (ver Fluxo de Exceção 8h).
+- **[CORRIGIDO no commit `5cce33c` — UC-41-RNF-04]** Falha ao carregar o histórico de aceites não bloqueia o restante da tela — o erro continua sendo logado no console (`console.error`), mas agora também é exibido ao usuário em um bloco de erro visível na própria seção "Termos de Uso e Privacidade" (ver Fluxo de Exceção 8h).
 
 ---
 
@@ -142,9 +142,9 @@ Usuário de clínica clica em "Meu Perfil" no menu do Portal da Clínica (`Clini
 1. Qualquer outro erro do Firebase Auth não coberto por 8e/8f (potencialmente incluindo `auth/invalid-credential`, ver 8e).
 2. Sistema exibe `error.message` bruto retornado pelo SDK (ou "Erro ao alterar senha" como fallback).
 
-### 8h. Erro ao carregar histórico de aceites de termos (a partir do passo 3 do Fluxo Principal)
+### 8h. [CORRIGIDO no commit `5cce33c`] Erro ao carregar histórico de aceites de termos (a partir do passo 3 do Fluxo Principal)
 1. A consulta a `user_document_acceptances` (ou a busca do título em `legal_documents` para algum item) lança exceção.
-2. Sistema apenas registra o erro via `console.error('Erro ao carregar aceitações de termos:', error)` — **nenhum toast ou mensagem visível é exibido ao usuário**; a seção simplesmente encerra o carregamento (skeleton desaparece) e mostra a lista com os itens que conseguiu montar (ou "Nenhum termo aceito ainda", se nada foi carregado).
+2. Sistema registra o erro via `console.error('Erro ao carregar aceitações de termos:', error)` **e** exibe um bloco de erro visível ("Não foi possível carregar o histórico de termos aceitos.") na própria seção "Termos de Uso e Privacidade", através do novo hook compartilhado `useAsyncState` (`src/hooks/useAsyncState.ts`, extraído no mesmo lote para eliminar a duplicação do padrão loading/error entre esta tela, UC-46 e UC-49). **Nota histórica:** antes desta correção, nenhum toast ou mensagem visível era exibido ao usuário; a seção apenas encerrava o carregamento (skeleton desaparecia) e mostrava a lista com os itens que conseguiu montar (ou "Nenhum termo aceito ainda", se nada foi carregado), sem qualquer indicação de que uma falha havia ocorrido.
 3. Caso de uso prossegue normalmente nos demais blocos da tela (perfil e senha não são afetados).
 
 ---
@@ -173,7 +173,7 @@ Usuário de clínica clica em "Meu Perfil" no menu do Portal da Clínica (`Clini
 | RNF-01 | Toda a troca de senha ocorre client-side via Firebase SDK, com reautenticação obrigatória (exigência do próprio Firebase Auth para operações sensíveis) — mesmo padrão de segurança de UC-06/UC-37/UC-38. | Segurança |
 | RNF-02 | Ausência de qualquer registro de auditoria (RN-07) sobre trocas de senha do próprio usuário de clínica — mesmo achado de UC-38. | Auditoria |
 | RNF-03 | Esta tela é de uso exclusivamente pessoal — não existe, em nenhum outro lugar do sistema, uma forma de um usuário de clínica editar o perfil ou trocar a senha de **outro** usuário (esse fluxo pertence ao System Admin, via UC-36/UC-37, ou ao próprio clinic_admin, via UC-40 para criação — edição/troca de senha de outros usuários da mesma clínica não foi identificada em nenhum UC até o momento, ver seção 14). | Segurança / Escopo |
-| RNF-04 | Falha ao carregar o histórico de aceites de termos é silenciosa para o usuário final (apenas `console.error`) — diferente do padrão de exibição de erro usado nos demais blocos desta mesma tela (perfil e senha, que exibem mensagem visível). | Usabilidade |
+| RNF-04 | **[CORRIGIDO no commit `5cce33c` — UC-41-RNF-04]** Falha ao carregar o histórico de aceites de termos agora exibe uma mensagem de erro visível na própria seção, alinhada ao padrão já usado nos demais blocos desta mesma tela (perfil e senha). **Nota histórica:** até esta correção, a falha era silenciosa para o usuário final (apenas `console.error`). | Usabilidade |
 
 ---
 
@@ -187,6 +187,7 @@ Rara — atualização de nome e troca de senha do próprio usuário de clínica
 - **UC-09 (Aceitar Termos Legais)** já citava, em sua seção 13 (Referências), que `clinic/profile/page.tsx` exibe "somente-leitura o histórico de aceites do próprio usuário — fora do escopo daquele UC". Este UC-41 formaliza esse escopo (Fluxo Alternativo 7b, RN-09).
 - **UC-05 (Aprovar Solicitação de Acesso pela Própria Clínica)** e **UC-16 a UC-19 (Registrar/Editar/Concluir Procedimento)** são afetados indiretamente por este UC: todos leem `user.displayName` (que este UC-41 pode alterar) para preencher campos de auditoria (RN-08).
 - **UC-06 (Trocar Senha Obrigatória no Primeiro Acesso)** é o fluxo forçado de troca de senha (aplicável a `clinic_admin`/`clinic_user` no primeiro acesso); este UC-41 é o mecanismo de autoatendimento voluntário, a qualquer momento.
+- **UC-46 (Visualizar Consultor Vinculado à Clínica)** e **UC-49 (Visualizar Perfil Próprio do Consultor)** — **[Novo, v1.0.3]** compartilham, desde o commit `5cce33c`/PR #354, o mesmo hook `useAsyncState` (`src/hooks/useAsyncState.ts`) usado aqui para padronizar o ciclo loading/error da seção de termos (RNF-04).
 
 ---
 
@@ -195,11 +196,13 @@ Rara — atualização de nome e troca de senha do próprio usuário de clínica
 - `src/components/clinic/ClinicLayout.tsx` (link "Meu Perfil" no menu, linha 41; array `navLinks` não filtrado por role)
 - `src/app/(clinic)/layout.tsx` (`ProtectedRoute allowedRoles: ['clinic_admin', 'clinic_user']`)
 - `src/hooks/useAuth.ts` (fonte do objeto `user`/`claims` do Firebase Auth)
+- `src/hooks/useAsyncState.ts` (hook compartilhado de loading/error, usado pela seção de termos desde o commit `5cce33c` — RNF-04)
 - `src/app/(admin)/admin/profile/page.tsx` (UC-38 — comparação direta de padrão, RN-01 a RN-07)
 - `src/app/(clinic)/clinic/access-requests/page.tsx`, `src/app/(clinic)/clinic/requests/new/page.tsx`, `src/app/(clinic)/clinic/requests/[id]/page.tsx` (uso de `user.displayName` — RN-08)
 - `src/app/(auth)/accept-terms/page.tsx`, `src/app/(clinic)/clinic/setup/terms/page.tsx` (UC-09 — origem dos registros em `user_document_acceptances` exibidos somente-leitura aqui)
 - Commit da correção: `ec31c27` (`fix: segundo lote de correções de baixa severidade (UC-22, UC-30, UC-37, UC-38, UC-41)`) — condição de `handleUpdatePassword` passa a tratar também `auth/invalid-credential` (RN-04)
 - Commit da correção: `2ddebd6` (`fix: terceiro lote de correções de baixa severidade (UC-32, UC-38, UC-41, UC-44)`) — bloco de bloqueio de "nova senha igual à atual" adicionado em `handleUpdatePassword` (RN-03)
+- Commit da correção: `5cce33c` (`fix(ui): exibe erro visível ao falhar carregamento de perfil/consultor`), PR #354 (branch `chore/patch-10-correcoes-baixa-severidade`), release v1.11.0 — bloco de erro visível adicionado à seção "Termos de Uso e Privacidade" via `useAsyncState` (RNF-04)
 
 ---
 
@@ -208,7 +211,7 @@ Rara — atualização de nome e troca de senha do próprio usuário de clínica
 1. ~~**[RN-04]** Não confirmado se `auth/invalid-credential` de fato ocorre em produção para reautenticação com senha incorreta nesta versão do Firebase SDK usada pelo projeto — mesmo ponto em aberto já registrado em UC-38.~~ **[RESOLVIDO no commit `ec31c27` — UC-41-RN-04]** Independentemente de confirmação em runtime, o tratamento de erro passou a cobrir também `auth/invalid-credential`, mesma correção aplicada em UC-38, no mesmo commit.
 2. ~~**[RN-03]** Ausência de bloqueio para "nova senha igual à atual" — não confirmado pelo usuário se deve ser corrigido para alinhar com UC-06.~~ **[RESOLVIDO no commit `2ddebd6` — UC-41-RN-03]** Bloqueio adicionado em `handleUpdatePassword`, mesma correção aplicada em UC-38, no mesmo commit, alinhando este formulário a UC-06.
 3. **[RN-07]** Ausência de qualquer auditoria de troca de senha do próprio usuário de clínica — avaliação de necessidade de correção não solicitada até o momento.
-4. **[RNF-04]** Falha silenciosa (apenas `console.error`, sem toast) ao carregar o histórico de aceites de termos — não confirmado pelo usuário se é um comportamento intencional (a lista é apenas informativa/secundária) ou uma lacuna a corrigir.
+4. ~~**[RNF-04]** Falha silenciosa (apenas `console.error`, sem toast) ao carregar o histórico de aceites de termos — não confirmado pelo usuário se é um comportamento intencional (a lista é apenas informativa/secundária) ou uma lacuna a corrigir.~~ **[RESOLVIDO no commit `5cce33c` — UC-41-RNF-04]** A seção agora exibe um bloco de erro visível, via o novo hook compartilhado `useAsyncState`.
 5. **[RNF-03]** Não foi localizado, em nenhum UC mapeado até agora, um fluxo pelo qual um `clinic_admin` edite o perfil ou troque a senha de **outro** usuário da mesma clínica (`clinic_user` ou outro `clinic_admin`) — apenas UC-40 (criação) foi confirmado até o momento. Não confirmado se esse fluxo existe em alguma tela ainda não mapeada do módulo Clínica, ou se genuinamente não existe (dependência exclusiva de "Esqueci minha senha" / System Admin).
 
 ---
@@ -220,3 +223,4 @@ Rara — atualização de nome e troca de senha do próprio usuário de clínica
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero a partir de `clinic/profile/page.tsx`, usando UC-38 (System Admin) como padrão estrutural de referência. Documenta as três seções independentes da tela: editar nome (perfil), trocar senha, e visualizar (somente leitura) o histórico de aceites de termos legais — este último formalizando o escopo que UC-09 já citava como "fora do escopo daquele UC". Confirmado RN-10: nenhuma diferenciação de comportamento entre `clinic_admin` e `clinic_user` nesta tela. Achados equivalentes aos de UC-38 (mesma ausência de auditoria de troca de senha e de bloqueio de "senha igual à atual", mesmo tratamento incompleto de `auth/invalid-credential`), com uma divergência real: a senha mínima aqui é de 6 caracteres (padrão do resto do sistema), não 8 (exceção exclusiva de `system_admin` em UC-38). Registrada pendência sobre a ausência de um fluxo de edição de perfil/senha de um usuário por **outro** usuário da mesma clínica (seção 14, item 5). |
 | 1.0.1 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-41-RN-04): a condição de tratamento de erro em `handleUpdatePassword` (`src/app/(clinic)/clinic/profile/page.tsx`) foi alterada de `if (error.code === 'auth/wrong-password')` para `if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential')` — corrigido no commit `ec31c27`, mesmo commit que aplicou a correção idêntica em UC-38 (RN-04). Atualizados Fluxo de Exceção 8d, RN-04 (marcado `[Corrigido]`), cross-reference a UC-38 na Seção 12, referências (Seção 13) e item 1 da Seção 14 (marcado `[RESOLVIDO]`). |
 | 1.0.2 | 18/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-41-RN-03): bloco `if (newPassword === currentPassword) { setPasswordError('A nova senha deve ser diferente da senha atual'); return; }` adicionado em `handleUpdatePassword` (`src/app/(clinic)/clinic/profile/page.tsx`), logo após a checagem de confirmação de senha e antes de `setPasswordLoading(true)` — corrigido no commit `2ddebd6`, mesmo commit que aplicou a correção idêntica em UC-38 (RN-03), alinhando este formulário ao mesmo bloqueio já existente em UC-06. Atualizados Fluxo Alternativo 7a (passo 3), inserido novo Fluxo de Exceção 8d ("Nova senha igual à senha atual", renumerando os antigos 8d/8e/8f/8g para 8e/8f/8g/8h, com ajuste da referência cruzada interna no antigo 8f, agora 8g), RN-03 (marcado `[Corrigido]`), cross-reference a UC-38 na Seção 12, referências (Seção 13) e item 2 da Seção 14 (marcado `[RESOLVIDO]`). |
+| 1.0.3 | 04/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Fechamento de RNF-04 (severidade Baixa), commit `5cce33c`, PR #354 (branch `chore/patch-10-correcoes-baixa-severidade`), release v1.11.0.** A falha ao carregar o histórico de aceites de termos deixou de ser silenciosa: `clinic/profile/page.tsx` passou a usar o novo hook compartilhado `src/hooks/useAsyncState.ts` (extraído no mesmo lote para eliminar a duplicação do padrão loading/error entre esta tela, UC-46 e UC-49) e agora exibe um bloco de erro visível na seção "Termos de Uso e Privacidade" em caso de falha, além de continuar registrando o erro via `console.error`. Atualizados Pós-condição 4.2, Fluxo de Exceção 8h (marcado `[CORRIGIDO]`), RNF-04 (marcado `[CORRIGIDO]`), Casos de Uso Relacionados (Seção 12), Referências (Seção 13) e item 4 da Seção 14 (marcado `[RESOLVIDO]`). |
