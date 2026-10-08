@@ -4,13 +4,13 @@
       "target": "curva-mestra",
       "source": ".",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-      "frameworksBackend": {}
+      "frameworksBackend": { "memory": "1GiB" }
     },
     {
       "target": "dev-gscandelari",
       "source": ".",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-      "frameworksBackend": {}
+      "frameworksBackend": { "memory": "1GiB" }
     }
   ],
   "functions": [

@@ -22,6 +22,7 @@ import {
   validateFullName,
   validateEmail,
   validatePhone,
+  validateConsultantCode,
 } from '@/lib/validations/serverValidations';
 
 type Role = 'especialista' | 'consultor';
@@ -40,7 +41,7 @@ export default function RegisterPage() {
     email: '',
     phone: '',
     businessName: '', // clínica (especialista) ou região/carteira (consultor)
-    consultantReference: '', // opcional, especialista
+    consultantCode: '', // opcional, especialista — código de 6 dígitos (UC-01 RN-08)
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -61,6 +62,11 @@ export default function RegisterPage() {
       if (cleaned.length <= 11) {
         value = cleaned.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
       }
+    }
+
+    // Código do consultor: só dígitos, no máximo 6
+    if (e.target.id === 'consultantCode') {
+      value = value.replace(/\D/g, '').slice(0, 6);
     }
 
     setFormData({ ...formData, [e.target.id]: value });
@@ -102,6 +108,13 @@ export default function RegisterPage() {
       );
       return;
     }
+    if (role === 'especialista' && formData.consultantCode.trim()) {
+      const codeValidation = validateConsultantCode(formData.consultantCode);
+      if (!codeValidation.valid) {
+        setError(codeValidation.error!);
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -115,8 +128,8 @@ export default function RegisterPage() {
       };
       if (role === 'especialista') {
         body.volume = volume;
-        if (formData.consultantReference.trim()) {
-          body.consultant_reference = formData.consultantReference.trim();
+        if (formData.consultantCode.trim()) {
+          body.consultant_code = formData.consultantCode.trim();
         }
       }
 
@@ -139,7 +152,7 @@ export default function RegisterPage() {
           email: '',
           phone: '',
           businessName: '',
-          consultantReference: '',
+          consultantCode: '',
         });
         setTimeout(() => router.push('/login'), 4000);
       } else {
@@ -294,17 +307,23 @@ export default function RegisterPage() {
             {role === 'especialista' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="consultantReference">
-                    Consultor Rennova de referência{' '}
+                  <Label htmlFor="consultantCode">
+                    Código do consultor Rennova de referência{' '}
                     <span className="text-muted-foreground font-normal">(opcional)</span>
                   </Label>
                   <Input
-                    id="consultantReference"
-                    placeholder="Nome do seu consultor"
-                    value={formData.consultantReference}
+                    id="consultantCode"
+                    placeholder="Ex.: 847291"
+                    value={formData.consultantCode}
                     onChange={handleChange}
+                    inputMode="numeric"
+                    maxLength={6}
+                    className="font-mono text-sm"
                     disabled={disabled}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Código de 6 dígitos informado pelo seu consultor Rennova.
+                  </p>
                 </div>
 
                 <div className="space-y-2">

@@ -11,9 +11,10 @@ export const dynamic = 'force-dynamic';
  *   council_number  — CRM/CRO (especialista) ou ID Rennova (consultor)
  *   business_name   — Nome da clínica (especialista) ou região/carteira (consultor)
  *
- * Campos opcionais:
- *   consultant_reference — Consultor Rennova de referência
- *   volume               — Volume mensal de procedimentos
+ * Campos opcionais (apenas role === 'especialista'):
+ *   consultant_code — Código de 6 dígitos do consultor Rennova (UC-01 RN-08),
+ *                     validado contra um consultor ATIVO em `consultants`
+ *   volume          — Volume mensal de procedimentos
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -30,6 +31,8 @@ import {
   validateEmail,
   validatePhone,
   validateFullName,
+  validateConsultantCode,
+  INVALID_CONSULTANT_CODE_ERROR,
 } from '@/lib/validations/serverValidations';
 
 const firebaseConfig = {
@@ -139,6 +142,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Código de consultor (UC-01 RN-08) -- opcional, só para especialista.
+    // Valida formato (função pura compartilhada com o frontend) e, via Admin
+    // SDK (mesmo motivo das leituras acima: rota pública), que existe um
+    // consultor com status "active" para esse código. Grava o vínculo
+    // (consultant_code + consultant_id) usado por UC-56/UC-57.
+    let consultantLink: { consultant_code: string; consultant_id: string } | null = null;
+    const rawConsultantCode =
+      data.role === 'especialista' && typeof data.consultant_code === 'string'
+        ? data.consultant_code.trim()
+        : '';
+    if (rawConsultantCode) {
+      const codeValidation = validateConsultantCode(rawConsultantCode);
+      if (!codeValidation.valid) {
+        return NextResponse.json({ error: codeValidation.error }, { status: 400 });
+      }
+      const consultantSnap = await adminDb
+        .collection('consultants')
+        .where('code', '==', rawConsultantCode)
+        .where('status', '==', 'active')
+        .limit(1)
+        .get();
+      if (consultantSnap.empty) {
+        return NextResponse.json({ error: INVALID_CONSULTANT_CODE_ERROR }, { status: 400 });
+      }
+      consultantLink = {
+        consultant_code: rawConsultantCode,
+        consultant_id: consultantSnap.docs[0].id,
+      };
+    }
+
     // Derivar type legado a partir do role
     const type = data.role === 'especialista' ? 'clinica' : 'autonomo';
 
@@ -151,7 +184,8 @@ export async function POST(req: NextRequest) {
       phone: data.phone,
       council_number: data.council_number,
       business_name: data.business_name,
-      consultant_reference: data.consultant_reference || null,
+      consultant_code: consultantLink?.consultant_code ?? null,
+      consultant_id: consultantLink?.consultant_id ?? null,
       volume: data.volume || null,
       status: 'pendente',
       created_at: serverTimestamp(),

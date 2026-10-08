@@ -270,7 +270,12 @@ export interface AccessRequest {
   business_name: string; // Nome da clínica (especialista) ou região/carteira (consultor)
 
   // Campos opcionais do formulário
-  consultant_reference?: string; // Consultor Rennova de referência (especialista)
+  /** Legado (texto livre, até UC-01 v2.1.1) — não é mais gravado por novas solicitações */
+  consultant_reference?: string;
+  /** Código de 6 dígitos do consultor informado e validado em UC-01 (RN-08) */
+  consultant_code?: string;
+  /** Id do documento em `consultants` correspondente a `consultant_code` (UC-01 RN-08, usado por UC-56/UC-57) */
+  consultant_id?: string;
   volume?: string; // Volume de procedimentos por mês (especialista)
 
   // Documento — opcional desde nova versão do formulário
