@@ -70,7 +70,9 @@ jobs:
       # demais ainda não têm equivalente de teste seguro no projeto dev (ex.:
       # sendCustomEmail, sendTempPasswordEmail, processEmailQueue continuam de
       # fora por ora):
-      # - checkAlertsScheduled não depende de secrets;
+      # - checkAlertsScheduled e checkConsultantPendingAccessRequestsScheduled
+      #   (UC-57) não dependem de secrets — a segunda só grava em email_queue, e
+      #   processEmailQueue não roda em dev, então nenhum e-mail real é enviado;
       # - onUserCreated/onTenantCreated/onAccessRequestCreated/
       #   sendAccessRejectionEmail/sendTemplateTestEmail (UC-55) dependem dos
       #   secrets SMTP_USER/SMTP_PASS, já configurados no projeto dev via
@@ -102,12 +104,13 @@ jobs:
             echo "exports.onAccessRequestCreated = require('./onAccessRequestCreated').onAccessRequestCreated;"
             echo "exports.sendAccessRejectionEmail = require('./sendRejectionEmail').sendAccessRejectionEmail;"
             echo "exports.sendTemplateTestEmail = require('./sendTemplateTestEmail').sendTemplateTestEmail;"
+            echo "exports.checkConsultantPendingAccessRequestsScheduled = require('./checkConsultantPendingAccessRequestsScheduled').checkConsultantPendingAccessRequestsScheduled;"
           } > lib/index.js
 
       - name: Deploy Scheduled Functions (dev-gscandelari)
         run: |
           set -o pipefail
-          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled,functions:onUserCreated,functions:onTenantCreated,functions:onAccessRequestCreated,functions:sendAccessRejectionEmail,functions:sendTemplateTestEmail --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
+          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled,functions:onUserCreated,functions:onTenantCreated,functions:onAccessRequestCreated,functions:sendAccessRejectionEmail,functions:sendTemplateTestEmail,functions:checkConsultantPendingAccessRequestsScheduled --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
         env:
           FIREBASE_TOKEN_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
 
