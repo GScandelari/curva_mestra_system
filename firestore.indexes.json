@@ -97,6 +97,20 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "consultant_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "access_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "status",
           "order": "ASCENDING"
         },
