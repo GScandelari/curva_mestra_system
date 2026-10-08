@@ -12,7 +12,37 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
+import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
 import type { AccessRequest, Tenant, UserRole } from '@/types';
+
+interface LinkedConsultant {
+  id: string;
+  code: string;
+  name: string;
+  user_id?: string;
+}
+
+/**
+ * Consultor ao qual a clínica criada fica vinculada: o do código informado no
+ * cadastro (UC-01 RN-08), independente de quem aprova (System Admin ou
+ * consultor). Sem código, a clínica nasce sem consultor. Consultor removido ou
+ * inativo na hora da aprovação não recebe o vínculo.
+ */
+async function resolveLinkedConsultant(
+  consultantId: string | undefined
+): Promise<LinkedConsultant | null> {
+  if (!consultantId) return null;
+
+  const doc = await adminDb.collection('consultants').doc(consultantId).get();
+  const data = doc.data();
+  if (!doc.exists || data?.status !== 'active') {
+    console.warn(
+      `⚠️ Consultor ${consultantId} da solicitação não está ativo — clínica criada sem vínculo`
+    );
+    return null;
+  }
+  return { id: doc.id, code: data.code, name: data.name, user_id: data.user_id };
+}
 
 export interface AccessRequestApprover {
   uid: string;
@@ -53,7 +83,14 @@ export async function createTenantAndUserFromAccessRequest(
   // max_users baseado no role / type (UC-02 RN-02)
   const max_users = request.type === 'autonomo' || request.role === 'consultor' ? 1 : 5;
 
+  const linkedConsultant = await resolveLinkedConsultant(request.consultant_id);
+
   const tenantData: Omit<Tenant, 'id'> = {
+    ...(linkedConsultant && {
+      consultant_id: linkedConsultant.id,
+      consultant_code: linkedConsultant.code,
+      consultant_name: linkedConsultant.name,
+    }),
     name: request.business_name,
     document_type: request.document_type ?? 'cnpj',
     document_number: request.document_number ?? '',
@@ -112,7 +149,8 @@ export async function createTenantAndUserFromAccessRequest(
         updated_at: FieldValue.serverTimestamp(),
       });
 
-    await adminDb.collection('access_requests').doc(requestId).update({
+    const batch = adminDb.batch();
+    batch.update(adminDb.collection('access_requests').doc(requestId), {
       status: 'aprovada',
       tenant_id,
       user_id,
@@ -121,6 +159,13 @@ export async function createTenantAndUserFromAccessRequest(
       approved_at: FieldValue.serverTimestamp(),
       updated_at: FieldValue.serverTimestamp(),
     });
+    if (linkedConsultant) {
+      batch.update(adminDb.collection('consultants').doc(linkedConsultant.id), {
+        authorized_tenants: FieldValue.arrayUnion(tenant_id),
+        updated_at: FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
   } catch (authError: unknown) {
     console.error('❌ Erro ao criar usuário, revertendo tenant:', authError);
     await adminDb.collection('tenants').doc(tenant_id).delete();
@@ -129,6 +174,12 @@ export async function createTenantAndUserFromAccessRequest(
       throw new EmailAlreadyInUseError();
     }
     throw authError;
+  }
+
+  // Claims do consultor depois do commit, sem derrubar a aprovação: a lista
+  // "Minhas Clínicas" lê o Firestore, que já está correto.
+  if (linkedConsultant?.user_id) {
+    await syncConsultantAuthorizedTenants(linkedConsultant.user_id, tenant_id, 'add');
   }
 
   // Link para o usuário definir a própria senha
