@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Search,
   ArrowRightLeft,
+  UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +46,7 @@ export function ConsultantLayout({ children }: ConsultantLayoutProps) {
 
   const navigation = [
     { name: 'Dashboard', href: '/consultant/dashboard', icon: LayoutDashboard },
+    { name: 'Solicitações de Acesso', href: '/consultant/access-requests', icon: UserPlus },
     { name: 'Minhas Clínicas', href: '/consultant/clinics', icon: Building2 },
     { name: 'Buscar Clínicas', href: '/consultant/clinics/search', icon: Search },
     { name: 'Transferências', href: '/consultant/transfer-requests', icon: ArrowRightLeft },
