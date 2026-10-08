@@ -418,6 +418,15 @@ export function validateBirthDate(dateString: string): { valid: boolean; error?:
 export const INVALID_CONSULTANT_CODE_ERROR = 'Código de consultor inválido ou inativo';
 
 /**
+ * Consultor existe mas está inativo -- UC-54 (convite pelo clinic_admin, rota
+ * autenticada). Diferente de UC-01 (rota pública), aqui o inativo é informado
+ * explicitamente para o clinic_admin saber que pode buscar outro consultor.
+ */
+export const INACTIVE_CONSULTANT_TITLE = 'Consultor temporariamente inativo';
+export const INACTIVE_CONSULTANT_MESSAGE =
+  'Este consultor está inativo temporariamente. Um novo consultor poderá auxiliar sua clínica nesse meio tempo.';
+
+/**
  * Valida o FORMATO do código de consultor informado em UC-01 (RN-08): exatamente
  * 6 dígitos numéricos, mesmo formato gerado em `POST /api/consultants`
  * (`crypto.randomInt(100000, 1000000)`). A existência de um consultor ativo com

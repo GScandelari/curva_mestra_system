@@ -11,6 +11,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { computeExpiresAt, isRequestExpired } from '@/lib/consultantRequests';
 import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
+import { INACTIVE_CONSULTANT_MESSAGE } from '@/lib/validations/serverValidations';
 
 /**
  * GET - Obter o convite pendente e não expirado atual da clínica (RF-13)
@@ -118,7 +119,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const consultantData = consultantDoc.data();
 
     if (consultantData?.status !== 'active') {
-      return NextResponse.json({ error: 'Consultor não está ativo' }, { status: 400 });
+      return NextResponse.json(
+        { error: INACTIVE_CONSULTANT_MESSAGE, code: 'consultant_inactive' },
+        { status: 409 }
+      );
     }
 
     // RF-03/RN-12: bloquear apenas se já existir convite pending NÃO expirado
