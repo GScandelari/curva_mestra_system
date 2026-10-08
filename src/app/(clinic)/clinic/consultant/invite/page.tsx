@@ -20,6 +20,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import {
+  INACTIVE_CONSULTANT_MESSAGE,
+  INACTIVE_CONSULTANT_TITLE,
+} from '@/lib/validations/serverValidations';
 
 interface ConsultantResult {
   id: string;
@@ -119,6 +123,12 @@ export default function InviteConsultantPage() {
       if (!response.ok) {
         if (response.status === 404) {
           toast({ title: 'Consultor não encontrado', variant: 'destructive' });
+        } else if (data.code === 'consultant_inactive') {
+          toast({
+            title: INACTIVE_CONSULTANT_TITLE,
+            description: INACTIVE_CONSULTANT_MESSAGE,
+            variant: 'destructive',
+          });
         } else {
           throw new Error(data.error || 'Erro ao buscar consultor');
         }
@@ -156,6 +166,15 @@ export default function InviteConsultantPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.code === 'consultant_inactive') {
+          toast({
+            title: INACTIVE_CONSULTANT_TITLE,
+            description: INACTIVE_CONSULTANT_MESSAGE,
+            variant: 'destructive',
+          });
+          setSearchResult(null);
+          return;
+        }
         throw new Error(data.error || 'Erro ao enviar convite');
       }
 
