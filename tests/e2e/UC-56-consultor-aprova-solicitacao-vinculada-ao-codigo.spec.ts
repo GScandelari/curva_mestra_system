@@ -420,4 +420,112 @@ test.describe('UC-56 — Consultor Aprova Solicitação de Acesso Vinculada ao S
       expect(doc.approved_by).toBe(TEST_USERS.systemAdmin.uid);
     });
   });
+
+  test.describe('Vínculo da clínica criada ao consultor do código', () => {
+    type SeedConsultant = { uid: string; code: string; name: string };
+
+    async function approvedTenantId(requestId: string): Promise<string> {
+      const db = getEmulatorAdminFirestore();
+      const doc = (await db.collection('access_requests').doc(requestId).get()).data()!;
+      expect(doc.status).toBe('aprovada');
+      return doc.tenant_id as string;
+    }
+
+    async function expectLinkedTo(tenantId: string, consultant: SeedConsultant) {
+      const db = getEmulatorAdminFirestore();
+      const tenant = (await db.collection('tenants').doc(tenantId).get()).data()!;
+      expect(tenant.consultant_id).toBe(consultant.uid);
+      expect(tenant.consultant_code).toBe(consultant.code);
+      expect(tenant.consultant_name).toBe(consultant.name);
+
+      const consultantDoc = (await db.collection('consultants').doc(consultant.uid).get()).data()!;
+      expect(consultantDoc.authorized_tenants).toContain(tenantId);
+
+      const user = await getEmulatorAdminAuth().getUser(consultant.uid);
+      expect(user.customClaims?.authorized_tenants).toContain(tenantId);
+    }
+
+    async function expectNotLinkedTo(tenantId: string, consultant: SeedConsultant) {
+      const db = getEmulatorAdminFirestore();
+      const consultantDoc = (await db.collection('consultants').doc(consultant.uid).get()).data()!;
+      expect(consultantDoc.authorized_tenants ?? []).not.toContain(tenantId);
+    }
+
+    test('consultor aprova a solicitação com o próprio código: clínica aparece na lista dele', async ({
+      request,
+    }) => {
+      const requestId = await createPendingAccessRequest({
+        email: uniqueEmail('vinculo-proprio'),
+        consultant: { uid: TEST_USERS.consultantB.uid, code: TEST_USERS.consultantB.code },
+        ageHours: 1,
+      });
+      const token = await consultantBToken();
+      const response = await request.post(APPROVE_CONSULTANT_PATH(requestId), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(response.status()).toBe(200);
+
+      const tenantId = await approvedTenantId(requestId);
+      await expectLinkedTo(tenantId, TEST_USERS.consultantB);
+
+      const clinics = await request.get('/api/consultants/me/clinics', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(clinics.status()).toBe(200);
+      const { data } = (await clinics.json()) as { data: { id: string }[] };
+      expect(data.map((c) => c.id)).toContain(tenantId);
+    });
+
+    test('System Admin aprova solicitação com código: clínica fica com o consultor do código', async ({
+      request,
+    }) => {
+      const requestId = await createPendingAccessRequest({
+        email: uniqueEmail('vinculo-admin'),
+        consultant: { uid: TEST_USERS.consultant.uid, code: TEST_USERS.consultant.code },
+        ageHours: 1,
+      });
+      const token = await getIdTokenViaAuthEmulator(TEST_USERS.systemAdmin.email, TEST_PASSWORD);
+      const response = await request.post(APPROVE_ADMIN_PATH(requestId), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(response.status()).toBe(200);
+
+      await expectLinkedTo(await approvedTenantId(requestId), TEST_USERS.consultant);
+    });
+
+    test('outro consultor aprova após 48h: clínica fica com o consultor do código, não com quem aprovou', async ({
+      request,
+    }) => {
+      const requestId = await createPendingAccessRequest({
+        email: uniqueEmail('vinculo-48h'),
+        consultant: { uid: TEST_USERS.consultant.uid, code: TEST_USERS.consultant.code },
+        ageHours: 49,
+      });
+      const response = await request.post(APPROVE_CONSULTANT_PATH(requestId), {
+        headers: { Authorization: `Bearer ${await consultantBToken()}` },
+      });
+      expect(response.status()).toBe(200);
+
+      const tenantId = await approvedTenantId(requestId);
+      await expectLinkedTo(tenantId, TEST_USERS.consultant);
+      await expectNotLinkedTo(tenantId, TEST_USERS.consultantB);
+    });
+
+    test('solicitação sem código aprovada por consultor: clínica nasce sem consultor', async ({
+      request,
+    }) => {
+      const requestId = await createPendingAccessRequest({ email: uniqueEmail('sem-codigo') });
+      const response = await request.post(APPROVE_CONSULTANT_PATH(requestId), {
+        headers: { Authorization: `Bearer ${await consultantBToken()}` },
+      });
+      expect(response.status()).toBe(200);
+
+      const tenantId = await approvedTenantId(requestId);
+      const tenant = (
+        await getEmulatorAdminFirestore().collection('tenants').doc(tenantId).get()
+      ).data()!;
+      expect(tenant.consultant_id).toBeUndefined();
+      await expectNotLinkedTo(tenantId, TEST_USERS.consultantB);
+    });
+  });
 });
