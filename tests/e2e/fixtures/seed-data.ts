@@ -72,7 +72,9 @@ export const TEST_USERS = {
     uid: 'qa-consultant',
     email: 'qa.consultant@curvamestra.test',
     name: 'QA Consultant',
-    code: 'QA0001',
+    // 6 dígitos numéricos: mesmo formato gerado por POST /api/consultants e
+    // exigido por validateConsultantCode (UC-01 RN-08). Antes era 'QA0001'.
+    code: '482913',
     tenant_id: null,
     claims: {
       tenant_id: null,
@@ -81,6 +83,25 @@ export const TEST_USERS = {
       is_consultant: true,
       consultant_id: 'qa-consultant',
       authorized_tenants: [TEST_TENANTS.clinicA.tenant_id],
+      active: true,
+    },
+  },
+  // Segundo consultor ativo (UC-56): permite exercitar a exclusividade entre
+  // consultores diferentes. Diferente de `consultant`, recebe aceite dos
+  // documentos legais no seed, para logar via UI direto no portal.
+  consultantB: {
+    uid: 'qa-consultant-b',
+    email: 'qa.consultant-b@curvamestra.test',
+    name: 'QA Consultant B',
+    code: '731548',
+    tenant_id: null,
+    claims: {
+      tenant_id: null,
+      role: 'clinic_consultant',
+      is_system_admin: false,
+      is_consultant: true,
+      consultant_id: 'qa-consultant-b',
+      authorized_tenants: [],
       active: true,
     },
   },

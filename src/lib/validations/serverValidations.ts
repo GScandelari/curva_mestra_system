@@ -409,3 +409,24 @@ export function validateBirthDate(dateString: string): { valid: boolean; error?:
 
   return { valid: true };
 }
+
+/**
+ * Mensagem única para código de consultor inválido (formato) ou inexistente/
+ * inativo -- UC-01, Fluxo de Exceção 8e. Mesma mensagem nos dois casos para
+ * não permitir distinguir, de fora, um código bem-formado inexistente.
+ */
+export const INVALID_CONSULTANT_CODE_ERROR = 'Código de consultor inválido ou inativo';
+
+/**
+ * Valida o FORMATO do código de consultor informado em UC-01 (RN-08): exatamente
+ * 6 dígitos numéricos, mesmo formato gerado em `POST /api/consultants`
+ * (`crypto.randomInt(100000, 1000000)`). A existência de um consultor ativo com
+ * esse código não é responsabilidade desta função pura -- é checada no backend
+ * via Admin SDK (`POST /api/access-requests`).
+ */
+export function validateConsultantCode(code: string): { valid: boolean; error?: string } {
+  if (!/^\d{6}$/.test((code ?? '').trim())) {
+    return { valid: false, error: INVALID_CONSULTANT_CODE_ERROR };
+  }
+  return { valid: true };
+}

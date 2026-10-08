@@ -5,12 +5,14 @@ import { TEST_PASSWORD, TEST_USERS } from './fixtures/seed-data';
 
 /**
  * Cobertura retroativa (Modo B) de:
- * ONLY_FOR_DEVS/PO_BA_Docs/UC-01-solicitar-acesso-ao-sistema.md (v2.1.1)
+ * ONLY_FOR_DEVS/PO_BA_Docs/UC-01-solicitar-acesso-ao-sistema.md (v2.2)
  *
  * Cobre: Fluxo Principal (perfil especialista e consultor), Fluxo Alternativo
  * 7a (usuário já autenticado), 7b (troca de perfil mantém campos
  * compartilhados) e Fluxos de Exceção 8a (nome sem sobrenome, RN-04) e 8d
- * (duplicidade de e-mail pendente, RN-09).
+ * (duplicidade de e-mail pendente, RN-09), e — desde a v2.2 — RN-08/8e (código
+ * de consultor validado contra `consultants`: válido, formato inválido,
+ * inexistente e consultor inativo).
  *
  * NÃO cobertos nesta rodada (limitação da infraestrutura de testes atual,
  * não do UC em si):
@@ -71,7 +73,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
 
       // Passo 3: perfil "Especialista HOF" já vem pré-selecionado por padrão.
       // Passo 4: campos exclusivos de especialista visíveis.
-      await expect(page.locator('#consultantReference')).toBeVisible();
+      await expect(page.locator('#consultantCode')).toBeVisible();
       await expect(page.getByText('Volume de procedimentos por mês')).toBeVisible();
 
       // Passos 5-6.
@@ -82,7 +84,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         phone: '11987654321',
         businessName: 'Clínica Cíngulo',
       });
-      await page.locator('#consultantReference').fill('João Souza');
+      await page.locator('#consultantCode').fill(TEST_USERS.consultant.code);
       // "30–80" já é o volume pré-selecionado por padrão — mantém.
 
       // Passo 9: intercepta o POST para inspecionar o body exatamente como enviado.
@@ -95,7 +97,8 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
 
       const requestBody = await requestBodyPromise;
       expect(requestBody.role).toBe('especialista');
-      expect(requestBody.consultant_reference).toBe('João Souza');
+      expect(requestBody.consultant_code).toBe(TEST_USERS.consultant.code);
+      expect(requestBody.consultant_reference).toBeUndefined();
       expect(requestBody.volume).toBe('30–80');
 
       // Passo 18: mensagem de sucesso + campos de texto limpos.
@@ -122,7 +125,10 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(doc.full_name).toBe('Helena Vidal');
       expect(doc.council_number).toBe('CRM-SP 142337');
       expect(doc.business_name).toBe('Clínica Cíngulo');
-      expect(doc.consultant_reference).toBe('João Souza');
+      // RN-08: código validado contra consultor ativo e vínculo gravado.
+      expect(doc.consultant_code).toBe(TEST_USERS.consultant.code);
+      expect(doc.consultant_id).toBe(TEST_USERS.consultant.uid);
+      expect(doc.consultant_reference).toBeUndefined();
       expect(doc.volume).toBe('30–80');
 
       // Passo 19: após 4s, redireciona para /login. O timeout de expect()
@@ -143,7 +149,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       // Passo 4: rótulos ajustados e campos exclusivos de especialista ocultos.
       await expect(page.getByText('ID Rennova *')).toBeVisible();
       await expect(page.getByText('Região / carteira *')).toBeVisible();
-      await expect(page.locator('#consultantReference')).toHaveCount(0);
+      await expect(page.locator('#consultantCode')).toHaveCount(0);
       await expect(page.getByText('Volume de procedimentos por mês')).toHaveCount(0);
 
       // Passo 5 (consultor não tem passo 6 — campos exclusivos não existem).
@@ -164,7 +170,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       const requestBody = await requestBodyPromise;
       expect(requestBody.role).toBe('consultor');
       // Campos exclusivos de especialista nunca fazem parte do body do consultor.
-      expect(requestBody.consultant_reference).toBeUndefined();
+      expect(requestBody.consultant_code).toBeUndefined();
       expect(requestBody.volume).toBeUndefined();
 
       await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
@@ -184,8 +190,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(doc.type).toBe('autonomo'); // campo legado derivado de role
       expect(doc.council_number).toBe('RNV-CR-0427');
       expect(doc.business_name).toBe('Sudeste 2');
-      // API grava `consultant_reference`/`volume` como null quando ausentes do body.
-      expect(doc.consultant_reference).toBeNull();
+      // API grava `consultant_code`/`consultant_id`/`volume` como null quando ausentes do body.
+      expect(doc.consultant_code).toBeNull();
+      expect(doc.consultant_id).toBeNull();
       expect(doc.volume).toBeNull();
     });
   });
@@ -233,7 +240,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         phone: '11955557777',
         businessName: 'Clínica Torres',
       });
-      await page.locator('#consultantReference').fill('João Souza');
+      await page.locator('#consultantCode').fill(TEST_USERS.consultant.code);
 
       // Passo 2: troca para "consultor".
       await page.getByRole('button', { name: 'Consultor Rennova' }).click();
@@ -241,7 +248,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       // Passo 3: rótulos ajustados, campo exclusivo oculto...
       await expect(page.getByText('ID Rennova *')).toBeVisible();
       await expect(page.getByText('Região / carteira *')).toBeVisible();
-      await expect(page.locator('#consultantReference')).toHaveCount(0);
+      await expect(page.locator('#consultantCode')).toHaveCount(0);
 
       // ...mas os valores dos campos compartilhados permanecem intactos.
       await expect(page.locator('#fullName')).toHaveValue('Marina Torres');
@@ -249,7 +256,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       await expect(page.locator('#email')).toHaveValue(email);
       await expect(page.locator('#businessName')).toHaveValue('Clínica Torres');
 
-      // Envia como consultor: mesmo com `consultantReference` ainda presente
+      // Envia como consultor: mesmo com `consultantCode` ainda presente
       // no estado interno da tela, ele não deve ser enviado no POST.
       const requestBodyPromise = page
         .waitForRequest((req) => req.url().includes(API_PATH) && req.method() === 'POST')
@@ -259,7 +266,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
 
       const requestBody = await requestBodyPromise;
       expect(requestBody.role).toBe('consultor');
-      expect(requestBody.consultant_reference).toBeUndefined();
+      expect(requestBody.consultant_code).toBeUndefined();
       expect(requestBody.volume).toBeUndefined();
 
       await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
@@ -372,6 +379,124 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         .where('status', '==', 'pendente')
         .get();
       expect(snap.size).toBe(1);
+    });
+  });
+
+  test.describe('Fluxo de Exceção 8e — código de consultor inválido ou inexistente (RN-08)', () => {
+    const SHARED = {
+      fullName: 'Paula Mendes',
+      councilNumber: 'CRM-SP 445566',
+      phone: '11944445555',
+      businessName: 'Clínica Mendes',
+    };
+
+    async function expectNoRequestFor(email: string): Promise<void> {
+      const db = getEmulatorAdminFirestore();
+      const snap = await db.collection('access_requests').where('email', '==', email).get();
+      expect(snap.empty).toBe(true);
+    }
+
+    test('código com formato inválido é reprovado no frontend e a requisição não é enviada', async ({
+      page,
+    }) => {
+      const email = uniqueEmail('codigo-formato');
+      await page.goto('/register');
+      await fillSharedFields(page, { ...SHARED, email });
+
+      // O input só aceita dígitos e no máximo 6.
+      await page.locator('#consultantCode').fill('12a34');
+      await expect(page.locator('#consultantCode')).toHaveValue('1234');
+
+      let requestSent = false;
+      page.on('request', (req) => {
+        if (req.url().includes(API_PATH) && req.method() === 'POST') requestSent = true;
+      });
+      await page.getByRole('button', { name: 'Solicitar acesso à Curva Mestra' }).click();
+
+      await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
+        'Código de consultor inválido ou inativo'
+      );
+      expect(requestSent).toBe(false);
+      await expectNoRequestFor(email);
+    });
+
+    test('código bem-formado sem consultor correspondente: API retorna 400 e nada é criado', async ({
+      page,
+    }) => {
+      const email = uniqueEmail('codigo-inexistente');
+      await page.goto('/register');
+      await fillSharedFields(page, { ...SHARED, email });
+      // 000000 nunca é gerado por POST /api/consultants (randomInt(100000, 1000000)).
+      await page.locator('#consultantCode').fill('000000');
+
+      const responsePromise = page.waitForResponse(
+        (res) => res.url().includes(API_PATH) && res.request().method() === 'POST'
+      );
+      await page.getByRole('button', { name: 'Solicitar acesso à Curva Mestra' }).click();
+      const response = await responsePromise;
+
+      expect(response.status()).toBe(400);
+      await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
+        'Código de consultor inválido ou inativo'
+      );
+      // Campos permanecem preenchidos (garantia mínima de falha).
+      await expect(page.locator('#fullName')).toHaveValue(SHARED.fullName);
+      await expectNoRequestFor(email);
+    });
+
+    test('código de consultor INATIVO é rejeitado com 400 e nada é criado', async ({ request }) => {
+      const db = getEmulatorAdminFirestore();
+      const inactiveId = `uc01-consultor-inativo-${Date.now()}`;
+      const inactiveCode = '900001';
+      await db.doc(`consultants/${inactiveId}`).set({
+        user_id: inactiveId,
+        code: inactiveCode,
+        name: 'Consultor Inativo QA',
+        email: `${inactiveId}@example.com`,
+        phone: '11900000000',
+        status: 'inactive',
+        authorized_tenants: [],
+      });
+
+      const email = uniqueEmail('codigo-inativo');
+      try {
+        const response = await request.post(API_PATH, {
+          data: {
+            role: 'especialista',
+            full_name: SHARED.fullName,
+            email,
+            phone: SHARED.phone,
+            council_number: SHARED.councilNumber,
+            business_name: SHARED.businessName,
+            consultant_code: inactiveCode,
+          },
+        });
+        expect(response.status()).toBe(400);
+        expect((await response.json()).error).toBe('Código de consultor inválido ou inativo');
+        await expectNoRequestFor(email);
+      } finally {
+        await db.doc(`consultants/${inactiveId}`).delete();
+      }
+    });
+
+    test('formato inválido enviado direto à API (fora do formulário) também é rejeitado com 400', async ({
+      request,
+    }) => {
+      const email = uniqueEmail('codigo-api');
+      const response = await request.post(API_PATH, {
+        data: {
+          role: 'especialista',
+          full_name: SHARED.fullName,
+          email,
+          phone: SHARED.phone,
+          council_number: SHARED.councilNumber,
+          business_name: SHARED.businessName,
+          consultant_code: 'QA0001',
+        },
+      });
+      expect(response.status()).toBe(400);
+      expect((await response.json()).error).toBe('Código de consultor inválido ou inativo');
+      await expectNoRequestFor(email);
     });
   });
 });
