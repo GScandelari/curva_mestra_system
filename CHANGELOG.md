@@ -5,6 +5,19 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.13.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.12.0...v1.13.0) (2026-10-08)
+
+
+### Features
+
+* consultor Rennova aprova solicitações de acesso (UC-01/UC-56/UC-57) ([#369](https://github.com/GScandelari/curva_mestra_system/issues/369)) ([6245025](https://github.com/GScandelari/curva_mestra_system/commit/6245025d3307c73c115e283a5b6ddc537fde188f))
+
+
+### Bug Fixes
+
+* **api:** link approved clinic to the consultant from the access request code ([#371](https://github.com/GScandelari/curva_mestra_system/issues/371)) ([59cc038](https://github.com/GScandelari/curva_mestra_system/commit/59cc03846dd9726cad23cd28f68d6649800863f4))
+* **hosting:** raise Next.js SSR function memory to 1GiB ([#372](https://github.com/GScandelari/curva_mestra_system/issues/372)) ([718adc0](https://github.com/GScandelari/curva_mestra_system/commit/718adc07d761c6546be2beb3617d3d1138f9565a))
+
 ## [1.12.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.11.0...v1.12.0) (2026-10-07)
 
 
