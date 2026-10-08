@@ -30,6 +30,9 @@ export { checkAlertsScheduled } from './checkAlertsScheduled';
 export { checkClaimsIntegrityScheduled } from './checkClaimsIntegrityScheduled';
 export { checkClaimsIntegrityOnDemand } from './checkClaimsIntegrityOnDemand';
 
+// Scheduled Function - Lembrete diário de solicitações de acesso pendentes (UC-57)
+export { checkConsultantPendingAccessRequestsScheduled } from './checkConsultantPendingAccessRequestsScheduled';
+
 // Function placeholder para evitar erro de "no functions"
 import { onRequest } from 'firebase-functions/v2/https';
 

@@ -198,9 +198,10 @@ test.describe('UC-02 — Aprovar Solicitação de Acesso', () => {
       expect(userDoc.role).toBe('clinic_admin');
       expect(userDoc.active).toBe(true);
 
-      // Pós-condições (Firebase Auth / Custom Claims) — RN-03: senha
-      // temporária aleatória, nunca a informada na solicitação original;
-      // emailVerified false; claims exatamente como descrito na seção 4.1.
+      // Pós-condições (Firebase Auth / Custom Claims) — RN-03: o usuário é
+      // criado sem senha (nenhuma senha temporária é gerada desde a extração
+      // de accessRequestApproval.ts) e define a própria via link de
+      // redefinição; emailVerified false; claims como descrito na seção 4.1.
       const authUser = await getEmulatorAdminAuth().getUser(user_id);
       expect(authUser.email).toBe(email);
       expect(authUser.emailVerified).toBe(false);
@@ -232,6 +233,9 @@ test.describe('UC-02 — Aprovar Solicitação de Acesso', () => {
       expect(emailDoc.status).toBe('pending');
       expect(emailDoc.metadata.tenant_id).toBe(tenant_id);
       expect(emailDoc.metadata.user_id).toBe(user_id);
+      // RN-03: o link real de definição de senha (generatePasswordResetLink)
+      // foi gerado para o usuário criado sem senha — não o fallback de /login.
+      expect(emailDoc.body).toContain('mode=resetPassword');
     });
 
     test('System Admin aprova solicitação de consultor: cria tenant com max_users=1 (RN-02)', async ({

@@ -1,5 +1,6 @@
 /**
- * Popula `email_templates/{tipo}` (UC-55) com os 12 gatilhos migrados —
+ * Popula `email_templates/{tipo}` (UC-55) com os 12 gatilhos migrados (mais o
+ * lembrete diário de UC-57, `consultant_pending_access_requests_digest`) —
  * conteúdo extraído literalmente do HTML hoje hardcoded em produção (Seção
  * 1.1/1.3 de FEAT-editor-templates-de-email.md), mais a elevação visual
  * mecânica (RN-13 do UC) para os 5 templates simples (#4-#8) que hoje não
@@ -352,6 +353,37 @@ const TEMPLATES: SeedTemplate[] = [
           <p>Olá {{requestingConsultantName}},</p>
           <p>Seu pedido de transferência para a clínica <strong>{{tenantName}}</strong> não foi aprovado pelo consultor atual.</p>
           {{motivoBlock}}
+          <p>Atenciosamente,<br>Equipe Curva Mestra</p>
+        `
+    ),
+  },
+  {
+    tipo: 'consultant_pending_access_requests_digest',
+    label: 'Lembrete Diário: Solicitações de Acesso Pendentes',
+    category: 'email',
+    related_uc: 'UC-57',
+    subject: 'Você tem {{pendingCount}} solicitação(ões) de acesso pendente(s) - Curva Mestra',
+    variables: [
+      v('consultantName', 'Nome do consultor (destinatário)', true, 'João Pereira'),
+      v('pendingCount', 'Quantidade de solicitações pendentes vinculadas', true, '2'),
+      v(
+        'pendingRequestsBlock',
+        'Lista HTML das solicitações pendentes (montada pela Scheduled Function)',
+        true,
+        '<ul><li><strong>Maria Oliveira</strong> — Clínica Exemplo (enviada em 07/10/2026, 09:00)</li></ul>'
+      ),
+    ],
+    body: wrapSimpleEmail(
+      'Solicitações de Acesso Pendentes',
+      `
+          <p>Olá {{consultantName}},</p>
+          <p>Existem <strong>{{pendingCount}}</strong> solicitação(ões) de acesso pendente(s) vinculada(s) ao seu código de consultor:</p>
+          {{pendingRequestsBlock}}
+          <p>Acesse o Portal do Consultor para revisar e aprovar:</p>
+          <div style="text-align: center;">
+            <a href="https://curvamestra.com.br/consultant/access-requests" style="display: inline-block; padding: 12px 30px; background: #0ea5e9; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Ver Solicitações</a>
+          </div>
+          <p style="font-size: 13px; color: #6b7280;">Este lembrete é enviado diariamente enquanto houver solicitações pendentes vinculadas ao seu código.</p>
           <p>Atenciosamente,<br>Equipe Curva Mestra</p>
         `
     ),
