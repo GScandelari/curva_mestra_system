@@ -112,6 +112,29 @@ async function seed() {
     updated_at: now,
   });
 
+  console.log('[seed-emulator] criando segundo consultor (UC-56)...');
+  await db.doc(`consultants/${TEST_USERS.consultantB.uid}`).set({
+    user_id: TEST_USERS.consultantB.uid,
+    code: TEST_USERS.consultantB.code,
+    name: TEST_USERS.consultantB.name,
+    email: TEST_USERS.consultantB.email,
+    phone: '11999990001',
+    status: 'active',
+    authorized_tenants: [],
+    created_at: now,
+    updated_at: now,
+  });
+  await db.doc(`users/${TEST_USERS.consultantB.uid}`).set({
+    email: TEST_USERS.consultantB.email,
+    full_name: TEST_USERS.consultantB.name,
+    displayName: TEST_USERS.consultantB.name,
+    role: 'clinic_consultant',
+    active: true,
+    tenant_id: null,
+    created_at: now,
+    updated_at: now,
+  });
+
   console.log('[seed-emulator] criando documentos legais (com e sem aceite)...');
   for (const [key, doc] of Object.entries(TEST_LEGAL_DOCUMENTS)) {
     await db.doc(`legal_documents/${doc.id}`).set({
@@ -140,7 +163,13 @@ async function seed() {
   // satisfeito por usuário/documento, sem precisar de um registro negativo
   // explícito -- specs futuros que exercitem o fluxo /accept-terms podem
   // logar com qualquer um desses usuários.
-  const usersWithFullAcceptance = [TEST_USERS.systemAdmin, TEST_USERS.clinicAdminA];
+  // consultantB (UC-56) também recebe aceite: é o consultor que os specs de
+  // UC-56 logam via UI no portal do consultor.
+  const usersWithFullAcceptance = [
+    TEST_USERS.systemAdmin,
+    TEST_USERS.clinicAdminA,
+    TEST_USERS.consultantB,
+  ];
   for (const user of usersWithFullAcceptance) {
     for (const legalDoc of Object.values(TEST_LEGAL_DOCUMENTS)) {
       await db.collection('user_document_acceptances').doc(`${user.uid}_${legalDoc.id}`).set({
