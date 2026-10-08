@@ -98,7 +98,7 @@ export default function ConsultantAccessRequestsPage() {
   }, [user, toast]);
 
   useEffect(() => {
-    loadRequests();
+    void loadRequests();
   }, [loadRequests]);
 
   const handleApprove = async (request: ConsultantPendingAccessRequest) => {
@@ -123,7 +123,7 @@ export default function ConsultantAccessRequestsPage() {
       });
     } finally {
       setProcessingId(null);
-      loadRequests();
+      void loadRequests();
     }
   };
 
@@ -224,7 +224,7 @@ export default function ConsultantAccessRequestsPage() {
         onConfirm={() => {
           const target = approveTarget;
           setApproveTarget(null);
-          if (target) handleApprove(target);
+          if (target) void handleApprove(target);
         }}
       />
     </div>

@@ -14,9 +14,13 @@ export const dynamic = 'force-dynamic';
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { adminDb } from '@/lib/firebase-admin';
 import type { AccessRequest } from '@/types';
 import { canConsultantApprove, computeExclusivityExpiresAt } from '@/lib/consultantAccessApproval';
+import {
+  internalErrorResponse,
+  verifyActiveConsultant,
+} from '@/lib/services/accessRequestRouteHelpers';
 
 function toIso(value: unknown): string | null {
   const v = value as { toDate?: () => Date } | undefined;
@@ -25,28 +29,13 @@ function toIso(value: unknown): string | null {
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
-
-    const consultantId = decodedToken.consultant_id as string | undefined;
-    if (!decodedToken.is_consultant || !consultantId || decodedToken.active !== true) {
-      return NextResponse.json({ error: 'Acesso restrito a consultores ativos' }, { status: 403 });
-    }
-
-    const consultantDoc = await adminDb.collection('consultants').doc(consultantId).get();
-    if (!consultantDoc.exists || consultantDoc.data()?.status !== 'active') {
-      return NextResponse.json({ error: 'Acesso restrito a consultores ativos' }, { status: 403 });
-    }
+    const consultant = await verifyActiveConsultant(
+      req,
+      'Acesso restrito a consultores ativos',
+      'Token não fornecido'
+    );
+    if (consultant instanceof NextResponse) return consultant;
+    const { consultantId } = consultant;
 
     const snapshot = await adminDb
       .collection('access_requests')
@@ -106,8 +95,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data });
   } catch (error: unknown) {
-    console.error('[GET /api/consultants/me/pending-access-requests] erro:', error);
-    const message = error instanceof Error ? error.message : 'Erro ao listar solicitações';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalErrorResponse(
+      '[GET /api/consultants/me/pending-access-requests] erro:',
+      error,
+      'Erro ao listar solicitações'
+    );
   }
 }

@@ -12,26 +12,17 @@ export const dynamic = 'force-dynamic';
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import type { AccessRequest } from '@/types';
 import {
-  createTenantAndUserFromAccessRequest,
-  EmailAlreadyInUseError,
-} from '@/lib/services/accessRequestApproval';
+  approveAccessRequestResponse,
+  internalErrorResponse,
+  loadPendingAccessRequest,
+  verifyBearerToken,
+} from '@/lib/services/accessRequestRouteHelpers';
 
-/**
- * POST - Aprovar solicitação e criar tenant + usuário
- */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    // Verificar autenticação
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(token);
+    const decodedToken = await verifyBearerToken(req);
+    if (decodedToken instanceof NextResponse) return decodedToken;
 
     if (!decodedToken.is_system_admin) {
       return NextResponse.json(
@@ -40,46 +31,19 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    const approved_by_uid = decodedToken.uid;
-    const approved_by_name = decodedToken.name || decodedToken.email || 'System Admin';
+    const { id: requestId } = await context.params;
+    const request = await loadPendingAccessRequest(requestId);
+    if (request instanceof NextResponse) return request;
 
-    const params = await context.params;
-    const requestId = params.id;
-
-    // Buscar solicitação
-    const requestDoc = await adminDb.collection('access_requests').doc(requestId).get();
-
-    if (!requestDoc.exists) {
-      return NextResponse.json({ error: 'Solicitação não encontrada' }, { status: 404 });
-    }
-
-    const request = requestDoc.data() as AccessRequest;
-
-    if (request.status !== 'pendente') {
-      return NextResponse.json({ error: 'Solicitação já foi processada' }, { status: 400 });
-    }
-
-    try {
-      const data = await createTenantAndUserFromAccessRequest(request, requestId, {
-        uid: approved_by_uid,
-        name: approved_by_name,
-      });
-
-      return NextResponse.json({
-        success: true,
-        message:
-          'Solicitação aprovada! Um e-mail com o link para definir a senha foi enviado ao usuário.',
-        data,
-      });
-    } catch (approvalError) {
-      if (approvalError instanceof EmailAlreadyInUseError) {
-        return NextResponse.json({ error: approvalError.message }, { status: 400 });
-      }
-      throw approvalError;
-    }
+    return await approveAccessRequestResponse(request, requestId, {
+      uid: decodedToken.uid,
+      name: decodedToken.name || decodedToken.email || 'System Admin',
+    });
   } catch (error: unknown) {
-    console.error('❌ Erro ao aprovar solicitação:', error);
-    const message = error instanceof Error ? error.message : 'Erro ao processar aprovação';
-    return NextResponse.json({ error: message || 'Erro ao processar aprovação' }, { status: 500 });
+    return internalErrorResponse(
+      '❌ Erro ao aprovar solicitação:',
+      error,
+      'Erro ao processar aprovação'
+    );
   }
 }
