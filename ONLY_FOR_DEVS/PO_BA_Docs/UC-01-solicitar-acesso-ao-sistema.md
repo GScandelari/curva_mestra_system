@@ -3,11 +3,11 @@
 **Projeto:** Curva Mestra
 **Data de Criação:** 13/07/2026
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
-**Status:** Aprovado
+**Status:** Em Revisão
 **Módulo/Contexto:** Autenticação / Aquisição de Clientes
-**Versão:** 2.1.1
+**Versão:** 2.2
 
-> Um visitante (especialista HOF que opera uma clínica, ou consultor comercial Rennova) preenche o formulário de registro para solicitar acesso à plataforma Curva Mestra, informando seu perfil, dados de contato e domínio de atuação — sem definir senha nesta etapa. A solicitação fica pendente até ser analisada por um System Admin (ver UC-02 e UC-03); a senha de acesso só é definida depois da aprovação, via link de redefinição enviado por e-mail (UC-02).
+> Um visitante (especialista HOF que opera uma clínica, ou consultor comercial Rennova) preenche o formulário de registro para solicitar acesso à plataforma Curva Mestra, informando seu perfil, dados de contato e domínio de atuação — sem definir senha nesta etapa. A solicitação fica pendente até ser analisada por um System Admin (ver UC-02 e UC-03) ou, quando vinculada a um código de consultor válido, pelo próprio consultor (ver UC-56); a senha de acesso só é definida depois da aprovação, via link de redefinição enviado por e-mail (UC-02). **⚠️ Atualização (v2.2, Em Revisão):** esta revisão documenta uma mudança de produto **planejada, ainda não implementada no código** — o campo "Consultor Rennova de referência" deixa de ser texto livre e passa a ser um **código de consultor validado** contra a coleção `consultants` (UC-28). Os trechos afetados estão marcados com `[PLANEJADO]`. O restante do documento (tudo que não está marcado) continua refletindo o comportamento real e já implementado hoje em `register/page.tsx` e `POST /api/access-requests`.
 
 ---
 
@@ -16,12 +16,14 @@
 ```mermaid
 flowchart LR
     Visitante([👤 Visitante])
+    Consultants[("🗄️ consultants\n(validação do código, PLANEJADO)")]
 
     subgraph Sistema["Curva Mestra"]
         UC01(("UC-01\nSolicitar Acesso\nao Sistema"))
     end
 
     Visitante --> UC01
+    UC01 -.->|valida código informado\n(PLANEJADO, UC-28)| Consultants
 ```
 
 ---
@@ -29,10 +31,10 @@ flowchart LR
 ## 2. Atores
 
 ### 2.1 Ator Primário
-**Visitante** — pessoa não autenticada que deseja usar a plataforma, se identificando com um dos dois perfis (`role`) suportados pelo formulário: **"especialista"** (profissional/clínica que opera com produtos Rennova em procedimentos de harmonização) ou **"consultor"** (consultor comercial Rennova, atua por região/carteira). Se a solicitação for aprovada (UC-02), este visitante se torna `clinic_admin` do tenant criado — o `role` informado aqui é usado em UC-02 (RN-02) para decidir o limite de usuários do tenant (consultor → 1 usuário; especialista → 5 usuários).
+**Visitante** — pessoa não autenticada que deseja usar a plataforma, se identificando com um dos dois perfis (`role`) suportados pelo formulário: **"especialista"** (profissional/clínica que opera com produtos Rennova em procedimentos de harmonização) ou **"consultor"** (consultor comercial Rennova, atua por região/carteira). Se a solicitação for aprovada (UC-02 ou, quando aplicável, UC-56), este visitante se torna `clinic_admin` do tenant criado — o `role` informado aqui é usado em UC-02 (RN-02) para decidir o limite de usuários do tenant (consultor → 1 usuário; especialista → 5 usuários).
 
 ### 2.2 Atores Secundários / Sistemas Externos
-Nenhum. Toda a validação e persistência ocorre dentro do próprio sistema Curva Mestra (frontend + API route + Firestore).
+Nenhum sistema externo. Toda a validação e persistência ocorre dentro do próprio sistema Curva Mestra (frontend + API route + Firestore). **[PLANEJADO]** A partir desta revisão, a coleção `consultants` (já existente, alimentada por UC-28) passa a ser consultada por este fluxo como dependência de validação do código de consultor informado — ainda não implementado.
 
 ---
 
@@ -40,14 +42,16 @@ Nenhum. Toda a validação e persistência ocorre dentro do próprio sistema Cur
 - O visitante não possui sessão Firebase Auth ativa (ver Fluxo Alternativo 7a).
 - O visitante sabe seu nome completo (nome e sobrenome), um número de identificação profissional (CRM/CRO para especialista, ID Rennova para consultor), e-mail, telefone/WhatsApp, e o nome da própria clínica (especialista) ou da região/carteira que atende (consultor).
 - Não é necessário possuir CPF/CNPJ nem definir uma senha neste momento — nenhum dos dois é mais coletado nesta etapa (ver Histórico de Versões, v2.0).
+- **[PLANEJADO]** Se o visitante (perfil especialista) optar por informar um código de consultor, esse código precisa corresponder a um consultor com `status: "active"` na coleção `consultants` — caso contrário, o envio é bloqueado (ver Fluxo de Exceção 8e). O campo continua opcional: deixá-lo vazio não é pré-condição de nada.
 
 ---
 
 ## 4. Pós-condições
 
 ### 4.1 Sucesso (Garantias de Sucesso)
-- Um documento é criado na coleção `access_requests` com `status: "pendente"`, contendo `role`, o campo legado `type` (derivado de `role`), `full_name`, `email` (lowercase e trim), `phone`, `council_number`, `business_name` e, apenas quando `role === "especialista"`, `consultant_reference` e `volume` (opcionais).
-- Nenhuma senha é solicitada, validada ou armazenada nesta etapa — a definição de senha ocorre somente após a aprovação (UC-02), via link de redefinição enviado por e-mail.
+- Um documento é criado na coleção `access_requests` com `status: "pendente"`, contendo `role`, o campo legado `type` (derivado de `role`), `full_name`, `email` (lowercase e trim), `phone`, `council_number`, `business_name` e, apenas quando `role === "especialista"`, `volume` (opcional).
+- **[PLANEJADO]** Quando `role === "especialista"` e um código de consultor válido é informado, o documento também grava `consultant_code` (o código informado) e `consultant_id` (referência ao documento correspondente em `consultants`) — substituindo o atual campo livre `consultant_reference`. Esse vínculo é a pré-condição de autorização usada por UC-56 (aprovação pelo próprio consultor).
+- Nenhuma senha é solicitada, validada ou armazenada nesta etapa — a definição de senha ocorre somente após a aprovação (UC-02/UC-56), via link de redefinição enviado por e-mail.
 - **[CORRIGIDO — commit `1254abb`]** Não é criada uma segunda solicitação pendente para o mesmo e-mail — se já existir uma, a API bloqueia a criação (ver RN-09).
 - Visitante vê a mensagem de sucesso "Solicitação enviada com sucesso!" e os campos de texto do formulário são limpos (a seleção de perfil e de volume mantêm o último valor escolhido, pois não fazem parte do estado que é resetado).
 - Após 4 segundos, o visitante é redirecionado para `/login`.
@@ -55,6 +59,7 @@ Nenhum. Toda a validação e persistência ocorre dentro do próprio sistema Cur
 ### 4.2 Falha (Garantias Mínimas)
 - Nenhuma solicitação é criada na coleção `access_requests`.
 - O formulário permanece preenchido, exibindo o erro específico (não há campos de senha a limpar, pois não existem nesta versão do formulário).
+- **[PLANEJADO]** Se o código de consultor informado não corresponder a nenhum consultor ativo, nenhuma solicitação é criada (ver Fluxo de Exceção 8e).
 
 ---
 
@@ -70,21 +75,22 @@ O visitante acessa a rota pública `/register` com a intenção de solicitar ace
 3. Visitante seleciona o perfil (`role`): "Especialista HOF" (Operação clínica) — pré-selecionado por padrão — ou "Consultor Rennova" (Acesso comercial).
 4. Sistema ajusta dinamicamente os rótulos e placeholders dos campos "CRM/CRO/ID Rennova" e "Nome da clínica/Região-carteira" conforme o perfil selecionado, e exibe (somente para especialista) os campos "Consultor Rennova de referência" e "Volume de procedimentos por mês".
 5. Visitante preenche: nome completo, número de identificação profissional (CRM/CRO ou ID Rennova), e-mail profissional, telefone/WhatsApp, e nome da clínica ou região/carteira.
-6. (Somente se `role === "especialista"`) Visitante opcionalmente informa o consultor Rennova de referência e seleciona o volume mensal de procedimentos entre 4 opções fixas ("Até 30", "30–80", "80–150", "150+"), com "30–80" pré-selecionado por padrão.
+6. (Somente se `role === "especialista"`) Visitante opcionalmente informa, no campo "Consultor Rennova de referência", o **[PLANEJADO] código de 6 dígitos do seu consultor Rennova** (em vez de digitar livremente um nome, como ocorre hoje), e seleciona o volume mensal de procedimentos entre 4 opções fixas ("Até 30", "30–80", "80–150", "150+"), com "30–80" pré-selecionado por padrão.
 7. Visitante clica em "Solicitar acesso à Curva Mestra →".
 8. Sistema valida os campos no frontend: nome completo, e-mail e telefone usando as mesmas funções compartilhadas do backend (`validateFullName`, `validateEmail`, `validatePhone`, de `@/lib/validations/serverValidations` — **[CORRIGIDO, commit `1254abb`]**, ver RN-04/RN-05/RN-06); número de conselho/ID Rennova (mínimo 3 caracteres, checagem local, sem função compartilhada — ver RN-07) e nome da clínica/região (mínimo 3 caracteres, checagem local — ver RN-07).
-9. Sistema envia os dados para `POST /api/access-requests`, incluindo `consultant_reference` e `volume` apenas quando `role === "especialista"`.
+9. Sistema envia os dados para `POST /api/access-requests`, incluindo `volume` e o código de consultor informado (quando houver) apenas quando `role === "especialista"`.
 10. API verifica a presença de todos os campos obrigatórios (`role`, `full_name`, `email`, `phone`, `council_number`, `business_name`).
 11. API valida que `role` é `"especialista"` ou `"consultor"`.
 12. API valida `full_name` (deve conter nome e sobrenome, 3-100 caracteres, apenas letras/espaços/acentos/hífen), `email` (regex RFC 5322 simplificada, domínio com pelo menos um ponto, até 254 caracteres) e `phone` (10 ou 11 dígitos, DDD entre 11 e 99, não pode ter todos os dígitos iguais).
 13. API converte o e-mail para lowercase e remove espaços (trim), guardando o resultado em `normalizedEmail`.
-14. **[CORRIGIDO, commit `1254abb`]** API consulta, via **Admin SDK** (`adminDb`, de `@/lib/firebase-admin`), a coleção `access_requests` filtrando por `email == normalizedEmail` e `status == "pendente"`; se já existir alguma solicitação pendente com esse e-mail, a API retorna erro 409 e nenhum documento é criado (ver Fluxo de Exceção 8d, novo, e RN-09).
-15. API deriva o campo legado `type` (`"clinica"` para especialista, `"autonomo"` para consultor).
-16. API cria o documento na coleção `access_requests` com `status: "pendente"`, gravando `normalizedEmail` no campo `email`.
-17. API retorna sucesso com o `id` do documento criado e a mensagem "Solicitação enviada com sucesso!".
-18. Sistema exibe a mensagem de sucesso e limpa os campos de texto do formulário.
-19. Sistema aguarda 4 segundos e redireciona para `/login`.
-20. Caso de uso é concluído com sucesso.
+14. **[CORRIGIDO, commit `1254abb`]** API consulta, via **Admin SDK** (`adminDb`, de `@/lib/firebase-admin`), a coleção `access_requests` filtrando por `email == normalizedEmail` e `status == "pendente"`; se já existir alguma solicitação pendente com esse e-mail, a API retorna erro 409 e nenhum documento é criado (ver Fluxo de Exceção 8d, e RN-09).
+15. **[PLANEJADO]** Se um código de consultor foi informado, API consulta a coleção `consultants` filtrando por `code == <código informado>`; se não encontrar nenhum documento com `status: "active"`, retorna erro 400 e nenhuma solicitação é criada (ver Fluxo de Exceção 8e, e nova RN de validação de código).
+16. API deriva o campo legado `type` (`"clinica"` para especialista, `"autonomo"` para consultor).
+17. API cria o documento na coleção `access_requests` com `status: "pendente"`, gravando `normalizedEmail` no campo `email` e, **[PLANEJADO]**, `consultant_code`/`consultant_id` quando o código informado tiver sido validado com sucesso no passo 15.
+18. API retorna sucesso com o `id` do documento criado e a mensagem "Solicitação enviada com sucesso!".
+19. Sistema exibe a mensagem de sucesso e limpa os campos de texto do formulário.
+20. Sistema aguarda 4 segundos e redireciona para `/login`.
+21. Caso de uso é concluído com sucesso.
 
 ---
 
@@ -96,7 +102,7 @@ O visitante acessa a rota pública `/register` com a intenção de solicitar ace
 3. Caso de uso é encerrado.
 
 ### 7b. Troca de perfil durante o preenchimento (a partir do passo 3)
-1. Visitante já havia preenchido campos do formulário, possivelmente incluindo os campos exclusivos de especialista (consultor de referência, volume).
+1. Visitante já havia preenchido campos do formulário, possivelmente incluindo os campos exclusivos de especialista (código do consultor, volume).
 2. Visitante seleciona o outro perfil.
 3. Sistema ajusta rótulos/placeholders dos campos compartilhados e oculta os campos exclusivos de especialista (caso o visitante mude para "consultor") — os valores já digitados nos campos compartilhados (nome, conselho, email, telefone, nome do negócio) são mantidos; os campos exclusivos de especialista deixam de ser enviados no `POST` (mesmo que ainda tenham valor no estado interno da tela).
 4. Retorna ao passo 5 do fluxo principal.
@@ -118,7 +124,7 @@ O visitante acessa a rota pública `/register` com a intenção de solicitar ace
 3. Sistema exibe o erro em alerta vermelho.
 4. Caso de uso retorna ao passo 5.
 
-### 8c. Erro no servidor (a partir do passo 16)
+### 8c. Erro no servidor (a partir do passo 17)
 1. Firestore está indisponível ou ocorre erro inesperado ao criar o documento.
 2. API retorna erro 500 com `{ error: string }`.
 3. Sistema exibe o erro retornado ou "Erro ao processar solicitação".
@@ -132,20 +138,26 @@ O visitante acessa a rota pública `/register` com a intenção de solicitar ace
 
 **Comportamento anterior (histórico, antes da correção):** não havia nenhuma checagem de duplicidade — o mesmo e-mail podia gerar múltiplas solicitações com `status: "pendente"` simultâneas (ver RN-09).
 
+### 8e. [PLANEJADO — ainda não implementado] Código de consultor inválido ou inexistente (a partir do passo 15)
+1. Visitante informa um código de consultor que não corresponde a nenhum documento em `consultants`, ou que corresponde a um consultor com `status` diferente de `"active"` (ex.: suspenso).
+2. API retorna erro 400 com uma mensagem específica (ex.: "Código de consultor inválido ou inativo"); nenhuma solicitação é criada.
+3. Sistema exibe o erro retornado em alerta vermelho.
+4. Caso de uso retorna ao passo 5.
+
 ---
 
 ## 9. Regras de Negócio Relacionadas
 
 | ID | Regra | Justificativa |
 |----|-------|----------------|
-| RN-01 | Toda solicitação nasce com `status: "pendente"` — não existe auto-aprovação. | Controle de qualidade e prevenção de fraudes; toda entrada passa por análise humana (UC-02/UC-03). |
+| RN-01 | Toda solicitação nasce com `status: "pendente"` — não existe auto-aprovação. | Controle de qualidade e prevenção de fraudes; toda entrada passa por análise humana (UC-02/UC-03), ou, quando vinculada a um consultor, pelo próprio consultor (UC-56, planejado). |
 | RN-02 | O perfil (`role`) é obrigatoriamente `"especialista"` ou `"consultor"` — determina os rótulos dinâmicos da tela (CRM/CRO vs. ID Rennova; Nome da clínica vs. Região/carteira) e, na aprovação (UC-02, RN-02), o limite de usuários do tenant (consultor → 1 usuário; especialista → 5 usuários). | Modelo de negócio com dois perfis distintos de acesso ao ecossistema Rennova (operação clínica vs. atuação comercial). |
-| RN-03 | O sistema não coleta CPF/CNPJ nem senha nesta etapa — mudança confirmada em relação a uma versão anterior deste formulário (ver Histórico de Versões, v2.0). A senha de acesso só é definida após a aprovação da solicitação (UC-02), através de um link de redefinição de senha enviado por e-mail. | Simplifica o formulário de entrada e adia a criação de credenciais para o momento em que a conta já foi de fato aprovada. |
+| RN-03 | O sistema não coleta CPF/CNPJ nem senha nesta etapa — mudança confirmada em relação a uma versão anterior deste formulário (ver Histórico de Versões, v2.0). A senha de acesso só é definida após a aprovação da solicitação (UC-02/UC-56), através de um link de redefinição de senha enviado por e-mail. | Simplifica o formulário de entrada e adia a criação de credenciais para o momento em que a conta já foi de fato aprovada. |
 | RN-04 | **[CORRIGIDO — commit `1254abb`]** `full_name` deve conter nome e sobrenome (mínimo 2 palavras), entre 3 e 100 caracteres, usando apenas letras, espaços, acentos e hífen — validado por `validateFullName` (`@/lib/validations/serverValidations`), agora chamada tanto pelo backend quanto pelo frontend (`register/page.tsx`, que passou a importar e usar diretamente essa função em vez de uma checagem local de `length >= 3`). | A divergência entre a validação de frontend (antes mais permissiva) e a de backend (mais rigorosa) foi eliminada — um nome de uma única palavra agora é rejeitado já na tela, antes de qualquer chamada à API (comportamento anterior descrito no histórico do Fluxo de Exceção 8b). |
 | RN-05 | **[CORRIGIDO — commit `1254abb`]** `email` é normalizado para lowercase e trim antes de ser salvo (reaproveitando a mesma variável `normalizedEmail` usada também na checagem de duplicidade, RN-09); a validação (regex RFC 5322 simplificada, domínio obrigatoriamente com um ponto, até 254 caracteres) é feita por `validateEmail` (`@/lib/validations/serverValidations`), agora chamada tanto pelo backend quanto pelo frontend — que deixou de aceitar qualquer valor contendo apenas "@". | Evita duplicidade por diferença de caixa e garante um formato de e-mail minimamente válido já na tela, antes da chamada à API — elimina a divergência frontend/backend antes documentada aqui e na RN-04. |
 | RN-06 | **[CORRIGIDO — commit `1254abb`]** `phone` deve ter 10 ou 11 dígitos, DDD entre 11 e 99, e não pode ter todos os dígitos iguais — validado por `validatePhone` (`@/lib/validations/serverValidations`), agora chamada tanto pelo backend quanto pelo frontend, que deixou de aceitar qualquer valor com 10+ dígitos sem checar DDD ou dígitos repetidos. | Elimina a divergência frontend/backend das RN-04/RN-05 — a validação completa agora ocorre já na tela, antes de qualquer chamada à API. |
 | RN-07 | `council_number` (CRM/CRO ou ID Rennova) e `business_name` (nome da clínica ou região/carteira) são obrigatórios, mas o backend só verifica a presença desses campos — nenhuma validação de formato ou tamanho mínimo além da checagem de 3 caracteres feita no frontend. Não afetados pela correção do commit `1254abb` (RN-04 a RN-06), que tratou apenas `full_name`, `email` e `phone`. | Não há regra de negócio de formato definida no código atual para esses dois campos (ex.: nenhum padrão de CRM/CRO é validado). |
-| RN-08 | `consultant_reference` e `volume` só são exibidos e enviados quando `role === "especialista"`; ambos são opcionais e não têm nenhuma validação no backend — inclusive `volume` não é validado contra a lista de opções fixas exibidas na tela (a API aceita qualquer string nesse campo). | Dados complementares de qualificação comercial, exclusivos do perfil especialista; sem validação de backend implementada atualmente. |
+| RN-08 | **[PLANEJADO — não implementado; substitui o comportamento anterior deste item]** Até a v2.1.1, o campo "Consultor Rennova de referência" (`consultant_reference`) era texto livre, sem validação, exibido e enviado apenas quando `role === "especialista"`. A partir desta revisão, esse campo passa a representar um **código de consultor de 6 dígitos** (mesmo formato gerado em UC-28): quando preenchido, o backend deve validar que o código corresponde a um documento com `status: "active"` na coleção `consultants` e, em caso positivo, gravar na solicitação tanto o código informado (`consultant_code`) quanto o id do consultor correspondente (`consultant_id`); em caso negativo, bloquear o envio (Fluxo de Exceção 8e). O campo continua **opcional** — permanece sem nenhuma validação adicional de formato de negócio além da correspondência a um consultor ativo. `volume` permanece inalterado: continua opcional e sem nenhuma validação no backend, inclusive sem validação contra as 4 opções fixas exibidas na tela. | Permite vincular a solicitação a um consultor real e ativo (não apenas um nome digitado livremente), habilitando a regra de exclusividade de aprovação descrita em UC-56; evita que códigos inexistentes ou de consultores inativos sejam aceitos silenciosamente. |
 | RN-09 | **[CORRIGIDO — commit `1254abb`]** Antes, não havia nenhuma checagem de duplicidade de solicitação pendente para o mesmo e-mail — um mesmo e-mail podia gerar múltiplas solicitações pendentes simultâneas. Agora, antes do `addDoc`, `POST /api/access-requests` consulta a coleção `access_requests` via **Admin SDK** (`adminDb`, de `@/lib/firebase-admin`) — não o client SDK usado no restante da rota — filtrando por `email == normalizedEmail` e `status == "pendente"`; se encontrar alguma, retorna 409 com `{ error: "Já existe uma solicitação pendente para este e-mail" }` e não cria o documento. O uso do Admin SDK é necessário porque a regra do Firestore restringe leitura de `access_requests` a `system_admin`, e esta rota é pública/não-autenticada. | Prevenção de solicitações duplicadas para o mesmo e-mail, mantendo a rota funcional mesmo sendo pública (o Admin SDK bypassa a regra de leitura restrita a `system_admin`). Uma verificação equivalente já existia apenas em uma função de serviço (`accessRequestService.createAccessRequest`), que não é chamada por nenhuma tela — código morto (ver seção 14). |
 | RN-10 | **[Achado crítico, confirmado em UC-35]** O formulário `/register` e a API `POST /api/access-requests` não verificam, em nenhum momento, o campo `registration_enabled` do documento `system_settings/global` (tela "Configurações do Sistema", UC-35). Ou seja, desligar "Permitir novos registros" naquela tela administrativa não impede, hoje, nenhum visitante de acessar `/register` nem de submeter uma solicitação de acesso — apesar da própria tela de configurações descrever esse campo como controle de bloqueio de novos registros. | Confirmado por leitura completa de `register/page.tsx` e `api/access-requests/route.ts` (nenhuma referência a `registration_enabled` ou a `system_settings`) e por busca exaustiva no código-fonte, documentada em UC-35 (RN-05). |
 
@@ -155,9 +167,10 @@ O visitante acessa a rota pública `/register` com a intenção de solicitar ace
 
 | ID | Descrição | Categoria |
 |----|-----------|-----------|
-| RNF-01 | Nenhum `tenant_id` existe neste momento — a solicitação é pré-tenant; não há nenhuma tentativa de vincular a solicitação a um tenant já existente nesta versão do fluxo (ver seção 14 sobre a função de serviço não utilizada que fazia esse tipo de vínculo). O tenant só é criado na aprovação (UC-02). | Multi-tenant |
+| RNF-01 | Nenhum `tenant_id` existe neste momento — a solicitação é pré-tenant; não há nenhuma tentativa de vincular a solicitação a um tenant já existente nesta versão do fluxo (ver seção 14 sobre a função de serviço não utilizada que fazia esse tipo de vínculo). O tenant só é criado na aprovação (UC-02/UC-56). | Multi-tenant |
 | RNF-02 | **[CORRIGIDO — commit `1254abb`]** A validação client-side deixou de ser mais simples que a validação server-side para `full_name`, `email` e `phone` — ambas agora usam exatamente as mesmas funções compartilhadas (`validateFullName`, `validateEmail`, `validatePhone`, ver RN-04 a RN-06). A dupla validação (frontend + backend) permanece, mas agora é simétrica para esses três campos; `council_number` e `business_name` continuam com validação apenas de presença no backend e um mínimo de 3 caracteres no frontend, sem função compartilhada (RN-07). | Segurança / Usabilidade |
 | RNF-03 | Máscara de telefone aplicada em tempo real durante a digitação. | Usabilidade |
+| RNF-04 | **[PLANEJADO]** A validação do código de consultor (RN-08) precisará de uma leitura adicional no Firestore (coleção `consultants`) a cada submissão que informe o campo — mesmo padrão de leitura via Admin SDK já usado em RN-09/RN-10 (bypass da regra que restringe `consultants`/`access_requests` a leitura autenticada), já que esta rota é pública. | Performance / Segurança |
 
 ---
 
@@ -168,6 +181,8 @@ Ocasional — ocorre a cada novo interessado (especialista HOF ou consultor Renn
 
 ## 12. Casos de Uso Relacionados
 - **UC-02 (Aprovar Solicitação de Acesso)** e **UC-03 (Rejeitar Solicitação de Acesso)** dependem de uma solicitação criada por este caso de uso. Não há relação formal `<<include>>`/`<<extend>>` — trata-se de uma dependência sequencial: a solicitação pendente criada aqui é pré-condição de UC-02 e UC-03. O `role` definido neste UC alimenta diretamente a regra de limite de usuários aplicada em UC-02 (RN-02).
+- **UC-28 (Cadastrar Consultor)** — **[PLANEJADO]** é a fonte dos códigos de 6 dígitos que este UC passará a validar (RN-08); um código só é aceito aqui se corresponder a um consultor cadastrado e ativo por aquele UC.
+- **UC-56 (Consultor Aprova Solicitação de Acesso Vinculada ao Seu Código)** — **[PLANEJADO]** consome o `consultant_id` gravado por este UC (RN-08) para decidir quem, além do System Admin, pode aprovar a solicitação, e durante qual janela de tempo.
 - **UC-35 (Editar Configurações Globais do Sistema)** — a tela administrativa daquele UC expõe um switch "Permitir novos registros" (`registration_enabled`) que, por sua descrição, sugere controlar o acesso a este UC-01. **Não há, hoje, uma relação funcional real entre os dois**: este fluxo não verifica `registration_enabled` em nenhum momento (RN-10) — a relação existe apenas como intenção de produto ainda não implementada. Ver também, na seção 14, o achado não verificado sobre a leitura de `system_settings/global` feita por esta mesma rota via client SDK.
 
 ---
@@ -178,11 +193,14 @@ Ocasional — ocorre a cada novo interessado (especialista HOF ou consultor Renn
 - `src/lib/validations/serverValidations.ts` (funções usadas tanto pelo backend quanto, desde o commit `1254abb`, pelo frontend — `register/page.tsx` — deste fluxo: `validateFullName`, `validateEmail`, `validatePhone`; as demais funções do arquivo, ex. `validateCPF`, `validateCNPJ`, `validatePassword`, `validateCEP`, não são usadas por este UC)
 - `src/lib/firebase-admin.ts` (`adminDb`, usado desde o commit `1254abb` na checagem de duplicidade de solicitação pendente, RN-09, e, desde o commit `66689fe`, também na leitura de `system_settings/global` — gate de `registration_enabled`, RN-10 — que antes usava o client SDK e era negada por permissão nesta rota pública; ver seção 14, item UC-01-Q1)
 - `src/types/index.ts` (interface `AccessRequest`, tipos `AccessRequestRole`, `AccessRequestType`, `AccessRequestStatus`)
+- **[PLANEJADO]** `src/app/api/consultants/route.ts` e a coleção `consultants` (`src/types/index.ts`, interface `Consultant`) — referência de onde a validação do código (RN-08) deverá consultar; nenhum endpoint/função específico de validação existe ainda — a implementação concreta (nova função utilitária, novo endpoint, ou verificação inline na própria rota) é decisão de engenharia a ser tomada no momento da implementação (ver seção 14).
 - `project_doc/auth/register-page-documentation.md` — **desatualizado** (descreve a versão anterior do formulário, com CPF/CNPJ e senha; ver seção 14)
 
 ---
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
+
+**[PLANEJADO — pendência de implementação, não de produto]** Esta revisão (v2.2) documenta uma mudança de produto **confirmada pelo PO**, mas **ainda não implementada**: a transformação do campo "Consultor Rennova de referência" de texto livre para um código de consultor validado (RN-08). O nome exato dos campos (`consultant_code`/`consultant_id`) e o mecanismo concreto de validação (nova função utilitária vs. endpoint dedicado vs. verificação inline) são sugestões de design registradas aqui para orientar a implementação futura (via `dev-task-manager`), não decisões de produto fechadas — devem ser validadas pela engenharia no momento da implementação.
 
 **[Pendência para próxima rodada, confirmada pelo usuário]** UC-02 (Aprovar Solicitação de Acesso) referencia, em suas pré/pós-condições e no código de `approve/route.ts`, os campos `document_type` e `address` da solicitação (`document_type: request.document_type ?? 'cnpj'`, `document_number: request.document_number ?? ''`) — mas o formulário atual de `/register` (este UC) não coleta mais nenhum desses campos. Na prática, todo tenant criado hoje via aprovação recebe `document_type: "cnpj"` (fallback fixo do código) e `document_number: ""` (vazio), independentemente do perfil real do solicitante (especialista ou consultor). UC-02 precisará de uma revisão própria para refletir essa realidade — não foi reescrito nesta rodada, por decisão explícita do usuário (fica para uma próxima rodada dedicada a UC-02).
 
@@ -209,4 +227,5 @@ Nenhuma pendência aberta quanto à modelagem dos dois perfis em si: o usuário 
 | 2.0.1 | 15/07/2026 | Guilherme Scandelari | Correção pontual: adicionada RN-10 e nota em "Casos de Uso Relacionados" documentando o achado crítico confirmado em UC-35 (Editar Configurações Globais do Sistema) — o campo `registration_enabled` daquela tela administrativa não é verificado por este fluxo, apesar de sua descrição sugerir esse controle. Nenhuma mudança de escopo ou reestruturação; apenas referência cruzada a um achado já investigado e documentado em UC-35. |
 | 2.1 | 06/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Correção de bugs (commit `1254abb`)**: (1) RN-09 corrigida — `POST /api/access-requests` passou a checar, via Admin SDK, se já existe uma solicitação `pendente` para o mesmo e-mail antes de criar uma nova, retornando 409 em caso positivo (novo Fluxo de Exceção 8d; Fluxo Principal ganhou o passo 14); (2) RN-04, RN-05 e RN-06 corrigidas — `register/page.tsx` passou a importar e usar as mesmas funções compartilhadas do backend (`validateFullName`, `validateEmail`, `validatePhone`), eliminando a divergência entre validação de frontend (antes mais permissiva) e backend; RNF-02 atualizada de acordo. Fluxo Principal (passo 8), Fluxos de Exceção 8a/8b e Referências (seção 13) atualizados. Adicionado, na seção 14, um novo achado não verificado (descoberto durante a investigação de RN-09): a mesma rota `POST /api/access-requests` lê `system_settings/global` via client SDK, o que pode estar sendo bloqueado pela regra do Firestore para visitantes não autenticados — não confirmado em runtime, registrado para investigação dedicada. |
 | 2.1.1 | 06/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual: item **UC-01-Q1** (seção 14) atualizado de "não verificado, Aberto" para **[RESOLVIDO — commit `66689fe`]** — a leitura de `system_settings/global` em `POST /api/access-requests` foi migrada do client SDK para o Admin SDK (`adminDb.doc('system_settings/global').get()`), eliminando o bloqueio por permissão que a regra `isAuthenticated()` do Firestore impunha a essa rota pública/não-autenticada. Validação feita por análise estática das regras do Firestore (semântica inequívoca de `isAuthenticated()`), não por teste em emulador (indisponível no ambiente de trabalho). Referência a `firebase-admin.ts` (seção 13) atualizada para refletir esse segundo uso do `adminDb` nesta rota. Nenhuma mudança de escopo ou reestruturação. |
+| 2.2 | 08/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Mudança de produto planejada, ainda não implementada.** Documentado, com a marcação `[PLANEJADO]`, que o campo "Consultor Rennova de referência" deixará de ser texto livre e passará a ser um código de consultor de 6 dígitos, validado contra a coleção `consultants` (UC-28); quando válido, a solicitação passará a gravar `consultant_code`/`consultant_id`, habilitando a nova regra de aprovação exclusiva por consultor descrita em UC-56. RN-08 reescrita; Pré-condições, Pós-condições, Fluxo Principal (passos 6, 9, 15, 17), novo Fluxo de Exceção 8e, RNF-04, Referências e Casos de Uso Relacionados (novas entradas UC-28/UC-56) atualizados. `Status` alterado de "Aprovado" para "Em Revisão" enquanto a implementação não ocorre. Registrada, na seção 14, a ressalva de que os nomes de campo/mecanismo de validação sugeridos são propostas de design, não decisões de produto fechadas. |
 
