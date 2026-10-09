@@ -25,6 +25,11 @@ import {
   calcularCustoMedioPorProduto,
   calcularCustoMaterialProtocolo,
   calcularPrecificacaoProtocolo,
+  calcularCustoMaterialSolicitacao,
+  calcularPrecificacaoProcedimento,
+  mesReferenciaDoProcedimento,
+  montarSnapshotPrecificacao,
+  resolverDuracaoProcedimento,
   DURACAO_PADRAO_MINUTOS,
   parseDuracaoMinutos,
   calcularProdutosRennova,
@@ -752,5 +757,206 @@ describe('forma de pagamento (RN-19, RN-20, RN-21)', () => {
     expect(calcularCustoHoraAplicado(120, 0)).toBeNull();
     expect(calcularCustoHoraAplicado(120, null)).toBeNull();
     expect(calcularCustoHoraAplicado(null, 60)).toBeNull();
+  });
+});
+
+describe('procedimento (RN-22 a RN-24, RN-31, D11 a D13)', () => {
+  const markup = { imposto_pct: 6, debito_pct: 2, credito_pct: 4, comissao_pct: 0, margem_pct: 30 };
+  const configProc = () => ({ ...configOficial(), markup: { ...markup } });
+  const produtos200 = [{ quantidade: 2, valor_unitario: 100 }];
+
+  const snapshot = (overrides: Partial<Parameters<typeof montarSnapshotPrecificacao>[0]> = {}) =>
+    montarSnapshotPrecificacao({
+      tenantId: 'clinic_a',
+      solicitacaoId: 's1',
+      config: configProc(),
+      mesReferencia: '2026-10',
+      duracao: { minutos: 60, origem: 'protocolo' },
+      formaPagamento: 'credito',
+      produtos: produtos200,
+      origem: 'criacao',
+      ...overrides,
+    });
+
+  describe('resolverDuracaoProcedimento', () => {
+    it('always prefers the duration typed in the procedure', () => {
+      expect(
+        resolverDuracaoProcedimento({
+          duracaoInformada: 45,
+          protocoloAplicado: { duracao_minutos: 60 },
+        })
+      ).toEqual({ minutos: 45, origem: 'informada' });
+      expect(resolverDuracaoProcedimento({ duracaoInformada: 45, protocoloAplicado: {} })).toEqual({
+        minutos: 45,
+        origem: 'informada',
+      });
+    });
+
+    it('uses the protocol duration when nothing is typed', () => {
+      expect(
+        resolverDuracaoProcedimento({
+          duracaoInformada: null,
+          protocoloAplicado: { duracao_minutos: 30 },
+        })
+      ).toEqual({ minutos: 30, origem: 'protocolo' });
+    });
+
+    it.each([{}, { duracao_minutos: 0 }, null])(
+      'falls back to one hour otherwise (%p)',
+      (protocoloAplicado) => {
+        expect(resolverDuracaoProcedimento({ duracaoInformada: null, protocoloAplicado })).toEqual({
+          minutos: 60,
+          origem: 'padrao',
+        });
+      }
+    );
+  });
+
+  describe('mesReferenciaDoProcedimento', () => {
+    it('reads the month of the procedure date', () => {
+      expect(mesReferenciaDoProcedimento('2026-10-20')).toBe('2026-10');
+      expect(mesReferenciaDoProcedimento('2026-11-01')).toBe('2026-11');
+    });
+
+    it('keeps the 1st in its own month for dates stored at UTC midnight', () => {
+      expect(mesReferenciaDoProcedimento(new Date('2026-11-01'))).toBe('2026-11');
+      expect(mesReferenciaDoProcedimento(new Date('2026-10-31T00:00:00Z'))).toBe('2026-10');
+    });
+  });
+
+  describe('calcularCustoMaterialSolicitacao', () => {
+    it('sums the lots actually used', () => {
+      expect(
+        calcularCustoMaterialSolicitacao([
+          { quantidade: 2, valor_unitario: 100 },
+          { quantidade: 1, valor_unitario: 0 },
+        ])
+      ).toEqual({ total: 200, incompleto: false });
+    });
+
+    it('flags lots without a valid unit value', () => {
+      expect(
+        calcularCustoMaterialSolicitacao([
+          { quantidade: 2, valor_unitario: 100 },
+          { quantidade: 1, valor_unitario: undefined },
+        ])
+      ).toEqual({ total: 200, incompleto: true });
+    });
+  });
+
+  describe('calcularPrecificacaoProcedimento', () => {
+    it('prices the official example for the three payment methods', () => {
+      const calculo = calcularPrecificacaoProcedimento({
+        duracaoMinutos: 60,
+        custoHora: 30000 / 196,
+        divisores: calcularDivisoresMarkup(markup),
+        custoMaterial: { total: 800, incompleto: false },
+      });
+      expect(calculo.custoReal).toBeCloseTo(953.06, 2);
+      expect(calculo.precos.pix_dinheiro).toBeCloseTo(1489.16, 2);
+      expect(calculo.precos.debito).toBeCloseTo(1537.2, 2);
+      expect(calculo.precos.credito).toBeCloseTo(1588.44, 2);
+    });
+
+    it('uses the November hours for a November procedure', () => {
+      const calculo = calcularPrecificacaoProcedimento({
+        duracaoMinutos: 60,
+        custoHora: 30000 / 184,
+        divisores: calcularDivisoresMarkup(markup),
+        custoMaterial: { total: 800, incompleto: false },
+      });
+      expect(calculo.custoReal).toBeCloseTo(963.04, 2);
+      expect(calculo.precos.pix_dinheiro).toBeCloseTo(1504.76, 2);
+      expect(calculo.precos.debito).toBeCloseTo(1553.3, 2);
+      expect(calculo.precos.credito).toBeCloseTo(1605.07, 2);
+    });
+
+    it('applies 45 minutes proportionally', () => {
+      const calculo = calcularPrecificacaoProcedimento({
+        duracaoMinutos: 45,
+        custoHora: 30000 / 196,
+        divisores: calcularDivisoresMarkup(markup),
+        custoMaterial: { total: 200, incompleto: false },
+      });
+      expect(calculo.custoReal).toBeCloseTo(314.8, 2);
+      expect(calculo.precos.pix_dinheiro).toBeCloseTo(491.87, 2);
+      expect(calculo.precos.credito).toBeCloseTo(524.66, 2);
+    });
+  });
+
+  describe('montarSnapshotPrecificacao', () => {
+    it('records the October procedure with the three prices', () => {
+      const s = snapshot();
+      expect(s.mes_referencia).toBe('2026-10');
+      expect(s.custo_hora).toBeCloseTo(153.0612, 4);
+      expect(s.duracao_minutos).toBe(60);
+      expect(s.duracao_origem).toBe('protocolo');
+      expect(s.custo_material).toBe(200);
+      expect(s.custo_material_incompleto).toBe(false);
+      expect(s.custo_real).toBeCloseTo(353.0612, 4);
+      expect(s.divisores.pix_dinheiro).toBeCloseTo(0.64, 6);
+      expect(s.divisores.debito).toBeCloseTo(0.62, 6);
+      expect(s.divisores.credito).toBeCloseTo(0.6, 6);
+      expect(s.precos_sugeridos.pix_dinheiro).toBeCloseTo(551.66, 2);
+      expect(s.precos_sugeridos.debito).toBeCloseTo(569.45, 2);
+      expect(s.precos_sugeridos.credito).toBeCloseTo(588.44, 2);
+      expect(s.markup).toEqual(markup);
+      expect(s.forma_pagamento).toBe('credito');
+      expect(s).toMatchObject({ tenant_id: 'clinic_a', solicitacao_id: 's1', origem: 'criacao' });
+    });
+
+    it('does not change values with the payment method', () => {
+      const credito = snapshot();
+      for (const forma of ['pix_dinheiro', 'debito'] as const) {
+        const outro = snapshot({ formaPagamento: forma });
+        expect(outro.forma_pagamento).toBe(forma);
+        expect(outro.precos_sugeridos).toEqual(credito.precos_sugeridos);
+        expect(outro.divisores).toEqual(credito.divisores);
+      }
+    });
+
+    it('uses the hours of the procedure month', () => {
+      const s = snapshot({ mesReferencia: '2026-11' });
+      expect(s.custo_hora).toBeCloseTo(163.0435, 4);
+      expect(s.precos_sugeridos.pix_dinheiro).toBeCloseTo(567.26, 2);
+      expect(s.precos_sugeridos.debito).toBeCloseTo(585.55, 2);
+      expect(s.precos_sugeridos.credito).toBeCloseTo(605.07, 2);
+    });
+
+    it('records the one-hour default for a protocol without duration', () => {
+      const s = snapshot({
+        duracao: { minutos: 60, origem: 'padrao' },
+        produtos: [{ quantidade: 1, valor_unitario: 100 }],
+      });
+      expect(s.duracao_origem).toBe('padrao');
+      expect(s.precos_sugeridos.pix_dinheiro).toBeCloseTo(395.41, 2);
+      expect(s.precos_sugeridos.debito).toBeCloseTo(408.16, 2);
+      expect(s.precos_sugeridos.credito).toBeCloseTo(421.77, 2);
+    });
+
+    it('keeps the material but no price without availability', () => {
+      const config = configProc();
+      config.disponibilidade = criarConfigPadrao('t').disponibilidade;
+      const s = snapshot({ config });
+      expect(s.custo_hora).toBeNull();
+      expect(s.custo_real).toBeNull();
+      expect(s.custo_material).toBe(200);
+      expect(s.precos_sugeridos).toEqual({ pix_dinheiro: null, debito: null, credito: null });
+    });
+
+    it('records no divisors nor prices with an invalid markup', () => {
+      const config = configProc();
+      config.markup = { ...markup, credito_pct: 70 };
+      const s = snapshot({ config });
+      expect(s.divisores).toEqual({ pix_dinheiro: null, debito: null, credito: null });
+      expect(s.precos_sugeridos).toEqual({ pix_dinheiro: null, debito: null, credito: null });
+      expect(s.custo_real).toBeCloseTo(353.0612, 4);
+    });
+
+    it('flags incomplete material', () => {
+      expect(
+        snapshot({ produtos: [{ quantidade: 1, valor_unitario: 'abc' }] }).custo_material_incompleto
+      ).toBe(true);
+    });
   });
 });
