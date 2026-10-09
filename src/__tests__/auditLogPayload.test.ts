@@ -2,6 +2,7 @@ import {
   buildAuditLogPayload,
   determineUserAuditAction,
   determineConsultantAuditAction,
+  determineFinancialShareAuditAction,
   type NewAuditLogInput,
 } from '@/lib/auditLogPayload';
 
@@ -114,5 +115,52 @@ describe('determineConsultantAuditAction', () => {
   it('returns update when status is unchanged', () => {
     const result = determineConsultantAuditAction({ status: 'active' }, { status: 'active' });
     expect(result).toEqual({ action: 'update' });
+  });
+});
+
+describe('determineFinancialShareAuditAction', () => {
+  const off = { compartilhar_com_consultor: false, compartilhado_com_consultant_id: null };
+  const onX = { compartilhar_com_consultor: true, compartilhado_com_consultant_id: 'cons-x' };
+  const onY = { compartilhar_com_consultor: true, compartilhado_com_consultant_id: 'cons-y' };
+
+  it('does not audit when sharing stays off', () => {
+    expect(determineFinancialShareAuditAction(null, off)).toBeNull();
+    expect(determineFinancialShareAuditAction(off, off)).toBeNull();
+  });
+
+  it('audits share when sharing is turned on', () => {
+    expect(determineFinancialShareAuditAction(null, onX)).toEqual({
+      action: 'share_with_consultant',
+      metadata: { consultant_id: 'cons-x' },
+    });
+    expect(determineFinancialShareAuditAction(off, onX)).toEqual({
+      action: 'share_with_consultant',
+      metadata: { consultant_id: 'cons-x' },
+    });
+  });
+
+  it('does not audit when sharing stays on for the same consultant', () => {
+    expect(determineFinancialShareAuditAction(onX, onX)).toBeNull();
+  });
+
+  it('audits unshare when sharing is turned off', () => {
+    expect(determineFinancialShareAuditAction(onX, off)).toEqual({
+      action: 'unshare_with_consultant',
+      metadata: { consultant_id: 'cons-x' },
+    });
+  });
+
+  it('audits share with the previous consultant when the recipient changes', () => {
+    expect(determineFinancialShareAuditAction(onX, onY)).toEqual({
+      action: 'share_with_consultant',
+      metadata: { consultant_id: 'cons-y', consultant_anterior_id: 'cons-x' },
+    });
+  });
+
+  it('records the consultant change reason on automatic unshare', () => {
+    expect(determineFinancialShareAuditAction(onX, off, { trocaDeConsultor: true })).toEqual({
+      action: 'unshare_with_consultant',
+      metadata: { consultant_id: 'cons-x', motivo: 'troca_de_consultor' },
+    });
   });
 });

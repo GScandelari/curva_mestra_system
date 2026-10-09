@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, ClipboardList } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Plus, Pencil, Trash2, ClipboardList, Calculator } from 'lucide-react';
 import { listProtocolos, deleteProtocolo } from '@/lib/services/protocoloService';
-import type { Protocolo } from '@/types';
+import { getCustoHoraConfig, listInventoryForCosting } from '@/lib/services/custoHoraService';
+import ProtocoloPrecificacao from '@/components/pricing/ProtocoloPrecificacao';
+import {
+  calcularCustoMaterialProtocolo,
+  calcularCustoMedioPorProduto,
+  calcularPrecificacaoProtocolo,
+  calcularResumoCustoHora,
+  formatarMesReferencia,
+  mesCorrenteSaoPaulo,
+  type LoteParaCusto,
+} from '@/lib/precificacao';
+import type { CustoHoraConfig, Protocolo } from '@/types';
 
 export default function ProtocolosPage() {
   const { claims } = useAuth();
@@ -32,11 +44,32 @@ export default function ProtocolosPage() {
   const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [custoConfig, setCustoConfig] = useState<CustoHoraConfig | null>(null);
+  const [lotes, setLotes] = useState<LoteParaCusto[] | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
     load();
   }, [tenantId]);
+
+  // Precificação só para clinic_admin (RF-18): clinic_user nunca lê `financeiro`.
+  useEffect(() => {
+    if (!tenantId || !isAdmin) return;
+    Promise.all([getCustoHoraConfig(tenantId), listInventoryForCosting(tenantId)])
+      .then(([config, inventario]) => {
+        setCustoConfig(config);
+        setLotes(inventario);
+      })
+      .catch((error) => console.error('Erro ao carregar precificação dos protocolos:', error));
+  }, [tenantId, isAdmin]);
+
+  const mesAtual = useMemo(() => mesCorrenteSaoPaulo(), []);
+  const custosMedios = useMemo(() => (lotes ? calcularCustoMedioPorProduto(lotes) : null), [lotes]);
+  const resumo = useMemo(
+    () => (custoConfig ? calcularResumoCustoHora(custoConfig, mesAtual) : null),
+    [custoConfig, mesAtual]
+  );
+  const precificacaoIndisponivel = resumo?.custoHora == null || resumo?.divisor == null;
 
   async function load() {
     if (!tenantId) return;
@@ -83,6 +116,22 @@ export default function ProtocolosPage() {
             </Button>
           )}
         </div>
+
+        {isAdmin && custosMedios && precificacaoIndisponivel && (
+          <Alert variant="warning">
+            <Calculator className="h-4 w-4" />
+            <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              Configure seus custos fixos para ver o preço sugerido dos protocolos
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/clinic/my-clinic?tab=fixed_costs')}
+              >
+                Configurar custos fixos
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center h-48">
@@ -136,7 +185,7 @@ export default function ProtocolosPage() {
                     </div>
                   )}
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {protocolo.itens.map((item) => (
                       <Badge key={item.codigo_produto} variant="secondary">
@@ -144,9 +193,30 @@ export default function ProtocolosPage() {
                       </Badge>
                     ))}
                   </div>
+                  {isAdmin && custosMedios && (
+                    <ProtocoloPrecificacao
+                      modo="admin"
+                      duracaoMinutos={protocolo.duracao_minutos}
+                      precificacao={calcularPrecificacaoProtocolo({
+                        duracaoMinutos: protocolo.duracao_minutos,
+                        custoHora: resumo?.custoHora ?? null,
+                        divisor: resumo?.divisor ?? null,
+                        custoMaterial: calcularCustoMaterialProtocolo(
+                          protocolo.itens,
+                          custosMedios
+                        ),
+                      })}
+                    />
+                  )}
                 </CardContent>
               </Card>
             ))}
+            {isAdmin && resumo && !precificacaoIndisponivel && (
+              <p className="text-xs text-muted-foreground">
+                Valores com base nos custos de {formatarMesReferencia(mesAtual)} — estimativa de
+                referência, não substitui a contabilidade.
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -98,3 +98,57 @@ export function determineConsultantAuditAction(
   }
   return { action: 'update' };
 }
+
+export interface FinancialShareState {
+  compartilhar_com_consultor: boolean;
+  compartilhado_com_consultant_id: string | null;
+}
+
+export interface FinancialShareAuditResult {
+  action: 'share_with_consultant' | 'unshare_with_consultant';
+  metadata: {
+    consultant_id: string | null;
+    consultant_anterior_id?: string | null;
+    motivo?: 'troca_de_consultor';
+  };
+}
+
+/**
+ * Decide se uma gravação da configuração financeira gera entrada de auditoria
+ * (D4 da FEAT de precificação: só o compartilhamento com o consultor é
+ * auditado). `before: null` = documento ainda não existia (tratado como
+ * desligado). `options.trocaDeConsultor` marca a revogação automática da RN-16.
+ */
+export function determineFinancialShareAuditAction(
+  before: FinancialShareState | null,
+  after: FinancialShareState,
+  options?: { trocaDeConsultor?: boolean }
+): FinancialShareAuditResult | null {
+  const beforeOn = before?.compartilhar_com_consultor === true;
+  const beforeId = beforeOn ? (before?.compartilhado_com_consultant_id ?? null) : null;
+  const afterOn = after.compartilhar_com_consultor === true;
+  const afterId = afterOn ? after.compartilhado_com_consultant_id : null;
+
+  if (!beforeOn && !afterOn) return null;
+
+  if (!beforeOn && afterOn) {
+    return { action: 'share_with_consultant', metadata: { consultant_id: afterId } };
+  }
+
+  if (beforeOn && !afterOn) {
+    return {
+      action: 'unshare_with_consultant',
+      metadata: {
+        consultant_id: beforeId,
+        ...(options?.trocaDeConsultor ? { motivo: 'troca_de_consultor' as const } : {}),
+      },
+    };
+  }
+
+  if (beforeId === afterId) return null;
+
+  return {
+    action: 'share_with_consultant',
+    metadata: { consultant_id: afterId, consultant_anterior_id: beforeId },
+  };
+}

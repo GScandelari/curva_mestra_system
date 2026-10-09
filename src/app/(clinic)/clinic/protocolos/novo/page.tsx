@@ -13,6 +13,7 @@ import {
   DUPLICATE_PROTOCOLO_NAME_ERROR,
   type ProdutoHistorico,
 } from '@/lib/services/protocoloService';
+import { parseDuracaoMinutos } from '@/lib/precificacao';
 import type { ProtocoloItem } from '@/types';
 
 export default function NovoProtocoloPage() {
@@ -30,6 +31,7 @@ export default function NovoProtocoloPage() {
 
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
+  const [duracaoMinutos, setDuracaoMinutos] = useState('');
   const [itens, setItens] = useState<ProtocoloItem[]>([]);
   const [produtosHistoricos, setProdutosHistoricos] = useState<ProdutoHistorico[]>([]);
   const [saving, setSaving] = useState(false);
@@ -51,12 +53,18 @@ export default function NovoProtocoloPage() {
       toast({ title: 'Adicione ao menos um produto', variant: 'destructive' });
       return;
     }
+    const duracao = parseDuracaoMinutos(duracaoMinutos);
+    if ('erro' in duracao) {
+      toast({ title: duracao.erro, variant: 'destructive' });
+      return;
+    }
     try {
       setSaving(true);
       await createProtocolo(tenantId, user.uid, {
         nome: nome.trim(),
         descricao: descricao.trim() || undefined,
         itens,
+        duracao_minutos: duracao.valor ?? undefined,
       });
       toast({ title: 'Protocolo criado com sucesso!' });
       router.push('/clinic/protocolos');
@@ -95,11 +103,13 @@ export default function NovoProtocoloPage() {
         <ProtocoloForm
           nome={nome}
           descricao={descricao}
+          duracaoMinutos={duracaoMinutos}
           itens={itens}
           produtosHistoricos={produtosHistoricos}
           saving={saving}
           onNomeChange={setNome}
           onDescricaoChange={setDescricao}
+          onDuracaoMinutosChange={setDuracaoMinutos}
           onItensChange={setItens}
           onSubmit={handleSubmit}
           onCancel={() => router.push('/clinic/protocolos')}
