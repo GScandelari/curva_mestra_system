@@ -5,11 +5,19 @@ import { useRouter, useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Building2, ArrowLeft, Package, AlertTriangle, TrendingDown } from 'lucide-react';
+import {
+  Building2,
+  ArrowLeft,
+  Package,
+  AlertTriangle,
+  TrendingDown,
+  Calculator,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { ReadOnlyBanner } from '@/components/consultant/ReadOnlyBanner';
 import { collection, query, where, getDocs, QueryConstraint } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getCustoHoraConfig } from '@/lib/services/custoHoraService';
 import {
   parseInventoryDate,
   computeInventoryStats,
@@ -40,6 +48,7 @@ export default function ClinicDetailPage() {
     low_stock: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [pricingShared, setPricingShared] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -78,6 +87,13 @@ export default function ClinicDetailPage() {
         setStats(computeInventoryStats(inventorySnapshot.docs, thirtyDaysFromNow));
       } catch (e) {
         console.error('Error loading inventory stats:', e);
+      }
+
+      // RF-17: botão de precificação só com o opt-in financeiro para este consultor
+      try {
+        setPricingShared((await getCustoHoraConfig(tenantId)) !== null);
+      } catch {
+        setPricingShared(false);
       }
 
       // Load tenant basic info
@@ -212,6 +228,16 @@ export default function ClinicDetailPage() {
             <TrendingDown className="h-6 w-6" />
             <span>Ver Projeções</span>
           </Button>
+          {pricingShared && (
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2 w-full md:w-auto"
+              onClick={() => router.push(`/consultant/clinics/${tenantId}/pricing`)}
+            >
+              <Calculator className="h-6 w-6" />
+              <span>Ver Precificação</span>
+            </Button>
+          )}
         </div>
       </div>
     </div>
