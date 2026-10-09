@@ -30,6 +30,7 @@ const ENTITY_TYPE_LABELS: Record<AuditEntityType, string> = {
   master_product: 'Produto Master',
   legal_document: 'Documento Legal',
   system_settings: 'Configurações Globais',
+  financial_config: 'Dados Financeiros',
 };
 
 const ACTION_LABELS: Record<AuditAction, string> = {
@@ -43,6 +44,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   set_password: 'Definir Senha',
   reset_password_link: 'Enviar Link de Redefinição',
   delete: 'Excluir',
+  share_with_consultant: 'Compartilhar com Consultor',
+  unshare_with_consultant: 'Revogar Compartilhamento',
 };
 
 export interface ListAuditLogParams {

@@ -403,10 +403,80 @@ export interface Protocolo {
   nome: string;
   descricao?: string;
   itens: ProtocoloItem[];
+  duracao_minutos?: number; // inteiro 1..1440; ausente em protocolos legados
   active: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
   created_by: string;
+}
+
+// ============================================================================
+// PRECIFICAÇÃO PELA HORA CLÍNICA
+// ============================================================================
+
+export type DiaSemanaKey = 'dom' | 'seg' | 'ter' | 'qua' | 'qui' | 'sex' | 'sab'; // índice = Date.getDay()
+
+export type CustoFixoBaseKey =
+  | 'aluguel'
+  | 'condominio'
+  | 'iptu'
+  | 'pro_labore'
+  | 'energia'
+  | 'salarios'
+  | 'tarifas_bancarias'
+  | 'marketing'
+  | 'contabilidade'
+  | 'manutencao_limpeza'
+  | 'telefone'
+  | 'sistema_agenda_prontuario';
+
+export interface CustoFixoPersonalizado {
+  id: string;
+  nome: string;
+  valor: number; // R$ >= 0
+}
+
+export interface BoletoTec {
+  id: string;
+  descricao: string;
+  valor_parcela: number; // R$ > 0
+  total_parcelas: number; // inteiro >= 1
+  parcelas_pagas: number; // inteiro 0..total_parcelas, na data de mes_referencia
+  mes_referencia: string; // 'YYYY-MM' — mês em que parcelas_pagas foi informado
+}
+
+export interface PeriodoAtendimento {
+  inicio: string; // 'HH:MM' 24h
+  fim: string; // 'HH:MM' 24h, > inicio
+}
+
+export interface DisponibilidadeDia {
+  ativo: boolean;
+  periodos: PeriodoAtendimento[];
+}
+
+export interface ParametrosMarkup {
+  imposto_pct: number; // 0..100 (ex.: 6 = 6%)
+  cartao_pct: number;
+  comissao_pct: number;
+  margem_pct: number;
+}
+
+/** tenants/{tenantId}/financeiro/custo_hora */
+export interface CustoHoraConfig {
+  tenant_id: string;
+  custos_fixos_base: Record<CustoFixoBaseKey, number>;
+  custos_fixos_personalizados: CustoFixoPersonalizado[];
+  boletos_tec: BoletoTec[];
+  disponibilidade: Record<DiaSemanaKey, DisponibilidadeDia>;
+  quantidade_salas: number; // inteiro >= 1
+  quantidade_profissionais: number; // inteiro >= 1
+  markup: ParametrosMarkup;
+  compartilhar_com_consultor: boolean;
+  compartilhado_com_consultant_id: string | null; // consultor que recebeu o opt-in
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  updated_by: string; // uid do clinic_admin
 }
 
 // ============================================================================
@@ -514,7 +584,8 @@ export type AuditEntityType =
   | 'tenant'
   | 'master_product'
   | 'legal_document'
-  | 'system_settings';
+  | 'system_settings'
+  | 'financial_config';
 
 export type AuditAction =
   | 'create'
@@ -526,7 +597,9 @@ export type AuditAction =
   | 'change_role'
   | 'set_password'
   | 'reset_password_link'
-  | 'delete';
+  | 'delete'
+  | 'share_with_consultant'
+  | 'unshare_with_consultant';
 
 export interface AuditLogEntry {
   id: string;
