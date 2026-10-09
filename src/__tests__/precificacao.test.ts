@@ -13,6 +13,14 @@ import {
   calcularCustoHora,
   validarParametrosMarkup,
   calcularDivisorPorFormaPagamento,
+  calcularDivisoresMarkup,
+  calcularPrecosPorForma,
+  calcularCustoHoraAplicado,
+  normalizarParametrosMarkup,
+  normalizarCustoHoraConfig,
+  parseFormaPagamento,
+  somaMarkupMaisCara,
+  taxaPagamentoPct,
   calcularResumoCustoHora,
   calcularCustoMedioPorProduto,
   calcularCustoMaterialProtocolo,
@@ -616,5 +624,94 @@ describe('validarCustoHoraConfig', () => {
     const input = extrairConfigInput(configOficial());
     input.boletos_tec = [boleto({ id: 'b1', ...overrides })];
     expect(validarCustoHoraConfig(input).boletos.b1).toBe(mensagem);
+  });
+});
+
+describe('forma de pagamento (RN-19, RN-20, RN-21)', () => {
+  const markup = { imposto_pct: 6, debito_pct: 2, credito_pct: 4, comissao_pct: 0, margem_pct: 30 };
+
+  it('parses known payment methods and defaults the rest to Pix/Dinheiro', () => {
+    expect(parseFormaPagamento('debito')).toBe('debito');
+    expect(parseFormaPagamento('credito')).toBe('credito');
+    expect(parseFormaPagamento('pix_dinheiro')).toBe('pix_dinheiro');
+    expect(parseFormaPagamento(undefined)).toBe('pix_dinheiro');
+    expect(parseFormaPagamento('boleto')).toBe('pix_dinheiro');
+  });
+
+  it('charges no card fee on Pix/Dinheiro', () => {
+    expect(taxaPagamentoPct(markup, 'pix_dinheiro')).toBe(0);
+    expect(taxaPagamentoPct(markup, 'debito')).toBe(2);
+    expect(taxaPagamentoPct(markup, 'credito')).toBe(4);
+  });
+
+  it('computes one divisor per payment method', () => {
+    const divisores = calcularDivisoresMarkup(markup);
+    expect(divisores.pix_dinheiro).toBeCloseTo(0.64, 6);
+    expect(divisores.debito).toBeCloseTo(0.62, 6);
+    expect(divisores.credito).toBeCloseTo(0.6, 6);
+  });
+
+  it('prices the official example for each payment method', () => {
+    const custoReal = 30000 / 196 + 800;
+    const precos = calcularPrecosPorForma(custoReal, calcularDivisoresMarkup(markup));
+    expect(precos.pix_dinheiro).toBeCloseTo(1489.16, 2);
+    expect(precos.debito).toBeCloseTo(1537.2, 2);
+    expect(precos.credito).toBeCloseTo(1588.44, 2);
+    expect(calcularPrecosPorForma(null, calcularDivisoresMarkup(markup))).toEqual({
+      pix_dinheiro: null,
+      debito: null,
+      credito: null,
+    });
+  });
+
+  it('validates the sum with the most expensive card fee', () => {
+    const caro = { ...markup, credito_pct: 64 };
+    expect(somaMarkupMaisCara(caro)).toBe(100);
+    expect(validarParametrosMarkup(caro)).toBe('A soma dos percentuais deve ser menor que 100%');
+    expect(calcularDivisoresMarkup(caro)).toEqual({
+      pix_dinheiro: null,
+      debito: null,
+      credito: null,
+    });
+    expect(validarParametrosMarkup({ ...markup, debito_pct: -1 })).toBe(
+      'Percentuais não podem ser negativos'
+    );
+  });
+
+  it('reads the v1.2 single card fee as both debit and credit', () => {
+    expect(
+      normalizarParametrosMarkup({ imposto_pct: 6, cartao_pct: 3, comissao_pct: 0, margem_pct: 30 })
+    ).toEqual({ imposto_pct: 6, debito_pct: 3, credito_pct: 3, comissao_pct: 0, margem_pct: 30 });
+  });
+
+  it('keeps current fields and drops the legacy one', () => {
+    const normalizado = normalizarParametrosMarkup({ ...markup, cartao_pct: 9 });
+    expect(normalizado).toEqual(markup);
+    expect(normalizado).not.toHaveProperty('cartao_pct');
+  });
+
+  it('turns missing or invalid fields into zero', () => {
+    expect(normalizarParametrosMarkup(undefined)).toEqual({
+      imposto_pct: 0,
+      debito_pct: 0,
+      credito_pct: 0,
+      comissao_pct: 0,
+      margem_pct: 0,
+    });
+    expect(normalizarParametrosMarkup({ imposto_pct: 'x', margem_pct: NaN }).imposto_pct).toBe(0);
+  });
+
+  it('normalizes the markup of a stored config without touching other fields', () => {
+    const config = { ...configOficial(), markup: { imposto_pct: 6, cartao_pct: 3 } as unknown };
+    const normalizada = normalizarCustoHoraConfig(config);
+    expect(normalizada.markup.credito_pct).toBe(3);
+    expect(normalizada.custos_fixos_base.aluguel).toBe(30000);
+  });
+
+  it('applies the hourly cost only with a positive duration', () => {
+    expect(calcularCustoHoraAplicado(120, 30)).toBe(60);
+    expect(calcularCustoHoraAplicado(120, 0)).toBeNull();
+    expect(calcularCustoHoraAplicado(120, null)).toBeNull();
+    expect(calcularCustoHoraAplicado(null, 60)).toBeNull();
   });
 });
