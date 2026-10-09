@@ -12,7 +12,11 @@ interface ProtocoloPrecificacaoProps {
   produtosRennova?: Set<string>;
 }
 
-function Valor({ label, valor, destaque }: { label: string; valor: string; destaque?: boolean }) {
+function Valor({
+  label,
+  valor,
+  destaque,
+}: Readonly<{ label: string; valor: string; destaque?: boolean }>) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
@@ -21,7 +25,7 @@ function Valor({ label, valor, destaque }: { label: string; valor: string; desta
   );
 }
 
-function Aviso({ children }: { children: React.ReactNode }) {
+function Aviso({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <p className="flex items-center gap-1 text-xs text-yellow-700 dark:text-yellow-500">
       <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -35,7 +39,7 @@ export default function ProtocoloPrecificacao({
   duracaoMinutos,
   modo,
   produtosRennova = new Set(),
-}: ProtocoloPrecificacaoProps) {
+}: Readonly<ProtocoloPrecificacaoProps>) {
   const { custoMaterial, custoHoraAplicado, custoReal, precoSugerido } = precificacao;
   const fmt = (v: number | null) => (v === null ? '—' : formatCurrency(v));
 

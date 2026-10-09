@@ -63,6 +63,23 @@ const MESES = [
 
 export type CustoHoraConfigBase = Omit<CustoHoraConfig, 'created_at' | 'updated_at' | 'updated_by'>;
 
+/** O que a tela edita: a configuração sem tenant nem metadados de gravação. */
+export type CustoHoraConfigInput = Omit<CustoHoraConfigBase, 'tenant_id'>;
+
+export function extrairConfigInput(config: CustoHoraConfigBase): CustoHoraConfigInput {
+  return {
+    custos_fixos_base: config.custos_fixos_base,
+    custos_fixos_personalizados: config.custos_fixos_personalizados,
+    boletos_tec: config.boletos_tec,
+    disponibilidade: config.disponibilidade,
+    quantidade_salas: config.quantidade_salas,
+    quantidade_profissionais: config.quantidade_profissionais,
+    markup: config.markup,
+    compartilhar_com_consultor: config.compartilhar_com_consultor,
+    compartilhado_com_consultant_id: config.compartilhado_com_consultant_id,
+  };
+}
+
 export function criarConfigPadrao(tenantId: string): CustoHoraConfigBase {
   const custosBase = Object.fromEntries(CUSTOS_FIXOS_BASE.map(({ key }) => [key, 0])) as Record<
     CustoFixoBaseKey,
@@ -240,7 +257,7 @@ export function calcularCustoHora(
   capacidade: number
 ): number | null {
   const horasCapacidade = horasMes * capacidade;
-  if (!(horasCapacidade > 0)) return null;
+  if (!Number.isFinite(horasCapacidade) || horasCapacidade <= 0) return null;
   return custoFixoMensal / horasCapacidade;
 }
 
@@ -263,6 +280,87 @@ export function validarParametrosMarkup(m: ParametrosMarkup): string | null {
 export function calcularDivisorMarkup(m: ParametrosMarkup): number | null {
   if (validarParametrosMarkup(m) !== null) return null;
   return 1 - somaMarkup(m) / 100;
+}
+
+// ============================================================================
+// VALIDAÇÃO DO FORMULÁRIO (RF-06, RF-07, RF-08)
+// ============================================================================
+
+function isInteiro(n: number, min: number, max = Number.MAX_SAFE_INTEGER): boolean {
+  return Number.isInteger(n) && n >= min && n <= max;
+}
+
+function validarCustoPersonalizado(
+  item: CustoHoraConfigInput['custos_fixos_personalizados'][number]
+): string | null {
+  const nome = item.nome.trim();
+  if (nome.length === 0 || nome.length > 60) return 'Informe um nome (até 60 caracteres)';
+  if (item.valor < 0) return 'O valor não pode ser negativo';
+  return null;
+}
+
+function validarBoleto(boleto: BoletoTec): string | null {
+  if (boleto.descricao.trim() === '') return 'Informe a descrição';
+  if (!Number.isFinite(boleto.valor_parcela) || boleto.valor_parcela <= 0) {
+    return 'Informe o valor da parcela';
+  }
+  if (!isInteiro(boleto.total_parcelas, 1)) return 'Total de parcelas deve ser um inteiro ≥ 1';
+  if (!isInteiro(boleto.parcelas_pagas, 0, boleto.total_parcelas)) {
+    return 'Parcelas pagas deve estar entre 0 e o total';
+  }
+  return null;
+}
+
+function coletarErros<T>(
+  itens: T[],
+  chave: (item: T) => string,
+  validar: (item: T) => string | null
+): Record<string, string> {
+  const erros: Record<string, string> = {};
+  for (const item of itens) {
+    const erro = validar(item);
+    if (erro) erros[chave(item)] = erro;
+  }
+  return erros;
+}
+
+export interface ErrosCustoHoraConfig {
+  dias: Partial<Record<DiaSemanaKey, string>>;
+  personalizados: Record<string, string>;
+  boletos: Record<string, string>;
+  capacidade: string | null;
+  markup: string | null;
+  base: string | null;
+  total: number;
+}
+
+export function validarCustoHoraConfig(input: CustoHoraConfigInput): ErrosCustoHoraConfig {
+  const dias = coletarErros(
+    DIAS_SEMANA,
+    ({ key }) => key,
+    ({ key }) => validarPeriodosDia(input.disponibilidade[key])
+  ) as Partial<Record<DiaSemanaKey, string>>;
+  const personalizados = coletarErros(
+    input.custos_fixos_personalizados,
+    (item) => item.id,
+    validarCustoPersonalizado
+  );
+  const boletos = coletarErros(input.boletos_tec, (boleto) => boleto.id, validarBoleto);
+  const capacidadeValida =
+    isInteiro(input.quantidade_salas, 1) && isInteiro(input.quantidade_profissionais, 1);
+  const capacidade = capacidadeValida ? null : 'Salas e profissionais devem ser inteiros ≥ 1';
+  const markup = validarParametrosMarkup(input.markup);
+  const base = Object.values(input.custos_fixos_base).some((v) => v < 0)
+    ? 'Os valores não podem ser negativos'
+    : null;
+
+  const total =
+    Object.keys(dias).length +
+    Object.keys(personalizados).length +
+    Object.keys(boletos).length +
+    [capacidade, markup, base].filter(Boolean).length;
+
+  return { dias, personalizados, boletos, capacidade, markup, base, total };
 }
 
 // ============================================================================

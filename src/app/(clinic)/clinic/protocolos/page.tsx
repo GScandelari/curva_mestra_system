@@ -69,7 +69,7 @@ export default function ProtocolosPage() {
     () => (custoConfig ? calcularResumoCustoHora(custoConfig, mesAtual) : null),
     [custoConfig, mesAtual]
   );
-  const precificacaoIndisponivel = !resumo || resumo.custoHora === null || resumo.divisor === null;
+  const precificacaoIndisponivel = resumo?.custoHora == null || resumo?.divisor == null;
 
   async function load() {
     if (!tenantId) return;

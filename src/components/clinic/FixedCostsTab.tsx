@@ -22,9 +22,9 @@ import {
   calcularParcelasRestantes,
   calcularResumoCustoHora,
   criarConfigPadrao,
+  extrairConfigInput,
   mesCorrenteSaoPaulo,
-  validarParametrosMarkup,
-  validarPeriodosDia,
+  validarCustoHoraConfig,
 } from '@/lib/precificacao';
 import {
   getCustoHoraConfig,
@@ -41,23 +41,10 @@ import type {
   ParametrosMarkup,
 } from '@/types';
 
-function toInput(config: CustoHoraConfig): CustoHoraConfigInput {
-  const { tenant_id, created_at, updated_at, updated_by, ...input } = config;
-  void tenant_id;
-  void created_at;
-  void updated_at;
-  void updated_by;
-  return input;
-}
-
 function parseNumero(valor: string): number {
   if (valor.trim() === '') return 0;
   const n = Number(valor);
   return Number.isFinite(n) ? n : 0;
-}
-
-function isInteiro(n: number, min: number, max = Number.MAX_SAFE_INTEGER): boolean {
-  return Number.isInteger(n) && n >= min && n <= max;
 }
 
 function MoneyInput({
@@ -65,12 +52,12 @@ function MoneyInput({
   onChange,
   id,
   ariaLabel,
-}: {
+}: Readonly<{
   value: number;
   onChange: (v: number) => void;
   id?: string;
   ariaLabel?: string;
-}) {
+}>) {
   return (
     <Input
       id={id}
@@ -115,7 +102,7 @@ export default function FixedCostsTab() {
       try {
         const config = await getCustoHoraConfig(tenantId!);
         setExisting(config);
-        setForm(config ? toInput(config) : toInputPadrao(tenantId!));
+        setForm(extrairConfigInput(config ?? criarConfigPadrao(tenantId!)));
       } catch (error) {
         console.error('Erro ao carregar custos fixos:', error);
         toast({
@@ -128,7 +115,7 @@ export default function FixedCostsTab() {
       }
     }
 
-    load();
+    load().catch((error) => console.error('Erro ao carregar custos fixos:', error));
   }, [tenantId, toast]);
 
   // RN-16: compartilhamento gravado para um consultor que não é mais o vinculado.
@@ -155,48 +142,7 @@ export default function FixedCostsTab() {
     [form, tenantId, mesAtual]
   );
 
-  const erros = useMemo(() => {
-    if (!form) return null;
-    const dias: Partial<Record<DiaSemanaKey, string>> = {};
-    for (const { key } of DIAS_SEMANA) {
-      const erro = validarPeriodosDia(form.disponibilidade[key]);
-      if (erro) dias[key] = erro;
-    }
-    const personalizados: Record<string, string> = {};
-    for (const item of form.custos_fixos_personalizados) {
-      const nome = item.nome.trim();
-      if (nome.length === 0 || nome.length > 60)
-        personalizados[item.id] = 'Informe um nome (até 60 caracteres)';
-      else if (item.valor < 0) personalizados[item.id] = 'O valor não pode ser negativo';
-    }
-    const boletos: Record<string, string> = {};
-    for (const boleto of form.boletos_tec) {
-      if (boleto.descricao.trim() === '') boletos[boleto.id] = 'Informe a descrição';
-      else if (!(boleto.valor_parcela > 0)) boletos[boleto.id] = 'Informe o valor da parcela';
-      else if (!isInteiro(boleto.total_parcelas, 1))
-        boletos[boleto.id] = 'Total de parcelas deve ser um inteiro ≥ 1';
-      else if (!isInteiro(boleto.parcelas_pagas, 0, boleto.total_parcelas))
-        boletos[boleto.id] = 'Parcelas pagas deve estar entre 0 e o total';
-    }
-    const capacidade =
-      isInteiro(form.quantidade_salas, 1) && isInteiro(form.quantidade_profissionais, 1)
-        ? null
-        : 'Salas e profissionais devem ser inteiros ≥ 1';
-    const markup = validarParametrosMarkup(form.markup);
-    const base = Object.values(form.custos_fixos_base).some((v) => v < 0)
-      ? 'Os valores não podem ser negativos'
-      : null;
-
-    const total =
-      Object.keys(dias).length +
-      Object.keys(personalizados).length +
-      Object.keys(boletos).length +
-      (capacidade ? 1 : 0) +
-      (markup ? 1 : 0) +
-      (base ? 1 : 0);
-
-    return { dias, personalizados, boletos, capacidade, markup, base, total };
-  }, [form]);
+  const erros = useMemo(() => (form ? validarCustoHoraConfig(form) : null), [form]);
 
   if (loading || !form || !resumo || !erros) {
     return (
@@ -222,6 +168,14 @@ export default function FixedCostsTab() {
     form.markup.comissao_pct +
     form.markup.margem_pct;
 
+  let textoCompartilhamento = 'Nenhum consultor vinculado.';
+  if (consultant) {
+    const prefixo = form.compartilhar_com_consultor
+      ? `Compartilhado com ${consultant.name}.`
+      : `Consultor vinculado: ${consultant.name}.`;
+    textoCompartilhamento = `${prefixo} Esta ação fica registrada na trilha de auditoria.`;
+  }
+
   const handleSave = async () => {
     if (!tenantId || !user || erros.total > 0) return;
     setSaving(true);
@@ -235,7 +189,7 @@ export default function FixedCostsTab() {
         { consultantName: consultant?.name, trocaDeConsultor }
       );
       setExisting(saved);
-      setForm(toInput(saved));
+      setForm(extrairConfigInput(saved));
       setTrocaDeConsultor(false);
       toast({ title: 'Custos salvos com sucesso' });
     } catch (error) {
@@ -668,13 +622,7 @@ export default function FixedCostsTab() {
             />
             <Label htmlFor="compartilhar">Compartilhar dados financeiros com o consultor</Label>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {consultant
-              ? form.compartilhar_com_consultor
-                ? `Compartilhado com ${consultant.name}. Esta ação fica registrada na trilha de auditoria.`
-                : `Consultor vinculado: ${consultant.name}. Esta ação fica registrada na trilha de auditoria.`
-              : 'Nenhum consultor vinculado.'}
-          </p>
+          <p className="text-sm text-muted-foreground">{textoCompartilhamento}</p>
         </CardContent>
       </Card>
 
@@ -692,10 +640,4 @@ export default function FixedCostsTab() {
       </div>
     </div>
   );
-}
-
-function toInputPadrao(tenantId: string): CustoHoraConfigInput {
-  const { tenant_id, ...input } = criarConfigPadrao(tenantId);
-  void tenant_id;
-  return input;
 }

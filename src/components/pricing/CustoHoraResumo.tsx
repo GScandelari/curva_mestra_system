@@ -17,7 +17,7 @@ interface CustoHoraResumoProps {
  * Resumo da hora clínica (RF-09). Usado na aba "Custos Fixos" (recalculado a
  * cada alteração, sem salvar) e, somente leitura, na tela do consultor.
  */
-export default function CustoHoraResumo({ resumo }: CustoHoraResumoProps) {
+export default function CustoHoraResumo({ resumo }: Readonly<CustoHoraResumoProps>) {
   const { custoFixo } = resumo;
 
   return (

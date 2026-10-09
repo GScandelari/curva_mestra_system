@@ -23,6 +23,8 @@ import {
   mesCorrenteSaoPaulo,
   formatarMesReferencia,
   criarConfigPadrao,
+  extrairConfigInput,
+  validarCustoHoraConfig,
   type LoteParaCusto,
   type CustoMaterialProtocolo,
 } from '@/lib/precificacao';
@@ -548,5 +550,50 @@ describe('separarMaterialParaConsultor', () => {
       custos
     );
     expect(separarMaterialParaConsultor(material, rennova).incompletoRennova).toEqual(['9990004']);
+  });
+});
+
+describe('extrairConfigInput', () => {
+  it('drops tenant and write metadata', () => {
+    const input = extrairConfigInput(configOficial());
+    expect(input).not.toHaveProperty('tenant_id');
+    expect(input.custos_fixos_base.aluguel).toBe(30000);
+    expect(input.disponibilidade.seg).toEqual(diaUtil);
+  });
+});
+
+describe('validarCustoHoraConfig', () => {
+  it('has no errors for the official example', () => {
+    expect(validarCustoHoraConfig(extrairConfigInput(configOficial())).total).toBe(0);
+  });
+
+  it('collects errors per section', () => {
+    const input = extrairConfigInput(configOficial());
+    input.disponibilidade.dom = { ativo: true, periodos: [] };
+    input.custos_fixos_personalizados = [{ id: 'p1', nome: '  ', valor: 10 }];
+    input.boletos_tec = [boleto({ id: 'b1', parcelas_pagas: 30 })];
+    input.quantidade_salas = 0;
+    input.markup = { imposto_pct: 50, cartao_pct: 50, comissao_pct: 0, margem_pct: 0 };
+    input.custos_fixos_base.energia = -1;
+
+    const erros = validarCustoHoraConfig(input);
+    expect(erros.dias).toEqual({ dom: 'Dia ativo sem períodos' });
+    expect(erros.personalizados).toEqual({ p1: 'Informe um nome (até 60 caracteres)' });
+    expect(erros.boletos).toEqual({ b1: 'Parcelas pagas deve estar entre 0 e o total' });
+    expect(erros.capacidade).toBe('Salas e profissionais devem ser inteiros ≥ 1');
+    expect(erros.markup).toBe('A soma dos percentuais deve ser menor que 100%');
+    expect(erros.base).toBe('Os valores não podem ser negativos');
+    expect(erros.total).toBe(6);
+  });
+
+  it.each([
+    [{ descricao: '' }, 'Informe a descrição'],
+    [{ valor_parcela: 0 }, 'Informe o valor da parcela'],
+    [{ total_parcelas: 0 }, 'Total de parcelas deve ser um inteiro ≥ 1'],
+    [{ parcelas_pagas: 1.5 }, 'Parcelas pagas deve estar entre 0 e o total'],
+  ])('validates a Boleto Tec field (%p)', (overrides, mensagem) => {
+    const input = extrairConfigInput(configOficial());
+    input.boletos_tec = [boleto({ id: 'b1', ...overrides })];
+    expect(validarCustoHoraConfig(input).boletos.b1).toBe(mensagem);
   });
 });

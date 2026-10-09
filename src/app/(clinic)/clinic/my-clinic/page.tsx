@@ -33,7 +33,7 @@ const FixedCostsTab = dynamic(() => import('@/components/clinic/FixedCostsTab'),
   loading: () => <div className="p-8 text-center">Carregando...</div>,
 });
 
-const ADMIN_ONLY_TABS = ['users', 'stock_limits', 'fixed_costs'];
+const ADMIN_ONLY_TABS = new Set(['users', 'stock_limits', 'fixed_costs']);
 
 export default function MyClinicPage() {
   const searchParams = useSearchParams();
@@ -53,7 +53,7 @@ export default function MyClinicPage() {
   // Só depois que as claims carregam: antes disso isAdmin é false para todos e
   // um link direto (?tab=fixed_costs) voltava para 'clinic' até para o admin.
   useEffect(() => {
-    if (claims && !isAdmin && ADMIN_ONLY_TABS.includes(activeTab)) {
+    if (claims && !isAdmin && ADMIN_ONLY_TABS.has(activeTab)) {
       setActiveTab('clinic');
     }
   }, [claims, isAdmin, activeTab]);

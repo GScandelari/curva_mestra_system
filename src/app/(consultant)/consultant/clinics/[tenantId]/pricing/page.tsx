@@ -74,7 +74,7 @@ export default function ConsultantPricingPage() {
       }
     }
 
-    load();
+    load().catch((error) => console.error('Erro ao carregar precificação:', error));
   }, [tenantId, autorizado, authLoading]);
 
   const mesAtual = useMemo(() => mesCorrenteSaoPaulo(), []);

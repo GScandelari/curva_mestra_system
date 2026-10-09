@@ -8,15 +8,16 @@
 
 import { collection, doc, getDoc, getDocs, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { mesCorrenteSaoPaulo, type LoteParaCusto } from '@/lib/precificacao';
+import {
+  mesCorrenteSaoPaulo,
+  type CustoHoraConfigInput,
+  type LoteParaCusto,
+} from '@/lib/precificacao';
 import { determineFinancialShareAuditAction } from '@/lib/auditLogPayload';
 import { writeAuditLog } from '@/lib/services/auditLogService';
 import type { BoletoTec, CustoHoraConfig } from '@/types';
 
-export type CustoHoraConfigInput = Omit<
-  CustoHoraConfig,
-  'tenant_id' | 'created_at' | 'updated_at' | 'updated_by'
->;
+export type { CustoHoraConfigInput } from '@/lib/precificacao';
 
 const docRef = (tenantId: string) => doc(db, 'tenants', tenantId, 'financeiro', 'custo_hora');
 
@@ -44,14 +45,10 @@ function aplicarMesReferencia(
   const porId = new Map(existentes.map((b) => [b.id, b]));
   return boletos.map((boleto) => {
     const anterior = porId.get(boleto.id);
-    if (
-      !anterior ||
-      anterior.parcelas_pagas !== boleto.parcelas_pagas ||
-      anterior.mes_referencia !== boleto.mes_referencia
-    ) {
-      return { ...boleto, mes_referencia: mesAtual };
-    }
-    return { ...boleto, mes_referencia: anterior.mes_referencia };
+    const inalterado =
+      anterior?.parcelas_pagas === boleto.parcelas_pagas &&
+      anterior?.mes_referencia === boleto.mes_referencia;
+    return inalterado ? boleto : { ...boleto, mes_referencia: mesAtual };
   });
 }
 
