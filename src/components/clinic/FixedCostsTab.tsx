@@ -24,6 +24,7 @@ import {
   criarConfigPadrao,
   extrairConfigInput,
   mesCorrenteSaoPaulo,
+  somaMarkupMaisCara,
   validarCustoHoraConfig,
 } from '@/lib/precificacao';
 import {
@@ -75,7 +76,8 @@ function MoneyInput({
 
 const MARKUP_CAMPOS: { key: keyof ParametrosMarkup; label: string }[] = [
   { key: 'imposto_pct', label: 'Imposto (%)' },
-  { key: 'cartao_pct', label: 'Taxa de cartão (%)' },
+  { key: 'debito_pct', label: 'Taxa de débito (%)' },
+  { key: 'credito_pct', label: 'Taxa de crédito (%)' },
   { key: 'comissao_pct', label: 'Comissão (%)' },
   { key: 'margem_pct', label: 'Margem desejada (%)' },
 ];
@@ -162,11 +164,7 @@ export default function FixedCostsTab() {
   const updateBoleto = (id: string, patch: Partial<BoletoTec>) =>
     update({ boletos_tec: form.boletos_tec.map((b) => (b.id === id ? { ...b, ...patch } : b)) });
 
-  const somaMarkup =
-    form.markup.imposto_pct +
-    form.markup.cartao_pct +
-    form.markup.comissao_pct +
-    form.markup.margem_pct;
+  const somaMarkup = somaMarkupMaisCara(form.markup);
 
   let textoCompartilhamento = 'Nenhum consultor vinculado.';
   if (consultant) {
@@ -559,7 +557,8 @@ export default function FixedCostsTab() {
           <CardHeader>
             <CardTitle className="text-lg">Markup</CardTitle>
             <CardDescription>
-              Preço sugerido = custo real ÷ (1 − soma dos percentuais). Soma atual:{' '}
+              Preço sugerido = custo real ÷ (1 − soma dos percentuais). Pix/Dinheiro não paga taxa
+              de cartão; débito e crédito usam a taxa da maquininha. Soma (forma mais cara):{' '}
               {somaMarkup.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%
             </CardDescription>
           </CardHeader>

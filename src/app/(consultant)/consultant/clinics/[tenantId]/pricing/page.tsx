@@ -188,7 +188,8 @@ export default function ConsultantPricingPage() {
             <CardContent className="space-y-1 text-sm">
               {[
                 ['Imposto', config.markup.imposto_pct],
-                ['Taxa de cartão', config.markup.cartao_pct],
+                ['Taxa de débito', config.markup.debito_pct],
+                ['Taxa de crédito', config.markup.credito_pct],
                 ['Comissão', config.markup.comissao_pct],
                 ['Margem desejada', config.markup.margem_pct],
               ].map(([label, valor]) => (
@@ -223,7 +224,7 @@ export default function ConsultantPricingPage() {
                     precificacao={calcularPrecificacaoProtocolo({
                       duracaoMinutos: protocolo.duracao_minutos,
                       custoHora: resumo.custoHora,
-                      divisor: resumo.divisor,
+                      divisores: resumo.divisores,
                       custoMaterial: calcularCustoMaterialProtocolo(protocolo.itens, custosMedios),
                     })}
                   />

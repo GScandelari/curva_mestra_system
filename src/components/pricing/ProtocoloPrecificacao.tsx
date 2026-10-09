@@ -40,7 +40,7 @@ export default function ProtocoloPrecificacao({
   modo,
   produtosRennova = new Set(),
 }: Readonly<ProtocoloPrecificacaoProps>) {
-  const { custoMaterial, custoHoraAplicado, custoReal, precoSugerido } = precificacao;
+  const { custoMaterial, custoHoraAplicado, custoReal, precosSugeridos } = precificacao;
   const fmt = (v: number | null) => (v === null ? '—' : formatCurrency(v));
 
   const consultor =
@@ -51,12 +51,13 @@ export default function ProtocoloPrecificacao({
 
   return (
     <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
         <Valor label="Duração" valor={duracaoMinutos ? `${duracaoMinutos} min` : '—'} />
         <Valor label="Material" valor={formatCurrency(custoMaterial.total)} />
         <Valor label="Hora clínica" valor={fmt(custoHoraAplicado)} />
         <Valor label="Custo real" valor={fmt(custoReal)} />
-        <Valor label="Preço sugerido" valor={fmt(precoSugerido)} destaque />
+        <Valor label="Preço Pix/Dinheiro" valor={fmt(precosSugeridos.pix_dinheiro)} destaque />
+        <Valor label="Preço Crédito" valor={fmt(precosSugeridos.credito)} destaque />
       </div>
 
       {consultor && (consultor.itensRennova.length > 0 || consultor.outrosMateriais) && (

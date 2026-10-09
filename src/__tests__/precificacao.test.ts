@@ -12,7 +12,7 @@ import {
   calcularCapacidadeSimultanea,
   calcularCustoHora,
   validarParametrosMarkup,
-  calcularDivisorMarkup,
+  calcularDivisorPorFormaPagamento,
   calcularResumoCustoHora,
   calcularCustoMedioPorProduto,
   calcularCustoMaterialProtocolo,
@@ -54,7 +54,13 @@ function configOficial() {
   const config = criarConfigPadrao('clinic_a');
   config.custos_fixos_base.aluguel = 30000;
   config.disponibilidade = disponibilidadeOficial;
-  config.markup = { imposto_pct: 6, cartao_pct: 3, comissao_pct: 0, margem_pct: 30 };
+  config.markup = {
+    imposto_pct: 6,
+    debito_pct: 3,
+    credito_pct: 3,
+    comissao_pct: 0,
+    margem_pct: 30,
+  };
   return config;
 }
 
@@ -281,37 +287,37 @@ describe('calcularCustoHora', () => {
   });
 });
 
-describe('validarParametrosMarkup / calcularDivisorMarkup', () => {
+describe('validarParametrosMarkup / calcularDivisorPorFormaPagamento', () => {
   it('accepts the official markup', () => {
-    const m = { imposto_pct: 6, cartao_pct: 3, comissao_pct: 0, margem_pct: 30 };
+    const m = { imposto_pct: 6, debito_pct: 3, credito_pct: 3, comissao_pct: 0, margem_pct: 30 };
     expect(validarParametrosMarkup(m)).toBeNull();
-    expect(calcularDivisorMarkup(m)).toBeCloseTo(0.61, 5);
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBeCloseTo(0.61, 5);
   });
 
   it('returns divisor 1 when every percentage is zero', () => {
-    const m = { imposto_pct: 0, cartao_pct: 0, comissao_pct: 0, margem_pct: 0 };
+    const m = { imposto_pct: 0, debito_pct: 0, credito_pct: 0, comissao_pct: 0, margem_pct: 0 };
     expect(validarParametrosMarkup(m)).toBeNull();
-    expect(calcularDivisorMarkup(m)).toBe(1);
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBe(1);
   });
 
   it.each([
-    [{ imposto_pct: 6, cartao_pct: 3, comissao_pct: 61, margem_pct: 30 }],
-    [{ imposto_pct: 50, cartao_pct: 50, comissao_pct: 10, margem_pct: 0 }],
+    [{ imposto_pct: 6, debito_pct: 3, credito_pct: 3, comissao_pct: 61, margem_pct: 30 }],
+    [{ imposto_pct: 50, debito_pct: 50, credito_pct: 50, comissao_pct: 10, margem_pct: 0 }],
   ])('rejects a sum of 100%% or more (%p)', (m) => {
     expect(validarParametrosMarkup(m)).toBe('A soma dos percentuais deve ser menor que 100%');
-    expect(calcularDivisorMarkup(m)).toBeNull();
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBeNull();
   });
 
   it('rejects negative percentages', () => {
-    const m = { imposto_pct: -1, cartao_pct: 0, comissao_pct: 0, margem_pct: 0 };
+    const m = { imposto_pct: -1, debito_pct: 0, credito_pct: 0, comissao_pct: 0, margem_pct: 0 };
     expect(validarParametrosMarkup(m)).toBe('Percentuais não podem ser negativos');
-    expect(calcularDivisorMarkup(m)).toBeNull();
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBeNull();
   });
 
   it('accepts a sum just below 100%', () => {
-    const m = { imposto_pct: 99.99, cartao_pct: 0, comissao_pct: 0, margem_pct: 0 };
+    const m = { imposto_pct: 99.99, debito_pct: 0, credito_pct: 0, comissao_pct: 0, margem_pct: 0 };
     expect(validarParametrosMarkup(m)).toBeNull();
-    expect(calcularDivisorMarkup(m)).toBeCloseTo(0.0001, 6);
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBeCloseTo(0.0001, 6);
   });
 });
 
@@ -321,7 +327,7 @@ describe('calcularResumoCustoHora', () => {
     expect(resumo.horasMes).toBe(196);
     expect(resumo.capacidade).toBe(1);
     expect(resumo.custoHora).toBeCloseTo(153.06, 2);
-    expect(resumo.divisor).toBeCloseTo(0.61, 5);
+    expect(resumo.divisores.credito).toBeCloseTo(0.61, 5);
   });
 
   it('has no hourly cost for the default config', () => {
@@ -417,19 +423,19 @@ describe('calcularPrecificacaoProtocolo', () => {
     const preco = calcularPrecificacaoProtocolo({
       duracaoMinutos: 60,
       custoHora,
-      divisor: 0.61,
+      divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
       custoMaterial: material,
     });
     expect(preco.custoHoraAplicado).toBeCloseTo(153.06, 2);
     expect(preco.custoReal).toBeCloseTo(953.06, 2);
-    expect(preco.precoSugerido).toBeCloseTo(1562.4, 2);
+    expect(preco.precosSugeridos.credito).toBeCloseTo(1562.4, 2);
   });
 
   it('applies the hourly cost proportionally to the duration', () => {
     const preco = calcularPrecificacaoProtocolo({
       duracaoMinutos: 30,
       custoHora,
-      divisor: 0.61,
+      divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
       custoMaterial: material,
     });
     expect(preco.custoHoraAplicado).toBeCloseTo(76.53, 2);
@@ -437,13 +443,22 @@ describe('calcularPrecificacaoProtocolo', () => {
 
   it('returns nulls without a duration or hourly cost', () => {
     for (const params of [
-      { custoHora, divisor: 0.61, custoMaterial: material },
-      { duracaoMinutos: 60, custoHora: null, divisor: 0.61, custoMaterial: material },
+      {
+        custoHora,
+        divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
+        custoMaterial: material,
+      },
+      {
+        duracaoMinutos: 60,
+        custoHora: null,
+        divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
+        custoMaterial: material,
+      },
     ]) {
       const preco = calcularPrecificacaoProtocolo(params);
       expect(preco.custoHoraAplicado).toBeNull();
       expect(preco.custoReal).toBeNull();
-      expect(preco.precoSugerido).toBeNull();
+      expect(preco.precosSugeridos.credito).toBeNull();
     }
   });
 
@@ -451,11 +466,11 @@ describe('calcularPrecificacaoProtocolo', () => {
     const preco = calcularPrecificacaoProtocolo({
       duracaoMinutos: 60,
       custoHora,
-      divisor: null,
+      divisores: { pix_dinheiro: null, debito: null, credito: null },
       custoMaterial: material,
     });
     expect(preco.custoReal).toBeCloseTo(953.06, 2);
-    expect(preco.precoSugerido).toBeNull();
+    expect(preco.precosSugeridos.credito).toBeNull();
   });
 });
 
@@ -573,7 +588,13 @@ describe('validarCustoHoraConfig', () => {
     input.custos_fixos_personalizados = [{ id: 'p1', nome: '  ', valor: 10 }];
     input.boletos_tec = [boleto({ id: 'b1', parcelas_pagas: 30 })];
     input.quantidade_salas = 0;
-    input.markup = { imposto_pct: 50, cartao_pct: 50, comissao_pct: 0, margem_pct: 0 };
+    input.markup = {
+      imposto_pct: 50,
+      debito_pct: 50,
+      credito_pct: 50,
+      comissao_pct: 0,
+      margem_pct: 0,
+    };
     input.custos_fixos_base.energia = -1;
 
     const erros = validarCustoHoraConfig(input);

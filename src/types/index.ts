@@ -455,8 +455,19 @@ export interface DisponibilidadeDia {
   periodos: PeriodoAtendimento[];
 }
 
+export type FormaPagamento = 'pix_dinheiro' | 'debito' | 'credito';
+
 export interface ParametrosMarkup {
   imposto_pct: number; // 0..100 (ex.: 6 = 6%)
+  debito_pct: number; // taxa da maquininha no débito
+  credito_pct: number; // taxa da maquininha no crédito
+  comissao_pct: number;
+  margem_pct: number;
+}
+
+/** Formato gravado até a v1.2 (taxa única de cartão) — só para normalização na leitura. */
+export interface ParametrosMarkupLegado {
+  imposto_pct: number;
   cartao_pct: number;
   comissao_pct: number;
   margem_pct: number;
