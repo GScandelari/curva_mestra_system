@@ -50,11 +50,13 @@ export default function MyClinicPage() {
     }
   }, [searchParams]);
 
+  // Só depois que as claims carregam: antes disso isAdmin é false para todos e
+  // um link direto (?tab=fixed_costs) voltava para 'clinic' até para o admin.
   useEffect(() => {
-    if (!isAdmin && ADMIN_ONLY_TABS.includes(activeTab)) {
+    if (claims && !isAdmin && ADMIN_ONLY_TABS.includes(activeTab)) {
       setActiveTab('clinic');
     }
-  }, [isAdmin, activeTab]);
+  }, [claims, isAdmin, activeTab]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
