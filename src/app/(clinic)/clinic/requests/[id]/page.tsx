@@ -37,6 +37,8 @@ import {
 import { formatTimestamp } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import ProcedimentoPrecoSugeridoCard from '@/components/pricing/ProcedimentoPrecoSugeridoCard';
+import { FORMAS_PAGAMENTO } from '@/lib/precificacao';
 
 export default function SolicitacaoDetalhesPage() {
   const { claims, user } = useAuth();
@@ -316,6 +318,19 @@ export default function SolicitacaoDetalhesPage() {
                     : 'N/A'}
                 </p>
               </div>
+              <div>
+                <Label className="text-muted-foreground">Duração</Label>
+                <p className="font-medium text-lg">
+                  {solicitacao.duracao_minutos ? `${solicitacao.duracao_minutos} min` : '—'}
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Forma de pagamento</Label>
+                <p className="font-medium text-lg">
+                  {FORMAS_PAGAMENTO.find((f) => f.key === solicitacao.forma_pagamento)?.label ??
+                    '—'}
+                </p>
+              </div>
               {solicitacao.observacoes && (
                 <div>
                   <Label className="text-muted-foreground">Observações</Label>
@@ -359,6 +374,11 @@ export default function SolicitacaoDetalhesPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Preço sugerido — dado financeiro interno, só clinic_admin */}
+        {isAdmin && tenantId && (
+          <ProcedimentoPrecoSugeridoCard tenantId={tenantId} solicitacao={solicitacao} />
+        )}
 
         {/* Lista de Produtos Consumidos */}
         <Card>
