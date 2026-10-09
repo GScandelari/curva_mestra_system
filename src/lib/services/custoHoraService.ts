@@ -9,6 +9,8 @@
 import { collection, doc, getDoc, getDocs, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { mesCorrenteSaoPaulo, type LoteParaCusto } from '@/lib/precificacao';
+import { determineFinancialShareAuditAction } from '@/lib/auditLogPayload';
+import { writeAuditLog } from '@/lib/services/auditLogService';
 import type { BoletoTec, CustoHoraConfig } from '@/types';
 
 export type CustoHoraConfigInput = Omit<
@@ -46,11 +48,58 @@ function aplicarMesReferencia(
   });
 }
 
+export interface SaveCustoHoraOptions {
+  consultantName?: string;
+  /** RN-16: o compartilhamento anterior era de outro consultor e foi desligado. */
+  trocaDeConsultor?: boolean;
+}
+
+/**
+ * D4/RN-14: só a mudança do compartilhamento com o consultor é auditada.
+ * Best-effort: falha na auditoria não desfaz nem bloqueia o salvamento.
+ */
+async function auditarCompartilhamento(
+  tenantId: string,
+  userId: string,
+  actorName: string,
+  existing: CustoHoraConfig | null,
+  config: CustoHoraConfig,
+  options: SaveCustoHoraOptions
+): Promise<void> {
+  const audit = determineFinancialShareAuditAction(existing, config, {
+    trocaDeConsultor: options.trocaDeConsultor,
+  });
+  if (!audit) return;
+
+  const descricao =
+    audit.action === 'share_with_consultant'
+      ? `Dados financeiros compartilhados com o consultor ${options.consultantName ?? ''}`.trim()
+      : 'Compartilhamento de dados financeiros com o consultor revogado';
+
+  try {
+    await writeAuditLog({
+      tenant_id: tenantId,
+      entity_type: 'financial_config',
+      entity_id: tenantId,
+      action: audit.action,
+      descricao,
+      actor_id: userId,
+      actor_name: actorName,
+      actor_role: 'clinic_admin',
+      metadata: audit.metadata,
+    });
+  } catch (error) {
+    console.error('Erro ao auditar compartilhamento financeiro:', error);
+  }
+}
+
 export async function saveCustoHoraConfig(
   tenantId: string,
   userId: string,
+  actorName: string,
   input: CustoHoraConfigInput,
-  existing: CustoHoraConfig | null
+  existing: CustoHoraConfig | null,
+  options: SaveCustoHoraOptions = {}
 ): Promise<CustoHoraConfig> {
   const now = Timestamp.now();
   const compartilhar = input.compartilhar_com_consultor === true;
@@ -71,6 +120,7 @@ export async function saveCustoHoraConfig(
   };
 
   await setDoc(docRef(tenantId), config);
+  await auditarCompartilhamento(tenantId, userId, actorName, existing, config, options);
   return config;
 }
 
