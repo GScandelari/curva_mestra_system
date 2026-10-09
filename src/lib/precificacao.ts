@@ -183,6 +183,11 @@ export function calcularParcelasRestantes(boleto: BoletoTec, mesCalculo: string)
   return Math.max(0, boleto.total_parcelas - boleto.parcelas_pagas - mesesDecorridos);
 }
 
+/** Parcelas pagas até `mesCalculo`, contando o avanço automático (para exibição). */
+export function calcularParcelasPagasNoMes(boleto: BoletoTec, mesCalculo: string): number {
+  return boleto.total_parcelas - calcularParcelasRestantes(boleto, mesCalculo);
+}
+
 export function boletoCompoeCusto(boleto: BoletoTec, mesCalculo: string): boolean {
   return calcularParcelasRestantes(boleto, mesCalculo) > 0;
 }

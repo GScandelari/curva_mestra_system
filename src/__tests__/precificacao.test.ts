@@ -7,6 +7,7 @@ import {
   mesesEntre,
   calcularParcelasRestantes,
   boletoCompoeCusto,
+  calcularParcelasPagasNoMes,
   calcularCustoFixoMensal,
   calcularCapacidadeSimultanea,
   calcularCustoHora,
@@ -221,6 +222,12 @@ describe('calcularParcelasRestantes / boletoCompoeCusto', () => {
     expect(boletoCompoeCusto(quaseQuitado, '2026-11')).toBe(true);
     expect(calcularParcelasRestantes(quaseQuitado, '2026-12')).toBe(0);
     expect(boletoCompoeCusto(quaseQuitado, '2026-12')).toBe(false);
+  });
+
+  it('shows the installments paid up to the given month', () => {
+    expect(calcularParcelasPagasNoMes(boleto(), '2026-10')).toBe(10);
+    expect(calcularParcelasPagasNoMes(boleto(), '2026-12')).toBe(12);
+    expect(calcularParcelasPagasNoMes(boleto({ parcelas_pagas: 23 }), '2027-03')).toBe(24);
   });
 
   it('does not move backwards before the reference month', () => {

@@ -32,6 +32,9 @@ export async function getCustoHoraConfig(tenantId: string): Promise<CustoHoraCon
 /**
  * RN-02/D1: boleto novo ou com `parcelas_pagas` editado passa a contar a
  * partir do mês corrente; os demais mantêm o mês de referência gravado.
+ * A tela marca o boleto editado com o mês corrente, então mudança em
+ * `mes_referencia` também conta como edição — sem isso, informar de novo o
+ * mesmo número gravado meses atrás manteria a referência antiga.
  */
 function aplicarMesReferencia(
   boletos: BoletoTec[],
@@ -41,7 +44,11 @@ function aplicarMesReferencia(
   const porId = new Map(existentes.map((b) => [b.id, b]));
   return boletos.map((boleto) => {
     const anterior = porId.get(boleto.id);
-    if (!anterior || anterior.parcelas_pagas !== boleto.parcelas_pagas) {
+    if (
+      !anterior ||
+      anterior.parcelas_pagas !== boleto.parcelas_pagas ||
+      anterior.mes_referencia !== boleto.mes_referencia
+    ) {
       return { ...boleto, mes_referencia: mesAtual };
     }
     return { ...boleto, mes_referencia: anterior.mes_referencia };
