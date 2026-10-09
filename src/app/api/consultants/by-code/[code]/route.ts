@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { INACTIVE_CONSULTANT_MESSAGE } from '@/lib/validations/serverValidations';
 
 /**
  * GET - Buscar consultor por código
@@ -33,7 +34,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ code: s
     const snapshot = await adminDb
       .collection('consultants')
       .where('code', '==', code)
-      .where('status', '==', 'active')
       .limit(1)
       .get();
 
@@ -43,6 +43,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ code: s
 
     const doc = snapshot.docs[0];
     const data = doc.data();
+
+    if (data.status !== 'active') {
+      return NextResponse.json(
+        { error: INACTIVE_CONSULTANT_MESSAGE, code: 'consultant_inactive' },
+        { status: 409 }
+      );
+    }
 
     // Retornar apenas dados públicos (para exibição na tela de transferência)
     return NextResponse.json({
