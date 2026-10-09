@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Gestão de Clínica / Consultores
-**Versão:** 1.0
+**Versão:** 1.1
 
-> Uma clínica sem consultor vinculado (`clinic_admin`) busca um consultor pelo código de 6 dígitos e envia um convite de vínculo. O consultor convidado aceita ou recusa em `/consultant/transfer-requests` (UC-26/UC-27); a clínica pode cancelar o convite enquanto ele estiver pendente; e o convite expira automaticamente em 15 dias se ninguém agir. Substitui a antiga página quebrada `TransferConsultantPage` (`/clinic/consultant/transfer`, sempre 403 para usuários de clínica — ver UC-46/RN-03/RN-04, agora resolvidas), reaproveitando a coleção `consultant_transfer_requests` e o mesmo mecanismo de aprovação já usado pelo fluxo irmão de transferência entre consultores (UC-25).
+> Uma clínica sem consultor vinculado (`clinic_admin`) busca um consultor pelo código de 6 dígitos e envia um convite de vínculo. O consultor convidado aceita ou recusa em `/consultant/transfer-requests` (UC-26/UC-27); a clínica pode cancelar o convite enquanto ele estiver pendente; e o convite expira automaticamente em 15 dias se ninguém agir. Substitui a antiga página quebrada `TransferConsultantPage` (`/clinic/consultant/transfer`, sempre 403 para usuários de clínica — ver UC-46/RN-03/RN-04, agora resolvidas), reaproveitando a coleção `consultant_transfer_requests` e o mesmo mecanismo de aprovação já usado pelo fluxo irmão de transferência entre consultores (UC-25). **[v1.1 — PR #376, decisão do PO]** Consultor existente mas inativo deixou de ser tratado como "não encontrado": a busca e o envio do convite respondem 409 (`code: 'consultant_inactive'`) e a tela informa "Consultor temporariamente inativo" (RN-09). Este é também o caminho pelo qual uma clínica criada **sem** vínculo — porque o consultor do código estava inativo na aprovação (UC-02/RN-07, UC-56/RN-10) — tenta se vincular de novo.
 
 ---
 
@@ -50,7 +50,7 @@ flowchart LR
 - Clinic Admin autenticado, `tenant_id` presente nos custom claims, `role === 'clinic_admin'`.
 - A clínica (tenant) ainda **não** possui `consultant_id` preenchido — se já tiver, a tela exibe um estado bloqueado, sem formulário (RN-02).
 - Não existe já um convite `pending` **não expirado** para essa clínica — se existir, a tela exibe o convite atual em vez do formulário de busca (RN-03).
-- Para enviar o convite: existe um consultor com `status === 'active'` correspondente ao código de 6 dígitos buscado (a própria busca por código já filtra por `active` — RN-09).
+- Para enviar o convite: existe um consultor com `status === 'active'` correspondente ao código de 6 dígitos buscado. Código inexistente retorna 404 "Consultor não encontrado"; consultor existente com `status` diferente de `active` retorna 409 `consultant_inactive` — tanto na busca quanto no envio (RN-09).
 
 ---
 
@@ -70,7 +70,7 @@ flowchart LR
 ### 4.2 Falha (Garantias Mínimas)
 - Se a clínica já tiver consultor vinculado: nenhuma alteração é feita, API retorna 400 (RN-02).
 - Se já existir convite `pending` não expirado para a mesma clínica: nenhuma alteração é feita, API retorna 400 (RN-03).
-- Se o consultor buscado não existir ou não estiver mais ativo (condição de corrida): nenhuma alteração é feita, API retorna 400/404.
+- Se o consultor buscado não existir: nenhuma alteração é feita, API retorna 404 ("Consultor não encontrado"). Se existir mas não estiver ativo (já na busca, ou por condição de corrida entre a busca e o envio): nenhuma alteração é feita, API retorna 409 com `code: 'consultant_inactive'` e a tela exibe o aviso de consultor temporariamente inativo (RN-09).
 - Se `clinic_user` tentar acessar a tela ou chamar a API diretamente: nenhuma ação é executada, usuário é redirecionado (UI) ou recebe 403 (API) — RN-01.
 - Se o cancelamento for tentado sobre um convite já processado (`aceito`/`recusado`), sobre uma pendência `type: 'transfer'`, ou sobre um convite já expirado: nenhuma alteração é feita, API retorna 400/403 (RN-06/RN-08).
 
@@ -88,12 +88,12 @@ Clinic Admin, cuja clínica ainda não tem consultor vinculado, acessa `/clinic/
 3. Tela chama, em paralelo, `GET /api/tenants/{tenantId}/consultant` (há consultor já vinculado?) e `GET /api/tenants/{tenantId}/consultant/invite` (há convite `pending` não expirado já ativo?).
 4. Como não há consultor vinculado nem convite ativo, sistema exibe o formulário "Buscar por Código".
 5. Clinic Admin digita o código de 6 dígitos do consultor e clica no botão de busca.
-6. Sistema chama `GET /api/consultants/by-code/{code}` — a rota já filtra por `status === 'active'` no servidor (RN-09).
+6. Sistema chama `GET /api/consultants/by-code/{code}` (Bearer token) — a rota busca o consultor pelo código **sem** filtrar por status e responde 200 com `{ id, code, name, email }` apenas se ele estiver `active`; código inexistente → 404, consultor inativo → 409 `consultant_inactive` (RN-09, Fluxos de Exceção 8d/8e).
 7. Sistema exibe um card "Consultor Encontrado" com nome, e-mail e código, e o botão "Enviar Convite".
-8. Clinic Admin clica em "Enviar Convite"; sistema exibe um `confirm()` nativo: `Tem certeza que deseja convidar o consultor "{nome}"?`.
+8. Clinic Admin clica em "Enviar Convite"; sistema exibe um `confirm()` nativo: `Tem certeza que deseja convidar o consultor {nome}?`.
 9. Clinic Admin confirma.
 10. Sistema chama `POST /api/tenants/{tenantId}/consultant/invite` com `{ consultant_id }` e o Bearer token.
-11. API valida token e permissão (`decodedToken.tenant_id === tenantId` e `decodedToken.role === 'clinic_admin'` — RN-01); valida que `tenant.consultant_id` está vazio (RN-02, senão 400 orientando a aguardar uma solicitação de transferência — UC-25); valida que não existe outro convite `pending` **não expirado** para o mesmo tenant (RN-03); valida que o consultor existe e `status === 'active'` (RN-09).
+11. API valida token e permissão (`decodedToken.tenant_id === tenantId` e `decodedToken.role === 'clinic_admin'` — RN-01); valida a presença de `consultant_id` no corpo (400) e a existência do tenant (404); valida que `tenant.consultant_id` está vazio (RN-02, senão 400 orientando a aguardar uma solicitação de transferência — UC-25); valida que o consultor existe (404 "Consultor não encontrado") e está com `status === 'active'` (senão 409 `consultant_inactive`, RN-09); e valida que não existe outro convite `pending` **não expirado** para o mesmo tenant (RN-03).
 12. API cria o documento em `consultant_transfer_requests` (`type: 'invite'`, `status: 'pending'`, `expires_at: computeExpiresAt()`, `invited_by_user_id/name` = dados do Clinic Admin chamador).
 13. API enfileira um e-mail (`email_queue`, `type: 'consultant_invite_created'`) para o consultor convidado.
 14. API retorna `{ success: true, message: 'Convite enviado ao consultor', data: { id } }`.
@@ -143,13 +143,14 @@ Clinic Admin, cuja clínica ainda não tem consultor vinculado, acessa `/clinic/
 1. Já existe um convite `pending` **não expirado** para a mesma clínica (para qualquer consultor).
 2. API retorna 400 ("Já existe um convite pendente para esta clínica"); nenhuma alteração é feita (RN-03).
 
-### 8d. Consultor buscado não está mais ativo (condição de corrida)
-1. Entre a busca por código (que já filtra por `active`) e o clique em "Enviar Convite", o consultor é suspenso por outra ação administrativa.
-2. API retorna 400 ("Consultor não está ativo"); nenhuma alteração é feita.
+### 8d. Consultor inativo — na busca por código ou no envio do convite (a partir dos passos 6 ou 11)
+1. O código corresponde a um consultor existente, mas com `status` diferente de `active` (ex.: suspenso, UC-29) — seja já no momento da busca, seja por suspensão entre a busca e o clique em "Enviar Convite" (condição de corrida). Inclui o cenário de uma clínica criada sem vínculo porque o consultor do código estava inativo na aprovação (UC-02/RN-07, UC-56/RN-10) e que tenta convidar o mesmo consultor.
+2. `GET /api/consultants/by-code/{code}` ou `POST /api/tenants/{tenantId}/consultant/invite` retorna **409** com `{ error: "Este consultor está inativo temporariamente. Um novo consultor poderá auxiliar sua clínica nesse meio tempo.", code: 'consultant_inactive' }`; nenhuma alteração é feita. (Até a v1.0: a busca retornava 404 "Consultor não encontrado", por filtrar `active` na query, e o `POST` retornava 400 "Consultor não está ativo".)
+3. Sistema exibe um toast destructive com o título "Consultor temporariamente inativo" e a descrição "Este consultor está inativo temporariamente. Um novo consultor poderá auxiliar sua clínica nesse meio tempo." (constantes `INACTIVE_CONSULTANT_TITLE`/`INACTIVE_CONSULTANT_MESSAGE`, `src/lib/validations/serverValidations.ts`); nenhum card de resultado é exibido (na busca) ou o card do consultor é removido (no envio). O Clinic Admin pode buscar outro código.
 
-### 8e. Consultor não encontrado pelo código
-1. Código de 6 dígitos não corresponde a nenhum consultor `active`.
-2. `GET /api/consultants/by-code/{code}` retorna 404; sistema exibe o toast "Consultor não encontrado"; nenhum card de resultado é exibido.
+### 8e. Código não corresponde a nenhum consultor (a partir do passo 6)
+1. Código de 6 dígitos não corresponde a nenhum documento em `consultants` (independentemente de status).
+2. `GET /api/consultants/by-code/{code}` retorna 404 ("Consultor não encontrado"); sistema exibe o toast "Consultor não encontrado"; nenhum card de resultado é exibido. (Código com formato diferente de 6 dígitos é barrado antes, na própria tela — toast "Informe um código de 6 dígitos" — e, se chegar à API, retorna 400 "Código deve ter 6 dígitos".)
 
 ### 8f. Cancelamento de pendência que não é convite, já processada, ou expirada
 1. Chamada de `DELETE` sobre um documento `type: 'transfer'` (não pertence à clínica cancelar — RN-06), já com `status !== 'pending'`, ou com `expires_at` no passado (RN-08).
@@ -173,7 +174,7 @@ Clinic Admin, cuja clínica ainda não tem consultor vinculado, acessa `/clinic/
 | RN-06 | Apenas pendências `type: 'invite'` podem ser canceladas pela clínica (`DELETE .../consultant/invite/[requestId]`). Uma pendência `type: 'transfer'` **não** pode ser cancelada por esta rota — ela é iniciada pelo consultor (UC-25), não pela clínica; a clínica não tem prerrogativa de cancelá-la. | O cancelamento é uma ação do lado de quem *iniciou* a pendência. Confirmado por leitura de `DELETE /api/tenants/[id]/consultant/invite/[requestId]/route.ts` — checagem explícita `requestData.type !== 'invite'` retorna 403. |
 | RN-07 | Cancelar um convite **não** gera nenhuma notificação (nem e-mail, nem in-app) para o consultor convidado. | O consultor convidado ainda não foi formalmente engajado no momento do cancelamento (não aceitou nem recusou) — notificá-lo de algo que ele nunca chegou a ver adicionaria ruído sem valor de ação. Confirmado por leitura do handler `DELETE` — nenhuma chamada a `email_queue` ou `notifications` após o `update`. |
 | RN-08 | O convite recebe `expires_at = created_at + 15 dias` no momento da criação (mesmo padrão de `password_reset_tokens`/`passwordResetService.ts` — campo gravado no documento, checagem em tempo de leitura via `isRequestExpired`, **sem** Cloud Function agendada). As rotas `POST` (criação, RN-03), `DELETE` (cancelamento) e as rotas de `approve`/`reject` (UC-26/UC-27) verificam a expiração antes de processar uma pendência `pending`; se expirada, retornam 400 "Este pedido expirou" **sem** alterar o documento (nenhum novo status é gravado). | Reaproveita um padrão já testado e em produção no projeto (reset de senha), evitando introduzir a primeira Cloud Function agendada do repositório. Confirmado por leitura de `computeExpiresAt`/`isRequestExpired` (`src/lib/consultantRequests.ts`) e seu uso em `invite/route.ts`, `invite/[requestId]/route.ts`, `approve/route.ts`, `reject/route.ts`. |
-| RN-09 | A busca por código (`GET /api/consultants/by-code/{code}`) já filtra por `status === 'active'` no servidor — a validação repetida no `POST` do convite (`consultantData?.status !== 'active'`) é defensiva/redundante na prática, só relevante em caso de condição de corrida entre a busca e o envio (mesma observação já registrada em UC-23/RN-04 para o painel Admin). | Confirmado por leitura de `src/app/api/consultants/by-code/[code]/route.ts` (`where('status', '==', 'active')`) e de `POST /api/tenants/[id]/consultant/invite/route.ts` (checagem redundante). |
+| RN-09 | **[Atualizada em v1.1 — PR #376, decisão do PO]** Consultor inexistente e consultor inativo são **distinguidos** para o Clinic Admin. `GET /api/consultants/by-code/{code}` busca pelo código sem filtrar status: inexistente → 404 "Consultor não encontrado"; existente com `status !== 'active'` → 409 `{ error: INACTIVE_CONSULTANT_MESSAGE, code: 'consultant_inactive' }`. `POST /api/tenants/[id]/consultant/invite` repete a checagem (defesa contra condição de corrida entre a busca e o envio) com a mesma resposta 409 (antes: 400 "Consultor não está ativo"). A tela trata `code === 'consultant_inactive'` exibindo o toast "Consultor temporariamente inativo" / "Este consultor está inativo temporariamente. Um novo consultor poderá auxiliar sua clínica nesse meio tempo." | Antes, um consultor inativo aparecia como "Consultor não encontrado", levando a clínica a achar que digitou o código errado. A rota é **autenticada** (Bearer token), então informar o status não abre enumeração pública — contraste deliberado com UC-01/RN-11, rota pública que usa mensagem única para código inexistente ou inativo. Relevante para clínicas criadas sem vínculo porque o consultor do código estava inativo na aprovação (UC-02/RN-07, UC-56/RN-10). |
 | RN-10 | O redirecionamento pós-sucesso (envio de convite) sempre aponta para `/clinic/my-clinic?tab=consultant` — o único caminho de navegação real para consultar o consultor vinculado (UC-46/RN-05) — nunca para a rota órfã `/clinic/consultant`. | Confirmado por leitura de `handleInvite` em `invite/page.tsx` — `router.push('/clinic/my-clinic?tab=consultant')`. |
 | RN-11 | Consultor convidado não recebe nenhuma notificação in-app ao ser convidado — apenas e-mail (`email_queue`, `type: 'consultant_invite_created'`). Mesma decisão consciente de débito técnico documentada para UC-25/UC-26/UC-27: não existe hoje nenhuma infraestrutura de notificação in-app equivalente para o Portal do Consultor. | Confirmado por leitura de `POST /api/tenants/[id]/consultant/invite/route.ts` — nenhuma escrita em coleção de notificações do consultor; e da spec de implementação (`FEAT-unificacao-vinculo-transferencia-consultor.md`, RN-05). |
 
@@ -200,6 +201,8 @@ Recém-implementado — sem dados de uso em produção ainda. Qualitativamente e
 - **UC-25 (Solicitar Transferência de Clínica Já Vinculada)** — fluxo irmão, usando a mesma coleção (`consultant_transfer_requests`) e as mesmas rotas de aprovação/rejeição, mas para o cenário oposto ("clínica já tem consultor") e iniciado pelo consultor solicitante, não pela clínica.
 - **UC-26 (Aprovar Pedido de Transferência de Clínica)** e **UC-27 (Rejeitar Pedido de Transferência de Clínica)** — consomem o documento `type: 'invite'` criado por este UC; ambos foram generalizados para tratar os dois tipos de pendência na mesma tela e rota.
 - **UC-46 (Visualizar Consultor Vinculado à Clínica)** — ponto de entrada real deste UC, a partir do botão "Convidar Consultor" no estado vazio de `ConsultantTab`.
+- **UC-02 (Aprovar Solicitação de Acesso)** e **UC-56 (Consultor Aprova Solicitação Vinculada ao Seu Código)** — quando a solicitação aprovada não tinha código de consultor, ou o consultor do código estava inativo/removido no momento da aprovação, a clínica nasce sem consultor (UC-02/RN-07, UC-56/RN-10); este UC é o caminho pelo qual o `clinic_admin` dessa clínica pode convidar um consultor depois — e, se tentar o mesmo consultor ainda inativo, recebe o aviso de RN-09.
+- **UC-01 (Solicitar Acesso ao Sistema)** — usa o mesmo código de consultor de 6 dígitos, mas em rota pública e com mensagem única para código inexistente ou inativo (UC-01/RN-11) — tratamento deliberadamente oposto ao de RN-09 deste UC.
 
 ---
 
@@ -207,7 +210,9 @@ Recém-implementado — sem dados de uso em produção ainda. Qualitativamente e
 - `src/app/(clinic)/clinic/consultant/invite/page.tsx` (tela do Clinic Admin)
 - `src/app/api/tenants/[id]/consultant/invite/route.ts` (`GET`, `POST`)
 - `src/app/api/tenants/[id]/consultant/invite/[requestId]/route.ts` (`DELETE`, cancelamento)
-- `src/app/api/consultants/by-code/[code]/route.ts` (busca por código, reaproveitada da extinta `TransferConsultantPage`)
+- `src/app/api/consultants/by-code/[code]/route.ts` (busca por código, reaproveitada da extinta `TransferConsultantPage`; 404 inexistente / 409 `consultant_inactive` — RN-09)
+- `src/lib/validations/serverValidations.ts` (`INACTIVE_CONSULTANT_TITLE`, `INACTIVE_CONSULTANT_MESSAGE` — RN-09)
+- `tests/e2e/UC-54-convidar-consultor-para-clinica-sem-vinculo.spec.ts` (caderno E2E **parcial** — cobre só o tratamento de consultor inativo: busca 409, distinção ativo 200 / inexistente 404, convite recusado com 409 sem criar documento e o toast na tela)
 - `src/lib/consultantRequests.ts` (`getApproverConsultantId`, `isInviteRequest`, `computeExpiresAt`, `isRequestExpired`, `getPendencyTypeLabel`)
 - `src/components/clinic/ConsultantTab.tsx` (botão "Convidar Consultor", gate `isAdmin`)
 - `src/types/index.ts` (`ConsultantTransferRequest`, `ConsultantPendencyType`, `ConsultantTransferRequestStatus`)
@@ -219,7 +224,9 @@ Recém-implementado — sem dados de uso em produção ainda. Qualitativamente e
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
-Nenhuma pendência identificada nesta revisão. Toda regra de negócio necessária já estava detalhada e aprovada na Seção 3 da spec de referência (`FEAT-unificacao-vinculo-transferencia-consultor.md`, RF-01 a RF-14, RN-01 a RN-12) e foi confirmada por leitura direta do código implementado (`invite/page.tsx`, `invite/route.ts`, `invite/[requestId]/route.ts`, `ConsultantTab.tsx`, `consultantRequests.ts`). Como registrado na spec (Seção 4.3, Seção 5.5), permanecem como débito técnico consciente — não como lacunas deste UC — a ausência de notificação in-app para o consultor convidado (RN-11) e a não-unificação de `ClinicConsultantPage`/`ConsultantTab` (UC-46/Seção 14, item 2).
+Nenhuma pendência de produto identificada. Toda regra de negócio necessária já estava detalhada e aprovada na Seção 3 da spec de referência (`FEAT-unificacao-vinculo-transferencia-consultor.md`, RF-01 a RF-14, RN-01 a RN-12) e foi confirmada por leitura direta do código implementado (`invite/page.tsx`, `invite/route.ts`, `invite/[requestId]/route.ts`, `ConsultantTab.tsx`, `consultantRequests.ts`). Como registrado na spec (Seção 4.3, Seção 5.5), permanecem como débito técnico consciente — não como lacunas deste UC — a ausência de notificação in-app para o consultor convidado (RN-11) e a não-unificação de `ClinicConsultantPage`/`ConsultantTab` (UC-46/Seção 14, item 2).
+
+**[Cobertura de teste parcial — não bloqueante]** O caderno E2E `tests/e2e/UC-54-convidar-consultor-para-clinica-sem-vinculo.spec.ts` cobre apenas o tratamento de consultor inativo (RN-09, Fluxo de Exceção 8d). O restante do UC-54 (fluxo principal, 7a/7b/7b1, 8a-8c, 8e-8g) segue sem caderno — cobertura retroativa pendente, conforme o ADR de automação de QA.
 
 ---
 
@@ -228,3 +235,4 @@ Nenhuma pendência identificada nesta revisão. Toda regra de negócio necessár
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 13/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Versão inicial. Documenta o fluxo de convite da clínica ao consultor, implementado em `feature/consultor-vinculo-convite-transferencia` (spec `FEAT-unificacao-vinculo-transferencia-consultor.md`, concluída em 13/08/2026), substituindo a antiga `TransferConsultantPage` (removida, ver UC-46 v1.2). Elicitação feita a partir da Seção 3 da spec já aprovada (RF-01 a RF-14, RN-01 a RN-12) e confirmada por leitura direta de todo o código implementado: tela `/clinic/consultant/invite`, rotas `GET`/`POST /api/tenants/[id]/consultant/invite` e `DELETE .../invite/[requestId]`, módulo puro `src/lib/consultantRequests.ts`, e o novo ponto de entrada em `ConsultantTab.tsx`. Sem perguntas em aberto. |
+| 1.1 | 08/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Mudança de comportamento (PR #376, decisão do PO): consultor inativo deixa de aparecer como "não encontrado".** `GET /api/consultants/by-code/[code]` passou a distinguir código inexistente (404 "Consultor não encontrado") de consultor existente e inativo (409, `code: 'consultant_inactive'`); `POST /api/tenants/[id]/consultant/invite` passou a responder 409 com a mesma mensagem para consultor inativo (antes 400 "Consultor não está ativo"); a tela mostra o toast "Consultor temporariamente inativo". RN-09 reescrita (inclui o contraste com UC-01/RN-11); Fluxo de Exceção 8d reescrito (busca e envio) e 8e restrito a código inexistente; Pré-condições, Pós-condição 4.2, Fluxo Principal (passos 6, 8 — texto real do `confirm()` —, 11 — ordem real das validações) atualizados. Referência cruzada a UC-02/RN-07 e UC-56/RN-10 (clínica criada sem vínculo por consultor inativo na aprovação). Registrado o novo caderno E2E parcial (`tests/e2e/UC-54-...spec.ts`, só consultor inativo). |
