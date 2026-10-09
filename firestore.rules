@@ -89,11 +89,13 @@ service cloud.firestore {
       allow read, write: if isSystemAdmin();
 
       // Usuários do tenant podem ler qualquer subcoleção do próprio tenant,
-      // exceto nf_imports (regra dedicada abaixo).
-      allow read: if belongsToTenant(tenantId) && collectionId != 'nf_imports';
+      // exceto nf_imports e financeiro (regras dedicadas abaixo).
+      allow read: if belongsToTenant(tenantId)
+        && !(collectionId in ['nf_imports', 'financeiro']);
 
-      // Consultores têm acesso READ-ONLY às subcoleções, mesma exceção.
-      allow read: if consultantHasAccess(tenantId) && collectionId != 'nf_imports';
+      // Consultores têm acesso READ-ONLY às subcoleções, mesmas exceções.
+      allow read: if consultantHasAccess(tenantId)
+        && !(collectionId in ['nf_imports', 'financeiro']);
     }
 
     // Regras dedicadas de ESCRITA por subcoleção do tenant — causa raiz do
@@ -156,6 +158,23 @@ service cloud.firestore {
     // separadamente no mapa de bugs para elicitação de UC dedicado).
     match /tenants/{tenantId}/nf_imports/{nfImportId} {
       allow read, write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+    }
+
+    // financeiro — dados financeiros internos (custos fixos, Boletos Tec,
+    // disponibilidade, markup — FEAT-precificacao-hora-clinica). Leitura E
+    // escrita só clinic_admin; excluída do fallback de leitura genérico
+    // (clinic_user e consultor NÃO leem por padrão). Consultor lê somente com
+    // opt-in explícito do clinic_admin, amarrado ao consultant_id que recebeu
+    // o compartilhamento. Delete só via system_admin (bloco genérico): sem
+    // request.resource a condição de escrita falha.
+    match /tenants/{tenantId}/financeiro/{docId} {
+      allow read: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+      allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin')
+        && request.resource.data.tenant_id == tenantId
+        && request.resource.data.compartilhar_com_consultor is bool;
+      allow read: if consultantHasAccess(tenantId)
+        && resource.data.compartilhar_com_consultor == true
+        && resource.data.compartilhado_com_consultant_id == request.auth.token.consultant_id;
     }
 
     // Regras específicas para notificações (dentro de tenants)
