@@ -35,6 +35,17 @@ service cloud.firestore {
         && tenantId in request.auth.token.authorized_tenants;
     }
 
+    // Opt-in financeiro ativo PARA ESTE consultor (FEAT-precificacao-hora-clinica,
+    // RN-13/RN-18): o clinic_admin ligou o compartilhamento e o amarrou ao
+    // consultant_id do token. Documento inexistente => negado. Troca de
+    // consultor não herda o acesso.
+    function consultantHasFinancialOptIn(tenantId) {
+      let finPath = /databases/$(database)/documents/tenants/$(tenantId)/financeiro/custo_hora;
+      return exists(finPath)
+        && get(finPath).data.get('compartilhar_com_consultor', false) == true
+        && get(finPath).data.get('compartilhado_com_consultant_id', null) == request.auth.token.consultant_id;
+    }
+
     // REGRAS MULTI-TENANT - OBRIGATÓRIO
 
     // Documento raiz do tenant (necessário para update durante onboarding)
@@ -122,8 +133,13 @@ service cloud.firestore {
 
     // protocolos — leitura ampla (listagem visível a clinic_user, sem botões
     // de ação, UC-20); criação/edição/remoção só clinic_admin.
+    // Consultor: lê protocolos com o opt-in financeiro ativo para ele (D6) —
+    // protocolo com custo é dado financeiro. Enquanto a allowlist de
+    // UC-48-RN-06 (BUGFIX-consultor-allowlist-subcolecoes) não entra, o bloco
+    // genérico ainda concede a leitura sem opt-in (semântica OR).
     match /tenants/{tenantId}/protocolos/{protocoloId} {
       allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+      allow read: if consultantHasAccess(tenantId) && consultantHasFinancialOptIn(tenantId);
     }
 
     // solicitacoes — leitura ampla (`/clinic/requests` visível a ambos os
