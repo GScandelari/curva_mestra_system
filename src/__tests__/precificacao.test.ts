@@ -17,6 +17,7 @@ import {
   calcularCustoMedioPorProduto,
   calcularCustoMaterialProtocolo,
   calcularPrecificacaoProtocolo,
+  parseDuracaoMinutos,
   calcularProdutosRennova,
   separarMaterialParaConsultor,
   mesCorrenteSaoPaulo,
@@ -453,6 +454,25 @@ describe('calcularPrecificacaoProtocolo', () => {
     });
     expect(preco.custoReal).toBeCloseTo(953.06, 2);
     expect(preco.precoSugerido).toBeNull();
+  });
+});
+
+describe('parseDuracaoMinutos', () => {
+  it('treats an empty field as no duration', () => {
+    expect(parseDuracaoMinutos('')).toEqual({ valor: null });
+    expect(parseDuracaoMinutos('   ')).toEqual({ valor: null });
+  });
+
+  it('accepts integers from 1 to 1440', () => {
+    expect(parseDuracaoMinutos('60')).toEqual({ valor: 60 });
+    expect(parseDuracaoMinutos('1')).toEqual({ valor: 1 });
+    expect(parseDuracaoMinutos('1440')).toEqual({ valor: 1440 });
+  });
+
+  it.each(['0', '1441', '30.5', '-5', 'abc'])('rejects %p', (texto) => {
+    expect(parseDuracaoMinutos(texto)).toEqual({
+      erro: 'Informe uma duração entre 1 e 1440 minutos',
+    });
   });
 });
 

@@ -449,6 +449,20 @@ export function calcularPrecificacaoProtocolo(params: {
   return { custoMaterial, custoHoraAplicado, custoReal, precoSugerido };
 }
 
+/**
+ * RN-15: duração do protocolo vinda do formulário. Vazio = sem duração
+ * (`valor: null`); preenchido precisa ser inteiro entre 1 e 1440 minutos.
+ */
+export function parseDuracaoMinutos(texto: string): { valor: number | null } | { erro: string } {
+  const limpo = texto.trim();
+  if (limpo === '') return { valor: null };
+  const n = Number(limpo);
+  if (!Number.isInteger(n) || n < 1 || n > 1440) {
+    return { erro: 'Informe uma duração entre 1 e 1440 minutos' };
+  }
+  return { valor: n };
+}
+
 // ============================================================================
 // VISÃO DO CONSULTOR (RN-17 / D5)
 // ============================================================================

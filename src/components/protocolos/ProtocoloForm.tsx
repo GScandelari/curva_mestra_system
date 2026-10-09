@@ -19,11 +19,13 @@ import type { ProdutoHistorico } from '@/lib/services/protocoloService';
 interface ProtocoloFormProps {
   nome: string;
   descricao: string;
+  duracaoMinutos: string;
   itens: ProtocoloItem[];
   produtosHistoricos: ProdutoHistorico[];
   saving: boolean;
   onNomeChange: (v: string) => void;
   onDescricaoChange: (v: string) => void;
+  onDuracaoMinutosChange: (v: string) => void;
   onItensChange: (itens: ProtocoloItem[]) => void;
   onSubmit: () => void;
   onCancel: () => void;
@@ -33,11 +35,13 @@ interface ProtocoloFormProps {
 export function ProtocoloForm({
   nome,
   descricao,
+  duracaoMinutos,
   itens,
   produtosHistoricos,
   saving,
   onNomeChange,
   onDescricaoChange,
+  onDuracaoMinutosChange,
   onItensChange,
   onSubmit,
   onCancel,
@@ -106,6 +110,22 @@ export function ProtocoloForm({
               value={descricao}
               onChange={(e) => onDescricaoChange(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="duracao">Duração (minutos)</Label>
+            <Input
+              id="duracao"
+              type="number"
+              min={1}
+              max={1440}
+              step={1}
+              placeholder="Ex: 60"
+              value={duracaoMinutos}
+              onChange={(e) => onDuracaoMinutosChange(e.target.value)}
+            />
+            <p className="text-sm text-muted-foreground">
+              Usada para calcular o custo da hora clínica do procedimento
+            </p>
           </div>
         </CardContent>
       </Card>
