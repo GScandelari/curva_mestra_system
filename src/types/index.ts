@@ -196,6 +196,8 @@ export interface Solicitacao {
   observacoes?: string;
   protocolo_id?: string;
   protocolo_nome?: string;
+  duracao_minutos?: number; // 1..1440 — só a duração do campo (digitada ou do protocolo)
+  forma_pagamento?: FormaPagamento; // informativa; ausente = legado (tratado como Pix/Dinheiro)
   created_by: string; // UID do usuário que criou
   created_by_name?: string; // Nome do usuário que criou
   updated_by?: string;
@@ -471,6 +473,33 @@ export interface ParametrosMarkupLegado {
   cartao_pct: number;
   comissao_pct: number;
   margem_pct: number;
+}
+
+export type OrigemDuracao = 'informada' | 'protocolo' | 'padrao';
+
+/**
+ * tenants/{tenantId}/precificacao_procedimentos/{solicitacaoId} — só clinic_admin.
+ * Snapshot gravado ao confirmar o procedimento; a solicitação não guarda
+ * nenhum destes valores porque é legível por clinic_user e consultor.
+ */
+export interface PrecificacaoProcedimento {
+  tenant_id: string;
+  solicitacao_id: string;
+  mes_referencia: string; // 'YYYY-MM' — mês da data do procedimento
+  custo_hora: number | null; // null = disponibilidade não configurada
+  duracao_minutos: number; // duração efetiva
+  duracao_origem: OrigemDuracao;
+  custo_hora_aplicado: number | null;
+  custo_material: number;
+  custo_material_incompleto: boolean;
+  custo_real: number | null;
+  markup: ParametrosMarkup;
+  forma_pagamento: FormaPagamento; // informativa — só define o destaque
+  divisores: Record<FormaPagamento, number | null>;
+  precos_sugeridos: Record<FormaPagamento, number | null>;
+  origem: 'criacao' | 'edicao';
+  gravado_em: Timestamp;
+  gravado_por: string;
 }
 
 /** tenants/{tenantId}/financeiro/custo_hora */

@@ -13,7 +13,9 @@ import type {
   DiaSemanaKey,
   DisponibilidadeDia,
   FormaPagamento,
+  OrigemDuracao,
   ParametrosMarkup,
+  PrecificacaoProcedimento,
   ProtocoloItem,
 } from '@/types';
 
@@ -667,6 +669,126 @@ export function parseDuracaoMinutos(texto: string): { valor: number | null } | {
     return { erro: 'Informe uma duração entre 1 e 1440 minutos' };
   }
   return { valor: n };
+}
+
+// ============================================================================
+// PROCEDIMENTO (RN-22 a RN-24, RN-31, D11 a D13)
+// ============================================================================
+
+/**
+ * D11: a duração digitada no procedimento sempre vale; senão a do protocolo
+ * aplicado; em qualquer outro caso (protocolo sem duração, outros produtos
+ * adicionados, nenhum protocolo) vale a hora cheia.
+ */
+export function resolverDuracaoProcedimento(params: {
+  duracaoInformada: number | null;
+  protocoloAplicado: { duracao_minutos?: number } | null;
+}): { minutos: number; origem: OrigemDuracao } {
+  if (duracaoValida(params.duracaoInformada)) {
+    return { minutos: params.duracaoInformada, origem: 'informada' };
+  }
+  const doProtocolo = params.protocoloAplicado?.duracao_minutos;
+  if (duracaoValida(doProtocolo)) return { minutos: doProtocolo, origem: 'protocolo' };
+  return { minutos: DURACAO_PADRAO_MINUTOS, origem: 'padrao' };
+}
+
+/**
+ * RN-31: o client grava `dt_procedimento` como meia-noite UTC da data digitada,
+ * então a data de calendário é a parte UTC — converter para São Paulo jogaria
+ * o dia 1º no mês anterior.
+ */
+export function mesReferenciaDoProcedimento(data: string | Date): string {
+  return typeof data === 'string' ? data.slice(0, 7) : data.toISOString().slice(0, 7);
+}
+
+export interface CustoMaterialSolicitacao {
+  total: number;
+  incompleto: boolean;
+}
+
+/** Material dos lotes efetivamente usados no procedimento (RN-22). */
+export function calcularCustoMaterialSolicitacao(
+  produtos: { quantidade: number; valor_unitario: unknown }[]
+): CustoMaterialSolicitacao {
+  let total = 0;
+  let incompleto = false;
+  for (const produto of produtos) {
+    if (valorUnitarioValido(produto.valor_unitario)) {
+      total += produto.quantidade * produto.valor_unitario;
+    } else {
+      incompleto = true;
+    }
+  }
+  return { total, incompleto };
+}
+
+export interface PrecificacaoProcedimentoCalculada {
+  custoMaterial: CustoMaterialSolicitacao;
+  duracaoMinutos: number;
+  custoHoraAplicado: number | null;
+  custoReal: number | null;
+  precos: ValoresPorForma;
+}
+
+export function calcularPrecificacaoProcedimento(params: {
+  duracaoMinutos: number;
+  custoHora: number | null;
+  divisores: ValoresPorForma;
+  custoMaterial: CustoMaterialSolicitacao;
+}): PrecificacaoProcedimentoCalculada {
+  const { duracaoMinutos, custoHora, divisores, custoMaterial } = params;
+  const custoHoraAplicado = calcularCustoHoraAplicado(custoHora, duracaoMinutos);
+  const custoReal = custoHoraAplicado !== null ? custoHoraAplicado + custoMaterial.total : null;
+  return {
+    custoMaterial,
+    duracaoMinutos,
+    custoHoraAplicado,
+    custoReal,
+    precos: calcularPrecosPorForma(custoReal, divisores),
+  };
+}
+
+export type SnapshotPrecificacao = Omit<PrecificacaoProcedimento, 'gravado_em' | 'gravado_por'>;
+
+/**
+ * D10/D13: valores gravados ao confirmar o procedimento, com os três preços.
+ * A forma de pagamento é informativa — não altera divisores nem preços.
+ */
+export function montarSnapshotPrecificacao(params: {
+  tenantId: string;
+  solicitacaoId: string;
+  config: CustoHoraConfigBase;
+  mesReferencia: string;
+  duracao: { minutos: number; origem: OrigemDuracao };
+  formaPagamento: FormaPagamento;
+  produtos: { quantidade: number; valor_unitario: unknown }[];
+  origem: 'criacao' | 'edicao';
+}): SnapshotPrecificacao {
+  const resumo = calcularResumoCustoHora(params.config, params.mesReferencia);
+  const calculo = calcularPrecificacaoProcedimento({
+    duracaoMinutos: params.duracao.minutos,
+    custoHora: resumo.custoHora,
+    divisores: resumo.divisores,
+    custoMaterial: calcularCustoMaterialSolicitacao(params.produtos),
+  });
+
+  return {
+    tenant_id: params.tenantId,
+    solicitacao_id: params.solicitacaoId,
+    mes_referencia: params.mesReferencia,
+    custo_hora: resumo.custoHora,
+    duracao_minutos: params.duracao.minutos,
+    duracao_origem: params.duracao.origem,
+    custo_hora_aplicado: calculo.custoHoraAplicado,
+    custo_material: calculo.custoMaterial.total,
+    custo_material_incompleto: calculo.custoMaterial.incompleto,
+    custo_real: calculo.custoReal,
+    markup: { ...params.config.markup },
+    forma_pagamento: params.formaPagamento,
+    divisores: resumo.divisores,
+    precos_sugeridos: calculo.precos,
+    origem: params.origem,
+  };
 }
 
 // ============================================================================
