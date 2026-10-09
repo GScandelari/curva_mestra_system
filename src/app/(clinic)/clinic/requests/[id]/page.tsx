@@ -314,7 +314,9 @@ export default function SolicitacaoDetalhesPage() {
                 <Label className="text-muted-foreground">Data do Procedimento</Label>
                 <p className="font-medium text-lg">
                   {solicitacao.dt_procedimento?.toDate
-                    ? solicitacao.dt_procedimento.toDate().toLocaleDateString('pt-BR')
+                    ? solicitacao.dt_procedimento
+                        .toDate()
+                        .toLocaleDateString('pt-BR', { timeZone: 'UTC' })
                     : 'N/A'}
                 </p>
               </div>

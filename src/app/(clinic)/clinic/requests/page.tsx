@@ -294,7 +294,9 @@ export default function SolicitacoesPage() {
                         </TableCell>
                         <TableCell>
                           {solicitacao.dt_procedimento?.toDate
-                            ? solicitacao.dt_procedimento.toDate().toLocaleDateString('pt-BR')
+                            ? solicitacao.dt_procedimento
+                                .toDate()
+                                .toLocaleDateString('pt-BR', { timeZone: 'UTC' })
                             : 'N/A'}
                         </TableCell>
                         <TableCell className="text-right">
