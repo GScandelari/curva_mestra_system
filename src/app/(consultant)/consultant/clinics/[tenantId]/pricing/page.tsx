@@ -220,7 +220,6 @@ export default function ConsultantPricingPage() {
                   <ProtocoloPrecificacao
                     modo="consultor"
                     produtosRennova={produtosRennova}
-                    duracaoMinutos={protocolo.duracao_minutos}
                     precificacao={calcularPrecificacaoProtocolo({
                       duracaoMinutos: protocolo.duracao_minutos,
                       custoHora: resumo.custoHora,

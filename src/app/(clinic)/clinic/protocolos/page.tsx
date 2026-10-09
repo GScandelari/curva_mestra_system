@@ -200,7 +200,6 @@ export default function ProtocolosPage() {
                   {isAdmin && custosMedios && (
                     <ProtocoloPrecificacao
                       modo="admin"
-                      duracaoMinutos={protocolo.duracao_minutos}
                       precificacao={calcularPrecificacaoProtocolo({
                         duracaoMinutos: protocolo.duracao_minutos,
                         custoHora: resumo?.custoHora ?? null,

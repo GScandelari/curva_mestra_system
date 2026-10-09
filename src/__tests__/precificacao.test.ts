@@ -25,6 +25,7 @@ import {
   calcularCustoMedioPorProduto,
   calcularCustoMaterialProtocolo,
   calcularPrecificacaoProtocolo,
+  DURACAO_PADRAO_MINUTOS,
   parseDuracaoMinutos,
   calcularProdutosRennova,
   separarMaterialParaConsultor,
@@ -449,25 +450,63 @@ describe('calcularPrecificacaoProtocolo', () => {
     expect(preco.custoHoraAplicado).toBeCloseTo(76.53, 2);
   });
 
-  it('returns nulls without a duration or hourly cost', () => {
-    for (const params of [
-      {
-        custoHora,
-        divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
-        custoMaterial: material,
-      },
-      {
-        duracaoMinutos: 60,
-        custoHora: null,
-        divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
-        custoMaterial: material,
-      },
-    ]) {
-      const preco = calcularPrecificacaoProtocolo(params);
-      expect(preco.custoHoraAplicado).toBeNull();
-      expect(preco.custoReal).toBeNull();
-      expect(preco.precosSugeridos.credito).toBeNull();
-    }
+  it('returns nulls without an hourly cost', () => {
+    const preco = calcularPrecificacaoProtocolo({
+      duracaoMinutos: 60,
+      custoHora: null,
+      divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
+      custoMaterial: material,
+    });
+    expect(preco.custoHoraAplicado).toBeNull();
+    expect(preco.custoReal).toBeNull();
+    expect(preco.precosSugeridos.credito).toBeNull();
+  });
+
+  it.each([undefined, 0])('prices a protocol without duration as one hour (%p)', (duracao) => {
+    const preco = calcularPrecificacaoProtocolo({
+      duracaoMinutos: duracao,
+      custoHora,
+      divisores: { pix_dinheiro: 0.64, debito: 0.62, credito: 0.6 },
+      custoMaterial: material,
+    });
+    expect(DURACAO_PADRAO_MINUTOS).toBe(60);
+    expect(preco.duracaoConsiderada).toBe(60);
+    expect(preco.duracaoPadrao).toBe(true);
+    expect(preco.custoReal).toBeCloseTo(953.06, 2);
+    expect(preco.precosSugeridos.pix_dinheiro).toBeCloseTo(1489.16, 2);
+    expect(preco.precosSugeridos.debito).toBeCloseTo(1537.2, 2);
+    expect(preco.precosSugeridos.credito).toBeCloseTo(1588.44, 2);
+  });
+
+  it('keeps the protocol duration when informed', () => {
+    const preco = calcularPrecificacaoProtocolo({
+      duracaoMinutos: 30,
+      custoHora,
+      divisores: { pix_dinheiro: 0.64, debito: 0.62, credito: 0.6 },
+      custoMaterial: { ...material, total: 0 },
+    });
+    expect(preco.duracaoConsiderada).toBe(30);
+    expect(preco.duracaoPadrao).toBe(false);
+  });
+
+  it('prices STEP 4 protocols P2 and P4 with the one-hour default', () => {
+    const divisores = { pix_dinheiro: 0.64, debito: 0.62, credito: 0.6 };
+    const p2 = calcularPrecificacaoProtocolo({
+      custoHora,
+      divisores,
+      custoMaterial: { ...material, total: 0 },
+    });
+    expect(p2.custoReal).toBeCloseTo(153.06, 2);
+    expect(p2.precosSugeridos.pix_dinheiro).toBeCloseTo(239.16, 2);
+    expect(p2.precosSugeridos.credito).toBeCloseTo(255.1, 2);
+    const p4 = calcularPrecificacaoProtocolo({
+      custoHora,
+      divisores,
+      custoMaterial: { ...material, total: 115 },
+    });
+    expect(p4.custoReal).toBeCloseTo(268.06, 2);
+    expect(p4.precosSugeridos.pix_dinheiro).toBeCloseTo(418.85, 2);
+    expect(p4.precosSugeridos.credito).toBeCloseTo(446.77, 2);
   });
 
   it('keeps the real cost when the markup is invalid', () => {

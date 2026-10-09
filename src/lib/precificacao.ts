@@ -610,6 +610,16 @@ export interface PrecificacaoProtocolo {
   custoHoraAplicado: number | null;
   custoReal: number | null;
   precosSugeridos: ValoresPorForma;
+  duracaoConsiderada: number;
+  /** true quando o protocolo não tem duração e vale a hora cheia (D11). */
+  duracaoPadrao: boolean;
+}
+
+/** D11: sem duração informada, o procedimento vale uma hora cheia. */
+export const DURACAO_PADRAO_MINUTOS = 60;
+
+function duracaoValida(minutos: unknown): minutos is number {
+  return typeof minutos === 'number' && Number.isFinite(minutos) && minutos > 0;
 }
 
 /** null se não houver duração (> 0) ou custo/hora. */
@@ -630,7 +640,9 @@ export function calcularPrecificacaoProtocolo(params: {
   custoMaterial: CustoMaterialProtocolo;
 }): PrecificacaoProtocolo {
   const { duracaoMinutos, custoHora, divisores, custoMaterial } = params;
-  const custoHoraAplicado = calcularCustoHoraAplicado(custoHora, duracaoMinutos);
+  const duracaoPadrao = !duracaoValida(duracaoMinutos);
+  const duracaoConsiderada = duracaoPadrao ? DURACAO_PADRAO_MINUTOS : duracaoMinutos;
+  const custoHoraAplicado = calcularCustoHoraAplicado(custoHora, duracaoConsiderada);
   const custoReal = custoHoraAplicado !== null ? custoHoraAplicado + custoMaterial.total : null;
 
   return {
@@ -638,6 +650,8 @@ export function calcularPrecificacaoProtocolo(params: {
     custoHoraAplicado,
     custoReal,
     precosSugeridos: calcularPrecosPorForma(custoReal, divisores),
+    duracaoConsiderada,
+    duracaoPadrao,
   };
 }
 

@@ -6,7 +6,6 @@ import { separarMaterialParaConsultor, type PrecificacaoProtocolo } from '@/lib/
 
 interface ProtocoloPrecificacaoProps {
   precificacao: PrecificacaoProtocolo;
-  duracaoMinutos?: number;
   /** consultor: detalhe só dos itens Rennova, demais agregados (RF-20/RN-17). */
   modo: 'admin' | 'consultor';
   produtosRennova?: Set<string>;
@@ -36,11 +35,17 @@ function Aviso({ children }: Readonly<{ children: React.ReactNode }>) {
 
 export default function ProtocoloPrecificacao({
   precificacao,
-  duracaoMinutos,
   modo,
   produtosRennova = new Set(),
 }: Readonly<ProtocoloPrecificacaoProps>) {
-  const { custoMaterial, custoHoraAplicado, custoReal, precosSugeridos } = precificacao;
+  const {
+    custoMaterial,
+    custoHoraAplicado,
+    custoReal,
+    precosSugeridos,
+    duracaoConsiderada,
+    duracaoPadrao,
+  } = precificacao;
   const fmt = (v: number | null) => (v === null ? '—' : formatCurrency(v));
 
   const consultor =
@@ -52,7 +57,10 @@ export default function ProtocoloPrecificacao({
   return (
     <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-        <Valor label="Duração" valor={duracaoMinutos ? `${duracaoMinutos} min` : '—'} />
+        <Valor
+          label="Duração"
+          valor={`${duracaoConsiderada} min${duracaoPadrao ? ' (padrão)' : ''}`}
+        />
         <Valor label="Material" valor={formatCurrency(custoMaterial.total)} />
         <Valor label="Hora clínica" valor={fmt(custoHoraAplicado)} />
         <Valor label="Custo real" valor={fmt(custoReal)} />
@@ -81,7 +89,7 @@ export default function ProtocoloPrecificacao({
         </div>
       )}
 
-      {duracaoMinutos ? null : <Aviso>Informe a duração para calcular o preço</Aviso>}
+      {duracaoPadrao && <Aviso>Duração não informada — considerada 1 hora</Aviso>}
       {modo === 'admin' && custoMaterial.incompleto && (
         <Aviso>
           Custo de material incompleto: sem valor para{' '}
