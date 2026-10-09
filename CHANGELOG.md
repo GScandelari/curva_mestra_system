@@ -5,6 +5,13 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.13.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.13.0...v1.13.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **clinic:** tell clinic_admin when the invited consultant is inactive ([4f37af9](https://github.com/GScandelari/curva_mestra_system/commit/4f37af98c494b777274c37aa4ee111953de8090d))
+
 ## [1.13.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.12.0...v1.13.0) (2026-10-08)
 
 
