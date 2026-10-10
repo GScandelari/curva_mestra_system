@@ -1016,3 +1016,25 @@ describe('dataCalendarioDoProcedimento / formatarDataProcedimento (RN-31)', () =
     expect(mesReferenciaDoProcedimento(new Date('2026-11-01T02:30:00Z'))).toBe('2026-10');
   });
 });
+
+describe('resolverDuracaoProcedimento — campo preenchido pelo protocolo', () => {
+  it('records the protocol as origin while the field keeps its prefilled value', () => {
+    expect(
+      resolverDuracaoProcedimento({
+        duracaoInformada: 60,
+        protocoloAplicado: { duracao_minutos: 60 },
+        campoPreenchidoPeloProtocolo: true,
+      })
+    ).toEqual({ minutos: 60, origem: 'protocolo' });
+  });
+
+  it('records the typed value once the field is edited', () => {
+    expect(
+      resolverDuracaoProcedimento({
+        duracaoInformada: 45,
+        protocoloAplicado: { duracao_minutos: 60 },
+        campoPreenchidoPeloProtocolo: false,
+      })
+    ).toEqual({ minutos: 45, origem: 'informada' });
+  });
+});

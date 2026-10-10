@@ -683,9 +683,14 @@ export function parseDuracaoMinutos(texto: string): { valor: number | null } | {
 export function resolverDuracaoProcedimento(params: {
   duracaoInformada: number | null;
   protocoloAplicado: { duracao_minutos?: number } | null;
+  /** O campo guarda a duração preenchida pelo protocolo, sem edição do usuário. */
+  campoPreenchidoPeloProtocolo?: boolean;
 }): { minutos: number; origem: OrigemDuracao } {
   if (duracaoValida(params.duracaoInformada)) {
-    return { minutos: params.duracaoInformada, origem: 'informada' };
+    return {
+      minutos: params.duracaoInformada,
+      origem: params.campoPreenchidoPeloProtocolo ? 'protocolo' : 'informada',
+    };
   }
   const doProtocolo = params.protocoloAplicado?.duracao_minutos;
   if (duracaoValida(doProtocolo)) return { minutos: doProtocolo, origem: 'protocolo' };
