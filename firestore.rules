@@ -35,6 +35,13 @@ service cloud.firestore {
         && tenantId in request.auth.token.authorized_tenants;
     }
 
+    // Subcoleções do tenant com leitura restrita por bloco dedicado — ficam fora
+    // do fallback de leitura genérico. Toda subcoleção com dado financeiro
+    // interno entra aqui (FEAT-precificacao-hora-clinica).
+    function isRestrictedTenantCollection(collectionId) {
+      return collectionId in ['nf_imports', 'financeiro', 'precificacao_procedimentos'];
+    }
+
     // Opt-in financeiro ativo PARA ESTE consultor (FEAT-precificacao-hora-clinica,
     // RN-13/RN-18): o clinic_admin ligou o compartilhamento e o amarrou ao
     // consultant_id do token. Documento inexistente => negado. Troca de
@@ -100,13 +107,12 @@ service cloud.firestore {
       allow read, write: if isSystemAdmin();
 
       // Usuários do tenant podem ler qualquer subcoleção do próprio tenant,
-      // exceto nf_imports e financeiro (regras dedicadas abaixo).
-      allow read: if belongsToTenant(tenantId)
-        && !(collectionId in ['nf_imports', 'financeiro']);
+      // exceto as restritas (nf_imports, financeiro, precificacao_procedimentos
+      // — regras dedicadas abaixo).
+      allow read: if belongsToTenant(tenantId) && !isRestrictedTenantCollection(collectionId);
 
       // Consultores têm acesso READ-ONLY às subcoleções, mesmas exceções.
-      allow read: if consultantHasAccess(tenantId)
-        && !(collectionId in ['nf_imports', 'financeiro']);
+      allow read: if consultantHasAccess(tenantId) && !isRestrictedTenantCollection(collectionId);
     }
 
     // Regras dedicadas de ESCRITA por subcoleção do tenant — causa raiz do
@@ -191,6 +197,21 @@ service cloud.firestore {
       allow read: if consultantHasAccess(tenantId)
         && resource.data.compartilhar_com_consultor == true
         && resource.data.compartilhado_com_consultant_id == request.auth.token.consultant_id;
+    }
+
+    // precificacao_procedimentos — snapshot da precificação de cada
+    // procedimento (FEAT-precificacao-hora-clinica, D10). Id do documento = id
+    // da solicitação. Dado financeiro interno: leitura E escrita só
+    // clinic_admin; clinic_user e consultor (mesmo com opt-in financeiro) NÃO
+    // leem. A solicitação continua legível por clinic_user/consultor e por isso
+    // não guarda nenhum destes valores. Delete só via system_admin (genérico).
+    match /tenants/{tenantId}/precificacao_procedimentos/{solicitacaoId} {
+      allow read: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+      allow create, update: if belongsToTenant(tenantId) && hasRole('clinic_admin')
+        && request.resource.data.tenant_id == tenantId
+        && request.resource.data.solicitacao_id == solicitacaoId
+        && request.resource.data.forma_pagamento in ['pix_dinheiro', 'debito', 'credito']
+        && exists(/databases/$(database)/documents/tenants/$(tenantId)/solicitacoes/$(solicitacaoId));
     }
 
     // Regras específicas para notificações (dentro de tenants)

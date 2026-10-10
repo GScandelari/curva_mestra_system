@@ -30,8 +30,11 @@ import {
   formatarMesReferencia,
   mesCorrenteSaoPaulo,
   type LoteParaCusto,
+  type ValoresPorForma,
 } from '@/lib/precificacao';
 import type { CustoHoraConfig, Protocolo } from '@/types';
+
+const SEM_DIVISORES: ValoresPorForma = { pix_dinheiro: null, debito: null, credito: null };
 
 export default function ProtocolosPage() {
   const { claims } = useAuth();
@@ -69,7 +72,8 @@ export default function ProtocolosPage() {
     () => (custoConfig ? calcularResumoCustoHora(custoConfig, mesAtual) : null),
     [custoConfig, mesAtual]
   );
-  const precificacaoIndisponivel = resumo?.custoHora == null || resumo?.divisor == null;
+  const precificacaoIndisponivel =
+    resumo?.custoHora == null || resumo?.divisores.pix_dinheiro == null;
 
   async function load() {
     if (!tenantId) return;
@@ -196,11 +200,10 @@ export default function ProtocolosPage() {
                   {isAdmin && custosMedios && (
                     <ProtocoloPrecificacao
                       modo="admin"
-                      duracaoMinutos={protocolo.duracao_minutos}
                       precificacao={calcularPrecificacaoProtocolo({
                         duracaoMinutos: protocolo.duracao_minutos,
                         custoHora: resumo?.custoHora ?? null,
-                        divisor: resumo?.divisor ?? null,
+                        divisores: resumo?.divisores ?? SEM_DIVISORES,
                         custoMaterial: calcularCustoMaterialProtocolo(
                           protocolo.itens,
                           custosMedios

@@ -10,6 +10,7 @@ import { collection, doc, getDoc, getDocs, setDoc, Timestamp } from 'firebase/fi
 import { db } from '@/lib/firebase';
 import {
   mesCorrenteSaoPaulo,
+  normalizarCustoHoraConfig,
   type CustoHoraConfigInput,
   type LoteParaCusto,
 } from '@/lib/precificacao';
@@ -27,7 +28,8 @@ const docRef = (tenantId: string) => doc(db, 'tenants', tenantId, 'financeiro', 
  */
 export async function getCustoHoraConfig(tenantId: string): Promise<CustoHoraConfig | null> {
   const snap = await getDoc(docRef(tenantId));
-  return snap.exists() ? (snap.data() as CustoHoraConfig) : null;
+  // RN-21: documentos da v1.2 (taxa única de cartão) viram débito/crédito.
+  return snap.exists() ? normalizarCustoHoraConfig(snap.data() as CustoHoraConfig) : null;
 }
 
 /**

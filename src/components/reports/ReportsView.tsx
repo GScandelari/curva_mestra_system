@@ -398,7 +398,7 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
   function handleExportLotHistoryReport() {
     if (!lotHistoryReport) return;
     const data = lotHistoryReport.eventos.map((evento) => ({
-      Data: evento.dt_procedimento.toLocaleDateString('pt-BR'),
+      Data: evento.dt_procedimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
       Procedimento: evento.identificador_procedimento,
       'Quantidade Consumida': evento.quantidade_consumida,
       'Saldo Após Evento': evento.saldo_apos_evento,
@@ -1264,7 +1264,7 @@ export function ReportsView({ tenantId, readOnly, backUrl, isAdmin }: ReportsVie
                     {lotHistoryReport.eventos.map((evento, idx) => (
                       <tr key={idx}>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {evento.dt_procedimento.toLocaleDateString('pt-BR')}
+                          {evento.dt_procedimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {evento.identificador_procedimento}

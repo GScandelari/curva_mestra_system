@@ -3,10 +3,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calculator } from 'lucide-react';
 import { formatCurrency } from '@/lib/services/reportService';
-import { formatarMesReferencia, type ResumoCustoHora } from '@/lib/precificacao';
+import { FORMAS_PAGAMENTO, formatarMesReferencia, type ResumoCustoHora } from '@/lib/precificacao';
 
 function formatHoras(horas: number): string {
   return `${horas.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} h`;
+}
+
+function formatDivisor(divisor: number | null): string {
+  return divisor === null ? '—' : divisor.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
 }
 
 interface CustoHoraResumoProps {
@@ -63,13 +67,18 @@ export default function CustoHoraResumo({ resumo }: Readonly<CustoHoraResumoProp
             </p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-sm font-medium text-muted-foreground">Divisor de markup</p>
-            <p className="text-xl font-semibold">
-              {resumo.divisor === null
-                ? '—'
-                : resumo.divisor.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}
+            <p className="text-sm font-medium text-muted-foreground">Divisores de markup</p>
+            <div className="space-y-0.5 text-sm">
+              {FORMAS_PAGAMENTO.map(({ key, label }) => (
+                <div key={key} className="flex justify-between gap-2">
+                  <span>{label}</span>
+                  <span className="font-semibold">{formatDivisor(resumo.divisores[key])}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Preço = custo real ÷ divisor da forma de pagamento
             </p>
-            <p className="text-xs text-muted-foreground">Preço = custo real ÷ divisor</p>
           </div>
         </div>
       </CardContent>

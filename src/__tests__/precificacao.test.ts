@@ -12,11 +12,25 @@ import {
   calcularCapacidadeSimultanea,
   calcularCustoHora,
   validarParametrosMarkup,
-  calcularDivisorMarkup,
+  calcularDivisorPorFormaPagamento,
+  calcularDivisoresMarkup,
+  calcularPrecosPorForma,
+  calcularCustoHoraAplicado,
+  normalizarParametrosMarkup,
+  normalizarCustoHoraConfig,
+  parseFormaPagamento,
+  somaMarkupMaisCara,
+  taxaPagamentoPct,
   calcularResumoCustoHora,
   calcularCustoMedioPorProduto,
   calcularCustoMaterialProtocolo,
   calcularPrecificacaoProtocolo,
+  calcularCustoMaterialSolicitacao,
+  calcularPrecificacaoProcedimento,
+  mesReferenciaDoProcedimento,
+  montarSnapshotPrecificacao,
+  resolverDuracaoProcedimento,
+  DURACAO_PADRAO_MINUTOS,
   parseDuracaoMinutos,
   calcularProdutosRennova,
   separarMaterialParaConsultor,
@@ -54,7 +68,13 @@ function configOficial() {
   const config = criarConfigPadrao('clinic_a');
   config.custos_fixos_base.aluguel = 30000;
   config.disponibilidade = disponibilidadeOficial;
-  config.markup = { imposto_pct: 6, cartao_pct: 3, comissao_pct: 0, margem_pct: 30 };
+  config.markup = {
+    imposto_pct: 6,
+    debito_pct: 3,
+    credito_pct: 3,
+    comissao_pct: 0,
+    margem_pct: 30,
+  };
   return config;
 }
 
@@ -281,37 +301,37 @@ describe('calcularCustoHora', () => {
   });
 });
 
-describe('validarParametrosMarkup / calcularDivisorMarkup', () => {
+describe('validarParametrosMarkup / calcularDivisorPorFormaPagamento', () => {
   it('accepts the official markup', () => {
-    const m = { imposto_pct: 6, cartao_pct: 3, comissao_pct: 0, margem_pct: 30 };
+    const m = { imposto_pct: 6, debito_pct: 3, credito_pct: 3, comissao_pct: 0, margem_pct: 30 };
     expect(validarParametrosMarkup(m)).toBeNull();
-    expect(calcularDivisorMarkup(m)).toBeCloseTo(0.61, 5);
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBeCloseTo(0.61, 5);
   });
 
   it('returns divisor 1 when every percentage is zero', () => {
-    const m = { imposto_pct: 0, cartao_pct: 0, comissao_pct: 0, margem_pct: 0 };
+    const m = { imposto_pct: 0, debito_pct: 0, credito_pct: 0, comissao_pct: 0, margem_pct: 0 };
     expect(validarParametrosMarkup(m)).toBeNull();
-    expect(calcularDivisorMarkup(m)).toBe(1);
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBe(1);
   });
 
   it.each([
-    [{ imposto_pct: 6, cartao_pct: 3, comissao_pct: 61, margem_pct: 30 }],
-    [{ imposto_pct: 50, cartao_pct: 50, comissao_pct: 10, margem_pct: 0 }],
+    [{ imposto_pct: 6, debito_pct: 3, credito_pct: 3, comissao_pct: 61, margem_pct: 30 }],
+    [{ imposto_pct: 50, debito_pct: 50, credito_pct: 50, comissao_pct: 10, margem_pct: 0 }],
   ])('rejects a sum of 100%% or more (%p)', (m) => {
     expect(validarParametrosMarkup(m)).toBe('A soma dos percentuais deve ser menor que 100%');
-    expect(calcularDivisorMarkup(m)).toBeNull();
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBeNull();
   });
 
   it('rejects negative percentages', () => {
-    const m = { imposto_pct: -1, cartao_pct: 0, comissao_pct: 0, margem_pct: 0 };
+    const m = { imposto_pct: -1, debito_pct: 0, credito_pct: 0, comissao_pct: 0, margem_pct: 0 };
     expect(validarParametrosMarkup(m)).toBe('Percentuais não podem ser negativos');
-    expect(calcularDivisorMarkup(m)).toBeNull();
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBeNull();
   });
 
   it('accepts a sum just below 100%', () => {
-    const m = { imposto_pct: 99.99, cartao_pct: 0, comissao_pct: 0, margem_pct: 0 };
+    const m = { imposto_pct: 99.99, debito_pct: 0, credito_pct: 0, comissao_pct: 0, margem_pct: 0 };
     expect(validarParametrosMarkup(m)).toBeNull();
-    expect(calcularDivisorMarkup(m)).toBeCloseTo(0.0001, 6);
+    expect(calcularDivisorPorFormaPagamento(m, 'credito')).toBeCloseTo(0.0001, 6);
   });
 });
 
@@ -321,7 +341,7 @@ describe('calcularResumoCustoHora', () => {
     expect(resumo.horasMes).toBe(196);
     expect(resumo.capacidade).toBe(1);
     expect(resumo.custoHora).toBeCloseTo(153.06, 2);
-    expect(resumo.divisor).toBeCloseTo(0.61, 5);
+    expect(resumo.divisores.credito).toBeCloseTo(0.61, 5);
   });
 
   it('has no hourly cost for the default config', () => {
@@ -417,45 +437,92 @@ describe('calcularPrecificacaoProtocolo', () => {
     const preco = calcularPrecificacaoProtocolo({
       duracaoMinutos: 60,
       custoHora,
-      divisor: 0.61,
+      divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
       custoMaterial: material,
     });
     expect(preco.custoHoraAplicado).toBeCloseTo(153.06, 2);
     expect(preco.custoReal).toBeCloseTo(953.06, 2);
-    expect(preco.precoSugerido).toBeCloseTo(1562.4, 2);
+    expect(preco.precosSugeridos.credito).toBeCloseTo(1562.4, 2);
   });
 
   it('applies the hourly cost proportionally to the duration', () => {
     const preco = calcularPrecificacaoProtocolo({
       duracaoMinutos: 30,
       custoHora,
-      divisor: 0.61,
+      divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
       custoMaterial: material,
     });
     expect(preco.custoHoraAplicado).toBeCloseTo(76.53, 2);
   });
 
-  it('returns nulls without a duration or hourly cost', () => {
-    for (const params of [
-      { custoHora, divisor: 0.61, custoMaterial: material },
-      { duracaoMinutos: 60, custoHora: null, divisor: 0.61, custoMaterial: material },
-    ]) {
-      const preco = calcularPrecificacaoProtocolo(params);
-      expect(preco.custoHoraAplicado).toBeNull();
-      expect(preco.custoReal).toBeNull();
-      expect(preco.precoSugerido).toBeNull();
-    }
+  it('returns nulls without an hourly cost', () => {
+    const preco = calcularPrecificacaoProtocolo({
+      duracaoMinutos: 60,
+      custoHora: null,
+      divisores: { pix_dinheiro: 0.61, debito: 0.61, credito: 0.61 },
+      custoMaterial: material,
+    });
+    expect(preco.custoHoraAplicado).toBeNull();
+    expect(preco.custoReal).toBeNull();
+    expect(preco.precosSugeridos.credito).toBeNull();
+  });
+
+  it.each([undefined, 0])('prices a protocol without duration as one hour (%p)', (duracao) => {
+    const preco = calcularPrecificacaoProtocolo({
+      duracaoMinutos: duracao,
+      custoHora,
+      divisores: { pix_dinheiro: 0.64, debito: 0.62, credito: 0.6 },
+      custoMaterial: material,
+    });
+    expect(DURACAO_PADRAO_MINUTOS).toBe(60);
+    expect(preco.duracaoConsiderada).toBe(60);
+    expect(preco.duracaoPadrao).toBe(true);
+    expect(preco.custoReal).toBeCloseTo(953.06, 2);
+    expect(preco.precosSugeridos.pix_dinheiro).toBeCloseTo(1489.16, 2);
+    expect(preco.precosSugeridos.debito).toBeCloseTo(1537.2, 2);
+    expect(preco.precosSugeridos.credito).toBeCloseTo(1588.44, 2);
+  });
+
+  it('keeps the protocol duration when informed', () => {
+    const preco = calcularPrecificacaoProtocolo({
+      duracaoMinutos: 30,
+      custoHora,
+      divisores: { pix_dinheiro: 0.64, debito: 0.62, credito: 0.6 },
+      custoMaterial: { ...material, total: 0 },
+    });
+    expect(preco.duracaoConsiderada).toBe(30);
+    expect(preco.duracaoPadrao).toBe(false);
+  });
+
+  it('prices STEP 4 protocols P2 and P4 with the one-hour default', () => {
+    const divisores = { pix_dinheiro: 0.64, debito: 0.62, credito: 0.6 };
+    const p2 = calcularPrecificacaoProtocolo({
+      custoHora,
+      divisores,
+      custoMaterial: { ...material, total: 0 },
+    });
+    expect(p2.custoReal).toBeCloseTo(153.06, 2);
+    expect(p2.precosSugeridos.pix_dinheiro).toBeCloseTo(239.16, 2);
+    expect(p2.precosSugeridos.credito).toBeCloseTo(255.1, 2);
+    const p4 = calcularPrecificacaoProtocolo({
+      custoHora,
+      divisores,
+      custoMaterial: { ...material, total: 115 },
+    });
+    expect(p4.custoReal).toBeCloseTo(268.06, 2);
+    expect(p4.precosSugeridos.pix_dinheiro).toBeCloseTo(418.85, 2);
+    expect(p4.precosSugeridos.credito).toBeCloseTo(446.77, 2);
   });
 
   it('keeps the real cost when the markup is invalid', () => {
     const preco = calcularPrecificacaoProtocolo({
       duracaoMinutos: 60,
       custoHora,
-      divisor: null,
+      divisores: { pix_dinheiro: null, debito: null, credito: null },
       custoMaterial: material,
     });
     expect(preco.custoReal).toBeCloseTo(953.06, 2);
-    expect(preco.precoSugerido).toBeNull();
+    expect(preco.precosSugeridos.credito).toBeNull();
   });
 });
 
@@ -573,7 +640,13 @@ describe('validarCustoHoraConfig', () => {
     input.custos_fixos_personalizados = [{ id: 'p1', nome: '  ', valor: 10 }];
     input.boletos_tec = [boleto({ id: 'b1', parcelas_pagas: 30 })];
     input.quantidade_salas = 0;
-    input.markup = { imposto_pct: 50, cartao_pct: 50, comissao_pct: 0, margem_pct: 0 };
+    input.markup = {
+      imposto_pct: 50,
+      debito_pct: 50,
+      credito_pct: 50,
+      comissao_pct: 0,
+      margem_pct: 0,
+    };
     input.custos_fixos_base.energia = -1;
 
     const erros = validarCustoHoraConfig(input);
@@ -595,5 +668,295 @@ describe('validarCustoHoraConfig', () => {
     const input = extrairConfigInput(configOficial());
     input.boletos_tec = [boleto({ id: 'b1', ...overrides })];
     expect(validarCustoHoraConfig(input).boletos.b1).toBe(mensagem);
+  });
+});
+
+describe('forma de pagamento (RN-19, RN-20, RN-21)', () => {
+  const markup = { imposto_pct: 6, debito_pct: 2, credito_pct: 4, comissao_pct: 0, margem_pct: 30 };
+
+  it('parses known payment methods and defaults the rest to Pix/Dinheiro', () => {
+    expect(parseFormaPagamento('debito')).toBe('debito');
+    expect(parseFormaPagamento('credito')).toBe('credito');
+    expect(parseFormaPagamento('pix_dinheiro')).toBe('pix_dinheiro');
+    expect(parseFormaPagamento(undefined)).toBe('pix_dinheiro');
+    expect(parseFormaPagamento('boleto')).toBe('pix_dinheiro');
+  });
+
+  it('charges no card fee on Pix/Dinheiro', () => {
+    expect(taxaPagamentoPct(markup, 'pix_dinheiro')).toBe(0);
+    expect(taxaPagamentoPct(markup, 'debito')).toBe(2);
+    expect(taxaPagamentoPct(markup, 'credito')).toBe(4);
+  });
+
+  it('computes one divisor per payment method', () => {
+    const divisores = calcularDivisoresMarkup(markup);
+    expect(divisores.pix_dinheiro).toBeCloseTo(0.64, 6);
+    expect(divisores.debito).toBeCloseTo(0.62, 6);
+    expect(divisores.credito).toBeCloseTo(0.6, 6);
+  });
+
+  it('prices the official example for each payment method', () => {
+    const custoReal = 30000 / 196 + 800;
+    const precos = calcularPrecosPorForma(custoReal, calcularDivisoresMarkup(markup));
+    expect(precos.pix_dinheiro).toBeCloseTo(1489.16, 2);
+    expect(precos.debito).toBeCloseTo(1537.2, 2);
+    expect(precos.credito).toBeCloseTo(1588.44, 2);
+    expect(calcularPrecosPorForma(null, calcularDivisoresMarkup(markup))).toEqual({
+      pix_dinheiro: null,
+      debito: null,
+      credito: null,
+    });
+  });
+
+  it('validates the sum with the most expensive card fee', () => {
+    const caro = { ...markup, credito_pct: 64 };
+    expect(somaMarkupMaisCara(caro)).toBe(100);
+    expect(validarParametrosMarkup(caro)).toBe('A soma dos percentuais deve ser menor que 100%');
+    expect(calcularDivisoresMarkup(caro)).toEqual({
+      pix_dinheiro: null,
+      debito: null,
+      credito: null,
+    });
+    expect(validarParametrosMarkup({ ...markup, debito_pct: -1 })).toBe(
+      'Percentuais não podem ser negativos'
+    );
+  });
+
+  it('reads the v1.2 single card fee as both debit and credit', () => {
+    expect(
+      normalizarParametrosMarkup({ imposto_pct: 6, cartao_pct: 3, comissao_pct: 0, margem_pct: 30 })
+    ).toEqual({ imposto_pct: 6, debito_pct: 3, credito_pct: 3, comissao_pct: 0, margem_pct: 30 });
+  });
+
+  it('keeps current fields and drops the legacy one', () => {
+    const normalizado = normalizarParametrosMarkup({ ...markup, cartao_pct: 9 });
+    expect(normalizado).toEqual(markup);
+    expect(normalizado).not.toHaveProperty('cartao_pct');
+  });
+
+  it('turns missing or invalid fields into zero', () => {
+    expect(normalizarParametrosMarkup(undefined)).toEqual({
+      imposto_pct: 0,
+      debito_pct: 0,
+      credito_pct: 0,
+      comissao_pct: 0,
+      margem_pct: 0,
+    });
+    expect(normalizarParametrosMarkup({ imposto_pct: 'x', margem_pct: NaN }).imposto_pct).toBe(0);
+  });
+
+  it('normalizes the markup of a stored config without touching other fields', () => {
+    const config = { ...configOficial(), markup: { imposto_pct: 6, cartao_pct: 3 } as unknown };
+    const normalizada = normalizarCustoHoraConfig(config);
+    expect(normalizada.markup.credito_pct).toBe(3);
+    expect(normalizada.custos_fixos_base.aluguel).toBe(30000);
+  });
+
+  it('applies the hourly cost only with a positive duration', () => {
+    expect(calcularCustoHoraAplicado(120, 30)).toBe(60);
+    expect(calcularCustoHoraAplicado(120, 0)).toBeNull();
+    expect(calcularCustoHoraAplicado(120, null)).toBeNull();
+    expect(calcularCustoHoraAplicado(null, 60)).toBeNull();
+  });
+});
+
+describe('procedimento (RN-22 a RN-24, RN-31, D11 a D13)', () => {
+  const markup = { imposto_pct: 6, debito_pct: 2, credito_pct: 4, comissao_pct: 0, margem_pct: 30 };
+  const configProc = () => ({ ...configOficial(), markup: { ...markup } });
+  const produtos200 = [{ quantidade: 2, valor_unitario: 100 }];
+
+  const snapshot = (overrides: Partial<Parameters<typeof montarSnapshotPrecificacao>[0]> = {}) =>
+    montarSnapshotPrecificacao({
+      tenantId: 'clinic_a',
+      solicitacaoId: 's1',
+      config: configProc(),
+      mesReferencia: '2026-10',
+      duracao: { minutos: 60, origem: 'protocolo' },
+      formaPagamento: 'credito',
+      produtos: produtos200,
+      origem: 'criacao',
+      ...overrides,
+    });
+
+  describe('resolverDuracaoProcedimento', () => {
+    it('always prefers the duration typed in the procedure', () => {
+      expect(
+        resolverDuracaoProcedimento({
+          duracaoInformada: 45,
+          protocoloAplicado: { duracao_minutos: 60 },
+        })
+      ).toEqual({ minutos: 45, origem: 'informada' });
+      expect(resolverDuracaoProcedimento({ duracaoInformada: 45, protocoloAplicado: {} })).toEqual({
+        minutos: 45,
+        origem: 'informada',
+      });
+    });
+
+    it('uses the protocol duration when nothing is typed', () => {
+      expect(
+        resolverDuracaoProcedimento({
+          duracaoInformada: null,
+          protocoloAplicado: { duracao_minutos: 30 },
+        })
+      ).toEqual({ minutos: 30, origem: 'protocolo' });
+    });
+
+    it.each([{}, { duracao_minutos: 0 }, null])(
+      'falls back to one hour otherwise (%p)',
+      (protocoloAplicado) => {
+        expect(resolverDuracaoProcedimento({ duracaoInformada: null, protocoloAplicado })).toEqual({
+          minutos: 60,
+          origem: 'padrao',
+        });
+      }
+    );
+  });
+
+  describe('mesReferenciaDoProcedimento', () => {
+    it('reads the month of the procedure date', () => {
+      expect(mesReferenciaDoProcedimento('2026-10-20')).toBe('2026-10');
+      expect(mesReferenciaDoProcedimento('2026-11-01')).toBe('2026-11');
+    });
+
+    it('keeps the 1st in its own month for dates stored at UTC midnight', () => {
+      expect(mesReferenciaDoProcedimento(new Date('2026-11-01'))).toBe('2026-11');
+      expect(mesReferenciaDoProcedimento(new Date('2026-10-31T00:00:00Z'))).toBe('2026-10');
+    });
+  });
+
+  describe('calcularCustoMaterialSolicitacao', () => {
+    it('sums the lots actually used', () => {
+      expect(
+        calcularCustoMaterialSolicitacao([
+          { quantidade: 2, valor_unitario: 100 },
+          { quantidade: 1, valor_unitario: 0 },
+        ])
+      ).toEqual({ total: 200, incompleto: false });
+    });
+
+    it('flags lots without a valid unit value', () => {
+      expect(
+        calcularCustoMaterialSolicitacao([
+          { quantidade: 2, valor_unitario: 100 },
+          { quantidade: 1, valor_unitario: undefined },
+        ])
+      ).toEqual({ total: 200, incompleto: true });
+    });
+  });
+
+  describe('calcularPrecificacaoProcedimento', () => {
+    it('prices the official example for the three payment methods', () => {
+      const calculo = calcularPrecificacaoProcedimento({
+        duracaoMinutos: 60,
+        custoHora: 30000 / 196,
+        divisores: calcularDivisoresMarkup(markup),
+        custoMaterial: { total: 800, incompleto: false },
+      });
+      expect(calculo.custoReal).toBeCloseTo(953.06, 2);
+      expect(calculo.precos.pix_dinheiro).toBeCloseTo(1489.16, 2);
+      expect(calculo.precos.debito).toBeCloseTo(1537.2, 2);
+      expect(calculo.precos.credito).toBeCloseTo(1588.44, 2);
+    });
+
+    it('uses the November hours for a November procedure', () => {
+      const calculo = calcularPrecificacaoProcedimento({
+        duracaoMinutos: 60,
+        custoHora: 30000 / 184,
+        divisores: calcularDivisoresMarkup(markup),
+        custoMaterial: { total: 800, incompleto: false },
+      });
+      expect(calculo.custoReal).toBeCloseTo(963.04, 2);
+      expect(calculo.precos.pix_dinheiro).toBeCloseTo(1504.76, 2);
+      expect(calculo.precos.debito).toBeCloseTo(1553.3, 2);
+      expect(calculo.precos.credito).toBeCloseTo(1605.07, 2);
+    });
+
+    it('applies 45 minutes proportionally', () => {
+      const calculo = calcularPrecificacaoProcedimento({
+        duracaoMinutos: 45,
+        custoHora: 30000 / 196,
+        divisores: calcularDivisoresMarkup(markup),
+        custoMaterial: { total: 200, incompleto: false },
+      });
+      expect(calculo.custoReal).toBeCloseTo(314.8, 2);
+      expect(calculo.precos.pix_dinheiro).toBeCloseTo(491.87, 2);
+      expect(calculo.precos.credito).toBeCloseTo(524.66, 2);
+    });
+  });
+
+  describe('montarSnapshotPrecificacao', () => {
+    it('records the October procedure with the three prices', () => {
+      const s = snapshot();
+      expect(s.mes_referencia).toBe('2026-10');
+      expect(s.custo_hora).toBeCloseTo(153.0612, 4);
+      expect(s.duracao_minutos).toBe(60);
+      expect(s.duracao_origem).toBe('protocolo');
+      expect(s.custo_material).toBe(200);
+      expect(s.custo_material_incompleto).toBe(false);
+      expect(s.custo_real).toBeCloseTo(353.0612, 4);
+      expect(s.divisores.pix_dinheiro).toBeCloseTo(0.64, 6);
+      expect(s.divisores.debito).toBeCloseTo(0.62, 6);
+      expect(s.divisores.credito).toBeCloseTo(0.6, 6);
+      expect(s.precos_sugeridos.pix_dinheiro).toBeCloseTo(551.66, 2);
+      expect(s.precos_sugeridos.debito).toBeCloseTo(569.45, 2);
+      expect(s.precos_sugeridos.credito).toBeCloseTo(588.44, 2);
+      expect(s.markup).toEqual(markup);
+      expect(s.forma_pagamento).toBe('credito');
+      expect(s).toMatchObject({ tenant_id: 'clinic_a', solicitacao_id: 's1', origem: 'criacao' });
+    });
+
+    it('does not change values with the payment method', () => {
+      const credito = snapshot();
+      for (const forma of ['pix_dinheiro', 'debito'] as const) {
+        const outro = snapshot({ formaPagamento: forma });
+        expect(outro.forma_pagamento).toBe(forma);
+        expect(outro.precos_sugeridos).toEqual(credito.precos_sugeridos);
+        expect(outro.divisores).toEqual(credito.divisores);
+      }
+    });
+
+    it('uses the hours of the procedure month', () => {
+      const s = snapshot({ mesReferencia: '2026-11' });
+      expect(s.custo_hora).toBeCloseTo(163.0435, 4);
+      expect(s.precos_sugeridos.pix_dinheiro).toBeCloseTo(567.26, 2);
+      expect(s.precos_sugeridos.debito).toBeCloseTo(585.55, 2);
+      expect(s.precos_sugeridos.credito).toBeCloseTo(605.07, 2);
+    });
+
+    it('records the one-hour default for a protocol without duration', () => {
+      const s = snapshot({
+        duracao: { minutos: 60, origem: 'padrao' },
+        produtos: [{ quantidade: 1, valor_unitario: 100 }],
+      });
+      expect(s.duracao_origem).toBe('padrao');
+      expect(s.precos_sugeridos.pix_dinheiro).toBeCloseTo(395.41, 2);
+      expect(s.precos_sugeridos.debito).toBeCloseTo(408.16, 2);
+      expect(s.precos_sugeridos.credito).toBeCloseTo(421.77, 2);
+    });
+
+    it('keeps the material but no price without availability', () => {
+      const config = configProc();
+      config.disponibilidade = criarConfigPadrao('t').disponibilidade;
+      const s = snapshot({ config });
+      expect(s.custo_hora).toBeNull();
+      expect(s.custo_real).toBeNull();
+      expect(s.custo_material).toBe(200);
+      expect(s.precos_sugeridos).toEqual({ pix_dinheiro: null, debito: null, credito: null });
+    });
+
+    it('records no divisors nor prices with an invalid markup', () => {
+      const config = configProc();
+      config.markup = { ...markup, credito_pct: 70 };
+      const s = snapshot({ config });
+      expect(s.divisores).toEqual({ pix_dinheiro: null, debito: null, credito: null });
+      expect(s.precos_sugeridos).toEqual({ pix_dinheiro: null, debito: null, credito: null });
+      expect(s.custo_real).toBeCloseTo(353.0612, 4);
+    });
+
+    it('flags incomplete material', () => {
+      expect(
+        snapshot({ produtos: [{ quantidade: 1, valor_unitario: 'abc' }] }).custo_material_incompleto
+      ).toBe(true);
+    });
   });
 });

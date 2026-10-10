@@ -12,7 +12,10 @@ import type {
   CustoHoraConfig,
   DiaSemanaKey,
   DisponibilidadeDia,
+  FormaPagamento,
+  OrigemDuracao,
   ParametrosMarkup,
+  PrecificacaoProcedimento,
   ProtocoloItem,
 } from '@/types';
 
@@ -100,7 +103,7 @@ export function criarConfigPadrao(tenantId: string): CustoHoraConfigBase {
     disponibilidade,
     quantidade_salas: 1,
     quantidade_profissionais: 1,
-    markup: { imposto_pct: 0, cartao_pct: 0, comissao_pct: 0, margem_pct: 0 },
+    markup: { imposto_pct: 0, debito_pct: 0, credito_pct: 0, comissao_pct: 0, margem_pct: 0 },
     compartilhar_com_consultor: false,
     compartilhado_com_consultant_id: null,
   };
@@ -262,24 +265,105 @@ export function calcularCustoHora(
 }
 
 // ============================================================================
-// MARKUP (RN-08)
+// MARKUP E FORMA DE PAGAMENTO (RN-19, RN-20, RN-21)
 // ============================================================================
 
-function somaMarkup(m: ParametrosMarkup): number {
-  return m.imposto_pct + m.cartao_pct + m.comissao_pct + m.margem_pct;
+export const FORMAS_PAGAMENTO: { key: FormaPagamento; label: string }[] = [
+  { key: 'pix_dinheiro', label: 'Pix/Dinheiro' },
+  { key: 'debito', label: 'Débito' },
+  { key: 'credito', label: 'Crédito' },
+];
+
+/** Valor desconhecido/legado → 'pix_dinheiro' (RN-25). */
+export function parseFormaPagamento(valor: unknown): FormaPagamento {
+  return FORMAS_PAGAMENTO.some(({ key }) => key === valor)
+    ? (valor as FormaPagamento)
+    : 'pix_dinheiro';
 }
 
+function numeroFinito(valor: unknown): number | null {
+  return typeof valor === 'number' && Number.isFinite(valor) ? valor : null;
+}
+
+/**
+ * RN-21: aceita o markup da v1.2 (`cartao_pct` único) ou o atual. Sem débito/
+ * crédito válidos, ambos assumem `cartao_pct`; o resto inválido vira 0. Devolve
+ * só os 5 campos atuais, então o próximo "Salvar" remove `cartao_pct`.
+ */
+export function normalizarParametrosMarkup(markup: unknown): ParametrosMarkup {
+  const m = (markup ?? {}) as Record<string, unknown>;
+  const cartao = numeroFinito(m.cartao_pct) ?? 0;
+  return {
+    imposto_pct: numeroFinito(m.imposto_pct) ?? 0,
+    debito_pct: numeroFinito(m.debito_pct) ?? cartao,
+    credito_pct: numeroFinito(m.credito_pct) ?? cartao,
+    comissao_pct: numeroFinito(m.comissao_pct) ?? 0,
+    margem_pct: numeroFinito(m.margem_pct) ?? 0,
+  };
+}
+
+export function normalizarCustoHoraConfig<T extends { markup: unknown }>(
+  config: T
+): Omit<T, 'markup'> & { markup: ParametrosMarkup } {
+  return { ...config, markup: normalizarParametrosMarkup(config.markup) };
+}
+
+/** Taxa de maquininha da forma: Pix/Dinheiro não paga taxa de cartão. */
+export function taxaPagamentoPct(m: ParametrosMarkup, forma: FormaPagamento): number {
+  if (forma === 'debito') return m.debito_pct;
+  if (forma === 'credito') return m.credito_pct;
+  return 0;
+}
+
+function somaMarkup(m: ParametrosMarkup, taxa: number): number {
+  return m.imposto_pct + taxa + m.comissao_pct + m.margem_pct;
+}
+
+/** RN-20: a soma com a forma mais cara precisa ficar abaixo de 100%. */
 export function validarParametrosMarkup(m: ParametrosMarkup): string | null {
-  const valores = [m.imposto_pct, m.cartao_pct, m.comissao_pct, m.margem_pct];
+  const valores = [m.imposto_pct, m.debito_pct, m.credito_pct, m.comissao_pct, m.margem_pct];
   if (valores.some((v) => !Number.isFinite(v))) return 'Informe percentuais válidos';
   if (valores.some((v) => v < 0)) return 'Percentuais não podem ser negativos';
-  if (somaMarkup(m) >= 100) return 'A soma dos percentuais deve ser menor que 100%';
+  if (somaMarkupMaisCara(m) >= 100) return 'A soma dos percentuais deve ser menor que 100%';
   return null;
 }
 
-export function calcularDivisorMarkup(m: ParametrosMarkup): number | null {
+/** Soma exibida na aba: imposto + maior taxa de cartão + comissão + margem. */
+export function somaMarkupMaisCara(m: ParametrosMarkup): number {
+  return somaMarkup(m, Math.max(m.debito_pct, m.credito_pct));
+}
+
+/** RN-19; null se o markup for inválido. */
+export function calcularDivisorPorFormaPagamento(
+  m: ParametrosMarkup,
+  forma: FormaPagamento
+): number | null {
   if (validarParametrosMarkup(m) !== null) return null;
-  return 1 - somaMarkup(m) / 100;
+  return 1 - somaMarkup(m, taxaPagamentoPct(m, forma)) / 100;
+}
+
+export type ValoresPorForma = Record<FormaPagamento, number | null>;
+
+export function calcularDivisoresMarkup(m: ParametrosMarkup): ValoresPorForma {
+  return {
+    pix_dinheiro: calcularDivisorPorFormaPagamento(m, 'pix_dinheiro'),
+    debito: calcularDivisorPorFormaPagamento(m, 'debito'),
+    credito: calcularDivisorPorFormaPagamento(m, 'credito'),
+  };
+}
+
+/** Preço de cada forma = custo real ÷ divisor da forma. */
+export function calcularPrecosPorForma(
+  custoReal: number | null,
+  divisores: ValoresPorForma
+): ValoresPorForma {
+  const preco = (divisor: number | null) =>
+    custoReal !== null && divisor !== null ? custoReal / divisor : null;
+  return {
+    pix_dinheiro: preco(divisores.pix_dinheiro),
+    debito: preco(divisores.debito),
+    credito: preco(divisores.credito),
+  };
 }
 
 // ============================================================================
@@ -373,7 +457,7 @@ export interface ResumoCustoHora {
   horasMes: number;
   capacidade: number;
   custoHora: number | null;
-  divisor: number | null;
+  divisores: ValoresPorForma;
 }
 
 export function calcularResumoCustoHora(
@@ -394,7 +478,7 @@ export function calcularResumoCustoHora(
     horasMes,
     capacidade,
     custoHora: calcularCustoHora(custoFixo.total, horasMes, capacidade),
-    divisor: calcularDivisorMarkup(config.markup),
+    divisores: calcularDivisoresMarkup(config.markup),
   };
 }
 
@@ -527,24 +611,50 @@ export interface PrecificacaoProtocolo {
   custoMaterial: CustoMaterialProtocolo;
   custoHoraAplicado: number | null;
   custoReal: number | null;
-  precoSugerido: number | null;
+  precosSugeridos: ValoresPorForma;
+  duracaoConsiderada: number;
+  /** true quando o protocolo não tem duração e vale a hora cheia (D11). */
+  duracaoPadrao: boolean;
+}
+
+/** D11: sem duração informada, o procedimento vale uma hora cheia. */
+export const DURACAO_PADRAO_MINUTOS = 60;
+
+function duracaoValida(minutos: unknown): minutos is number {
+  return typeof minutos === 'number' && Number.isFinite(minutos) && minutos > 0;
+}
+
+/** null se não houver duração (> 0) ou custo/hora. */
+export function calcularCustoHoraAplicado(
+  custoHora: number | null,
+  duracaoMinutos?: number | null
+): number | null {
+  if (custoHora === null || typeof duracaoMinutos !== 'number' || duracaoMinutos <= 0) {
+    return null;
+  }
+  return (custoHora * duracaoMinutos) / 60;
 }
 
 export function calcularPrecificacaoProtocolo(params: {
   duracaoMinutos?: number;
   custoHora: number | null;
-  divisor: number | null;
+  divisores: ValoresPorForma;
   custoMaterial: CustoMaterialProtocolo;
 }): PrecificacaoProtocolo {
-  const { duracaoMinutos, custoHora, divisor, custoMaterial } = params;
-  const temDuracao = typeof duracaoMinutos === 'number' && duracaoMinutos > 0;
-
-  const custoHoraAplicado =
-    temDuracao && custoHora !== null ? (custoHora * duracaoMinutos) / 60 : null;
+  const { duracaoMinutos, custoHora, divisores, custoMaterial } = params;
+  const duracaoPadrao = !duracaoValida(duracaoMinutos);
+  const duracaoConsiderada = duracaoPadrao ? DURACAO_PADRAO_MINUTOS : duracaoMinutos;
+  const custoHoraAplicado = calcularCustoHoraAplicado(custoHora, duracaoConsiderada);
   const custoReal = custoHoraAplicado !== null ? custoHoraAplicado + custoMaterial.total : null;
-  const precoSugerido = custoReal !== null && divisor !== null ? custoReal / divisor : null;
 
-  return { custoMaterial, custoHoraAplicado, custoReal, precoSugerido };
+  return {
+    custoMaterial,
+    custoHoraAplicado,
+    custoReal,
+    precosSugeridos: calcularPrecosPorForma(custoReal, divisores),
+    duracaoConsiderada,
+    duracaoPadrao,
+  };
 }
 
 /**
@@ -559,6 +669,126 @@ export function parseDuracaoMinutos(texto: string): { valor: number | null } | {
     return { erro: 'Informe uma duração entre 1 e 1440 minutos' };
   }
   return { valor: n };
+}
+
+// ============================================================================
+// PROCEDIMENTO (RN-22 a RN-24, RN-31, D11 a D13)
+// ============================================================================
+
+/**
+ * D11: a duração digitada no procedimento sempre vale; senão a do protocolo
+ * aplicado; em qualquer outro caso (protocolo sem duração, outros produtos
+ * adicionados, nenhum protocolo) vale a hora cheia.
+ */
+export function resolverDuracaoProcedimento(params: {
+  duracaoInformada: number | null;
+  protocoloAplicado: { duracao_minutos?: number } | null;
+}): { minutos: number; origem: OrigemDuracao } {
+  if (duracaoValida(params.duracaoInformada)) {
+    return { minutos: params.duracaoInformada, origem: 'informada' };
+  }
+  const doProtocolo = params.protocoloAplicado?.duracao_minutos;
+  if (duracaoValida(doProtocolo)) return { minutos: doProtocolo, origem: 'protocolo' };
+  return { minutos: DURACAO_PADRAO_MINUTOS, origem: 'padrao' };
+}
+
+/**
+ * RN-31: o client grava `dt_procedimento` como meia-noite UTC da data digitada,
+ * então a data de calendário é a parte UTC — converter para São Paulo jogaria
+ * o dia 1º no mês anterior.
+ */
+export function mesReferenciaDoProcedimento(data: string | Date): string {
+  return typeof data === 'string' ? data.slice(0, 7) : data.toISOString().slice(0, 7);
+}
+
+export interface CustoMaterialSolicitacao {
+  total: number;
+  incompleto: boolean;
+}
+
+/** Material dos lotes efetivamente usados no procedimento (RN-22). */
+export function calcularCustoMaterialSolicitacao(
+  produtos: { quantidade: number; valor_unitario: unknown }[]
+): CustoMaterialSolicitacao {
+  let total = 0;
+  let incompleto = false;
+  for (const produto of produtos) {
+    if (valorUnitarioValido(produto.valor_unitario)) {
+      total += produto.quantidade * produto.valor_unitario;
+    } else {
+      incompleto = true;
+    }
+  }
+  return { total, incompleto };
+}
+
+export interface PrecificacaoProcedimentoCalculada {
+  custoMaterial: CustoMaterialSolicitacao;
+  duracaoMinutos: number;
+  custoHoraAplicado: number | null;
+  custoReal: number | null;
+  precos: ValoresPorForma;
+}
+
+export function calcularPrecificacaoProcedimento(params: {
+  duracaoMinutos: number;
+  custoHora: number | null;
+  divisores: ValoresPorForma;
+  custoMaterial: CustoMaterialSolicitacao;
+}): PrecificacaoProcedimentoCalculada {
+  const { duracaoMinutos, custoHora, divisores, custoMaterial } = params;
+  const custoHoraAplicado = calcularCustoHoraAplicado(custoHora, duracaoMinutos);
+  const custoReal = custoHoraAplicado !== null ? custoHoraAplicado + custoMaterial.total : null;
+  return {
+    custoMaterial,
+    duracaoMinutos,
+    custoHoraAplicado,
+    custoReal,
+    precos: calcularPrecosPorForma(custoReal, divisores),
+  };
+}
+
+export type SnapshotPrecificacao = Omit<PrecificacaoProcedimento, 'gravado_em' | 'gravado_por'>;
+
+/**
+ * D10/D13: valores gravados ao confirmar o procedimento, com os três preços.
+ * A forma de pagamento é informativa — não altera divisores nem preços.
+ */
+export function montarSnapshotPrecificacao(params: {
+  tenantId: string;
+  solicitacaoId: string;
+  config: CustoHoraConfigBase;
+  mesReferencia: string;
+  duracao: { minutos: number; origem: OrigemDuracao };
+  formaPagamento: FormaPagamento;
+  produtos: { quantidade: number; valor_unitario: unknown }[];
+  origem: 'criacao' | 'edicao';
+}): SnapshotPrecificacao {
+  const resumo = calcularResumoCustoHora(params.config, params.mesReferencia);
+  const calculo = calcularPrecificacaoProcedimento({
+    duracaoMinutos: params.duracao.minutos,
+    custoHora: resumo.custoHora,
+    divisores: resumo.divisores,
+    custoMaterial: calcularCustoMaterialSolicitacao(params.produtos),
+  });
+
+  return {
+    tenant_id: params.tenantId,
+    solicitacao_id: params.solicitacaoId,
+    mes_referencia: params.mesReferencia,
+    custo_hora: resumo.custoHora,
+    duracao_minutos: params.duracao.minutos,
+    duracao_origem: params.duracao.origem,
+    custo_hora_aplicado: calculo.custoHoraAplicado,
+    custo_material: calculo.custoMaterial.total,
+    custo_material_incompleto: calculo.custoMaterial.incompleto,
+    custo_real: calculo.custoReal,
+    markup: { ...params.config.markup },
+    forma_pagamento: params.formaPagamento,
+    divisores: resumo.divisores,
+    precos_sugeridos: calculo.precos,
+    origem: params.origem,
+  };
 }
 
 // ============================================================================
