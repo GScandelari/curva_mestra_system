@@ -14,6 +14,7 @@ import {
   DUPLICATE_PROTOCOLO_NAME_ERROR,
   type ProdutoHistorico,
 } from '@/lib/services/protocoloService';
+import { parseDuracaoMinutos } from '@/lib/precificacao';
 import type { Protocolo, ProtocoloItem } from '@/types';
 
 export default function EditarProtocoloPage() {
@@ -34,6 +35,7 @@ export default function EditarProtocoloPage() {
   const [protocolo, setProtocolo] = useState<Protocolo | null>(null);
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
+  const [duracaoMinutos, setDuracaoMinutos] = useState('');
   const [itens, setItens] = useState<ProtocoloItem[]>([]);
   const [produtosHistoricos, setProdutosHistoricos] = useState<ProdutoHistorico[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,7 @@ export default function EditarProtocoloPage() {
         setProtocolo(found);
         setNome(found.nome);
         setDescricao(found.descricao ?? '');
+        setDuracaoMinutos(found.duracao_minutos ? String(found.duracao_minutos) : '');
         setItens(found.itens);
         setProdutosHistoricos(historicos);
       })
@@ -69,12 +72,20 @@ export default function EditarProtocoloPage() {
       toast({ title: 'Adicione ao menos um produto', variant: 'destructive' });
       return;
     }
+    const duracao = parseDuracaoMinutos(duracaoMinutos);
+    if ('erro' in duracao) {
+      toast({ title: duracao.erro, variant: 'destructive' });
+      return;
+    }
     try {
       setSaving(true);
       await updateProtocolo(tenantId, id, {
         nome: nome.trim(),
         descricao: descricao.trim() || undefined,
         itens,
+        // vazio remove a duração de um protocolo que tinha; legado sem duração fica intocado
+        duracao_minutos:
+          duracao.valor ?? (protocolo?.duracao_minutos !== undefined ? null : undefined),
       });
       toast({ title: 'Protocolo atualizado com sucesso!' });
       router.push('/clinic/protocolos');
@@ -119,11 +130,13 @@ export default function EditarProtocoloPage() {
         <ProtocoloForm
           nome={nome}
           descricao={descricao}
+          duracaoMinutos={duracaoMinutos}
           itens={itens}
           produtosHistoricos={produtosHistoricos}
           saving={saving}
           onNomeChange={setNome}
           onDescricaoChange={setDescricao}
+          onDuracaoMinutosChange={setDuracaoMinutos}
           onItensChange={setItens}
           onSubmit={handleSubmit}
           onCancel={() => router.push('/clinic/protocolos')}

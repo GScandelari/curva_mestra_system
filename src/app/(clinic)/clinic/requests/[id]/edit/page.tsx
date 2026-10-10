@@ -46,6 +46,8 @@ export default function EditRequestPage() {
           dtProcedimento: data.dt_procedimento.toDate().toISOString().split('T')[0],
           createdAt: data.created_at.toDate().toISOString().split('T')[0],
           observacoes: data.observacoes || '',
+          duracaoMinutos: data.duracao_minutos ? String(data.duracao_minutos) : '',
+          formaPagamento: data.forma_pagamento ?? '',
           produtos: JSON.stringify(
             data.produtos_solicitados.map((p) => ({
               inventory_item_id: p.inventory_item_id,

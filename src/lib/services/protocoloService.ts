@@ -4,6 +4,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteField,
   query,
   where,
   Timestamp,
@@ -43,6 +44,13 @@ export interface CreateProtocoloInput {
   nome: string;
   descricao?: string;
   itens: ProtocoloItem[];
+  duracao_minutos?: number; // RN-15: inteiro 1..1440
+}
+
+export interface UpdateProtocoloInput extends Partial<
+  Omit<CreateProtocoloInput, 'duracao_minutos'>
+> {
+  duracao_minutos?: number | null; // null remove a duração
 }
 
 // Nenhum protocolo do mesmo tenant pode compartilhar o mesmo nome
@@ -82,6 +90,7 @@ export async function createProtocolo(
     nome: input.nome,
     ...(input.descricao ? { descricao: input.descricao } : {}),
     itens: input.itens,
+    ...(input.duracao_minutos ? { duracao_minutos: input.duracao_minutos } : {}),
     active: true,
     created_at: now,
     updated_at: now,
@@ -93,7 +102,7 @@ export async function createProtocolo(
 export async function updateProtocolo(
   tenantId: string,
   id: string,
-  input: Partial<CreateProtocoloInput>
+  input: UpdateProtocoloInput
 ): Promise<void> {
   if (input.nome !== undefined) {
     await assertProtocoloNameIsUnique(tenantId, input.nome, id);
@@ -103,6 +112,8 @@ export async function updateProtocolo(
   if (input.nome !== undefined) updates.nome = input.nome;
   if (input.descricao !== undefined) updates.descricao = input.descricao;
   if (input.itens !== undefined) updates.itens = input.itens;
+  if (input.duracao_minutos === null) updates.duracao_minutos = deleteField();
+  else if (input.duracao_minutos !== undefined) updates.duracao_minutos = input.duracao_minutos;
   await updateDoc(doc(db, 'tenants', tenantId, 'protocolos', id), updates);
 }
 

@@ -17,11 +17,13 @@ import {
   Timestamp,
   runTransaction,
   writeBatch,
+  deleteField,
   type Transaction,
   type DocumentReference,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type {
+  FormaPagamento,
   Solicitacao,
   ProdutoSolicitado,
   InventoryItem,
@@ -43,6 +45,8 @@ export interface CreateSolicitacaoInput {
   observacoes?: string;
   protocolo_id?: string;
   protocolo_nome?: string;
+  duracao_minutos?: number; // só a duração do campo (digitada ou do protocolo)
+  forma_pagamento?: FormaPagamento;
 }
 
 export interface CreateSolicitacaoEfetuadaInput {
@@ -55,6 +59,8 @@ export interface CreateSolicitacaoEfetuadaInput {
   observacoes?: string;
   protocolo_id?: string;
   protocolo_nome?: string;
+  duracao_minutos?: number; // só a duração do campo (digitada ou do protocolo)
+  forma_pagamento?: FormaPagamento;
 }
 
 export interface SolicitacaoWithDetails extends Solicitacao {
@@ -243,6 +249,8 @@ export async function createSolicitacaoWithConsumption(
 ): Promise<{
   success: boolean;
   solicitacaoId?: string;
+  /** Lotes gravados — base do snapshot de precificação (RN-22). */
+  produtosSolicitados?: ProdutoSolicitado[];
   error?: string;
   validationErrors?: string[];
 }> {
@@ -297,6 +305,8 @@ export async function createSolicitacaoWithConsumption(
         observacoes: input.observacoes,
         protocolo_id: input.protocolo_id,
         protocolo_nome: input.protocolo_nome,
+        duracao_minutos: input.duracao_minutos,
+        forma_pagamento: input.forma_pagamento,
         created_by: userId,
         created_by_name: userName,
         created_at: now,
@@ -341,6 +351,7 @@ export async function createSolicitacaoWithConsumption(
     return {
       success: true,
       solicitacaoId: solicitacaoRef.id,
+      produtosSolicitados: produtosDetalhados,
     };
   } catch (error: any) {
     console.error('Erro ao criar solicitação:', error);
@@ -367,6 +378,7 @@ export async function createSolicitacaoEfetuada(
 ): Promise<{
   success: boolean;
   solicitacaoId?: string;
+  produtosSolicitados?: ProdutoSolicitado[];
   error?: string;
   validationErrors?: string[];
 }> {
@@ -422,6 +434,8 @@ export async function createSolicitacaoEfetuada(
         observacoes: input.observacoes,
         protocolo_id: input.protocolo_id,
         protocolo_nome: input.protocolo_nome,
+        duracao_minutos: input.duracao_minutos,
+        forma_pagamento: input.forma_pagamento,
         created_by: userId,
         created_by_name: userName,
         created_at: now,
@@ -455,7 +469,11 @@ export async function createSolicitacaoEfetuada(
       return newSolicitacaoRef;
     });
 
-    return { success: true, solicitacaoId: solicitacaoRef.id };
+    return {
+      success: true,
+      solicitacaoId: solicitacaoRef.id,
+      produtosSolicitados: produtosDetalhados,
+    };
   } catch (error: any) {
     console.error('Erro ao criar procedimento efetuado:', error);
     return { success: false, error: error.message || 'Erro ao criar procedimento efetuado' };
@@ -646,6 +664,21 @@ export async function updateSolicitacaoStatus(
 // ============================================================================
 
 /**
+ * Duração (null remove) e forma de pagamento editadas — dados não sensíveis;
+ * os valores de precificação ficam em `precificacao_procedimentos`.
+ */
+function aplicarCamposPrecificacao(
+  updateData: Record<string, unknown>,
+  updates: { duracao_minutos?: number | null; forma_pagamento?: FormaPagamento }
+): void {
+  if (updates.duracao_minutos === null) updateData.duracao_minutos = deleteField();
+  else if (updates.duracao_minutos !== undefined) {
+    updateData.duracao_minutos = updates.duracao_minutos;
+  }
+  if (updates.forma_pagamento !== undefined) updateData.forma_pagamento = updates.forma_pagamento;
+}
+
+/**
  * Atualiza uma solicitação no status "agendada"
  * Permite editar produtos, descrição e data
  * Ajusta as reservas de estoque automaticamente
@@ -663,12 +696,17 @@ export async function updateSolicitacaoAgendada(
       quantidade: number;
     }[];
     observacoes?: string;
+    duracao_minutos?: number | null; // null remove a duração
+    forma_pagamento?: FormaPagamento;
   }
 ): Promise<{
   success: boolean;
+  /** Lotes da solicitação após a edição — base do snapshot de precificação. */
+  produtosSolicitados?: ProdutoSolicitado[];
   error?: string;
 }> {
   try {
+    let produtosSolicitados: ProdutoSolicitado[] | undefined;
     await runTransaction(db, async (transaction) => {
       const solicitacaoRef = doc(db, 'tenants', tenantId, 'solicitacoes', solicitacaoId);
       const solicitacaoSnap = await transaction.get(solicitacaoRef);
@@ -872,6 +910,8 @@ export async function updateSolicitacaoAgendada(
         if (updates.observacoes !== undefined) {
           updateData.observacoes = updates.observacoes;
         }
+        aplicarCamposPrecificacao(updateData, updates);
+        produtosSolicitados = produtosDetalhados;
 
         // Registrar auditoria da edição -- antes, editar produtos de uma
         // solicitação agendada não deixava nenhum rastro em status_history nem
@@ -939,12 +979,14 @@ export async function updateSolicitacaoAgendada(
         if (updates.observacoes !== undefined) {
           updateData.observacoes = updates.observacoes;
         }
+        aplicarCamposPrecificacao(updateData, updates);
+        produtosSolicitados = solicitacao.produtos_solicitados;
 
         transaction.update(solicitacaoRef, updateData);
       }
     });
 
-    return { success: true };
+    return { success: true, produtosSolicitados };
   } catch (error: any) {
     console.error('Erro ao atualizar solicitação:', error);
     return {
