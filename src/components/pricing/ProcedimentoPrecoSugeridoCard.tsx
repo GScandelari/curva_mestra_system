@@ -12,13 +12,9 @@ import ProcedimentoPrecificacao from '@/components/pricing/ProcedimentoPrecifica
 import { getCustoHoraConfig } from '@/lib/services/custoHoraService';
 import { getPrecificacaoProcedimento } from '@/lib/services/precificacaoProcedimentoService';
 import {
-  calcularCustoMaterialSolicitacao,
-  calcularPrecificacaoProcedimento,
-  calcularResumoCustoHora,
+  estimarPrecificacaoProcedimento,
   formatarMesReferencia,
   mesReferenciaDoProcedimento,
-  parseFormaPagamento,
-  resolverDuracaoProcedimento,
 } from '@/lib/precificacao';
 import type { CustoHoraConfig, PrecificacaoProcedimento, Solicitacao } from '@/types';
 
@@ -171,31 +167,25 @@ function ConteudoEstimativa({
   config: CustoHoraConfig;
   solicitacao: ProcedimentoPrecoSugeridoCardProps['solicitacao'];
 }>) {
-  const mesReferencia = mesReferenciaDoProcedimento(solicitacao.dt_procedimento.toDate());
-  const resumo = calcularResumoCustoHora(config, mesReferencia);
-  const duracao = resolverDuracaoProcedimento({
-    duracaoInformada: solicitacao.duracao_minutos ?? null,
-    protocoloAplicado: null,
-  });
-  const calculo = calcularPrecificacaoProcedimento({
-    duracaoMinutos: duracao.minutos,
-    custoHora: resumo.custoHora,
-    divisores: resumo.divisores,
-    custoMaterial: calcularCustoMaterialSolicitacao(solicitacao.produtos_solicitados),
+  const estimativa = estimarPrecificacaoProcedimento(config, {
+    dtProcedimento: solicitacao.dt_procedimento.toDate(),
+    duracao_minutos: solicitacao.duracao_minutos,
+    forma_pagamento: solicitacao.forma_pagamento,
+    produtos: solicitacao.produtos_solicitados,
   });
 
   return (
     <ProcedimentoPrecificacao
-      duracaoMinutos={duracao.minutos}
-      duracaoOrigem={duracao.origem}
-      custoMaterial={calculo.custoMaterial}
-      custoHoraAplicado={calculo.custoHoraAplicado}
-      custoReal={calculo.custoReal}
-      precos={calculo.precos}
+      duracaoMinutos={estimativa.duracao.minutos}
+      duracaoOrigem={estimativa.duracao.origem}
+      custoMaterial={estimativa.calculo.custoMaterial}
+      custoHoraAplicado={estimativa.calculo.custoHoraAplicado}
+      custoReal={estimativa.calculo.custoReal}
+      precos={estimativa.calculo.precos}
       markup={config.markup}
-      formaPagamento={parseFormaPagamento(solicitacao.forma_pagamento)}
+      formaPagamento={estimativa.formaPagamento}
       seloForma="Forma registrada"
-      mesReferencia={mesReferencia}
+      mesReferencia={estimativa.mesReferencia}
     />
   );
 }

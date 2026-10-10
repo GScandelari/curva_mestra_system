@@ -30,6 +30,49 @@ import {
   type DashboardProcedimentosStats,
 } from '@/lib/services/dashboardService';
 import { formatTimestamp } from '@/lib/utils';
+import { getCustoHoraConfig } from '@/lib/services/custoHoraService';
+import { listPrecificacoesProcedimentos } from '@/lib/services/precificacaoProcedimentoService';
+import { FORMAS_PAGAMENTO, estimarPrecificacaoProcedimento } from '@/lib/precificacao';
+import type { CustoHoraConfig, FormaPagamento, PrecificacaoProcedimento } from '@/types';
+
+interface PrecificacaoLinha {
+  custoReal: number | null;
+  precoSugerido: number | null;
+  forma: FormaPagamento;
+  estimado: boolean;
+}
+
+/** Snapshot gravado prevalece; sem ele, estimativa atual (RN-30). */
+function precificacaoDaLinha(
+  solicitacao: SolicitacaoWithDetails,
+  snapshots: Map<string, PrecificacaoProcedimento>,
+  config: CustoHoraConfig | null
+): PrecificacaoLinha | null {
+  const snapshot = snapshots.get(solicitacao.id);
+  if (snapshot) {
+    return {
+      custoReal: snapshot.custo_real,
+      precoSugerido: snapshot.precos_sugeridos[snapshot.forma_pagamento],
+      forma: snapshot.forma_pagamento,
+      estimado: false,
+    };
+  }
+  if (!config || !solicitacao.dt_procedimento?.toDate) return null;
+  const estimativa = estimarPrecificacaoProcedimento(config, {
+    dtProcedimento: solicitacao.dt_procedimento.toDate(),
+    duracao_minutos: solicitacao.duracao_minutos,
+    forma_pagamento: solicitacao.forma_pagamento,
+    produtos: solicitacao.produtos_solicitados,
+  });
+  return {
+    custoReal: estimativa.calculo.custoReal,
+    precoSugerido: estimativa.calculo.precos[estimativa.formaPagamento],
+    forma: estimativa.formaPagamento,
+    estimado: true,
+  };
+}
+
+const ROTULO_FORMA = new Map(FORMAS_PAGAMENTO.map(({ key, label }) => [key, label]));
 
 export default function SolicitacoesPage() {
   const { claims } = useAuth();
@@ -44,6 +87,19 @@ export default function SolicitacoesPage() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [snapshots, setSnapshots] = useState<Map<string, PrecificacaoProcedimento>>(new Map());
+  const [custoConfig, setCustoConfig] = useState<CustoHoraConfig | null>(null);
+
+  // Precificação: dado financeiro interno, só clinic_admin lê (RNF-08)
+  useEffect(() => {
+    if (!tenantId || !isAdmin) return;
+    Promise.all([listPrecificacoesProcedimentos(tenantId), getCustoHoraConfig(tenantId)])
+      .then(([mapa, config]) => {
+        setSnapshots(mapa);
+        setCustoConfig(config);
+      })
+      .catch((error) => console.error('Erro ao carregar precificação dos procedimentos:', error));
+  }, [tenantId, isAdmin]);
 
   useEffect(() => {
     async function loadSolicitacoes() {
@@ -280,7 +336,9 @@ export default function SolicitacoesPage() {
                       <TableHead>Descrição</TableHead>
                       <TableHead>Data Procedimento</TableHead>
                       <TableHead className="text-right">Produtos</TableHead>
-                      <TableHead className="text-right">Valor Total</TableHead>
+                      <TableHead className="text-right">Material</TableHead>
+                      {isAdmin && <TableHead className="text-right">Custo real</TableHead>}
+                      {isAdmin && <TableHead className="text-right">Preço sugerido</TableHead>}
                       <TableHead>Status</TableHead>
                       <TableHead>Criado em</TableHead>
                       <TableHead className="text-center">Ações</TableHead>
@@ -305,6 +363,12 @@ export default function SolicitacoesPage() {
                         <TableCell className="text-right font-medium">
                           {formatCurrency(solicitacao.valor_total)}
                         </TableCell>
+                        {isAdmin && (
+                          <PrecificacaoCells
+                            linha={precificacaoDaLinha(solicitacao, snapshots, custoConfig)}
+                            formatCurrency={formatCurrency}
+                          />
+                        )}
                         <TableCell>{getStatusBadge(solicitacao.status)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {formatTimestamp(solicitacao.created_at)}
@@ -329,5 +393,26 @@ export default function SolicitacoesPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function PrecificacaoCells({
+  linha,
+  formatCurrency,
+}: Readonly<{ linha: PrecificacaoLinha | null; formatCurrency: (v: number) => string }>) {
+  const fmt = (v: number | null | undefined) => (v == null ? '—' : formatCurrency(v));
+  return (
+    <>
+      <TableCell className="text-right">{fmt(linha?.custoReal)}</TableCell>
+      <TableCell className="text-right">
+        <div className="font-medium">{fmt(linha?.precoSugerido)}</div>
+        {linha && (
+          <div className="text-xs text-muted-foreground">
+            {ROTULO_FORMA.get(linha.forma)}
+            {linha.estimado ? ' · estimado' : ''}
+          </div>
+        )}
+      </TableCell>
+    </>
   );
 }
