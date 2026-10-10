@@ -10,7 +10,9 @@ function formatHoras(horas: number): string {
 }
 
 function formatDivisor(divisor: number | null): string {
-  return divisor === null ? '—' : divisor.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
+  return divisor === null
+    ? '—'
+    : divisor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 }
 
 interface CustoHoraResumoProps {

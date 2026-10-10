@@ -11,7 +11,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import ProcedimentoPrecificacao from '@/components/pricing/ProcedimentoPrecificacao';
 import { getCustoHoraConfig } from '@/lib/services/custoHoraService';
 import { getPrecificacaoProcedimento } from '@/lib/services/precificacaoProcedimentoService';
+import { formatCurrency } from '@/lib/services/reportService';
 import {
+  calcularCustoMaterialSolicitacao,
   estimarPrecificacaoProcedimento,
   formatarMesReferencia,
   mesReferenciaDoProcedimento,
@@ -93,7 +95,12 @@ export default function ProcedimentoPrecoSugeridoCard({
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              Configure seus custos fixos para ver o preço sugerido.
+              <span>
+                Configure seus custos fixos para ver o preço sugerido. Material:{' '}
+                {formatCurrency(
+                  calcularCustoMaterialSolicitacao(solicitacao.produtos_solicitados).total
+                )}
+              </span>
               <Button
                 variant="outline"
                 size="sm"

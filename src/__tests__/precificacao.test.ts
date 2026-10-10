@@ -28,6 +28,8 @@ import {
   calcularCustoMaterialSolicitacao,
   calcularPrecificacaoProcedimento,
   mesReferenciaDoProcedimento,
+  dataCalendarioDoProcedimento,
+  formatarDataProcedimento,
   montarSnapshotPrecificacao,
   estimarPrecificacaoProcedimento,
   resolverDuracaoProcedimento,
@@ -993,5 +995,46 @@ describe('estimarPrecificacaoProcedimento (RN-30)', () => {
     expect(estimativa.formaPagamento).toBe('credito');
     expect(estimativa.calculo.custoHoraAplicado).toBeCloseTo(30000 / 184 / 2, 6);
     expect(estimativa.calculo.custoReal).toBeCloseTo(281.52, 2);
+  });
+});
+
+describe('dataCalendarioDoProcedimento / formatarDataProcedimento (RN-31)', () => {
+  it('reads dates registered at UTC midnight as the chosen day', () => {
+    expect(dataCalendarioDoProcedimento(new Date('2026-10-20'))).toBe('2026-10-20');
+    expect(formatarDataProcedimento(new Date('2026-11-01'))).toBe('01/11/2026');
+  });
+
+  it('reads an early completion in São Paulo time', () => {
+    // concluído às 22:00 de 20/10 em Brasília = 01:00Z de 21/10
+    const conclusao = new Date('2026-10-21T01:00:00Z');
+    expect(dataCalendarioDoProcedimento(conclusao)).toBe('2026-10-20');
+    expect(formatarDataProcedimento(conclusao)).toBe('20/10/2026');
+  });
+
+  it('keeps the month of an early completion on the last night of the month', () => {
+    // 31/10 às 23:30 em Brasília = 01/11 02:30Z
+    expect(mesReferenciaDoProcedimento(new Date('2026-11-01T02:30:00Z'))).toBe('2026-10');
+  });
+});
+
+describe('resolverDuracaoProcedimento — campo preenchido pelo protocolo', () => {
+  it('records the protocol as origin while the field keeps its prefilled value', () => {
+    expect(
+      resolverDuracaoProcedimento({
+        duracaoInformada: 60,
+        protocoloAplicado: { duracao_minutos: 60 },
+        campoPreenchidoPeloProtocolo: true,
+      })
+    ).toEqual({ minutos: 60, origem: 'protocolo' });
+  });
+
+  it('records the typed value once the field is edited', () => {
+    expect(
+      resolverDuracaoProcedimento({
+        duracaoInformada: 45,
+        protocoloAplicado: { duracao_minutos: 60 },
+        campoPreenchidoPeloProtocolo: false,
+      })
+    ).toEqual({ minutos: 45, origem: 'informada' });
   });
 });

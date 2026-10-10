@@ -6,9 +6,9 @@
 **Status:** Rascunho
 **Módulo/Contexto:** Portal do Consultor
 
-**Versão:** 1.0.1
+**Versão:** 1.1
 
-> Um Consultor navega pelas clínicas vinculadas à sua conta em três telas encadeadas, todas somente-leitura: `/consultant/clinics` (lista com busca local), `/consultant/clinics/{tenantId}` (detalhe com estatísticas de estoque) e `/consultant/clinics/{tenantId}/inventory` (inventário completo, reutilizando o mesmo componente `InventoryView` do Portal Clinic, restrito à marca Rennova). O consultor nunca edita nada nessas telas — apenas consulta.
+> Um Consultor navega pelas clínicas vinculadas à sua conta em três telas encadeadas, todas somente-leitura: `/consultant/clinics` (lista com busca local), `/consultant/clinics/{tenantId}` (detalhe com estatísticas de estoque) e `/consultant/clinics/{tenantId}/inventory` (inventário completo, reutilizando o mesmo componente `InventoryView` do Portal Clinic, restrito à marca Rennova). O consultor nunca edita nada nessas telas — apenas consulta. **[Novo em v1.1 — UC-58]** O detalhe da clínica ganhou o botão **"Ver Precificação"**, exibido somente quando o Clinic Admin daquela clínica ativou o compartilhamento de dados financeiros **para este consultor** (opt-in); ele leva à tela somente-leitura `/consultant/clinics/{tenantId}/pricing` (custo da hora clínica, custos fixos, markup e preço sugerido dos protocolos).
 
 ---
 
@@ -23,8 +23,11 @@ flowchart LR
         UC24(("UC-24\nVincular-se Automaticamente\na Clínica"))
     end
 
+    UC58(("UC-58\nPrecificar Protocolos\npela Hora Clínica\n(visão somente leitura)"))
+
     Consultor --> UC48
     UC24 -.->|clínicas vinculadas\naqui aparecem em| UC48
+    UC58 -.->|"<<extend>> Ver Precificação\n(só com opt-in do clinic_admin)"| UC48
     UC48 -.->|GET, somente leitura,\nfiltrado brand=Rennova| Firestore[(Firestore\ntenants/{id}/inventory)]
 ```
 
@@ -52,6 +55,7 @@ Nenhum sistema externo. Os dados consultados são os mesmos geridos pelos módul
 - Nenhum dado é alterado em nenhuma das três telas — este UC é inteiramente de consulta.
 - **Lista (`/consultant/clinics`):** exibe todas as clínicas retornadas por `GET /api/consultants/me/clinics`, filtráveis localmente (client-side, sem nova consulta) por nome, documento ou e-mail.
 - **Detalhe (`/consultant/clinics/{tenantId}`):** exibe nome, documento formatado e status (Ativa/Inativa) da clínica, mais três cards de estatística de estoque (Itens no Estoque, Próximos a Vencer — 30 dias, Estoque Baixo), calculados a partir do inventário filtrado por `brand == 'Rennova'`.
+- **[Novo em v1.1] Precificação (`/consultant/clinics/{tenantId}/pricing`, só com opt-in):** exibe, somente leitura, o resumo do custo da hora clínica do mês corrente, os custos fixos (itens base com valor, custos personalizados, Boletos Tec ativos e total), o markup (imposto, taxas de débito e crédito, comissão, margem) e o preço sugerido de cada protocolo (Pix/Dinheiro e Crédito), com detalhe de material só dos produtos Rennova (UC-58, Fluxo Alternativo 7f).
 - **Inventário (`/consultant/clinics/{tenantId}/inventory`):** exibe a listagem completa de itens Rennova em modo somente-leitura (`InventoryView` com `readOnly` e `onlyBrand="Rennova"`), com exportação para Excel disponível, mas sem botão de "Adicionar Produtos" e sem navegação para o detalhe de item individual (ambos dependem de props — `onAddProducts`/`onRowClick` — que esta tela nunca passa ao componente).
 
 ### 4.2 Falha (Garantias Mínimas)
@@ -61,7 +65,7 @@ Nenhum sistema externo. Os dados consultados são os mesmos geridos pelos módul
 ---
 
 ## 5. Gatilho (Trigger)
-Consultor navega para `/consultant/clinics` (menu "Minhas Clínicas" do Portal do Consultor) e, a partir daí, clica em uma clínica (`ClinicCard`) e depois em "Ver Estoque".
+Consultor navega para `/consultant/clinics` (menu "Minhas Clínicas" do Portal do Consultor) e, a partir daí, clica em uma clínica (`ClinicCard`) e depois em "Ver Estoque" (ou, **[v1.1]** quando disponível, em "Ver Precificação").
 
 ---
 
@@ -71,9 +75,9 @@ Consultor navega para `/consultant/clinics` (menu "Minhas Clínicas" do Portal d
 2. Sistema chama `GET /api/consultants/me/clinics` com o token do usuário e popula a lista; em seguida chama `refreshClaims()` para sincronizar `authorized_tenants` (comentário no código: "Refresh claims to sync authorized_tenants from server").
 3. Sistema exibe as clínicas em um grid de cards (`ClinicCard`), com um campo de busca que filtra localmente por nome, documento ou e-mail (sem nova chamada de API).
 4. Consultor clica em uma clínica; sistema navega para `/consultant/clinics/{tenantId}`.
-5. Sistema verifica `authorizedTenants.includes(tenantId)`; se verdadeiro, chama (sem uso do resultado — ver RN-01) `GET /api/tenants/{tenantId}/consultant`, depois consulta `tenants/{tenantId}/inventory` filtrando `brand == 'Rennova'` para calcular estatísticas (`computeInventoryStats`), e busca os dados básicos do tenant (`tenants/{tenantId}`) via client SDK.
+5. Sistema verifica `authorizedTenants.includes(tenantId)`; se verdadeiro, chama (sem uso do resultado — ver RN-01) `GET /api/tenants/{tenantId}/consultant`, depois consulta `tenants/{tenantId}/inventory` filtrando `brand == 'Rennova'` para calcular estatísticas (`computeInventoryStats`), e busca os dados básicos do tenant (`tenants/{tenantId}`) via client SDK. **[Novo em v1.1]** Entre a consulta de estatísticas e a dos dados do tenant, sistema tenta ler `tenants/{tenantId}/financeiro/custo_hora` (`getCustoHoraConfig`): se a leitura devolver um documento, marca a precificação como compartilhada; documento inexistente ou qualquer erro (inclusive `permission-denied`) a marca como não compartilhada, sem mensagem.
 6. Sistema exibe nome, documento formatado, badge de status, e os três cards de estatística — o card "Estoque Baixo" exibe o texto "produtos Rennova com **10 unidades ou menos**" (**[CORRIGIDO em v1.0.1, commit `70a38d7`]** — ver RN-02).
-7. Consultor clica em "Ver Estoque"; sistema navega para `/consultant/clinics/{tenantId}/inventory`.
+7. Sistema exibe os botões de ação "Ver Estoque", "Ver Projeções" (UC-52) e, **[novo em v1.1]** somente se a precificação foi marcada como compartilhada no passo 5, **"Ver Precificação"** (ícone de calculadora — Fluxo Alternativo 7d). Consultor clica em "Ver Estoque"; sistema navega para `/consultant/clinics/{tenantId}/inventory`.
 8. Sistema renderiza `InventoryView` com `tenantId`, `readOnly`, `onlyBrand="Rennova"` e `backUrl` de volta ao detalhe — mesma listagem/filtros/exportação já documentados em UC-13/UC-14 do lado da clínica, mas sem nenhuma ação de escrita disponível.
 9. Caso de uso é concluído a qualquer momento em que o consultor navega para fora dessas três telas.
 
@@ -91,7 +95,13 @@ Consultor navega para `/consultant/clinics` (menu "Minhas Clínicas" do Portal d
 
 ### 7c. Acesso direto a uma URL de clínica não vinculada (a partir do passo 5)
 1. `tenantId` da URL não está em `authorizedTenants`.
-2. Sistema redireciona imediatamente para `/consultant/clinics`, sem carregar nenhum dado da clínica solicitada.
+2. Sistema redireciona imediatamente para `/consultant/clinics`, sem carregar nenhum dado da clínica solicitada. **[v1.1]** O mesmo vale para `/consultant/clinics/{tenantId}/pricing`.
+
+### 7d. [Novo em v1.1] Ver Precificação da clínica (a partir do passo 7 — `<<extend>>` por UC-58)
+1. Com o compartilhamento ativo para este consultor, ele clica em **"Ver Precificação"**; sistema navega para `/consultant/clinics/{tenantId}/pricing`.
+2. Sistema lê `financeiro/custo_hora`; com o documento disponível, lê também `protocolos` e o inventário do tenant e exibe: botão "Voltar" (para o detalhe), título "Precificação", `ReadOnlyBanner`, card "Custo da Hora Clínica" (mês corrente), "Custos fixos mensais", "Markup" e "Protocolos" (Duração · Material · Hora clínica · Custo real · Preço Pix/Dinheiro · Preço Crédito por protocolo).
+3. O detalhe de material de cada protocolo lista só os produtos Rennova; os de outras marcas aparecem agregados em "Outros materiais ({n})", sem nome nem código; os totais incluem todos os itens (UC-58 RN-12).
+4. Nenhum campo é editável e nada é gravado. Regras completas em UC-58, Fluxo Alternativo 7f.
 
 ---
 
@@ -105,6 +115,10 @@ Consultor navega para `/consultant/clinics` (menu "Minhas Clínicas" do Portal d
 1. A consulta ao inventário ou ao documento do tenant lança exceção.
 2. Erro é registrado via `console.error`, mas a tela **não interrompe o carregamento** — cada bloco (`try/catch` separado) falha de forma independente; estatísticas permanecem zeradas ou o nome da clínica permanece vazio (`tenant?.name || 'Clínica'`), sem nenhum aviso de erro visível.
 
+### 8c. [Novo em v1.1] Acesso direto à tela de precificação sem compartilhamento (a partir de 7d)
+1. Consultor acessa `/consultant/clinics/{tenantId}/pricing` (clínica vinculada) sem que o Clinic Admin tenha compartilhado os dados financeiros com ele — ou com o compartilhamento amarrado a outro consultor (ex.: após transferência da clínica).
+2. A leitura de `financeiro/custo_hora` é negada pelas rules (ou o documento não existe); sistema exibe "Esta clínica não compartilhou dados financeiros com você." (ícone de cadeado) e não carrega protocolos nem inventário.
+
 ---
 
 ## 9. Regras de Negócio Relacionadas
@@ -116,7 +130,9 @@ Consultor navega para `/consultant/clinics` (menu "Minhas Clínicas" do Portal d
 | RN-03 | O limiar de 10 usado aqui é um **terceiro mecanismo de "estoque baixo"**, completamente independente do limite por produto (UC-15) e do fallback de tenant (UC-43, também default 10 — coincidência de valor, não relação de código) — `computeInventoryStats` não lê nenhuma configuração, é um valor fixo no código. | Confirmado por leitura de `computeInventoryStats` — nenhuma referência a `stock_limits` (UC-15) nem a `NotificationSettings` (UC-43). |
 | RN-04 | O inventário exibido é sempre filtrado por `brand == 'Rennova'`, tanto no cálculo de estatísticas (query direta) quanto na listagem completa (`onlyBrand="Rennova"` em `InventoryView`) — produtos de outras marcas cadastrados no tenant nunca aparecem para o consultor. | Confirmado por leitura de `loadTenantData` (`where('brand', '==', 'Rennova')`) e da prop `onlyBrand` passada em `ConsultantInventoryPage`. |
 | RN-05 | O modo somente-leitura do inventário é garantido, na prática, pela **ausência** das props `onAddProducts`/`onRowClick` (nunca passadas por esta tela) — não por um bloqueio explícito de role dentro de `InventoryView`. O botão "Adicionar Produtos" já é condicionado a `isAdmin && onAddProducts`, então mesmo que um consultor nunca satisfaça `isAdmin`, a ausência do callback é uma segunda camada da mesma proteção. | Confirmado por leitura de `InventoryView.tsx` (linhas 313 e 489) comparada às props passadas por `ConsultantInventoryPage`. |
-| RN-06 | Isolamento multi-tenant e de marca é reforçado pela regra do Firestore (`consultantHasAccess(tenantId)`, leitura apenas — `firestore.rules` linha 60-61); o consultor nunca consegue ler subcoleções de um tenant fora de `authorized_tenants`, mesmo manipulando a URL diretamente, pois a regra do backend (não apenas o redirecionamento client-side do fluxo 7c) também bloqueia. | Confirmado por leitura de `firestore.rules`, linha 60-61. |
+| RN-06 | Isolamento multi-tenant e de marca é reforçado pela regra do Firestore (`consultantHasAccess(tenantId)`, leitura apenas — `firestore.rules` linha 60-61); o consultor nunca consegue ler subcoleções de um tenant fora de `authorized_tenants`, mesmo manipulando a URL diretamente, pois a regra do backend (não apenas o redirecionamento client-side do fluxo 7c) também bloqueia. **[Ressalva as-is, v1.1 — achado `UC-48-RN-06`, Aberto no mapa de bugs]** O isolamento **entre tenants** está correto, mas o isolamento **de marca** não é reforçado pelas rules: a linha de leitura do consultor no bloco genérico `match /tenants/{tenantId}/{collectionId}/{document=**}` é uma blocklist — `allow read: if consultantHasAccess(tenantId) && !isRestrictedTenantCollection(collectionId)`, que exclui apenas `nf_imports`, `financeiro` e `precificacao_procedimentos` —, concedendo ao consultor leitura de qualquer outra subcoleção da clínica vinculada (inventário de todas as marcas, `protocolos`, `solicitacoes`…). O filtro "só Rennova" (RN-04) existe apenas na UI. Correção prevista em `ONLY_FOR_DEVS/TO_DO/BUGFIX-consultor-allowlist-subcolecoes.md` (allowlist). | Confirmado por leitura de `firestore.rules`, linha 60-61 (v1.0); ressalva confirmada por leitura do bloco genérico de `firestore.rules` nesta revisão (helper `isRestrictedTenantCollection`, introduzido pela feature de precificação) e pelo registro `UC-48-RN-06` do `_MAPA-DE-BUGS-E-MELHORIAS.md` (v3.51). |
+| RN-07 | **[Novo em v1.1 — UC-58]** O botão "Ver Precificação" só aparece quando a leitura de `tenants/{tenantId}/financeiro/custo_hora` pelo consultor é permitida e o documento existe — o que, pelas rules, exige `compartilhar_com_consultor == true` **e** `compartilhado_com_consultant_id == consultant_id` do token **e** o tenant em `authorized_tenants`. O compartilhamento é amarrado ao consultor que o recebeu: após troca/transferência de consultor, o novo consultor não herda o acesso até o Clinic Admin compartilhar de novo. | Decisões D5 da spec `FEAT-precificacao-hora-clinica.md` (UC-58 RN-15). Confirmado por leitura de `[tenantId]/page.tsx` (`pricingShared`) e do bloco `financeiro/{docId}` de `firestore.rules`. |
+| RN-08 | **[Novo em v1.1 — UC-58]** Na tela de precificação, o consultor lê `protocolos`; a regra dedicada dessa coleção exige o mesmo opt-in financeiro (`consultantHasFinancialOptIn`). **As-is:** enquanto a linha genérica do consultor for blocklist (RN-06), essa leitura também é concedida sem opt-in pelo bloco genérico — a exigência só passa a valer com o bugfix da allowlist. O consultor nunca lê os snapshots de precificação de procedimentos (`precificacao_procedimentos`), mesmo com opt-in. | Decisão D6 da spec; convivência descrita na Seção 5.4.1 da spec. Verificado em `firestore.rules` nesta revisão. |
 
 ---
 
@@ -126,7 +142,7 @@ Consultor navega para `/consultant/clinics` (menu "Minhas Clínicas" do Portal d
 |----|-----------|-----------|
 | RNF-01 | Falhas de carregamento em qualquer uma das três telas são inteiramente silenciosas (RN — fluxos 8a/8b) — mesmo padrão já observado em outras telas do sistema (ex.: UC-46). | Usabilidade |
 | RNF-02 | A busca na lista de clínicas (`/consultant/clinics`) é local (sobre os dados já carregados), não uma nova consulta — rápida, mas limitada às clínicas já vinculadas (não busca novas clínicas; para isso, `/consultant/clinics/search`, UC-24). | Desempenho |
-| RNF-03 | Multi-tenant e restrição de marca garantidos tanto no client quanto na regra do Firestore (RN-04, RN-06). | Multi-tenant / Segurança |
+| RNF-03 | Multi-tenant e restrição de marca garantidos tanto no client quanto na regra do Firestore (RN-04, RN-06). **[Ressalva as-is, v1.1]** Só o isolamento multi-tenant é garantido nas rules; a restrição de marca é só de UI até o bugfix da allowlist (ver ressalva em RN-06). Dados financeiros (`financeiro`) e snapshots de precificação ficam fora da leitura genérica do consultor por construção (RN-07/RN-08). | Multi-tenant / Segurança |
 
 ---
 
@@ -140,6 +156,8 @@ Provavelmente alta — é o fluxo central de navegação do Portal do Consultor 
 - **UC-13/UC-14 (Inventário — Clinic)** — mesmo componente `InventoryView`, aqui usado em modo `readOnly`/`onlyBrand="Rennova"`, sem nenhuma das ações de escrita documentadas naqueles UCs.
 - **UC-15 (Configurar Limite de Estoque Baixo por Produto)** e **UC-43 (Configurar Preferências de Notificação)** — ambos completamente desconectados do cálculo de "Estoque Baixo" usado neste UC (RN-03), que usa seu próprio limiar fixo (10).
 - **UC-49 (Visualizar Perfil Próprio do Consultor)** — outra tela somente-leitura do mesmo portal, mas sobre os dados do próprio consultor, não das clínicas.
+- **UC-52 (Consultar Projeção de Reposição de Estoque)** — botão "Ver Projeções" na mesma tela de detalhe.
+- **UC-58 (Precificar Protocolos pela Hora Clínica)** — **[Novo em v1.1]** `<<extend>>` deste UC pelo botão "Ver Precificação" (Fluxo Alternativo 7d); o opt-in é concedido/revogado pelo Clinic Admin em Minha Clínica → Custos Fixos e auditado (UC-53).
 
 ---
 
@@ -153,6 +171,7 @@ Provavelmente alta — é o fluxo central de navegação do Portal do Consultor 
 - `src/app/api/consultants/me/clinics/route.ts`
 - `firestore.rules` (linha 60-61 — `consultantHasAccess`)
 - Commit da correção: `70a38d7` (`fix: quatro itens de media severidade (UC-39, UC-45, UC-47, UC-48)`) — corrige o texto do card "Estoque Baixo" de "5" para "10 unidades ou menos" (RN-02)
+- **[v1.1]** `src/app/(consultant)/consultant/clinics/[tenantId]/pricing/page.tsx`; `src/lib/services/custoHoraService.ts` (`getCustoHoraConfig`, `listInventoryForCosting`); `src/components/pricing/CustoHoraResumo.tsx`, `ProtocoloPrecificacao.tsx` (modo `consultor`); `firestore.rules` (`isRestrictedTenantCollection`, `consultantHasFinancialOptIn`, blocos `financeiro/{docId}` e `protocolos/{protocoloId}`); spec `ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-precificacao-hora-clinica.md` (v1.7), PR #382; `ONLY_FOR_DEVS/TO_DO/BUGFIX-consultor-allowlist-subcolecoes.md`
 
 ---
 
@@ -164,6 +183,8 @@ Provavelmente alta — é o fluxo central de navegação do Portal do Consultor 
 2. **[Observação]** RN-01 — a chamada `fetch` sem uso a `/api/tenants/{id}/consultant` parece código morto. Remover?
 3. **[Observação]** RN-03 — existência de um terceiro limiar de "estoque baixo" (fixo, 10), independente de UC-15/UC-43. Vale unificar os três mecanismos, ou são propositalmente independentes (um é "estoque baixo por produto" da clínica, outro é "alerta configurável do tenant", e este é "resumo rápido para o consultor")?
 4. **[Observação]** RNF-01 — vale conectar tratamento de erro visível nas três telas, hoje silenciosas?
+5. **[Achado de segurança Aberto — `UC-48-RN-06`, já registrado no mapa]** Ressalva de RN-06/RNF-03: o filtro de marca não é reforçado nas rules (blocklist na linha genérica do consultor). Task dedicada: `BUGFIX-consultor-allowlist-subcolecoes.md`; decisão de produto pendente `UC-48-RN-06-Decisão` (filtro de marca dentro de `inventory`). Enquanto não for corrigido, a exigência de opt-in para o consultor ler `protocolos` (RN-08) também não vale de fato.
+6. **[Observação, v1.1]** Se a leitura de `financeiro/custo_hora` falhar por erro de rede (não por permissão), o botão "Ver Precificação" simplesmente não aparece, sem aviso — mesmo padrão silencioso de RNF-01.
 
 ---
 
@@ -173,3 +194,4 @@ Provavelmente alta — é o fluxo central de navegação do Portal do Consultor 
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada por leitura completa de `ConsultantClinicsPage`, `ClinicDetailPage`, `ConsultantInventoryPage`, `InventoryView.tsx` (props de somente-leitura), `computeInventoryStats` (`inventoryUtils.ts`) e `firestore.rules` (`consultantHasAccess`). Identificado bug confirmado de divergência entre texto e lógica no card "Estoque Baixo" (RN-02: texto diz "5", código usa 10), uma chamada de API sem uso do resultado (RN-01), e a existência de um terceiro mecanismo de limiar de estoque baixo, totalmente independente de UC-15/UC-43 (RN-03). |
 | 1.0.1 | 03/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-48-RN-02), commit `70a38d7`: texto do card "Estoque Baixo" em `ClinicDetailPage` corrigido de "5 unidades ou menos" para "10 unidades ou menos", batendo com o threshold real usado por `computeInventoryStats` (`<= 10`). Atualizados Fluxo Principal (passo 6), RN-02 (marcada `[CORRIGIDO]`), Referências (Seção 13) e item 1 da Seção 14 (marcado `[RESOLVIDO]`). |
+| 1.1 | 10/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Feature "Precificação pela Hora Clínica" (spec `FEAT-precificacao-hora-clinica.md` v1.7, PR #382) — as-is.** Detalhe da clínica passou a sondar `financeiro/custo_hora` e a exibir o botão "Ver Precificação" só com o opt-in do Clinic Admin para este consultor; nova tela somente leitura `/consultant/clinics/{tenantId}/pricing`. Novas RN-07 (condição do botão, opt-in amarrado ao `consultant_id`) e RN-08 (leitura de `protocolos` com opt-in, as-is dependente do bugfix da allowlist; consultor nunca lê snapshots de procedimentos); novo Fluxo Alternativo 7d e Fluxo de Exceção 8c; 7c, resumo, diagrama (`<<extend>>` UC-58), pós-condições, gatilho, Fluxo Principal (passos 5 e 7 — inclui o botão já existente "Ver Projeções", UC-52), seções 12 e 13 atualizados. **Ressalva as-is em RN-06 e RNF-03** refletindo o achado `UC-48-RN-06` (Aberto no mapa v3.51): o isolamento de marca é só de UI; o texto original foi mantido e anotado, não removido. Seção 14: novos itens 5 e 6. |

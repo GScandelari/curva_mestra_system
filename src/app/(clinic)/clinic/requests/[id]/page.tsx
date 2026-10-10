@@ -38,7 +38,7 @@ import { formatTimestamp } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import ProcedimentoPrecoSugeridoCard from '@/components/pricing/ProcedimentoPrecoSugeridoCard';
-import { FORMAS_PAGAMENTO } from '@/lib/precificacao';
+import { FORMAS_PAGAMENTO, formatarDataProcedimento } from '@/lib/precificacao';
 
 export default function SolicitacaoDetalhesPage() {
   const { claims, user } = useAuth();
@@ -314,9 +314,7 @@ export default function SolicitacaoDetalhesPage() {
                 <Label className="text-muted-foreground">Data do Procedimento</Label>
                 <p className="font-medium text-lg">
                   {solicitacao.dt_procedimento?.toDate
-                    ? solicitacao.dt_procedimento
-                        .toDate()
-                        .toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                    ? formatarDataProcedimento(solicitacao.dt_procedimento.toDate())
                     : 'N/A'}
                 </p>
               </div>

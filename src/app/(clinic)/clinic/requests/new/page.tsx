@@ -37,6 +37,7 @@ import {
 } from '@/lib/services/solicitacaoService';
 import { listProtocolos } from '@/lib/services/protocoloService';
 import { getCustoHoraConfig } from '@/lib/services/custoHoraService';
+import { formatCurrency } from '@/lib/services/reportService';
 import { salvarPrecificacaoProcedimento } from '@/lib/services/precificacaoProcedimentoService';
 import {
   AlertDialog,
@@ -115,6 +116,8 @@ export default function NovaSolicitacaoPage() {
 
   // Precificação (FEAT-precificacao-hora-clinica, Fase 2B)
   const [duracaoTexto, setDuracaoTexto] = useState('');
+  // true enquanto o campo guarda a duração preenchida pelo protocolo, sem edição
+  const [duracaoVeioDoProtocolo, setDuracaoVeioDoProtocolo] = useState(false);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix_dinheiro');
   const [custoConfig, setCustoConfig] = useState<CustoHoraConfig | null>(null);
   const [custoConfigStatus, setCustoConfigStatus] = useState<'carregando' | 'ok' | 'erro'>(
@@ -363,6 +366,7 @@ export default function NovaSolicitacaoPage() {
     // D11: a duração do protocolo preenche o campo vazio; sem duração, vale 1 hora
     if (protocolo.duracao_minutos && duracaoTexto.trim() === '') {
       setDuracaoTexto(String(protocolo.duracao_minutos));
+      setDuracaoVeioDoProtocolo(true);
     } else if (!protocolo.duracao_minutos) {
       setAvisoProtocoloSemDuracao(true);
     }
@@ -706,6 +710,7 @@ export default function NovaSolicitacaoPage() {
   const duracao = resolverDuracaoProcedimento({
     duracaoInformada: 'valor' in textoDuracao ? textoDuracao.valor : null,
     protocoloAplicado: protocoloSelecionado,
+    campoPreenchidoPeloProtocolo: duracaoVeioDoProtocolo,
   });
   // D12: custos do mês da data do procedimento; sem data, prévia com o mês corrente
   const mesReferencia = dtProcedimento
@@ -740,15 +745,15 @@ export default function NovaSolicitacaoPage() {
       <CardContent className="space-y-3">
         {custoConfigStatus === 'erro' && (
           <p className="text-sm text-muted-foreground">
-            Não foi possível carregar os custos fixos. Material: R$ {valorTotal.toFixed(2)}
+            Não foi possível carregar os custos fixos. Material: {formatCurrency(valorTotal)}
           </p>
         )}
         {custoConfigStatus === 'ok' && (!custoConfig || resumoCusto?.custoHora == null) && (
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              Configure seus custos fixos para ver o preço sugerido. Material: R${' '}
-              {valorTotal.toFixed(2)}
+              Configure seus custos fixos para ver o preço sugerido. Material:{' '}
+              {formatCurrency(valorTotal)}
               <Button
                 variant="outline"
                 size="sm"
@@ -973,7 +978,10 @@ export default function NovaSolicitacaoPage() {
                       step={1}
                       placeholder="Ex: 60"
                       value={duracaoTexto}
-                      onChange={(e) => setDuracaoTexto(e.target.value)}
+                      onChange={(e) => {
+                        setDuracaoTexto(e.target.value);
+                        setDuracaoVeioDoProtocolo(false);
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       Usada para calcular o custo da hora clínica. Em branco, considera 1 hora.
@@ -1105,12 +1113,11 @@ export default function NovaSolicitacaoPage() {
                                 <Badge variant="outline">{produto.quantidade_disponivel}</Badge>
                               </TableCell>
                               <TableCell className="text-right">
-                                R$ {produto.valor_unitario.toFixed(2)}
+                                {formatCurrency(produto.valor_unitario)}
                               </TableCell>
                               <TableCell className="text-right font-medium">
-                                R${' '}
-                                {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(
-                                  2
+                                {formatCurrency(
+                                  produto.quantidade_solicitada * produto.valor_unitario
                                 )}
                               </TableCell>
                               <TableCell>
@@ -1129,7 +1136,7 @@ export default function NovaSolicitacaoPage() {
                               Valor Total:
                             </TableCell>
                             <TableCell className="text-right font-bold">
-                              R$ {valorTotal.toFixed(2)}
+                              {formatCurrency(valorTotal)}
                             </TableCell>
                             <TableCell></TableCell>
                           </TableRow>
@@ -1219,7 +1226,7 @@ export default function NovaSolicitacaoPage() {
               <CardHeader>
                 <CardTitle>Produtos a Consumir</CardTitle>
                 <CardDescription>
-                  {produtosSelecionados.length} produto(s) - Total: R$ {valorTotal.toFixed(2)}
+                  {produtosSelecionados.length} produto(s) - Total: {formatCurrency(valorTotal)}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1246,7 +1253,7 @@ export default function NovaSolicitacaoPage() {
                           {produto.quantidade_solicitada}
                         </TableCell>
                         <TableCell className="text-right">
-                          R$ {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(2)}
+                          {formatCurrency(produto.quantidade_solicitada * produto.valor_unitario)}
                         </TableCell>
                       </TableRow>
                     ))}

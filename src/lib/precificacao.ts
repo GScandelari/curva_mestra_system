@@ -683,9 +683,14 @@ export function parseDuracaoMinutos(texto: string): { valor: number | null } | {
 export function resolverDuracaoProcedimento(params: {
   duracaoInformada: number | null;
   protocoloAplicado: { duracao_minutos?: number } | null;
+  /** O campo guarda a duração preenchida pelo protocolo, sem edição do usuário. */
+  campoPreenchidoPeloProtocolo?: boolean;
 }): { minutos: number; origem: OrigemDuracao } {
   if (duracaoValida(params.duracaoInformada)) {
-    return { minutos: params.duracaoInformada, origem: 'informada' };
+    return {
+      minutos: params.duracaoInformada,
+      origem: params.campoPreenchidoPeloProtocolo ? 'protocolo' : 'informada',
+    };
   }
   const doProtocolo = params.protocoloAplicado?.duracao_minutos;
   if (duracaoValida(doProtocolo)) return { minutos: doProtocolo, origem: 'protocolo' };
@@ -693,12 +698,37 @@ export function resolverDuracaoProcedimento(params: {
 }
 
 /**
- * RN-31: o client grava `dt_procedimento` como meia-noite UTC da data digitada,
- * então a data de calendário é a parte UTC — converter para São Paulo jogaria
- * o dia 1º no mês anterior.
+ * RN-31: data de calendário ('YYYY-MM-DD') do procedimento. O cadastro grava
+ * `dt_procedimento` à meia-noite UTC da data digitada — lida em UTC, senão o
+ * dia 1º cairia no mês anterior em São Paulo. Concluir antes da data agendada
+ * grava o horário real da conclusão — esse é lido em São Paulo, senão uma
+ * conclusão após 21h viraria o dia seguinte.
  */
+export function dataCalendarioDoProcedimento(data: Date): string {
+  const meiaNoiteUtc =
+    data.getUTCHours() === 0 &&
+    data.getUTCMinutes() === 0 &&
+    data.getUTCSeconds() === 0 &&
+    data.getUTCMilliseconds() === 0;
+  if (meiaNoiteUtc) return data.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(data);
+}
+
+/** 'dd/mm/aaaa' da data do procedimento (mesma regra de dataCalendarioDoProcedimento). */
+export function formatarDataProcedimento(data: Date): string {
+  const [ano, mes, dia] = dataCalendarioDoProcedimento(data).split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
 export function mesReferenciaDoProcedimento(data: string | Date): string {
-  return typeof data === 'string' ? data.slice(0, 7) : data.toISOString().slice(0, 7);
+  return typeof data === 'string'
+    ? data.slice(0, 7)
+    : dataCalendarioDoProcedimento(data).slice(0, 7);
 }
 
 export interface CustoMaterialSolicitacao {

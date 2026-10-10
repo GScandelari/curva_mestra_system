@@ -32,7 +32,11 @@ import {
 import { formatTimestamp } from '@/lib/utils';
 import { getCustoHoraConfig } from '@/lib/services/custoHoraService';
 import { listPrecificacoesProcedimentos } from '@/lib/services/precificacaoProcedimentoService';
-import { FORMAS_PAGAMENTO, estimarPrecificacaoProcedimento } from '@/lib/precificacao';
+import {
+  FORMAS_PAGAMENTO,
+  estimarPrecificacaoProcedimento,
+  formatarDataProcedimento,
+} from '@/lib/precificacao';
 import type { CustoHoraConfig, FormaPagamento, PrecificacaoProcedimento } from '@/types';
 
 interface PrecificacaoLinha {
@@ -352,9 +356,7 @@ export default function SolicitacoesPage() {
                         </TableCell>
                         <TableCell>
                           {solicitacao.dt_procedimento?.toDate
-                            ? solicitacao.dt_procedimento
-                                .toDate()
-                                .toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                            ? formatarDataProcedimento(solicitacao.dt_procedimento.toDate())
                             : 'N/A'}
                         </TableCell>
                         <TableCell className="text-right">
