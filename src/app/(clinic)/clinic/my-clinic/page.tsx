@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Users, UserCheck, TrendingDown } from 'lucide-react';
+import { Building2, Users, UserCheck, TrendingDown, Calculator } from 'lucide-react';
 
 import dynamic from 'next/dynamic';
 
@@ -28,6 +28,13 @@ const StockLimitsTab = dynamic(() => import('@/components/clinic/StockLimitsTab'
   loading: () => <div className="p-8 text-center">Carregando...</div>,
 });
 
+const FixedCostsTab = dynamic(() => import('@/components/clinic/FixedCostsTab'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-center">Carregando...</div>,
+});
+
+const ADMIN_ONLY_TABS = new Set(['users', 'stock_limits', 'fixed_costs']);
+
 export default function MyClinicPage() {
   const searchParams = useSearchParams();
   const { claims } = useAuth();
@@ -43,11 +50,13 @@ export default function MyClinicPage() {
     }
   }, [searchParams]);
 
+  // Só depois que as claims carregam: antes disso isAdmin é false para todos e
+  // um link direto (?tab=fixed_costs) voltava para 'clinic' até para o admin.
   useEffect(() => {
-    if (!isAdmin && (activeTab === 'users' || activeTab === 'stock_limits')) {
+    if (claims && !isAdmin && ADMIN_ONLY_TABS.has(activeTab)) {
       setActiveTab('clinic');
     }
-  }, [isAdmin, activeTab]);
+  }, [claims, isAdmin, activeTab]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -67,7 +76,7 @@ export default function MyClinicPage() {
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList
-          className={`grid w-full ${isAdmin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'} mb-6`}
+          className={`grid w-full ${isAdmin ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2'} mb-6`}
         >
           <TabsTrigger value="clinic" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
@@ -83,6 +92,12 @@ export default function MyClinicPage() {
             <TabsTrigger value="stock_limits" className="flex items-center gap-2">
               <TrendingDown className="h-4 w-4" />
               Limite de Estoque
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="fixed_costs" className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Custos Fixos
             </TabsTrigger>
           )}
           <TabsTrigger value="consultant" className="flex items-center gap-2">
@@ -104,6 +119,12 @@ export default function MyClinicPage() {
         {isAdmin && (
           <TabsContent value="stock_limits">
             <StockLimitsTab />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="fixed_costs">
+            <FixedCostsTab />
           </TabsContent>
         )}
 

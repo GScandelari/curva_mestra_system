@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,33 @@ import {
   type CreateSolicitacaoEfetuadaInput,
 } from '@/lib/services/solicitacaoService';
 import { listProtocolos } from '@/lib/services/protocoloService';
-import type { Protocolo } from '@/types';
+import { getCustoHoraConfig } from '@/lib/services/custoHoraService';
+import { formatCurrency } from '@/lib/services/reportService';
+import { salvarPrecificacaoProcedimento } from '@/lib/services/precificacaoProcedimentoService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import FormaPagamentoSelector from '@/components/pricing/FormaPagamentoSelector';
+import ProcedimentoPrecificacao from '@/components/pricing/ProcedimentoPrecificacao';
+import {
+  FORMAS_PAGAMENTO,
+  calcularCustoMaterialSolicitacao,
+  calcularPrecificacaoProcedimento,
+  calcularResumoCustoHora,
+  mesCorrenteSaoPaulo,
+  mesReferenciaDoProcedimento,
+  montarSnapshotPrecificacao,
+  parseDuracaoMinutos,
+  parseFormaPagamento,
+  resolverDuracaoProcedimento,
+} from '@/lib/precificacao';
+import type { CustoHoraConfig, FormaPagamento, ProdutoSolicitado, Protocolo } from '@/types';
 
 type Step = 'adicionar_produtos' | 'revisao';
 
@@ -86,6 +112,17 @@ export default function NovaSolicitacaoPage() {
   // Estados de protocolo
   const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
   const [protocoloSelecionado, setProtocoloSelecionado] = useState<Protocolo | null>(null);
+  const [avisoProtocoloSemDuracao, setAvisoProtocoloSemDuracao] = useState(false);
+
+  // Precificação (FEAT-precificacao-hora-clinica, Fase 2B)
+  const [duracaoTexto, setDuracaoTexto] = useState('');
+  // true enquanto o campo guarda a duração preenchida pelo protocolo, sem edição
+  const [duracaoVeioDoProtocolo, setDuracaoVeioDoProtocolo] = useState(false);
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix_dinheiro');
+  const [custoConfig, setCustoConfig] = useState<CustoHoraConfig | null>(null);
+  const [custoConfigStatus, setCustoConfigStatus] = useState<'carregando' | 'ok' | 'erro'>(
+    'carregando'
+  );
 
   // Estados de loading e erro
   const [loading, setLoading] = useState(false);
@@ -122,6 +159,20 @@ export default function NovaSolicitacaoPage() {
     loadInventory();
   }, [tenantId, toast]);
 
+  // Custos fixos — a tela é exclusiva de clinic_admin, único papel que lê `financeiro`
+  useEffect(() => {
+    if (!tenantId || claims?.role !== 'clinic_admin') return;
+    getCustoHoraConfig(tenantId)
+      .then((config) => {
+        setCustoConfig(config);
+        setCustoConfigStatus('ok');
+      })
+      .catch((err) => {
+        console.error('Erro ao carregar custos fixos:', err);
+        setCustoConfigStatus('erro');
+      });
+  }, [tenantId, claims?.role]);
+
   // Carregar protocolos disponíveis
   useEffect(() => {
     if (!tenantId || isEditMode) return;
@@ -143,6 +194,10 @@ export default function NovaSolicitacaoPage() {
 
       const obsParam = searchParams.get('observacoes');
       if (obsParam) setObservacoes(obsParam);
+
+      const duracaoParam = searchParams.get('duracaoMinutos');
+      if (duracaoParam) setDuracaoTexto(duracaoParam);
+      setFormaPagamento(parseFormaPagamento(searchParams.get('formaPagamento')));
 
       const produtosParam = searchParams.get('produtos');
       if (produtosParam) {
@@ -308,6 +363,14 @@ export default function NovaSolicitacaoPage() {
     setProdutosSelecionados([...produtosSelecionados, ...novosAlocados]);
     setProtocoloSelecionado(protocolo);
 
+    // D11: a duração do protocolo preenche o campo vazio; sem duração, vale 1 hora
+    if (protocolo.duracao_minutos && duracaoTexto.trim() === '') {
+      setDuracaoTexto(String(protocolo.duracao_minutos));
+      setDuracaoVeioDoProtocolo(true);
+    } else if (!protocolo.duracao_minutos) {
+      setAvisoProtocoloSemDuracao(true);
+    }
+
     if (insuficientes.length > 0) {
       toast({
         title: 'Protocolo aplicado com estoque insuficiente',
@@ -450,6 +513,12 @@ export default function NovaSolicitacaoPage() {
   const handleIrParaRevisao = () => {
     if (!validateStep1()) return;
 
+    const duracao = parseDuracaoMinutos(duracaoTexto);
+    if ('erro' in duracao) {
+      toast({ title: duracao.erro, variant: 'destructive' });
+      return;
+    }
+
     if (produtosSelecionados.length === 0) {
       toast({
         title: 'Adicione produtos',
@@ -470,11 +539,59 @@ export default function NovaSolicitacaoPage() {
     }));
   }
 
+  /** Só a duração presente no campo (digitada ou do protocolo); o padrão de 1 h não é gravado. */
+  function duracaoDoCampo(): number | null {
+    const duracao = parseDuracaoMinutos(duracaoTexto);
+    return 'valor' in duracao ? duracao.valor : null;
+  }
+
+  /**
+   * D10: snapshot do preço sugerido. Best-effort — o procedimento já foi
+   * gravado e não pode falhar por causa da precificação.
+   */
+  async function registrarPrecificacao(
+    tenantId: string,
+    solicitacaoId: string,
+    produtosGravados: ProdutoSolicitado[] | undefined,
+    origem: 'criacao' | 'edicao'
+  ) {
+    if (custoConfigStatus !== 'ok' || !custoConfig || !user) return;
+    try {
+      await salvarPrecificacaoProcedimento(
+        tenantId,
+        user.uid,
+        montarSnapshotPrecificacao({
+          tenantId,
+          solicitacaoId,
+          config: custoConfig,
+          mesReferencia: mesReferenciaDoProcedimento(dtProcedimento),
+          duracao,
+          formaPagamento,
+          produtos:
+            produtosGravados ??
+            produtosSelecionados.map((p) => ({
+              quantidade: p.quantidade_solicitada,
+              valor_unitario: p.valor_unitario,
+            })),
+          origem,
+        })
+      );
+    } catch (err) {
+      console.error('Erro ao registrar precificação do procedimento:', err);
+      toast({
+        title: 'Procedimento salvo, mas a precificação não foi registrada',
+        description: 'O detalhe mostrará uma estimativa com os custos atuais.',
+      });
+    }
+  }
+
   async function submitEditMode(tenantId: string, editId: string, userName: string) {
     const updatePayload: Parameters<typeof updateSolicitacaoAgendada>[4] = {
       descricao: descricao || undefined,
       dt_procedimento: new Date(dtProcedimento),
       produtos: buildProdutosPayload(),
+      duracao_minutos: duracaoDoCampo(),
+      forma_pagamento: formaPagamento,
     };
     if (observacoes) updatePayload.observacoes = observacoes;
 
@@ -487,6 +604,7 @@ export default function NovaSolicitacaoPage() {
     );
 
     if (result.success) {
+      await registrarPrecificacao(tenantId, editId, result.produtosSolicitados, 'edicao');
       toast({
         title: 'Procedimento atualizado com sucesso!',
         description: 'As reservas de produtos foram ajustadas',
@@ -514,6 +632,8 @@ export default function NovaSolicitacaoPage() {
             observacoes: observacoes || undefined,
             protocolo_id: protocoloSelecionado?.id,
             protocolo_nome: protocoloSelecionado?.nome,
+            duracao_minutos: duracaoDoCampo() ?? undefined,
+            forma_pagamento: formaPagamento,
           } satisfies CreateSolicitacaoEfetuadaInput)
         : await createSolicitacaoWithConsumption(tenantId, user!.uid, userName, {
             descricao: descricao || undefined,
@@ -522,9 +642,17 @@ export default function NovaSolicitacaoPage() {
             observacoes: observacoes || undefined,
             protocolo_id: protocoloSelecionado?.id,
             protocolo_nome: protocoloSelecionado?.nome,
+            duracao_minutos: duracaoDoCampo() ?? undefined,
+            forma_pagamento: formaPagamento,
           } satisfies CreateSolicitacaoInput);
 
-    if (result.success) {
+    if (result.success && result.solicitacaoId) {
+      await registrarPrecificacao(
+        tenantId,
+        result.solicitacaoId,
+        result.produtosSolicitados,
+        'criacao'
+      );
       toast({
         title: 'Procedimento criado com sucesso!',
         description:
@@ -576,6 +704,87 @@ export default function NovaSolicitacaoPage() {
   const valorTotal = produtosSelecionados.reduce(
     (sum, p) => sum + p.quantidade_solicitada * p.valor_unitario,
     0
+  );
+
+  const textoDuracao = parseDuracaoMinutos(duracaoTexto);
+  const duracao = resolverDuracaoProcedimento({
+    duracaoInformada: 'valor' in textoDuracao ? textoDuracao.valor : null,
+    protocoloAplicado: protocoloSelecionado,
+    campoPreenchidoPeloProtocolo: duracaoVeioDoProtocolo,
+  });
+  // D12: custos do mês da data do procedimento; sem data, prévia com o mês corrente
+  const mesReferencia = dtProcedimento
+    ? mesReferenciaDoProcedimento(dtProcedimento)
+    : mesCorrenteSaoPaulo();
+  const resumoCusto = useMemo(
+    () => (custoConfig ? calcularResumoCustoHora(custoConfig, mesReferencia) : null),
+    [custoConfig, mesReferencia]
+  );
+  const precificacao = calcularPrecificacaoProcedimento({
+    duracaoMinutos: duracao.minutos,
+    custoHora: resumoCusto?.custoHora ?? null,
+    divisores: resumoCusto?.divisores ?? { pix_dinheiro: null, debito: null, credito: null },
+    custoMaterial: calcularCustoMaterialSolicitacao(
+      produtosSelecionados.map((p) => ({
+        quantidade: p.quantidade_solicitada,
+        valor_unitario: p.valor_unitario,
+      }))
+    ),
+  });
+  const rotuloFormaPagamento =
+    FORMAS_PAGAMENTO.find((f) => f.key === formaPagamento)?.label ?? 'Pix/Dinheiro';
+
+  const blocoPrecificacao = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Preço sugerido</CardTitle>
+        <CardDescription>
+          Custo dos materiais + hora clínica, com as taxas de cada forma de pagamento
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {custoConfigStatus === 'erro' && (
+          <p className="text-sm text-muted-foreground">
+            Não foi possível carregar os custos fixos. Material: {formatCurrency(valorTotal)}
+          </p>
+        )}
+        {custoConfigStatus === 'ok' && (!custoConfig || resumoCusto?.custoHora == null) && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              Configure seus custos fixos para ver o preço sugerido. Material:{' '}
+              {formatCurrency(valorTotal)}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/clinic/my-clinic?tab=fixed_costs')}
+              >
+                Configurar custos fixos
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        {custoConfig && resumoCusto?.custoHora != null && (
+          <ProcedimentoPrecificacao
+            duracaoMinutos={duracao.minutos}
+            duracaoOrigem={duracao.origem}
+            custoMaterial={precificacao.custoMaterial}
+            custoHoraAplicado={precificacao.custoHoraAplicado}
+            custoReal={precificacao.custoReal}
+            precos={precificacao.precos}
+            markup={custoConfig.markup}
+            formaPagamento={formaPagamento}
+            seloForma="Forma escolhida"
+            mesReferencia={mesReferencia}
+          />
+        )}
+        {custoConfig && resumoCusto?.custoHora != null && !dtProcedimento && (
+          <p className="text-xs text-muted-foreground">
+            Informe a data para calcular com os custos do mês do procedimento.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 
   const formatarDataLocal = (dataString: string) => {
@@ -758,6 +967,35 @@ export default function NovaSolicitacaoPage() {
                   />
                 </div>
 
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="duracao">Duração (min)</Label>
+                    <Input
+                      id="duracao"
+                      type="number"
+                      min={1}
+                      max={1440}
+                      step={1}
+                      placeholder="Ex: 60"
+                      value={duracaoTexto}
+                      onChange={(e) => {
+                        setDuracaoTexto(e.target.value);
+                        setDuracaoVeioDoProtocolo(false);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Usada para calcular o custo da hora clínica. Em branco, considera 1 hora.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Forma de pagamento</Label>
+                    <FormaPagamentoSelector value={formaPagamento} onChange={setFormaPagamento} />
+                    <p className="text-xs text-muted-foreground">
+                      Informativa: o preço sugerido mostra as três formas.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="observacoes">Observações (opcional)</Label>
                   <Input
@@ -875,12 +1113,11 @@ export default function NovaSolicitacaoPage() {
                                 <Badge variant="outline">{produto.quantidade_disponivel}</Badge>
                               </TableCell>
                               <TableCell className="text-right">
-                                R$ {produto.valor_unitario.toFixed(2)}
+                                {formatCurrency(produto.valor_unitario)}
                               </TableCell>
                               <TableCell className="text-right font-medium">
-                                R${' '}
-                                {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(
-                                  2
+                                {formatCurrency(
+                                  produto.quantidade_solicitada * produto.valor_unitario
                                 )}
                               </TableCell>
                               <TableCell>
@@ -899,7 +1136,7 @@ export default function NovaSolicitacaoPage() {
                               Valor Total:
                             </TableCell>
                             <TableCell className="text-right font-bold">
-                              R$ {valorTotal.toFixed(2)}
+                              {formatCurrency(valorTotal)}
                             </TableCell>
                             <TableCell></TableCell>
                           </TableRow>
@@ -908,6 +1145,8 @@ export default function NovaSolicitacaoPage() {
                     </div>
                   </div>
                 )}
+
+                {produtosSelecionados.length > 0 && blocoPrecificacao}
 
                 <div className="flex justify-end">
                   <Button onClick={handleIrParaRevisao}>
@@ -962,6 +1201,17 @@ export default function NovaSolicitacaoPage() {
                     <Label className="text-muted-foreground">Data do Procedimento</Label>
                     <p className="font-medium">{formatarDataLocal(dtProcedimento)}</p>
                   </div>
+                  <div>
+                    <Label className="text-muted-foreground">Duração</Label>
+                    <p className="font-medium">
+                      {duracao.minutos} min
+                      {duracao.origem === 'padrao' ? ' (padrão — duração não informada)' : ''}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Forma de pagamento</Label>
+                    <p className="font-medium">{rotuloFormaPagamento}</p>
+                  </div>
                   {observacoes && (
                     <div>
                       <Label className="text-muted-foreground">Observações</Label>
@@ -976,7 +1226,7 @@ export default function NovaSolicitacaoPage() {
               <CardHeader>
                 <CardTitle>Produtos a Consumir</CardTitle>
                 <CardDescription>
-                  {produtosSelecionados.length} produto(s) - Total: R$ {valorTotal.toFixed(2)}
+                  {produtosSelecionados.length} produto(s) - Total: {formatCurrency(valorTotal)}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1003,7 +1253,7 @@ export default function NovaSolicitacaoPage() {
                           {produto.quantidade_solicitada}
                         </TableCell>
                         <TableCell className="text-right">
-                          R$ {(produto.quantidade_solicitada * produto.valor_unitario).toFixed(2)}
+                          {formatCurrency(produto.quantidade_solicitada * produto.valor_unitario)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1011,6 +1261,8 @@ export default function NovaSolicitacaoPage() {
                 </Table>
               </CardContent>
             </Card>
+
+            {blocoPrecificacao}
 
             <div className="flex justify-between">
               <Button
@@ -1048,6 +1300,22 @@ export default function NovaSolicitacaoPage() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={avisoProtocoloSemDuracao} onOpenChange={setAvisoProtocoloSemDuracao}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Protocolo sem duração</AlertDialogTitle>
+            <AlertDialogDescription>
+              O protocolo &quot;{protocoloSelecionado?.nome}&quot; não tem duração cadastrada. Será
+              considerada 1 hora de procedimento, a menos que você informe a duração neste
+              procedimento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Entendi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

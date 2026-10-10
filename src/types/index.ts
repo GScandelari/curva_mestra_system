@@ -196,6 +196,8 @@ export interface Solicitacao {
   observacoes?: string;
   protocolo_id?: string;
   protocolo_nome?: string;
+  duracao_minutos?: number; // 1..1440 — só a duração do campo (digitada ou do protocolo)
+  forma_pagamento?: FormaPagamento; // informativa; ausente = legado (tratado como Pix/Dinheiro)
   created_by: string; // UID do usuário que criou
   created_by_name?: string; // Nome do usuário que criou
   updated_by?: string;
@@ -403,10 +405,118 @@ export interface Protocolo {
   nome: string;
   descricao?: string;
   itens: ProtocoloItem[];
+  duracao_minutos?: number; // inteiro 1..1440; ausente em protocolos legados
   active: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
   created_by: string;
+}
+
+// ============================================================================
+// PRECIFICAÇÃO PELA HORA CLÍNICA
+// ============================================================================
+
+export type DiaSemanaKey = 'dom' | 'seg' | 'ter' | 'qua' | 'qui' | 'sex' | 'sab'; // índice = Date.getDay()
+
+export type CustoFixoBaseKey =
+  | 'aluguel'
+  | 'condominio'
+  | 'iptu'
+  | 'pro_labore'
+  | 'energia'
+  | 'salarios'
+  | 'tarifas_bancarias'
+  | 'marketing'
+  | 'contabilidade'
+  | 'manutencao_limpeza'
+  | 'telefone'
+  | 'sistema_agenda_prontuario';
+
+export interface CustoFixoPersonalizado {
+  id: string;
+  nome: string;
+  valor: number; // R$ >= 0
+}
+
+export interface BoletoTec {
+  id: string;
+  descricao: string;
+  valor_parcela: number; // R$ > 0
+  total_parcelas: number; // inteiro >= 1
+  parcelas_pagas: number; // inteiro 0..total_parcelas, na data de mes_referencia
+  mes_referencia: string; // 'YYYY-MM' — mês em que parcelas_pagas foi informado
+}
+
+export interface PeriodoAtendimento {
+  inicio: string; // 'HH:MM' 24h
+  fim: string; // 'HH:MM' 24h, > inicio
+}
+
+export interface DisponibilidadeDia {
+  ativo: boolean;
+  periodos: PeriodoAtendimento[];
+}
+
+export type FormaPagamento = 'pix_dinheiro' | 'debito' | 'credito';
+
+export interface ParametrosMarkup {
+  imposto_pct: number; // 0..100 (ex.: 6 = 6%)
+  debito_pct: number; // taxa da maquininha no débito
+  credito_pct: number; // taxa da maquininha no crédito
+  comissao_pct: number;
+  margem_pct: number;
+}
+
+/** Formato gravado até a v1.2 (taxa única de cartão) — só para normalização na leitura. */
+export interface ParametrosMarkupLegado {
+  imposto_pct: number;
+  cartao_pct: number;
+  comissao_pct: number;
+  margem_pct: number;
+}
+
+export type OrigemDuracao = 'informada' | 'protocolo' | 'padrao';
+
+/**
+ * tenants/{tenantId}/precificacao_procedimentos/{solicitacaoId} — só clinic_admin.
+ * Snapshot gravado ao confirmar o procedimento; a solicitação não guarda
+ * nenhum destes valores porque é legível por clinic_user e consultor.
+ */
+export interface PrecificacaoProcedimento {
+  tenant_id: string;
+  solicitacao_id: string;
+  mes_referencia: string; // 'YYYY-MM' — mês da data do procedimento
+  custo_hora: number | null; // null = disponibilidade não configurada
+  duracao_minutos: number; // duração efetiva
+  duracao_origem: OrigemDuracao;
+  custo_hora_aplicado: number | null;
+  custo_material: number;
+  custo_material_incompleto: boolean;
+  custo_real: number | null;
+  markup: ParametrosMarkup;
+  forma_pagamento: FormaPagamento; // informativa — só define o destaque
+  divisores: Record<FormaPagamento, number | null>;
+  precos_sugeridos: Record<FormaPagamento, number | null>;
+  origem: 'criacao' | 'edicao';
+  gravado_em: Timestamp;
+  gravado_por: string;
+}
+
+/** tenants/{tenantId}/financeiro/custo_hora */
+export interface CustoHoraConfig {
+  tenant_id: string;
+  custos_fixos_base: Record<CustoFixoBaseKey, number>;
+  custos_fixos_personalizados: CustoFixoPersonalizado[];
+  boletos_tec: BoletoTec[];
+  disponibilidade: Record<DiaSemanaKey, DisponibilidadeDia>;
+  quantidade_salas: number; // inteiro >= 1
+  quantidade_profissionais: number; // inteiro >= 1
+  markup: ParametrosMarkup;
+  compartilhar_com_consultor: boolean;
+  compartilhado_com_consultant_id: string | null; // consultor que recebeu o opt-in
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  updated_by: string; // uid do clinic_admin
 }
 
 // ============================================================================
@@ -514,7 +624,8 @@ export type AuditEntityType =
   | 'tenant'
   | 'master_product'
   | 'legal_document'
-  | 'system_settings';
+  | 'system_settings'
+  | 'financial_config';
 
 export type AuditAction =
   | 'create'
@@ -526,7 +637,9 @@ export type AuditAction =
   | 'change_role'
   | 'set_password'
   | 'reset_password_link'
-  | 'delete';
+  | 'delete'
+  | 'share_with_consultant'
+  | 'unshare_with_consultant';
 
 export interface AuditLogEntry {
   id: string;

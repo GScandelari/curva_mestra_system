@@ -117,6 +117,17 @@ function consultantWithoutAccess(tenantId: string) {
   });
 }
 
+/** Consultor com `consultant_id` no token (opt-in financeiro, RN-13/RN-18). */
+function consultantWith(consultantId: string, tenants: string[], active = true) {
+  return testEnv.authenticatedContext(`consultant-${consultantId}`, {
+    is_consultant: true,
+    is_system_admin: false,
+    consultant_id: consultantId,
+    authorized_tenants: tenants,
+    active,
+  });
+}
+
 /** Grava um doc direto no emulador, sem passar pelas regras (seed de teste). */
 async function seed(pathStr: string, data: Record<string, unknown>) {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -365,5 +376,280 @@ describe('tenants/{tenantId}/settings/notifications', () => {
   it('usuário de outro tenant não lê nem escreve', async () => {
     const db = clinicAdmin(TENANT_B).firestore();
     await assertFails(getDoc(doc(db, docPathA)));
+  });
+});
+
+// --- financeiro: dados financeiros internos (FEAT-precificacao-hora-clinica).
+// Leitura E escrita só clinic_admin; excluída do fallback genérico, então
+// clinic_user não lê. Consultor só lê com opt-in amarrado ao seu
+// consultant_id (RN-13). ------------------------------------------------------
+
+describe('tenants/{tenantId}/financeiro', () => {
+  const docPathA = `tenants/${TENANT_A}/financeiro/custo_hora`;
+  const collectionPathA = `tenants/${TENANT_A}/financeiro`;
+
+  const config = (overrides: Record<string, unknown> = {}) => ({
+    tenant_id: TENANT_A,
+    compartilhar_com_consultor: false,
+    compartilhado_com_consultant_id: null,
+    ...overrides,
+  });
+
+  it('clinic_admin do tenant lê (get e list) e escreve', async () => {
+    await seed(docPathA, config());
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+    await assertSucceeds(setDoc(doc(db, docPathA), config({ quantidade_salas: 2 })));
+  });
+
+  it('clinic_admin cria o documento quando ele ainda não existe', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertSucceeds(setDoc(doc(db, docPathA), config()));
+  });
+
+  it('clinic_admin NÃO escreve com tenant_id de outro tenant', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, docPathA), config({ tenant_id: TENANT_B })));
+  });
+
+  it('clinic_admin NÃO escreve sem compartilhar_com_consultor booleano', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, docPathA), { tenant_id: TENANT_A }));
+    await assertFails(setDoc(doc(db, docPathA), config({ compartilhar_com_consultor: 'sim' })));
+  });
+
+  it('clinic_admin NÃO deleta (só system_admin)', async () => {
+    await seed(docPathA, config());
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(deleteDoc(doc(db, docPathA)));
+  });
+
+  it('clinic_user do tenant NÃO lê (get nem list) nem escreve', async () => {
+    await seed(docPathA, config());
+    const db = clinicUser(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+    await assertFails(setDoc(doc(db, docPathA), config()));
+  });
+
+  it('usuário de outro tenant NÃO lê nem escreve', async () => {
+    await seed(docPathA, config());
+    const db = clinicAdmin(TENANT_B).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(setDoc(doc(db, docPathA), config()));
+  });
+
+  it('consultor com acesso NÃO lê sem o compartilhamento ligado', async () => {
+    await seed(docPathA, config({ compartilhado_com_consultant_id: 'cons-x' }));
+    const db = consultantWith('cons-x', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+  });
+
+  it('consultor com opt-in para o seu consultant_id lê (get), mas não escreve', async () => {
+    await seed(
+      docPathA,
+      config({ compartilhar_com_consultor: true, compartilhado_com_consultant_id: 'cons-x' })
+    );
+    const db = consultantWith('cons-x', [TENANT_A]).firestore();
+    await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertFails(setDoc(doc(db, docPathA), config()));
+  });
+
+  it('consultor NÃO lê quando o opt-in é de outro consultant_id', async () => {
+    await seed(
+      docPathA,
+      config({ compartilhar_com_consultor: true, compartilhado_com_consultant_id: 'cons-x' })
+    );
+    const db = consultantWith('cons-y', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+  });
+
+  it('consultor sem o tenant em authorized_tenants NÃO lê, mesmo com opt-in do seu id', async () => {
+    await seed(
+      docPathA,
+      config({ compartilhar_com_consultor: true, compartilhado_com_consultant_id: 'cons-x' })
+    );
+    const db = consultantWith('cons-x', [TENANT_B]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+  });
+
+  it('system_admin lê (get e list), escreve e deleta', async () => {
+    await seed(docPathA, config());
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+    await assertSucceeds(setDoc(doc(db, docPathA), config({ quantidade_salas: 3 })));
+    await assertSucceeds(deleteDoc(doc(db, docPathA)));
+  });
+});
+
+// --- protocolos: leitura do consultor com opt-in financeiro (D6/RN-18). Os
+// casos de NEGAÇÃO sem opt-in só valem quando a allowlist de UC-48-RN-06
+// (BUGFIX-consultor-allowlist-subcolecoes) entrar — até lá o bloco genérico
+// ainda concede a leitura ao consultor (semântica OR). -----------------------
+
+describe('protocolos — leitura do consultor com opt-in financeiro (D6)', () => {
+  const finPathA = `tenants/${TENANT_A}/financeiro/custo_hora`;
+  const docPathA = `tenants/${TENANT_A}/protocolos/p1`;
+  const collectionPathA = `tenants/${TENANT_A}/protocolos`;
+  const optIn = {
+    tenant_id: TENANT_A,
+    compartilhar_com_consultor: true,
+    compartilhado_com_consultant_id: 'cons-x',
+  };
+
+  beforeEach(async () => {
+    await seed(docPathA, { nome: 'Protocolo X', active: true });
+  });
+
+  it('consultor com opt-in para o seu consultant_id lê (get e list), mas não escreve', async () => {
+    await seed(finPathA, optIn);
+    const db = consultantWith('cons-x', [TENANT_A]).firestore();
+    await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+    await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+  });
+
+  it('consultor sem o tenant em authorized_tenants NÃO lê, mesmo com opt-in do seu id', async () => {
+    await seed(finPathA, optIn);
+    const db = consultantWith('cons-x', [TENANT_B]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('consultor inativo NÃO lê, mesmo com opt-in válido', async () => {
+    await seed(finPathA, optIn);
+    const db = consultantWith('cons-x', [TENANT_A], false).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('clinic_admin e clinic_user leem protocolos sem documento financeiro (regressão)', async () => {
+    await assertSucceeds(
+      getDocs(query(collection(clinicAdmin(TENANT_A).firestore(), collectionPathA)))
+    );
+    await assertSucceeds(
+      getDocs(query(collection(clinicUser(TENANT_A).firestore(), collectionPathA)))
+    );
+  });
+
+  // Ativar quando a allowlist de UC-48-RN-06 estiver em develop.
+  it.todo('consultor com acesso NÃO lê com opt-in desligado (UC-48-RN-06)');
+  it.todo('consultor com acesso NÃO lê com opt-in de outro consultant_id (UC-48-RN-06)');
+  it.todo('consultor com acesso NÃO lê sem documento financeiro (UC-48-RN-06)');
+});
+
+// --- precificacao_procedimentos: snapshot da precificação de cada
+// procedimento (FEAT-precificacao-hora-clinica, D10). Só clinic_admin lê e
+// grava; o opt-in financeiro do consultor NÃO libera estes documentos. ------
+
+describe('tenants/{tenantId}/precificacao_procedimentos', () => {
+  const docPathA = `tenants/${TENANT_A}/precificacao_procedimentos/s1`;
+  const collectionPathA = `tenants/${TENANT_A}/precificacao_procedimentos`;
+
+  const snapshot = (overrides: Record<string, unknown> = {}) => ({
+    tenant_id: TENANT_A,
+    solicitacao_id: 's1',
+    forma_pagamento: 'pix_dinheiro',
+    preco_sugerido: 1489.16,
+    ...overrides,
+  });
+
+  beforeEach(async () => {
+    await seed(`tenants/${TENANT_A}/solicitacoes/s1`, { status: 'agendada' });
+    await seed(`tenants/${TENANT_A}/solicitacoes/s2`, { status: 'agendada' });
+    await seed(docPathA, snapshot());
+    await seed(`tenants/${TENANT_A}/financeiro/custo_hora`, {
+      tenant_id: TENANT_A,
+      compartilhar_com_consultor: true,
+      compartilhado_com_consultant_id: 'cons-x',
+    });
+  });
+
+  it('clinic_admin do tenant lê (get e list)', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('clinic_admin cria e atualiza com tenant, solicitação e forma válidos', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertSucceeds(setDoc(doc(db, docPathA), snapshot({ forma_pagamento: 'credito' })));
+    await assertSucceeds(
+      setDoc(
+        doc(db, `tenants/${TENANT_A}/precificacao_procedimentos/s2`),
+        snapshot({ solicitacao_id: 's2', forma_pagamento: 'debito' })
+      )
+    );
+  });
+
+  it('clinic_admin NÃO grava com tenant_id de outro tenant', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, docPathA), snapshot({ tenant_id: TENANT_B })));
+  });
+
+  it('clinic_admin NÃO grava com solicitacao_id diferente do id do documento', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, docPathA), snapshot({ solicitacao_id: 's2' })));
+  });
+
+  it('clinic_admin NÃO grava com forma de pagamento inválida', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, docPathA), snapshot({ forma_pagamento: 'cartao' })));
+  });
+
+  it('clinic_admin NÃO grava snapshot de solicitação inexistente', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(
+      setDoc(
+        doc(db, `tenants/${TENANT_A}/precificacao_procedimentos/s-inexistente`),
+        snapshot({ solicitacao_id: 's-inexistente' })
+      )
+    );
+  });
+
+  it('clinic_admin NÃO deleta (só system_admin)', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(deleteDoc(doc(db, docPathA)));
+  });
+
+  it('clinic_user do tenant NÃO lê (get nem list) nem escreve', async () => {
+    const db = clinicUser(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+    await assertFails(setDoc(doc(db, docPathA), snapshot()));
+  });
+
+  it('clinic_admin de outro tenant NÃO lê nem escreve', async () => {
+    const db = clinicAdmin(TENANT_B).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(setDoc(doc(db, docPathA), snapshot()));
+  });
+
+  it('consultor com opt-in financeiro ativo para ele NÃO lê nem escreve', async () => {
+    const db = consultantWith('cons-x', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+    await assertFails(setDoc(doc(db, docPathA), snapshot()));
+  });
+
+  it('consultor com acesso e sem opt-in NÃO lê', async () => {
+    const db = consultantWith('cons-y', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('consultor sem o tenant em authorized_tenants NÃO lê', async () => {
+    const db = consultantWith('cons-x', [TENANT_B]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+  });
+
+  it('system_admin lê (get e list), escreve e deleta', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+    await assertSucceeds(setDoc(doc(db, docPathA), snapshot({ forma_pagamento: 'debito' })));
+    await assertSucceeds(deleteDoc(doc(db, docPathA)));
   });
 });
