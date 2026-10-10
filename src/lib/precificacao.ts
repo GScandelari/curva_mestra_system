@@ -748,6 +748,46 @@ export function calcularPrecificacaoProcedimento(params: {
   };
 }
 
+export interface EstimativaProcedimento {
+  mesReferencia: string;
+  duracao: { minutos: number; origem: OrigemDuracao };
+  formaPagamento: FormaPagamento;
+  calculo: PrecificacaoProcedimentoCalculada;
+}
+
+/**
+ * RN-30: estimativa atual de um procedimento sem snapshot (anterior à
+ * precificação), com a configuração de custos de agora e o mês da data do
+ * procedimento. Sem duração gravada vale a hora cheia (D11).
+ */
+export function estimarPrecificacaoProcedimento(
+  config: CustoHoraConfigBase,
+  solicitacao: {
+    dtProcedimento: Date;
+    duracao_minutos?: number;
+    forma_pagamento?: unknown;
+    produtos: { quantidade: number; valor_unitario: unknown }[];
+  }
+): EstimativaProcedimento {
+  const mesReferencia = mesReferenciaDoProcedimento(solicitacao.dtProcedimento);
+  const resumo = calcularResumoCustoHora(config, mesReferencia);
+  const duracao = resolverDuracaoProcedimento({
+    duracaoInformada: solicitacao.duracao_minutos ?? null,
+    protocoloAplicado: null,
+  });
+  return {
+    mesReferencia,
+    duracao,
+    formaPagamento: parseFormaPagamento(solicitacao.forma_pagamento),
+    calculo: calcularPrecificacaoProcedimento({
+      duracaoMinutos: duracao.minutos,
+      custoHora: resumo.custoHora,
+      divisores: resumo.divisores,
+      custoMaterial: calcularCustoMaterialSolicitacao(solicitacao.produtos),
+    }),
+  };
+}
+
 export type SnapshotPrecificacao = Omit<PrecificacaoProcedimento, 'gravado_em' | 'gravado_por'>;
 
 /**

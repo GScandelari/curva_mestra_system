@@ -29,6 +29,7 @@ import {
   calcularPrecificacaoProcedimento,
   mesReferenciaDoProcedimento,
   montarSnapshotPrecificacao,
+  estimarPrecificacaoProcedimento,
   resolverDuracaoProcedimento,
   DURACAO_PADRAO_MINUTOS,
   parseDuracaoMinutos,
@@ -958,5 +959,39 @@ describe('procedimento (RN-22 a RN-24, RN-31, D11 a D13)', () => {
         snapshot({ produtos: [{ quantidade: 1, valor_unitario: 'abc' }] }).custo_material_incompleto
       ).toBe(true);
     });
+  });
+});
+
+describe('estimarPrecificacaoProcedimento (RN-30)', () => {
+  const config = () => ({
+    ...configOficial(),
+    markup: { imposto_pct: 6, debito_pct: 2, credito_pct: 4, comissao_pct: 0, margem_pct: 30 },
+  });
+
+  it('estimates a legacy procedure with one hour and Pix/Dinheiro', () => {
+    const estimativa = estimarPrecificacaoProcedimento(config(), {
+      dtProcedimento: new Date('2026-10-20'),
+      produtos: [{ quantidade: 1, valor_unitario: 100 }],
+    });
+    expect(estimativa.mesReferencia).toBe('2026-10');
+    expect(estimativa.duracao).toEqual({ minutos: 60, origem: 'padrao' });
+    expect(estimativa.formaPagamento).toBe('pix_dinheiro');
+    expect(estimativa.calculo.custoReal).toBeCloseTo(253.06, 2);
+    expect(estimativa.calculo.precos.pix_dinheiro).toBeCloseTo(395.41, 2);
+    expect(estimativa.calculo.precos.credito).toBeCloseTo(421.77, 2);
+  });
+
+  it('uses the stored duration, payment method and procedure month', () => {
+    const estimativa = estimarPrecificacaoProcedimento(config(), {
+      dtProcedimento: new Date('2026-11-01'),
+      duracao_minutos: 30,
+      forma_pagamento: 'credito',
+      produtos: [{ quantidade: 2, valor_unitario: 100 }],
+    });
+    expect(estimativa.mesReferencia).toBe('2026-11');
+    expect(estimativa.duracao).toEqual({ minutos: 30, origem: 'informada' });
+    expect(estimativa.formaPagamento).toBe('credito');
+    expect(estimativa.calculo.custoHoraAplicado).toBeCloseTo(30000 / 184 / 2, 6);
+    expect(estimativa.calculo.custoReal).toBeCloseTo(281.52, 2);
   });
 });
