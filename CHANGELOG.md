@@ -5,6 +5,41 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.14.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.13.1...v1.14.0) (2026-10-10)
+
+
+### Features
+
+* **clinic:** add duration to protocolo form ([4e32d52](https://github.com/GScandelari/curva_mestra_system/commit/4e32d528c8d65d754e3d87fbcf9c64394bb8f271))
+* **clinic:** add fixed costs tab to my clinic ([3195fde](https://github.com/GScandelari/curva_mestra_system/commit/3195fde394f96afa0c8a64ba5180991a72628333))
+* **clinic:** show real cost and suggested price on procedures list ([5050e91](https://github.com/GScandelari/curva_mestra_system/commit/5050e91dcedcc160d9ea0e247cc6b8da35cf5a15))
+* **clinic:** show recorded suggested price on procedure detail ([7d3c59d](https://github.com/GScandelari/curva_mestra_system/commit/7d3c59d1ee5b36d08f2821fcdac8e3788423a4c1))
+* **clinic:** show suggested price on protocolos list ([c9f9bd7](https://github.com/GScandelari/curva_mestra_system/commit/c9f9bd7eb8460ae1558e039ba4590167d2b9aa28))
+* **clinic:** show suggested price when registering a procedure ([076b00c](https://github.com/GScandelari/curva_mestra_system/commit/076b00caba3b1bd4094e6e4dd9035b644f014fbd))
+* **consultant:** add read-only pricing view for shared clinics ([4e7367a](https://github.com/GScandelari/curva_mestra_system/commit/4e7367a6ab19b3467e57ea0b65529e835ee4f9ac))
+* **firebase:** gate consultant protocol reads on financial opt-in ([7b81692](https://github.com/GScandelari/curva_mestra_system/commit/7b816929a64784306e2f60e841fd6f8451cb0897))
+* **firebase:** restrict financeiro subcollection to clinic_admin ([c9f27e7](https://github.com/GScandelari/curva_mestra_system/commit/c9f27e7b9a9c67c4a52a5ff7aeae131304a53445))
+* **firebase:** restrict procedure pricing snapshots to clinic_admin ([4bd1675](https://github.com/GScandelari/curva_mestra_system/commit/4bd1675be6225ff178cbd8f12812ff6683372a8e))
+* **tenant:** add custo hora config service ([00d9b27](https://github.com/GScandelari/curva_mestra_system/commit/00d9b278e6a6425964202a40b56d5f327aa615e1))
+* **tenant:** add procedure pricing pure functions and types ([7b61a9d](https://github.com/GScandelari/curva_mestra_system/commit/7b61a9dce5f0295c4d4762539ec937c3f8fc3e5d))
+* **tenant:** add pure functions for clinic hour cost and pricing ([b8b218e](https://github.com/GScandelari/curva_mestra_system/commit/b8b218e6820336e1193a7e03864f7e262c381a15))
+* **tenant:** audit consultant financial sharing toggle ([a3161fe](https://github.com/GScandelari/curva_mestra_system/commit/a3161fef288c636e856840a308ecedb32ba1c1e1))
+* **tenant:** persist procedure duration, payment method and pricing snapshot ([cdf6eb5](https://github.com/GScandelari/curva_mestra_system/commit/cdf6eb5e116516f02455658923dcd68e4803d87b))
+* **tenant:** price protocols without duration as one hour ([b02548f](https://github.com/GScandelari/curva_mestra_system/commit/b02548fc98b6fe7fb6a65de758132b0b7a42782f))
+* **tenant:** split card fee into debit and credit rates ([c98e9f8](https://github.com/GScandelari/curva_mestra_system/commit/c98e9f8773df06bdf569fcc79720342494c84866))
+* **types:** add custo hora config and protocolo duration types ([3eccc83](https://github.com/GScandelari/curva_mestra_system/commit/3eccc83a61e613b1a20d4fc3fdd6fe724c6cacbc))
+
+
+### Bug Fixes
+
+* **clinic:** address SonarCloud findings on pricing screens ([a6ace5c](https://github.com/GScandelari/curva_mestra_system/commit/a6ace5c610588e8739b31d88b7e006a6ed8e6ce3))
+* **clinic:** keep admin-only my clinic tab from deep link until claims load ([65e6cb1](https://github.com/GScandelari/curva_mestra_system/commit/65e6cb1c64de7db107f47e2db8492d365ef70dd8))
+* **clinic:** keep early-completed procedures on their local day ([50a8a69](https://github.com/GScandelari/curva_mestra_system/commit/50a8a69643653fb72460383385b8c20300850897))
+* **clinic:** record protocol duration origin and format procedure amounts in BRL ([8ece200](https://github.com/GScandelari/curva_mestra_system/commit/8ece20020b5408df8c3ecffe52e15b59caea1f37))
+* **clinic:** show material cost when procedure pricing has no fixed costs ([9dba044](https://github.com/GScandelari/curva_mestra_system/commit/9dba044ae08de00015512ff1346774db787b20b1))
+* **clinic:** show procedure dates without shifting to the previous day ([34a4c73](https://github.com/GScandelari/curva_mestra_system/commit/34a4c73297a3ff1d7f70f92598d617046a4fb3cf))
+* **tenant:** reset boleto reference month when the clinic re-enters paid installments ([67baff6](https://github.com/GScandelari/curva_mestra_system/commit/67baff6e78b7499238d5afd4ae51f303e94a0db5))
+
 ## [1.13.1](https://github.com/GScandelari/curva_mestra_system/compare/v1.13.0...v1.13.1) (2026-10-09)
 
 

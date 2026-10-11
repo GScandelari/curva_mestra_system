@@ -38,6 +38,9 @@ import {
   getDoc,
   getDocs,
   query,
+  where,
+  orderBy,
+  Timestamp,
   setDoc,
   deleteDoc,
   updateDoc,
@@ -103,8 +106,19 @@ function consultantWithAccess(tenantId: string) {
   return testEnv.authenticatedContext('consultant-with-access', {
     is_consultant: true,
     is_system_admin: false,
+    consultant_id: 'consultant-with-access',
     authorized_tenants: [tenantId],
     active: true,
+  });
+}
+
+function inactiveConsultantWithAccess(tenantId: string) {
+  return testEnv.authenticatedContext('consultant-inactive', {
+    is_consultant: true,
+    is_system_admin: false,
+    consultant_id: 'consultant-inactive',
+    authorized_tenants: [tenantId],
+    active: false,
   });
 }
 
@@ -139,13 +153,16 @@ async function seed(pathStr: string, data: Record<string, unknown>) {
 // restrita a clinic_admin: inventory, stock_limits, protocolos,
 // solicitacoes, inventory_activity -----------------------------------------
 
+// A terceira coluna diz se o consultor com acesso lê pelo bloco genérico
+// (allowlist de UC-48-RN-06); protocolos só com opt-in financeiro (describe
+// dedicado mais abaixo).
 describe.each([
-  ['inventory', { quantidade_disponivel: 10, active: true }],
-  ['stock_limits', { limite: 5 }],
-  ['protocolos', { nome: 'Protocolo X', active: true }],
-  ['solicitacoes', { status: 'criada' }],
-  ['inventory_activity', { tipo: 'consumo', quantidade: 1 }],
-])('tenants/{tenantId}/%s', (collectionName, sampleData) => {
+  ['inventory', { quantidade_disponivel: 10, active: true }, true],
+  ['stock_limits', { limite: 5 }, true],
+  ['protocolos', { nome: 'Protocolo X', active: true }, false],
+  ['solicitacoes', { status: 'criada' }, true],
+  ['inventory_activity', { tipo: 'consumo', quantidade: 1 }, false],
+])('tenants/{tenantId}/%s', (collectionName, sampleData, consultantReads) => {
   const docPathA = `tenants/${TENANT_A}/${collectionName}/doc1`;
   const docPathB = `tenants/${TENANT_B}/${collectionName}/doc1`;
   const collectionPathA = `tenants/${TENANT_A}/${collectionName}`;
@@ -217,10 +234,11 @@ describe.each([
     await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
-  it('consultor com acesso ao tenant lê (get e list), mas não escreve', async () => {
+  it(`consultor com acesso ao tenant ${consultantReads ? 'lê' : 'NÃO lê'} (get e list) e não escreve`, async () => {
     const db = consultantWithAccess(TENANT_A).firestore();
-    await assertSucceeds(getDoc(doc(db, docPathA)));
-    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+    const assertRead = consultantReads ? assertSucceeds : assertFails;
+    await assertRead(getDoc(doc(db, docPathA)));
+    await assertRead(getDocs(query(collection(db, collectionPathA))));
     await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
@@ -534,10 +552,25 @@ describe('protocolos — leitura do consultor com opt-in financeiro (D6)', () =>
     );
   });
 
-  // Ativar quando a allowlist de UC-48-RN-06 estiver em develop.
-  it.todo('consultor com acesso NÃO lê com opt-in desligado (UC-48-RN-06)');
-  it.todo('consultor com acesso NÃO lê com opt-in de outro consultant_id (UC-48-RN-06)');
-  it.todo('consultor com acesso NÃO lê sem documento financeiro (UC-48-RN-06)');
+  it('consultor com acesso NÃO lê com opt-in desligado (UC-48-RN-06)', async () => {
+    await seed(finPathA, { ...optIn, compartilhar_com_consultor: false });
+    const db = consultantWith('cons-x', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('consultor com acesso NÃO lê com opt-in de outro consultant_id (UC-48-RN-06)', async () => {
+    await seed(finPathA, optIn);
+    const db = consultantWith('cons-y', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('consultor com acesso NÃO lê sem documento financeiro (UC-48-RN-06)', async () => {
+    const db = consultantWith('cons-x', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
 });
 
 // --- precificacao_procedimentos: snapshot da precificação de cada
@@ -651,5 +684,98 @@ describe('tenants/{tenantId}/precificacao_procedimentos', () => {
     await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
     await assertSucceeds(setDoc(doc(db, docPathA), snapshot({ forma_pagamento: 'debito' })));
     await assertSucceeds(deleteDoc(doc(db, docPathA)));
+  });
+});
+
+// --- Portal do Consultor — allowlist de subcoleções (UC-48-RN-06). O
+// consultor só lê inventory, stock_limits e solicitacoes pelo bloco genérico;
+// as queries abaixo são as mesmas das telas (InventoryView, detalhe da
+// clínica e projectionService). ---------------------------------------------
+
+describe('Portal do Consultor — allowlist de subcoleções (UC-48-RN-06)', () => {
+  const PERMITIDAS = ['inventory', 'stock_limits', 'solicitacoes'];
+  const NEGADAS = [
+    'protocolos',
+    'inventory_activity',
+    'notifications',
+    'users',
+    'nf_imports',
+    'financeiro',
+    'precificacao_procedimentos',
+    'subcolecao_futura_qa',
+  ];
+
+  beforeEach(async () => {
+    for (const nome of [...PERMITIDAS, ...NEGADAS]) {
+      await seed(`tenants/${TENANT_A}/${nome}/doc1`, { tenant_id: TENANT_A, active: true });
+    }
+    await seed(`tenants/${TENANT_A}/settings/notifications`, { email: true });
+    await seed(`tenants/${TENANT_A}`, { name: 'Clínica A', active: true });
+  });
+
+  it.each(PERMITIDAS)('consultor com acesso lê %s (get e list) e não escreve', async (nome) => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    await assertSucceeds(getDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+    await assertSucceeds(getDocs(query(collection(db, `tenants/${TENANT_A}/${nome}`))));
+    await assertFails(updateDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`), { x: 1 }));
+    await assertFails(setDoc(doc(db, `tenants/${TENANT_A}/${nome}/novo`), { x: 1 }));
+    await assertFails(deleteDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+  });
+
+  it('queries reais das telas do consultor são permitidas', async () => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    const inventory = collection(db, `tenants/${TENANT_A}/inventory`);
+    await assertSucceeds(
+      getDocs(query(inventory, where('active', '==', true), orderBy('nome_produto', 'asc')))
+    );
+    await assertSucceeds(getDocs(query(inventory, where('brand', '==', 'Rennova'))));
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, `tenants/${TENANT_A}/solicitacoes`),
+          where('status', '==', 'concluida'),
+          where('dt_procedimento', '>=', Timestamp.fromDate(new Date('2026-01-01')))
+        )
+      )
+    );
+    await assertSucceeds(getDocs(collection(db, `tenants/${TENANT_A}/stock_limits`)));
+  });
+
+  it.each(NEGADAS)('consultor com acesso NÃO lê %s (get e list)', async (nome) => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+    await assertFails(getDocs(query(collection(db, `tenants/${TENANT_A}/${nome}`))));
+  });
+
+  it('consultor com acesso NÃO lê settings/notifications', async () => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, `tenants/${TENANT_A}/settings/notifications`)));
+  });
+
+  it.each(PERMITIDAS)('consultor sem o tenant autorizado NÃO lê %s', async (nome) => {
+    const db = consultantWithoutAccess(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+    await assertFails(getDocs(query(collection(db, `tenants/${TENANT_A}/${nome}`))));
+  });
+
+  it.each(PERMITIDAS)('consultor inativo NÃO lê %s', async (nome) => {
+    const db = inactiveConsultantWithAccess(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+    await assertFails(getDocs(query(collection(db, `tenants/${TENANT_A}/${nome}`))));
+  });
+
+  it('documento raiz do tenant: consultor com acesso lê, sem acesso não (regressão)', async () => {
+    await assertSucceeds(
+      getDoc(doc(consultantWithAccess(TENANT_A).firestore(), `tenants/${TENANT_A}`))
+    );
+    await assertFails(
+      getDoc(doc(consultantWithoutAccess(TENANT_A).firestore(), `tenants/${TENANT_A}`))
+    );
+  });
+
+  it('clinic_user continua lendo protocolos e inventory_activity (regressão)', async () => {
+    const db = clinicUser(TENANT_A).firestore();
+    await assertSucceeds(getDocs(query(collection(db, `tenants/${TENANT_A}/protocolos`))));
+    await assertSucceeds(getDocs(query(collection(db, `tenants/${TENANT_A}/inventory_activity`))));
   });
 });

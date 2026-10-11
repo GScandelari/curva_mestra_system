@@ -35,6 +35,15 @@ service cloud.firestore {
         && tenantId in request.auth.token.authorized_tenants;
     }
 
+    // Subcoleções que o Portal do Consultor lê pelo bloco genérico (UC-48-RN-06):
+    // inventory e stock_limits (InventoryView / detalhe da clínica) e
+    // solicitacoes (projeções, UC-52 RN-08). Allowlist em vez de lista de
+    // exclusão — qualquer subcoleção nova nasce fechada para o consultor.
+    // protocolos e financeiro têm regra própria (só com opt-in financeiro).
+    function consultantReadableSubcollection(collectionId) {
+      return collectionId in ['inventory', 'stock_limits', 'solicitacoes'];
+    }
+
     // Subcoleções do tenant com leitura restrita por bloco dedicado — ficam fora
     // do fallback de leitura genérico. Toda subcoleção com dado financeiro
     // interno entra aqui (FEAT-precificacao-hora-clinica).
@@ -72,8 +81,10 @@ service cloud.firestore {
       allow read: if consultantHasAccess(tenantId);
     }
 
-    // Subcoleções do tenant — fallback de LEITURA ampla para qualquer
-    // subcoleção do tenant, EXCETO `nf_imports` (ver bloco dedicado abaixo:
+    // Subcoleções do tenant — fallback de LEITURA ampla para os usuários do
+    // tenant em qualquer subcoleção, EXCETO as restritas (`nf_imports` etc.,
+    // ver blocos dedicados abaixo). O consultor só lê a allowlist de
+    // consultantReadableSubcollection (UC-48-RN-06). Sobre `nf_imports`:
     // só clinic_admin lê, defesa em profundidade — hoje nenhuma tela de
     // clinic_user/consultor precisa; decisão de produto é que o
     // compartilhamento de NF-e com o consultor, se vier a existir, será
@@ -111,8 +122,10 @@ service cloud.firestore {
       // — regras dedicadas abaixo).
       allow read: if belongsToTenant(tenantId) && !isRestrictedTenantCollection(collectionId);
 
-      // Consultores têm acesso READ-ONLY às subcoleções, mesmas exceções.
-      allow read: if consultantHasAccess(tenantId) && !isRestrictedTenantCollection(collectionId);
+      // Consultores: READ-ONLY e apenas na allowlist (UC-48-RN-06). nf_imports,
+      // financeiro, precificacao_procedimentos e qualquer subcoleção futura
+      // ficam negadas ao consultor por construção.
+      allow read: if consultantHasAccess(tenantId) && consultantReadableSubcollection(collectionId);
     }
 
     // Regras dedicadas de ESCRITA por subcoleção do tenant — causa raiz do
@@ -121,7 +134,8 @@ service cloud.firestore {
     // próprio bloco. Leitura continua vindo do bloco genérico acima (exceto
     // nf_imports, que também restringe leitura aqui).
 
-    // inventory — leitura ampla (bloco genérico); escrita só clinic_admin.
+    // inventory — leitura ampla (bloco genérico; consultor pela allowlist);
+    // escrita só clinic_admin.
     // Cobre criação de itens via NF-e (UC-10/UC-11), desativação com/sem
     // redistribuição forçada (UC-13) e consumo/reserva/liberação de estoque
     // nos fluxos de procedimento (UC-16 a UC-19) — todas essas ações já são
@@ -131,32 +145,32 @@ service cloud.firestore {
     }
 
     // stock_limits — leitura ampla (InventoryView usa para badge de estoque
-    // baixo, visível a clinic_admin e clinic_user); escrita só clinic_admin
-    // (UC-15).
+    // baixo, visível a clinic_admin, clinic_user e consultor pela allowlist);
+    // escrita só clinic_admin (UC-15).
     match /tenants/{tenantId}/stock_limits/{limitId} {
       allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
     }
 
     // protocolos — leitura ampla (listagem visível a clinic_user, sem botões
     // de ação, UC-20); criação/edição/remoção só clinic_admin.
-    // Consultor: lê protocolos com o opt-in financeiro ativo para ele (D6) —
-    // protocolo com custo é dado financeiro. Enquanto a allowlist de
-    // UC-48-RN-06 (BUGFIX-consultor-allowlist-subcolecoes) não entra, o bloco
-    // genérico ainda concede a leitura sem opt-in (semântica OR).
+    // Consultor: fora da allowlist do bloco genérico; lê protocolos somente
+    // com o opt-in financeiro ativo para ele (D6 / UC-48-RN-06) — protocolo
+    // com custo é dado financeiro.
     match /tenants/{tenantId}/protocolos/{protocoloId} {
       allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
       allow read: if consultantHasAccess(tenantId) && consultantHasFinancialOptIn(tenantId);
     }
 
     // solicitacoes — leitura ampla (`/clinic/requests` visível a ambos os
-    // roles); criação/edição/conclusão/cancelamento só clinic_admin (UC-16 a
-    // UC-19).
+    // roles; consultor pela allowlist, projeções do UC-52);
+    // criação/edição/conclusão/cancelamento só clinic_admin (UC-16 a UC-19).
     match /tenants/{tenantId}/solicitacoes/{solicitacaoId} {
       allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
     }
 
-    // inventory_activity — leitura ampla (dashboard "Atividade Recente" é
-    // visível a clinic_admin e clinic_user, sem gate de role); ESCRITA só
+    // inventory_activity — leitura ampla para o tenant (dashboard "Atividade
+    // Recente" é visível a clinic_admin e clinic_user; consultor não lê —
+    // fora da allowlist); ESCRITA só
     // clinic_admin. Diferente das demais subcoleções deste bloco, esta regra
     // de escrita não é opcional: `writeActivityLogs` (solicitacaoService.ts)
     // grava aqui diretamente pelo client SDK, dentro das mesmas transações de
