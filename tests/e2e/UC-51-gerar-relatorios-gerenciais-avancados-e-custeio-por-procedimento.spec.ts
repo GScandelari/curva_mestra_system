@@ -113,6 +113,15 @@ function formatBR(date: Date): string {
   return date.toLocaleDateString('pt-BR');
 }
 
+/**
+ * Data do procedimento como a UI exibe (`formatarDataProcedimento`, RN-31):
+ * `daysAgo` carrega a hora atual (não é meia-noite UTC), então a data é a de
+ * São Paulo — independe do fuso de quem roda o teste (CI em UTC).
+ */
+function formatDataProcedimentoBR(date: Date): string {
+  return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
 const PERIODO_INICIO = isoDate(daysAgo(20));
 const PERIODO_FIM = isoDate(daysAgo(-1)); // "amanhã" -- folga proposital contra fuso horário
 
@@ -547,12 +556,12 @@ test.describe('UC-51 — Gerar Relatórios Gerenciais Avançados e Custeio por P
         await expect(rows).toHaveCount(2);
 
         const row1Cells = rows.nth(0).locator('td');
-        await expect(row1Cells.nth(0)).toContainText(formatBR(dtEvento1));
+        await expect(row1Cells.nth(0)).toContainText(formatDataProcedimentoBR(dtEvento1));
         await expect(row1Cells.nth(2)).toHaveText('5');
         await expect(row1Cells.nth(3)).toHaveText('15');
 
         const row2Cells = rows.nth(1).locator('td');
-        await expect(row2Cells.nth(0)).toContainText(formatBR(dtEvento2));
+        await expect(row2Cells.nth(0)).toContainText(formatDataProcedimentoBR(dtEvento2));
         await expect(row2Cells.nth(2)).toHaveText('3');
         await expect(row2Cells.nth(3)).toHaveText('12');
       } finally {
@@ -611,7 +620,7 @@ test.describe('UC-51 — Gerar Relatórios Gerenciais Avançados e Custeio por P
         const rows = panel.locator('tbody tr');
         await expect(rows).toHaveCount(1);
         const cells = rows.nth(0).locator('td');
-        await expect(cells.nth(0)).toContainText(formatBR(dtEvento));
+        await expect(cells.nth(0)).toContainText(formatDataProcedimentoBR(dtEvento));
         await expect(cells.nth(2)).toHaveText('2');
         await expect(cells.nth(3)).toHaveText('6');
       } finally {
