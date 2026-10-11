@@ -66,7 +66,7 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !tenantId || !userId) {
+    if (!selectedFile || !tenantId || !userId || !user) {
       setError('Arquivo não selecionado ou usuário não autenticado');
       return;
     }
@@ -85,8 +85,12 @@ export default function UploadPage() {
         const formData = new FormData();
         formData.append('file', selectedFile);
 
+        // A rota exige o ID token do clinic_admin (UC-10-RN-13). Sem Content-Type
+        // manual: o navegador define o boundary do multipart.
+        const idToken = await user.getIdToken();
         const response = await fetch('/api/parse-nf-xml', {
           method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
           body: formData,
         });
 

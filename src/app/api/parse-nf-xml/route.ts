@@ -1,27 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseNfeXml } from '@/lib/parseNfeXml';
+import { verifyBearerToken } from '@/lib/services/accessRequestRouteHelpers';
+import {
+  checkParseNfeClaims,
+  checkRequestContentLength,
+  validateNfeUploadEntries,
+  type NfeUploadGuardResult,
+} from '@/lib/validations/nfeUploadValidation';
 import type { XmlParseError } from '@/types/nf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function guardResponse(result: Exclude<NfeUploadGuardResult, { ok: true }>) {
+  return NextResponse.json({ error: result.error }, { status: result.status });
+}
+
+/**
+ * UC-10-RN-13: só clinic_admin ativo importa NF-e; ordem das checagens
+ * 401 (token) → 403 (claims) → 413 (Content-Length, antes de ler o corpo) →
+ * 400/413 (arquivo) → 422 (parse) → 200.
+ */
 export async function POST(request: NextRequest) {
   try {
+    const decoded = await verifyBearerToken(
+      request,
+      'Sessão inválida ou expirada. Faça login novamente.'
+    );
+    if (decoded instanceof NextResponse) return decoded;
+
+    const claimsCheck = checkParseNfeClaims({
+      role: decoded.role,
+      active: decoded.active,
+      tenant_id: decoded.tenant_id,
+    });
+    if (!claimsCheck.ok) return guardResponse(claimsCheck);
+
+    const lengthCheck = checkRequestContentLength(request.headers.get('content-length'));
+    if (!lengthCheck.ok) return guardResponse(lengthCheck);
+
     const formData = await request.formData();
-    const file = formData.get('file') as File | null;
+    // Conta TODOS os arquivos do formulário, não só a chave `file`
+    const files = Array.from(formData.values()).filter((v): v is File => v instanceof File);
+    const entriesCheck = validateNfeUploadEntries(
+      files.map((f) => ({ name: f.name, size: f.size }))
+    );
+    if (!entriesCheck.ok) return guardResponse(entriesCheck);
 
-    if (!file) {
-      return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
-    }
-
-    if (!file.name.toLowerCase().endsWith('.xml')) {
-      return NextResponse.json(
-        { error: 'Apenas arquivos XML são aceitos nesta rota' },
-        { status: 400 }
-      );
-    }
-
-    const xmlContent = await file.text();
+    const xmlContent = await files[0].text();
 
     let result: ReturnType<typeof parseNfeXml>;
     try {
