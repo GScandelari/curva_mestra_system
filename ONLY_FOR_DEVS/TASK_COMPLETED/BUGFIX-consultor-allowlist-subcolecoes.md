@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 09/10/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Stanke Scandelari
+**Data de Conclusão:** 14/10/2026
 **Tipo:** Bugfix
 **Branch sugerida:** `bugfix/consultant-subcollection-allowlist`
 **Prioridade:** Média
-**Versão:** 1.1
+**Versão:** 1.2
 **Origem:** `UC-48-RN-06` (Média, Achado de segurança) — `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` (v3.51)
 
 > Hoje `firestore.rules:96` libera ao consultor a leitura de **qualquer** subcoleção dos tenants em `authorized_tenants`, exceto `nf_imports` (blocklist de um item). Esta correção troca a blocklist por uma **allowlist** com exatamente as subcoleções que o Portal do Consultor lê hoje pelo client SDK — `inventory`, `stock_limits` e `solicitacoes` — tornando qualquer subcoleção atual ou futura (`protocolos`, `inventory_activity`, `notifications`, `settings`, `financeiro`, ...) negada ao consultor por construção. O isolamento entre tenants já está correto e não muda; o filtro **por marca** dentro de `inventory` (`UC-48-RN-06-Decisão`) fica fora deste fix e não é pré-requisito dele.
@@ -502,3 +504,4 @@ N/A — nenhuma função pura TypeScript nova ou alterada.
 |---|---|---|---|
 | 1.0 | 09/10/2026 | Doc Writer (Claude) | Versão inicial. Status "Aguardando decisão" por causa da D1 (tratamento de `protocolos` frente à FEAT de precificação). |
 | 1.1 | 09/10/2026 | Doc Writer (Claude) | D1 resolvida pelo usuário (repassada pelo coordenador) em 09/10/2026: opção (B) — consultor lê `protocolos` só com opt-in financeiro ativo para o próprio `consultant_id`. Seção 4.4 reescrita (4.4.1: regra e helper `consultantHasFinancialOptIn`; 4.4.2: comportamento e testes por ordem de merge). STEP 3 deixa de ser condicional à decisão (sempre executado; vira verificação + testes se a FEAT v1.2 já trouxer a regra). Seções 0, 3, 5, 7, 8, 9 e 10 ajustadas. Status → Planejamento. |
+| 1.2 | 14/10/2026 | Guilherme Stanke Scandelari | Task concluída — movida para TASK_COMPLETED. Entregue na branch `bugfix/consultant-subcollection-allowlist`, mergeada em `gscandelari_setup` pelo PR #389; PR #391 (`gscandelari_setup` → `develop`) aberto; validação manual feita em `dev-gscandelari.web.app` em 14/10/2026. STEP 3 virou só testes: a regra de leitura de `protocolos` condicionada ao opt-in financeiro (`consultantHasFinancialOptIn`) já tinha entrado pela `FEAT-precificacao-hora-clinica` (Seção 4.4.2, ordem de merge "FEAT primeiro"); os 3 `it.todo` de `tests/rules/firestore-tenant-subcollections.test.ts` foram ativados. Gate de testes (B.3): `npm run test:rules` verde (138 testes) e `npm run test:coverage` verde (26 suítes, 435 testes). **Pendências de fechamento:** (1) atualizar UC-48 e UC-52 (em andamento); (2) dar baixa em `UC-48-RN-06` no `_MAPA-DE-BUGS-E-MELHORIAS.md` (em andamento); (3) caderno E2E `tests/e2e/UC-48-consultar-clinicas-vinculadas-e-estoque.spec.ts` a gerar pelo `qa-agent` a partir do STEP 4 (Seção 8.3), com revisão humana obrigatória antes de virar gate de CI. |
