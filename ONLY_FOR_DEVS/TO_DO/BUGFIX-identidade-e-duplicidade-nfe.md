@@ -1,51 +1,74 @@
-# Bugfix: Identidade e Duplicidade de NF-e (chave de acesso como ID, checagem por emitente + série + número, normalização do número manual)
+# Bugfix: Identidade e Duplicidade de NF-e (identidade CNPJ + série + número, confirmação atômica no servidor, ID sequencial por clínica e incorporação automática de pendências)
 
 **Projeto:** Curva Mestra
 **Data:** 14/10/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Aguardando decisão
+**Status:** Planejamento
 **Tipo:** Bugfix
 **Branch sugerida:** `bugfix/nfe-identity-duplicate-check`
 **Prioridade:** Média
-**Versão:** 1.0
-**Origem:** `UC-10-RN-14` (Média, Bug funcional) + `UC-10-RN-15` (Baixa, Débito técnico) + `UC-11-RN-12` (Baixa, Bug funcional) em `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` (v3.52, destaque 13). Relacionado à decisão de produto `UC-10-RN-02` (Seção 4.1 do mapa), que **continua aberta** (ver Seção 4.4).
+**Versão:** 1.1
+**Origem:** `UC-10-RN-14` (Média, Bug funcional) + `UC-10-RN-15` (Baixa, Débito técnico) + `UC-11-RN-12` (Baixa, Bug funcional), registrados em `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` (v3.52, destaque 13). Esta versão também resolve parcialmente a decisão de produto `UC-10-RN-02` (Seção 4.4). As decisões do usuário de 14/10/2026 estão consolidadas na Seção 4.5.
 
-> Hoje a NF-e é identificada só pelo número (`numero_nf`) dentro do tenant. A checagem roda só no client, sem transação, e o número digitado à mão não é normalizado. Na prática: (1) NF de mesmo número de **outro fornecedor** é bloqueada ou misturada com a primeira; (2) dois envios simultâneos podem duplicar estoque; (3) "026229" digitado à mão não casa com "26229" vindo do XML. Esta correção faz cinco coisas. Extrai a chave de acesso (44 posições) no parser e a usa como **ID determinístico** do documento em `nf_imports` para imports via XML, com reserva por transação. Passa a comparar por **(CNPJ do emitente + série + número normalizado)** nos dois caminhos. Normaliza o número. Acrescenta uma **trava de processamento** que fecha a corrida de reenvio. Endurece a regra `nf_imports` em `firestore.rules`. A matriz de bloqueio v1 (`UC-10-RN-02`, regras (a)–(d)) **não muda**; só muda o critério de "mesma NF". **Há 9 decisões pendentes (D1–D9, Seção 4.5) — o documento não está pronto para o `dev-task-manager`.**
+> **Problema.** Hoje a NF-e é identificada só pelo número dentro do tenant. A checagem de duplicidade roda no client, sem transação. O número digitado à mão não é normalizado. Além disso, o parser apaga zeros à esquerda de forma inconsistente.
+>
+> **O que muda.**
+> - A identidade da nota passa a ser **CNPJ do emitente + série + número**, nos dois caminhos (XML e manual).
+> - A unicidade é garantida por um documento `tenants/{t}/nf_identidades/{cnpj_serie_numero}`.
+> - Tudo é gravado numa **única transação Admin SDK** dentro de API routes: identidade, contador, registro, estoque e pendências. O preview não grava nada.
+> - Cada registro de importação recebe um **ID sequencial por clínica a partir de 1000**, exibido como **"ID 1000"**. A chave de acesso passa a ser só um campo gravado.
+> - O client perde a escrita direta em `nf_imports`, `nf_identidades`, contador e `pending_master_products`.
+> - Os zeros à esquerda são limpos de forma uniforme em número, série, código de produto e lote.
+> - Produtos fora do catálogo viram pendências com os dados completos da linha. Quando o system_admin ativa o produto no catálogo master, uma **Cloud Function** lança essas linhas no inventário de todas as clínicas afetadas e notifica cada uma.
 
 ---
 
 ## 0. Git Flow e Convenção de Commits
 
-- **Branch base:** `develop`. Antes de criar a branch, confira que `develop` existe local e remoto e está em sync com `master`: `git checkout develop && git pull origin develop`.
+- **Branch base:** `develop`. Antes de criar a branch, confira que `develop` existe local e remoto e está em sync com `master` (`git checkout develop && git pull origin develop`).
 - **Branch da task:** `bugfix/nfe-identity-duplicate-check`
-- **Fluxo:** `bugfix/nfe-identity-duplicate-check` → PR → branch pessoal (`gscandelari_setup`) → validação em `dev-gscandelari.web.app` → PR `gscandelari_setup` → `develop`. **Nunca PR para `master`.**
-- **Pré-requisito de sincronização (importante):** em 14/10/2026, `origin/gscandelari_setup` tem dois PRs que **ainda não estão em `develop`**:
-  - #389, `bugfix/consultant-subcollection-allowlist`: introduz `consultantReadableSubcollection` em `firestore.rules`.
-  - #390, `bugfix/nfe-parse-routes-hardening`: `/clinic/upload` passa a enviar o ID token; a rota `parse-nf-xml` exige `clinic_admin`.
+- **Fluxo:** `bugfix/nfe-identity-duplicate-check` → PR → `gscandelari_setup` → validação em `dev-gscandelari.web.app` → PR `gscandelari_setup` → `develop`. **Nunca PR para `master`.**
+- **Pré-requisito obrigatório:** os PRs #389 (`bugfix/consultant-subcollection-allowlist`) e #390 (`bugfix/nfe-parse-routes-hardening`) estão em `gscandelari_setup`, mas ainda não em `develop` (situação em 14/10/2026). Esta task:
+  - reaproveita as guardas de #390 (`checkParseNfeClaims`, `checkRequestContentLength`, `validateNfeUploadEntries` em `src/lib/validations/nfeUploadValidation.ts`);
+  - altera os mesmos arquivos de #389/#390: `firestore.rules`, `tests/rules/firestore-tenant-subcollections.test.ts` e `src/app/(clinic)/clinic/upload/page.tsx`.
 
-  Esta task toca `firestore.rules` (bloco `nf_imports`), `tests/rules/firestore-tenant-subcollections.test.ts` e `src/app/(clinic)/clinic/upload/page.tsx` — os mesmos arquivos. **Recomendado:** iniciar a branch depois que `gscandelari_setup → develop` levar #389/#390 para `develop`. Se não for possível, espere conflito textual (resolução trivial, hunks vizinhos) no PR para `gscandelari_setup`.
-- **Ordem dos commits:** pensada para que **cada commit mantenha a importação funcionando**. Funções puras e parser vêm primeiro. Depois vêm os serviços e as telas, que passam a gravar os campos novos. As `firestore.rules`, que passam a exigir esses campos, entram **por último**.
+  **Crie a branch só depois que `gscandelari_setup → develop` levar #389/#390 para `develop`.** Se isso não for possível, crie-a a partir de `develop`, faça cherry-pick dos commits de #390 (`7142c5b`, `12f8b8e`, `561bc6a`, `40fafd5`, `e65fc43`) e registre isso no PR.
+- **Ordem dos commits:** cada commit deve manter a importação funcionando. Funções puras e parser vêm primeiro. Depois vêm as rotas no servidor, depois as telas que passam a chamá-las. A Cloud Function de incorporação vem em seguida. As rules que fecham a escrita do client entram por último.
+- **Tipos de commit:** a incorporação automática de pendências é funcionalidade nova pedida pelo usuário. Por isso o STEP 9 usa `feat`, e o release-please vai gerar um MINOR.
 
 | Step | Tipo | Escopo | Mensagem de commit planejada |
 |---|---|---|---|
-| STEP 1 | `fix` | `inventory` | `fix(inventory): add NF-e identity normalization helpers` |
-| STEP 1 | `test` | `inventory` | `test(inventory): cover NF-e identity normalization helpers` |
-| STEP 2 | `fix` | `inventory` | `fix(inventory): extract NF-e access key and series in XML parser` |
-| STEP 2 | `test` | `inventory` | `test(inventory): cover access key extraction in parseNfeXml` |
-| STEP 3 | `fix` | `inventory` | `fix(inventory): add pure NF-e duplicate evaluation rules` |
-| STEP 3 | `test` | `inventory` | `test(inventory): cover NF-e duplicate evaluation rules` |
-| STEP 4 | `fix` | `inventory` | `fix(inventory): reserve XML NF-e imports by access key in a transaction` |
-| STEP 5 | `fix` | `inventory` | `fix(inventory): use access key reservation and claim on XML upload` |
-| STEP 6 | `fix` | `inventory` | `fix(inventory): normalize manual NF number and match by issuer` |
-| STEP 7 | `fix` | `firebase` | `fix(firebase): enforce NF-e identity in nf_imports rules` |
-| STEP 7 | `test` | `firebase` | `test(firebase): cover nf_imports identity rules for get and list` |
-| STEP 8 | — | — | Validação Manual, sem commit de código |
+| STEP 1 | `fix` | `inventory` | `fix(inventory): add NF-e identity and normalization helpers` |
+| STEP 1 | `test` | `inventory` | `test(inventory): cover NF-e identity and normalization helpers` |
+| STEP 2 | `fix` | `inventory` | `fix(inventory): stop numeric coercion and normalize NF-e XML fields` |
+| STEP 2 | `test` | `inventory` | `test(inventory): cover normalized fields and access key in parser` |
+| STEP 3 | `refactor` | `inventory` | `refactor(inventory): extract pure inventory quantity calculation` |
+| STEP 4 | `fix` | `inventory` | `fix(inventory): add pure NF import planner and identity conflict rules` |
+| STEP 4 | `test` | `inventory` | `test(inventory): cover NF import planner and write budget` |
+| STEP 5 | `fix` | `api` | `fix(api): confirm NF-e imports atomically with Admin SDK` |
+| STEP 5 | `test` | `api` | `test(api): cover NF import confirmation routes responses` |
+| STEP 6 | `fix` | `inventory` | `fix(inventory): confirm XML import through server route` |
+| STEP 7 | `fix` | `inventory` | `fix(inventory): require issuer identity on manual NF entry` |
+| STEP 8 | `fix` | `admin` | `fix(admin): store master product codes without leading zeros` |
+| STEP 9 | `feat` | `inventory` | `feat(inventory): auto-import pending NF items on catalog activation` |
+| STEP 9 | `test` | `inventory` | `test(inventory): cover pending resolution rules and mirror parity` |
+| STEP 9 | `ci` | `deploy` | `ci(deploy): deploy pending resolution functions to dev` |
+| STEP 10 | `feat` | `admin` | `feat(admin): show import ID and reprocess action on pending products` |
+| STEP 11 | `fix` | `firebase` | `fix(firebase): block client writes to server-managed NF collections` |
+| STEP 11 | `test` | `firebase` | `test(firebase): cover NF collections rules for get and list` |
+| STEP 12 | — | — | Validação Manual, sem commit de código |
 
-Ao abrir o PR para `develop` (Seção 15 do SST):
-- Acionar `uml-use-case-writer` para atualizar:
-  - **UC-10**: RN-01 (novo critério de identidade), RN-02 (texto mantido; registrar que pending/error/processing não contam como "completo" — D6), RN-03 (trava de processamento), RN-11 (rule de create/update/delete), Fluxo Principal passos 10–15, novas exceções (chave ausente/inválida, NF em processamento).
-  - **UC-11**: RN-01, RN-08, novos campos opcionais CNPJ/série se D3 = (b).
-- Acionar `uc-issues-tracker` (Modo B) para mover `UC-10-RN-14`, `UC-10-RN-15` e `UC-11-RN-12` para "Corrigido e Documentado" e registrar os achados novos da Seção 1.4.
+**Ao abrir o PR para `develop`** (Seção 15 do SST):
+- `uml-use-case-writer` atualiza:
+  - UC-10: fluxo principal reescrito, RN-01 a RN-04, RN-07, RN-11 e exceções.
+  - UC-11: CNPJ/série obrigatórios, chave opcional, complemento no mesmo ID, gravação no servidor.
+  - UC-12: incorporação automática, "Reprocessar" no lugar de "Marcar Resolvido", rule de leitura.
+  - UC-31/UC-32: código sem zeros à esquerda; ativação dispara a incorporação.
+  - UC-44: novo tipo de notificação.
+- `uc-issues-tracker` (Modo B):
+  - fecha `UC-10-RN-14`, `UC-10-RN-15` e `UC-11-RN-12`;
+  - registra `UC-10-RN-02` como **parcialmente decidido** (Seção 4.4);
+  - registra os achados A1–A5 (Seção 1.4) como corrigidos nesta task.
 
 ---
 
@@ -53,107 +76,112 @@ Ao abrir o PR para `develop` (Seção 15 do SST):
 
 ### 1.1 Situação atual
 
-**Parser — `src/lib/parseNfeXml.ts` (211 linhas)**
-- `XMLParser` com `ignoreAttributes: false`, `attributeNamePrefix: '@_'`, `removeNSPrefix: true` (l. 66–71). A raiz aceita `nfeProc > NFe > infNFe` ou `NFe > infNFe` (l. 76–79).
-- Extrai `numero` (`ide/nNF`), `data_emissao`, `fornecedor` (`emit/xNome`) e `cnpj_fornecedor` (`emit/CNPJ`, l. 203), além de natureza, pagamento, tipo e produtos.
-- **Não** extrai `infNFe@Id` (chave de acesso), `ide/serie` nem `ide/mod`.
-- **Coerção numérica do `fast-xml-parser` 5.7.3 (verificado localmente em 14/10/2026):** com `parseTagValue` no padrão (`true`), valores de tag só com dígitos viram `number`. O teste com o mesmo `XMLParser` do projeto produziu:
-  - `<nNF>026229</nNF>` → `26229`
-  - `<serie>001</serie>` → `1`
-  - `<CNPJ>01234567000189</CNPJ>` → `1234567000189` (perde o zero à esquerda)
-  - `<chNFe>…44 dígitos…</chNFe>` → `3.5250301234567e+43`
+**Parser (`src/lib/parseNfeXml.ts`, 211 linhas)**
+- Usa `XMLParser` com `ignoreAttributes: false`, `attributeNamePrefix: '@_'` e `removeNSPrefix: true` (l. 66–71). O `parseTagValue` fica no padrão (`true`).
+- Extrai `numero` (`ide/nNF`), `fornecedor`, `cnpj_fornecedor` (`emit/CNPJ`, l. 203), natureza, pagamento e os produtos (`cProd`, `xProd`, `qCom`, `vUnCom`, `rastro/nLote`, `dVal`, `dFab`).
+- Não extrai `infNFe@Id` (chave de acesso) nem `ide/serie`.
+- **Coerção numérica, verificada localmente em 14/10/2026 com `fast-xml-parser` 5.7.3 e as mesmas opções:**
+  - `<nNF>026229</nNF>` vira `26229`.
+  - `<serie>001</serie>` vira `1`.
+  - `<CNPJ>01234567000189</CNPJ>` vira `1234567000189`.
+  - `<chNFe>` com 44 dígitos vira `3.5250301234567e+43`.
+  - `cProd`/`nLote` só com dígitos perdem os zeros à esquerda; os alfanuméricos não. Isso é inconsistente.
+  - Com `parseTagValue: false` todos os valores chegam como string (com `trimValues`); o mesmo teste confirmou isso.
 
-  O **atributo** `Id` (`"NFe35…"`) **não** é coagido (`parseAttributeValue` é `false` por padrão). Por isso a chave é lida do atributo, e CNPJ/série/modelo são derivados da chave, não das tags.
+**Fluxo XML (`src/app/(clinic)/clinic/upload/page.tsx`, `handleUpload` l. 68–195)**
+1. Parse via `POST /api/parse-nf-xml`.
+2. `checkNumeroNFStatus(tenantId, numero, 'xml')`.
+3. `uploadNFFile` (Storage, pelo client).
+4. `createNFImport` (`addDoc`, ID aleatório, `status: 'pending'`), ainda **antes** do preview.
+5. Preview.
+6. `processNFAndAddToInventory` (client SDK): marca `processing`, grava o inventário com `writeBatch`, chama `registerPendingMasterProducts` e marca `success`/`novo_produto_pendente`/`error`.
 
-**Checagem de duplicidade — `src/lib/services/nfImportService.ts`**
-- `checkNumeroNFStatus(tenantId, numeroNf, attemptedOrigem)` (l. 199–239) consulta `tenants/{tenantId}/nf_imports where numero_nf == numeroNf` e aplica a matriz v1 (UC-10 RN-02):
-  - (a) nenhum import → permite;
-  - (b) só imports manuais → manual livre, XML uma vez;
-  - (c) import XML com `produtos_pendentes.length > 0` → manual bloqueado, XML reaproveita (`xmlImport`);
-  - (d) qualquer outro import XML → bloqueia tudo.
-- `createNFImport` (l. 54–78) usa `addDoc`, com ID aleatório e `status: 'pending'`. Não grava CNPJ, série nem chave.
-- `processNFAndAddToInventory(tenantId, importId, parsedData, existingXmlImport?)` (l. 255–374):
-  - marca `'processing'`;
-  - só se `existingXmlImport` vier preenchido, pula os pares (código, lote) já gravados (`getInventoryProdutoLoteKeysByNfId`, `inventoryService.ts:839`);
-  - grava o inventário por `addInventoryItems` (`writeBatch`, `inventoryService.ts:859`);
-  - registra pendências e marca `'success'` ou `'novo_produto_pendente'`. Em exceção, marca `'error'`.
-
-**Tela XML — `src/app/(clinic)/clinic/upload/page.tsx` (`handleUpload`, l. 68–195)**
-- Sequência: parse via `POST /api/parse-nf-xml` → `checkNumeroNFStatus(tenantId, parsedNF.numero, 'xml')` (l. 127) → `uploadNFFile` → `createNFImport` ou, se `nfStatus.xmlImport`, `updateNFImportStatus(..., 'pending', ...)` (l. 157–177) → preview → `handleConfirmImport` → `processNFAndAddToInventory(..., existingXmlImport)` (l. 207).
-- Nenhuma etapa é atômica.
-
-**Tela manual — `src/app/(clinic)/clinic/add-products/page.tsx` (1068 linhas)**
-- Passo 2: `<Input id="numero-nf" placeholder="Ex: 026229">` com `onChange={(e) => setNumeroNF(e.target.value)}` (l. 632–638). Não há `trim` nem normalização. O único critério é "não vazio" (l. 151, 313).
-- `handleSaveNF` (l. 310+):
-  - chama `checkNumeroNFStatus(tenantId, numeroNF, 'manual')` (l. 349) com o texto cru;
-  - grava, via `writeBatch`, `doc(collection(db, 'tenants/{tenantId}/nf_imports'))` com ID aleatório, `numero_nf: numeroNF` cru, `origem: 'manual'`, `tipo` (`'rennova' | 'outra_marca'`), `produtos`, `status: 'success'` e `created_by: user?.uid || 'unknown'` (l. 372–388);
-  - grava os itens de `inventory` com `nf_numero: numeroNF` cru (l. 398).
+**Fluxo manual (`src/app/(clinic)/clinic/add-products/page.tsx`)**
+- O número é texto livre, sem `trim` (l. 632–638).
+- `checkNumeroNFStatus(tenantId, numeroNF, 'manual')` (l. 349).
+- `writeBatch` pelo client grava `nf_imports` (ID aleatório, `numero_nf` cru, `produtos` embutido, `status: 'success'`) e os itens de `inventory` (`nf_numero` cru) (l. 372–429).
 - Não há campo de CNPJ nem de série.
+- A quantidade e o valor de produtos fragmentáveis são calculados no client (`calcularQuantidadeInventario`) antes de entrar na lista local.
 
-**Tipos — `src/types/nf.ts`**
-- `ParsedNF` (l. 16–25): sem chave, série ou modelo.
-- `NFImport` (l. 46–65) e `NFImportCreate` (l. 67–77): sem CNPJ, série ou chave.
-- `XmlParseErrorCode` (l. 27–31): `INVALID_FORMAT | MISSING_NF_NUMBER | NO_PRODUCTS_FOUND | MALFORMED_PRODUCT`.
-- `NFNumeroStatus` (l. 80–86).
-- `src/types/index.ts:125` tem um `NFImport` **legado** (`pdf_url`, `produtos: ProdutoRennova[]`), que não é usado pelos serviços de NF. Fora do escopo.
+**Checagem (`src/lib/services/nfImportService.ts:199-239`)**
+- Consulta `where('numero_nf','==', numero)` e aplica a matriz v1 de UC-10 RN-02, itens (a) a (d).
 
-**Regras — `firestore.rules`**
-- Em `develop`, `master` e na branch atual, `nf_imports` (l. 181–183) tem o bloco abaixo:
+**Pendências**
+- `registerPendingMasterProducts` (`pendingMasterProductService.ts:29-50`) faz `getDocs(query(pending_master_products, where tenant_id/nf_id/codigo))` e depois `addDoc` com `{tenant_id, numero_nf, nf_id, codigo, nome_produto}`. **Não guarda lote, quantidade, validade nem valor.**
+- A tela `/admin/pending-products` lista as pendências e tem dois botões:
+  - "Cadastrar Produto", que leva a `/admin/products/new?codigo=&nome=` com o formulário pré-preenchido;
+  - "Marcar Resolvido", que só apaga a pendência, e só se o produto já estiver ativo no catálogo.
+- A clínica precisa **reenviar o XML** para completar a importação.
 
-  ```
-  match /tenants/{tenantId}/nf_imports/{nfImportId} {
-    allow read, write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
-  }
-  ```
+**Catálogo master (`src/lib/services/masterProductService.ts`)**
+- `createMasterProduct`/`updateMasterProduct`/`reactivateMasterProduct` escrevem pelo client SDK (system_admin).
+- A coleção é `master_products`. O código tem 7 dígitos, validado pela rule `code.matches('^[0-9]{7}$')` (`firestore.rules:276-284`) e por `validateProductCode` (`src/types/masterProduct.ts:90`).
+- `getMasterProductByCode` busca por igualdade exata.
+- Os 112 códigos presentes nos scripts de importação (`scripts/import-master-products*.js`) não têm zero à esquerda.
 
-  Qualquer `clinic_admin` do tenant cria, sobrescreve e apaga qualquer documento, sem validação de campo.
-- `isRestrictedTenantCollection` (l. 41–43) inclui `nf_imports`: `clinic_user` e consultor não leem pelo bloco genérico.
-- Em `gscandelari_setup` (PR #389, ainda não em `develop`), o consultor só lê a allowlist `consultantReadableSubcollection = ['inventory', 'stock_limits', 'solicitacoes']`. `nf_imports` continua fora dela. **Correção ao enunciado da task:** a allowlist **não** está em `develop` nem em produção; o bloco `nf_imports` está igual em todos os ramos.
-- O system_admin tem `read, write` pelo bloco genérico `tenants/{tenantId}/{collectionId}/{document=**}` (l. 105–107).
+**Notificações (UC-44)**
+- Ficam em `tenants/{t}/notifications` (`src/types/notification.ts`).
+- `NotificationType` tem 10 valores.
+- `notificationService.ts:270` inicializa `by_type` com todas as chaves.
+- `NotificationBell.tsx:61` escolhe o ícone por tipo e tem `default`.
+- As Cloud Functions já gravam notificações pelo Admin SDK (`functions/src/alertChecks.ts:83`).
+- O system_admin **não** tem central de notificações. O "alerta" dele é a fila de `/admin/pending-products`.
 
-**Índices:** `firestore.indexes.json` tem `nf_imports (tenant_id ASC, created_at DESC)`. A consulta por igualdade em `numero_nf` usa índice automático de campo único.
+**Cloud Functions**
+- Ficam em `functions/src`, região `southamerica-east1`, com `onDocumentCreated` e `onCall`.
+- O deploy empacota só `functions/src`, que **não pode importar `src/lib`**. A lógica pura é espelhada manualmente, como em `functions/src/alertRules.ts`, que espelha `src/lib/alertRules.ts`.
+- `deploy-gscandelari-dev.yml` (l. 113) faz deploy de uma **lista explícita** de functions.
+- `deploy-firebase.yml` (produção) não faz deploy de `firestore:rules`, `firestore:indexes` nem `storage`.
 
-**Testes existentes:**
-- `src/__tests__/parseNfeXml.test.ts`: o fixture `makeXml` (l. 112–134) monta `<infNFe>` **sem** atributo `Id` e com `<CNPJ>12345678000199</CNPJ>`.
-- `tests/rules/firestore-tenant-subcollections.test.ts`: `describe('tenants/{tenantId}/nf_imports')` (l. 269–308) semeia `{ numero: '026229', status: 'success' }` e espera que o `clinic_admin` consiga `updateDoc`. **Esse teste muda com D7.**
-- Não há caderno E2E de UC-10/UC-11 em `tests/e2e/`.
-- O seed do emulador (`scripts/seed-emulator.ts`) não cria `master_products` nem `nf_imports`.
+**Admin SDK (`src/lib/firebase-admin.ts`)**
+- Exporta `adminAuth`/`adminDb`. **Não há helper de Storage.**
+- `verifyBearerToken` fica em `src/lib/services/accessRequestRouteHelpers.ts`.
+
+**Rules**
+- O bloco `nf_imports` (`firestore.rules:181-183`) dá `read, write` a qualquer `clinic_admin` do tenant.
+- O bloco genérico `tenants/{tenantId}/{collectionId}/{document=**}` (l. 105–116) dá `read, write` ao system_admin e leitura aos usuários do tenant fora de `isRestrictedTenantCollection` (`['nf_imports','financeiro','precificacao_procedimentos']`).
+- Em `gscandelari_setup` (#389), o consultor lê só a allowlist `consultantReadableSubcollection` (`['inventory','stock_limits','solicitacoes']`).
+- `pending_master_products` (l. 302–308): `create` para qualquer usuário do tenant; `read/update/delete` só para system_admin.
+- `storage.rules`: `danfe/{tenantId}/{nfId}` aceita escrita de usuários do tenant.
+
+**Testes existentes**
+- `src/__tests__/parseNfeXml.test.ts`: o fixture `makeXml` não tem `Id`.
+- `tests/rules/firestore-tenant-subcollections.test.ts:269-308`: espera que `clinic_admin` e system_admin consigam escrever em `nf_imports`.
+- Não há caderno E2E de UC-10/11/12.
+- O seed do emulador não cria `master_products`.
 
 ### 1.2 Problema identificado
 
-1. **`UC-10-RN-14` (Média):** identidade só por `numero_nf`. O nNF só é único por (CNPJ do emitente, modelo, série). NF de mesmo número de outro fornecedor:
-   - é bloqueada como "já foi totalmente importada" (importação legítima impedida); ou
-   - é tratada como reenvio parcial da primeira, e os produtos de duas notas diferentes ficam misturados no mesmo `importId`, com `getInventoryProdutoLoteKeysByNfId` pulando itens da nota errada.
-
-   Isso também afeta o caminho manual "Outras Marcas": uma NF manual de outro fornecedor com o mesmo número de uma NF Rennova já importada via XML é bloqueada.
-2. **`UC-10-RN-15` (Baixa):** consulta → upload → `addDoc`, sem transação. Dois envios quase simultâneos da mesma NF passam ambos pela checagem e criam dois documentos. A rule não impede nada disso. Há também uma corrida no **reenvio**: duas abas confirmando o mesmo import parcial calculam `jaImportados` antes de qualquer commit e gravam os mesmos itens duas vezes.
-3. **`UC-11-RN-12` (Baixa):** "026229" ou " 26229" digitado à mão ≠ "26229" do XML (o schema SEFAZ proíbe zeros à esquerda em `nNF`; o DANFE impresso os exibe). A mesma NF entra pelos dois caminhos e contorna o bloqueio (c)/(d).
+1. **`UC-10-RN-14`.** O nNF só é único por emitente e série. Uma NF de outro fornecedor com o mesmo número é bloqueada ou misturada no mesmo registro.
+2. **`UC-10-RN-15`.** Não há atomicidade nem proteção no servidor. Dois envios quase simultâneos duplicam estoque, e a rule permite sobrescrever ou apagar qualquer registro.
+3. **`UC-11-RN-12`.** "026229" digitado ≠ "26229" do XML. A mesma NF entra pelos dois caminhos.
 
 ### 1.3 Motivação estratégica
 
-O estoque é a base de todos os relatórios (UC-47, UC-51, UC-52) e do consumo por procedimento. Uma NF duplicada infla estoque e custo. Uma NF legítima bloqueada obriga a contornar o sistema. A chave de acesso é o identificador nacional oficial da NF-e: usá-la como ID alinha o modelo de dados ao domínio fiscal e permite proteção no servidor (rules), sem Cloud Function nova.
+O estoque alimenta todos os relatórios (UC-47, UC-51, UC-52) e o custo por procedimento. Com uma única transação no servidor, ou a nota inteira entra (identidade, registro, estoque e pendências), ou nada entra. O ID legível "ID 1000" dá à clínica e ao suporte uma referência curta para cada importação. A incorporação automática tira da clínica o trabalho de reenviar o XML.
 
-### 1.4 Achados adicionais desta investigação (não estão no mapa v3.52)
+### 1.4 Achados desta investigação (fora do mapa v3.52, corrigidos nesta task)
 
-| # | Achado | Tratamento aqui |
+| # | Achado | Tratamento |
 |---|---|---|
-| A1 | **Coerção numérica do `fast-xml-parser`** (Seção 1.1): `cnpj_fornecedor` perde o zero à esquerda hoje. A mesma coerção pode afetar `cProd` e `nLote` só com dígitos e zeros à esquerda (ex.: lote `"001234"` vira `"1234"`). | **Parcial:** CNPJ, série e modelo passam a vir da chave (imune). `cProd`/`nLote` ficam **fora do escopo**: mudar `parseTagValue` altera o casamento com `master_products.code` e o histórico de lotes. Registrar no mapa como achado novo, para task própria. |
-| A2 | **Import XML abandonado ou com falha bloqueia o número para sempre.** `createNFImport` grava `status: 'pending'` **antes** do preview, sem `produtos_pendentes`. Se o usuário fecha a aba no preview, ou se `processNFAndAddToInventory` cai no `catch` (`'error'`), a próxima tentativa encontra um import XML com `hasPending === false` e recebe "já foi totalmente importada" (`nfImportService.ts:220-238`). | **Dentro do escopo se D6 = sim:** `pending`/`error`/`processing` passam a ser retomáveis, alinhando o código ao texto de RN-02 (d), "XML sem pendências (**completo**)". |
-| A3 | **Suspeita, não confirmada em runtime:** `registerPendingMasterProducts` (`pendingMasterProductService.ts:29-50`) faz `getDocs(query(pending_master_products, where tenant_id/nf_id/codigo))` como `clinic_admin`. A rule de `pending_master_products` (`firestore.rules:302-308`) só concede `read` a `system_admin`, e UC-12 RN-05 confirma isso. Se a consulta for negada, toda NF com produto fora do catálogo termina em `'error'` **depois** de o inventário dos produtos encontrados já ter sido gravado. | **Fora do escopo.** O STEP 8 verifica isso no emulador. Se confirmado, registrar no mapa. Com D6 = sim, o import fica ao menos retomável, e os itens já gravados são pulados pela trava (D5). |
-| A4 | **CNPJ alfanumérico** (IN RFB 2.229/2024, novos CNPJs a partir de julho/2026). As notas técnicas da NF-e (NT 2025.001) adaptam o leiaute: as 12 primeiras posições do CNPJ na chave podem ter letras, e o DV usa o valor `charCode - 48`. ⚠️ Os detalhes devem ser conferidos na NT vigente antes de implementar. | Ver **D9**. |
+| A1 | **Coerção numérica do parser** (Seção 1.1). O CNPJ perde o zero à esquerda; `cProd` e `nLote` numéricos perdem zeros e os alfanuméricos não. | `parseTagValue: false` e normalização explícita e uniforme (RN-05). |
+| A2 | **Import XML abandonado ou com falha bloqueia o número para sempre.** O `pending` criado antes do preview, ou o `error`, sem `produtos_pendentes`, cai em "já foi totalmente importada" (`nfImportService.ts:220-238`). | Some por construção: o preview não grava e uma falha desfaz a transação inteira. |
+| A3 | **`registerPendingMasterProducts` consulta `pending_master_products` como `clinic_admin`**, mas a rule só libera leitura para system_admin (UC-12 RN-05). A consulta seria negada, e a NF com produto fora do catálogo terminaria em `error` depois de o estoque já ter sido gravado. | **Some.** A pendência passa a ser criada pela API route com Admin SDK, que não passa pelas rules, dentro da mesma transação; não existe mais consulta de deduplicação, porque o ID da pendência é determinístico. O client deixa de tocar essa coleção, e a rule de `create` do client é removida. |
+| A4 | **CNPJ alfanumérico** (IN RFB 2.229/2024, vigente desde jul/2026; NT 2025.001 na NF-e). | Aceito: 12 posições `[0-9A-Z]` + 2 dígitos verificadores, com DV calculado pelo valor `charCode - 48` (D9). ⚠️ Conferir o leiaute na versão vigente da NT ao implementar (é verificação técnica, não decisão de produto). |
+| A5 | **`forma_pagamento` errada para `tPag` 01–09.** A coerção transforma `<tPag>01</tPag>` em `1`, e `TPAG_LABELS['1']` não existe, então NF paga em dinheiro, cheque ou cartão aparece como "Não Informado". | Corrigido como efeito de `parseTagValue: false`, com teste de regressão. |
 
 ---
 
 ## 2. Objetivos
 
-1. **Extrair** a chave de acesso (`infNFe@Id`) no parser, validar formato e DV e derivar dela CNPJ do emitente, modelo, série e número.
-2. **Usar** a chave como ID determinístico de `tenants/{tenantId}/nf_imports/{chave}` nos imports via XML, com reserva (criar ou retomar) dentro de `runTransaction`.
-3. **Comparar** NFs por (CNPJ do emitente + série + número normalizado), com fallback conservador por número quando um dos lados não tem CNPJ (registros legados ou manual sem CNPJ).
-4. **Normalizar** o número da NF (só dígitos, sem zeros à esquerda) nos dois caminhos e no que é gravado.
-5. **Fechar** a corrida de reenvio com uma trava de processamento transacional (`claimNFImportForProcessing`).
-6. **Endurecer** a regra `nf_imports`: create validado (ID, formato, `created_by`, status inicial); update sem alterar campos de identidade e vedado em import concluído; delete negado ao `clinic_admin`.
-7. **Preservar** a matriz de bloqueio v1 (`UC-10-RN-02`, (a)–(d)) e o isolamento de leitura de `nf_imports` (`clinic_user` e consultor sem acesso).
-8. **Cobrir** com Jest as funções puras e com `npm run test:rules` (get **e** list) a regra nova.
+1. **Identificar** a NF por (CNPJ do emitente, série, número) nos dois caminhos, com unicidade garantida por `nf_identidades/{cnpj_serie_numero}`.
+2. **Confirmar** a importação (XML ou manual) em **uma** transação Admin SDK numa API route: identidade, contador, registro, estoque e pendências. Ou tudo entra, ou nada.
+3. **Numerar** os registros com ID sequencial por clínica a partir de 1000, exibido como "ID 1000" e nunca como "NF 1000".
+4. **Bloquear** a duplicata com mensagem detalhada ("Esta NF já foi cadastrada (ID 1000).") e **complementar** o mesmo registro nos lançamentos manuais fracionados.
+5. **Normalizar** número, série, código de produto e lote (sem zeros à esquerda) e o CNPJ (forma canônica validada).
+6. **Incorporar** automaticamente as linhas pendentes de todas as clínicas quando o produto for ativado no catálogo master, e notificar cada clínica.
+7. **Fechar** a escrita direta do client em `nf_imports`, `nf_identidades`, `contadores`, `pending_master_products` e `danfe/` no Storage.
+8. **Cobrir** com Jest as funções puras, as respostas das rotas e a paridade dos espelhos, e com `npm run test:rules` (get **e** list) as regras.
 
 ---
 
@@ -163,40 +191,49 @@ O estoque é a base de todos os relatórios (UC-47, UC-51, UC-52) e do consumo p
 
 | ID | Descrição | Ator | Prioridade |
 |---|---|---|---|
-| RF-01 | O parser retorna `chave_acesso` (44 posições, sem o prefixo `NFe`), `modelo` e `serie` (normalizados), e `cnpj_fornecedor` derivado da chave. | system | Must |
-| RF-02 | XML sem `infNFe@Id`, com Id fora do formato, com DV inválido, ou com `nNF` divergente do número contido na chave é rejeitado com erro de parse: 422 na rota, mensagem em pt-BR. Comportamento sujeito a **D1**. | clinic_admin | Must |
-| RF-03 | Import via XML de uma NF nova cria `nf_imports/{chave_acesso}` em transação. Se dois envios da mesma NF competirem, o segundo **retoma** o mesmo documento ou é bloqueado; nunca cria outro. | clinic_admin | Must |
-| RF-04 | NF de mesmo número e **CNPJ de emitente diferente** é tratada como NF distinta nos dois caminhos: nem bloqueada, nem misturada. | clinic_admin | Must |
-| RF-05 | NF de mesmo CNPJ e número com **série diferente** é tratada como NF distinta. | clinic_admin | Must |
-| RF-06 | O número digitado na inserção manual é normalizado (`" 026.229 "` → `"26229"`) antes da checagem e da gravação. Número sem nenhum dígito, ou só zeros, é recusado com toast. | clinic_admin | Must |
-| RF-07 | A inserção manual oferece "CNPJ do emitente" e "Série". Obrigatoriedade definida em **D3**. Quando informados, entram na comparação. | clinic_admin | Must (se D3 ≠ c) |
-| RF-08 | Import XML existente com status `pending`, `error`, `processing` ou `novo_produto_pendente` é retomável. `success` bloqueia (**D6**). | clinic_admin | Must |
-| RF-09 | Ao confirmar, só uma sessão processa um import por vez. Uma segunda vê "Esta NF-e já está sendo processada…" ou, se a primeira concluiu, "já foi totalmente importada". Um `processing` parado há mais de `STALE_PROCESSING_MS` pode ser retomado (**D5**). | clinic_admin | Must |
-| RF-10 | Mensagens de bloqueio identificam a NF por número, série e CNPJ formatado quando disponíveis (ex.: "A NF 26229 (série 1, CNPJ 12.345.678/0001-99) já foi totalmente importada anteriormente."). | clinic_admin | Should |
-| RF-11 | Registros legados (ID aleatório, sem CNPJ/série/chave no topo) continuam bloqueando e sendo retomados conforme a matriz v1, comparados pelo fallback (**D4**). | system | Must |
+| RF-01 | O preview do XML (`/clinic/upload`) só faz parse e exibe os dados. Não grava nada no Firestore nem no Storage. Mostra a identidade ("NF 26229 · série 1 · CNPJ 12.345.678/0001-99") e marca os produtos que **não** estão ativos no catálogo ("Não cadastrado — ficará pendente"). | clinic_admin | Must |
+| RF-02 | "Confirmar importação" chama `POST /api/nf-imports/xml` com o arquivo. O servidor refaz o parse e, numa transação, valida a identidade, incrementa o contador, cria o registro, grava o estoque dos produtos do catálogo, cria as pendências dos demais e cria a identidade. | clinic_admin | Must |
+| RF-03 | Em caso de sucesso, a tela mostra "Importação concluída — ID 1000", o total importado e a **lista dos produtos não importados** (código, nome, lote), com o texto "Serão adicionados automaticamente ao estoque quando cadastrados no catálogo; você será notificado." | clinic_admin | Must |
+| RF-04 | Uma NF cuja identidade já existe é recusada com **409** e mensagem detalhada: "Esta NF já foi cadastrada (ID 1000)." Para registro manual existente: "Esta NF já foi cadastrada manualmente (ID 1000) e não pode ser importada via XML." Nada é gravado. | clinic_admin | Must |
+| RF-05 | Na inserção manual, CNPJ do emitente e série são **obrigatórios**; a chave de acesso é **opcional** (nota física ou rasurada). Um CNPJ com DV inválido é recusado. Uma chave informada precisa ter DV válido e bater com CNPJ, série e número digitados. | clinic_admin | Must |
+| RF-06 | "Confirmar e Salvar" na inserção manual chama `POST /api/nf-imports/manual`. Para uma identidade nova, cria o registro (novo ID). Para uma identidade já existente de origem manual, **complementa o mesmo registro** (mesmo ID) com os novos itens. Para uma identidade de origem XML, recusa com 409. | clinic_admin | Must |
+| RF-07 | Concorrência: duas confirmações simultâneas da mesma NF resultam em exatamente um registro. A segunda recebe 409 com o ID do primeiro (XML) ou complementa (manual × manual). | clinic_admin | Must |
+| RF-08 | O arquivo XML é salvo pelo servidor em `danfe/{tenantId}/{importId}.xml` **depois** do commit da transação, em modo best-effort (Seção 4.1, item 6). | system | Must |
+| RF-09 | Quando um produto do catálogo master fica ativo (criado ativo, reativado, ou com código alterado estando ativo), as pendências abertas daquele código em **todas** as clínicas entram no inventário automaticamente. O registro de importação é atualizado e cada clínica afetada recebe a notificação "A NF (ID 1000) foi atualizada: os produtos X, Y, Z foram adicionados ao inventário automaticamente". | system | Must |
+| RF-10 | Em `/admin/pending-products`, o system_admin vê, por pendência, clínica, "ID 1000", NF (número/série/CNPJ), código, nome, lote, quantidade e data. "Cadastrar Produto" continua igual. "Marcar Resolvido" é substituído por **"Reprocessar"**, que dispara manualmente a mesma incorporação do RF-09. | system_admin | Must |
+| RF-11 | O reenvio do XML de uma NF já cadastrada é bloqueado como duplicata (RF-04), mesmo que ela tenha pendências. Se houver pendências, a mensagem acrescenta: "Os produtos pendentes desta NF serão adicionados automaticamente quando cadastrados no catálogo." | clinic_admin | Must |
+| RF-12 | Número, série, código de produto e lote são gravados sem zeros à esquerda nos dois caminhos e na incorporação. | system | Must |
+| RF-13 | O código de produto do catálogo master é gravado sem zeros à esquerda: o formulário aceita até 7 dígitos e normaliza. | system_admin | Must |
+| RF-14 | O detalhe do item de inventário (`/clinic/inventory/[id]`) mostra "NF-e 26229 · ID 1000" quando o item vem de uma importação. | clinic_admin / clinic_user | Should |
+| RF-15 | Uma NF com mais linhas do que o orçamento de escrita da transação (Seção 4.1, item 5) é recusada com 422 e mensagem explicativa. No manual, a mensagem sugere dividir o lançamento: os complementos mantêm o mesmo ID. | clinic_admin | Must |
 
 ### 3.2 Requisitos Não Funcionais (RNF)
 
 | ID | Descrição | Categoria |
 |---|---|---|
-| RNF-01 | Toda lógica de normalização, parse da chave, comparação de identidade, decisão de duplicidade e trava fica em funções puras testáveis sem Firebase. | Manutenibilidade |
-| RNF-02 | Toda consulta continua sob `tenants/{tenantId}/nf_imports`. Nenhum `tenantId` vem de input além do `claims.tenant_id` já usado pelas telas. | Segurança / Multi-tenant |
-| RNF-03 | A rule de `nf_imports` mantém leitura só para `clinic_admin` do tenant (get **e** list) e system_admin. `clinic_user` e consultor continuam sem leitura. | Segurança |
-| RNF-04 | Nenhum índice composto novo. As consultas usam igualdade em `numero_nf` (índice automático) e `getDoc` por ID. | Performance |
-| RNF-05 | No máximo uma consulta e uma transação de 1–2 leituras a mais por import em relação a hoje. | Performance |
-| RNF-06 | Nenhum log novo com CNPJ completo ou chave de acesso. Os `console.log` existentes de `handleSaveNF` não são ampliados. | Segurança |
+| RNF-01 | Toda escrita de importação usa Admin SDK em API route ou Cloud Function. O client só lê `nf_imports` (clinic_admin) e `pending_master_products` (system_admin). | Segurança |
+| RNF-02 | O tenant vem **só** do token (`claims.tenant_id`). Nenhum `tenantId` vem no corpo das rotas. Toda escrita fica sob `tenants/{tenantId}/…`, e as pendências globais carregam `tenant_id`. | Multi-tenant |
+| RNF-03 | A transação lê identidade e contador antes de qualquer escrita. O Firestore serializa transações concorrentes sobre os mesmos documentos. Uma falha não deixa nenhuma escrita parcial. | Confiabilidade |
+| RNF-04 | O número de escritas por transação fica em no máximo 500 (limite do Firestore), validado por função pura antes de abrir a transação. | Confiabilidade |
+| RNF-05 | A lógica de identidade, normalização, planejamento das linhas, conflito, orçamento e incorporação fica em funções puras testadas. O que roda em `functions/src` é espelho de `src/lib`, com teste de paridade. | Manutenibilidade |
+| RNF-06 | Nenhum log novo com CNPJ completo, chave de acesso ou conteúdo do XML. | Segurança |
+| RNF-07 | Consulta de pendências por código: igualdade em `codigo` + `status` (merge de índices de campo único). Listagem do admin: novo índice composto `(status ASC, created_at DESC)`. | Performance |
+| RNF-08 | A incorporação automática é idempotente: a pendência só é lançada se continuar `aberta` dentro da transação. | Confiabilidade |
 
 ### 3.3 Regras de Negócio (RN)
 
 | ID | Regra | Justificativa |
 |---|---|---|
-| RN-01 | **Mesma NF** ⇔ números normalizados iguais **e** (CNPJ ausente em algum dos lados **ou** CNPJs iguais **e** (série ausente em algum dos lados **ou** séries iguais)). O modelo não entra (o fluxo só recebe NF-e modelo 55). | (CNPJ, série, número) identificam a NF-e. O fallback conservador evita liberar duplicata quando falta informação (legado ou manual sem CNPJ). **D2** |
-| RN-02 | A matriz v1 de `UC-10-RN-02` permanece: (a) nada → permite; (b) só manual → manual livre e XML permitido; (c) XML não concluído → manual bloqueado e XML retoma; (d) XML concluído (`status == 'success'`) → bloqueia tudo. "Concluído" passa a significar literalmente `status == 'success'` (**D6**). | A política de produto continua sendo decisão do usuário (Seção 4.4). Esta task só corrige identidade e atomicidade. |
-| RN-03 | Import via XML: o ID do documento é a chave de acesso (44 posições). Import manual: o ID é aleatório e **nunca** tem formato de chave. | Determinismo para XML. O manual permite vários lançamentos por número (UC-11 RN-01). |
-| RN-04 | `numero_nf` é gravado **normalizado** nos dois caminhos (XML já é, por schema e por coerção). `inventory.nf_numero` também (**D8**). | Comparação por igualdade simples, sem campo derivado nem backfill. |
-| RN-05 | CNPJ gravado: 14 posições sem máscara (`cnpj_emitente`). Série gravada: sem zeros à esquerda (`"001"` → `"1"`, `"000"` → `"0"`). | Forma canônica única. |
-| RN-06 | Trava de processamento: só passa para `processing` um import com status ≠ `success` e que não esteja em `processing` "fresco" (`updated_at` há menos de `STALE_PROCESSING_MS = 10 min`). | Fecha a corrida de reenvio sem bloquear para sempre um import cuja aba foi fechada no meio. **D5** |
-| RN-07 | Durante o processamento, pares (código, lote) já gravados no inventário com `nf_id == importId` são **sempre** pulados (não só quando a tela passou `existingXmlImport`). | Idempotência da retomada, inclusive após `'error'` com inventário parcialmente gravado. |
+| RN-01 | **Identidade da NF** = (CNPJ do emitente canônico, série normalizada, número normalizado). Chave de identidade: `${cnpj}_${serie}_${numero}` (ex.: `12345678000199_1_26229`). Não existe fallback "só número". | Decisão do usuário (D2/D3/D4). O nNF só é único por emitente e série. |
+| RN-02 | **Matriz de duplicidade (substitui UC-10 RN-02 (a)–(d)):** <br>(1) identidade inexistente → XML **cria**; manual **cria**. <br>(2) identidade existente com origem `manual` → manual **complementa o mesmo registro**; XML é **bloqueado** (409). <br>(3) identidade existente com origem `xml` (qualquer status, inclusive com pendências) → XML **bloqueado** (409, duplicata); manual **bloqueado** (409). | Decisão do usuário: a regra (b) foi revogada e o complemento manual usa o mesmo ID. O reenvio deixou de ser necessário (RN-08). |
+| RN-03 | **ID do registro** = inteiro sequencial por clínica, começando em **1000**. É o ID do documento (`nf_imports/"1000"`) e também o campo `id_sequencial: 1000`. É exibido sempre como **"ID 1000"**, nunca "NF 1000". Complementos manuais não consomem ID. Transações que falham não consomem ID (o contador está na mesma transação), então não há buracos. | Decisão do usuário (D1 revisada). |
+| RN-04 | A chave de acesso é só um campo gravado (`chave_acesso`). No XML é **obrigatória e validada**: o schema SEFAZ exige `infNFe@Id`; o DV precisa bater, e CNPJ, série e número da chave precisam bater com as tags. No manual é opcional, mas, se informada, recebe a mesma validação contra o que foi digitado. | A chave detecta XML adulterado ou montado; a identidade vem das tags e é conferida pela chave. |
+| RN-05 | **Normalização** (aplicada na entrada, nos dois caminhos e na incorporação): <br>• número e série → só dígitos, sem zeros à esquerda (série `"000"` → `"0"`; número só com zeros é inválido); <br>• código de produto e lote → `trim` e remoção de zeros à esquerda, mantendo ao menos 1 caractere (`"0012345"`→`"12345"`, `"00A12"`→`"A12"`, `"000"`→`"0"`), com o restante do texto preservado; <br>• CNPJ → sem máscara, maiúsculas, **DV validado antes**, gravado na forma canônica de 14 posições (Seção 4.1, item 8). | Decisão do usuário: limpar zeros "em qualquer caso" e de forma consistente. |
+| RN-06 | Produto do XML sem correspondente **ativo** no catálogo (`master_products.code == codigo` normalizado e `active == true`) vira **pendência por linha** (código + lote), com os dados completos da linha. O registro fica `novo_produto_pendente` enquanto houver pendência aberta. | Fluxo mantido e ampliado (UC-10 RN-07). |
+| RN-07 | **Incorporação automática:** quando `master_products/{id}` passa a estar ativo (criação com `active: true`, `active` de false para true, ou `code` alterado com `active: true`), todas as pendências abertas daquele código são lançadas, agrupadas por (tenant, registro). Cada grupo usa uma transação: a pendência vira `resolvida` com `inventory_id`, o registro é atualizado e uma notificação vai para a clínica. Para fragmentável, a quantidade e o valor seguem `calcularQuantidadeInventario` com os dados do catálogo **no momento da incorporação**. | Decisão do usuário. |
+| RN-08 | O reenvio do XML para completar uma importação **deixa de existir**: uma NF já cadastrada é sempre duplicata (RN-02 (3)). | Decisão do usuário (sugestão aceita). |
+| RN-09 | Uma NF-e cujo emitente não tem CNPJ (`emit/CPF`) é recusada com 422: "Emitente sem CNPJ não é suportado." | A identidade exige CNPJ (D2/D3). |
+| RN-10 | O system_admin não grava `nf_imports`, `nf_identidades`, `contadores` nem `pending_master_products` pelo client. Correções de dados ficam com o Admin SDK (scripts ou console). | Os dados gerenciados pelo servidor são consistentes por construção (D7). |
 
 ---
 
@@ -204,87 +241,107 @@ O estoque é a base de todos os relatórios (UC-47, UC-51, UC-52) e do consumo p
 
 ### 4.1 Abordagem escolhida
 
-1. **Módulo puro `src/lib/nfIdentity.ts`** (a criar): normalização (`normalizeNumeroNF`, `normalizeSerie`, `normalizeCnpj`), chave (`parseChaveAcesso`, `computeChaveAcessoDV`), comparação (`isSameNF`), rótulo (`formatNFLabel`), decisão de duplicidade (`evaluateNFDuplicateStatus`), trava (`canClaimForProcessing`) e adaptador de documento (`toNFIdentitySnapshot`).
-2. **Parser** lê `infNFe['@_Id']` (string, não coagida), remove o prefixo `NFe`, valida com `parseChaveAcesso`, confere que o número da chave bate com `nNF` e preenche `chave_acesso`, `modelo`, `serie` e `cnpj_fornecedor` (da chave).
-3. **Reserva por transação** (`reserveXmlNFImport`), em duas etapas:
-   - **Fora da transação:** consulta `where('numero_nf', '==', numeroNormalizado)`. O SDK web não faz consulta dentro de `runTransaction`. O resultado traz manuais e legados.
-   - **Dentro da transação:** `transaction.get` do documento `nf_imports/{chave}` e, se a decisão for retomar um legado, `transaction.get` desse legado. A partir de `evaluateNFDuplicateStatus`, faz `transaction.set` (create), `transaction.update` (retomar) ou nada (bloqueado).
+1. **Módulos puros em `src/lib`:**
+   - `nfIdentity.ts`: normalização, CNPJ, chave, identidade e rótulos.
+   - `nfImportPlanner.ts`: conflito de identidade, próximo ID, planejamento das linhas (catálogo × pendência), orçamento de escrita e mensagens.
+   - `inventoryQuantity.ts`: `calcularQuantidadeInventario`, movido de `inventoryService.ts`, que é um módulo do client SDK e por isso não pode ser importado pela rota.
+   - `nfPendingResolutionRules.ts`: decisão de disparo e plano da incorporação.
+2. **Parser:**
+   - `parseTagValue: false` (tudo string).
+   - Identidade a partir das tags `emit/CNPJ`, `ide/serie` e `ide/nNF`, normalizadas.
+   - Chave obrigatória (`infNFe@Id`), com conferência cruzada contra a identidade (RN-04).
+   - `codigo` e `lote` normalizados.
+3. **Confirmação no servidor** (`src/lib/services/nfImportServer.ts`, server-only, Admin SDK), chamada por duas rotas:
+   - `POST /api/nf-imports/xml`: multipart com o arquivo. A rota refaz o parse no servidor e **não confia** em `parsedNF` vindo do client.
+   - `POST /api/nf-imports/manual`: JSON. Para Rennova, o servidor busca o catálogo e calcula quantidade e valor; o client manda a quantidade e o valor informados (embalagens).
 
-   Duas transações concorrentes criando o mesmo ID: o Firestore faz a segunda tentar de novo. Ela então vê o documento existente e cai em "retomar".
-4. **Ordem da tela XML:** parse → **reserva** → upload ao Storage → `updateNFImportStatus(pending, arquivo_*)` → preview. A reserva vem **antes** do upload, o que mantém UC-10 RN-04 (não subir arquivo de NF bloqueada) e elimina o caso "arquivo subiu, documento não".
-5. **Trava** `claimNFImportForProcessing` (transação: ler o import, aplicar `canClaimForProcessing`, gravar `status: 'processing'` e `updated_at`) no início de `processNFAndAddToInventory`. Ela devolve o snapshot atual, de onde vem `produtos_importados` (não do estado da tela, que pode estar velho).
-6. **Rules** com create/update separados e validação de identidade (Seção 6.5). DV não é verificado em rules (não dá para calcular módulo 11 de forma prática na linguagem de rules); o formato sim.
-7. **Legado sem migração (D4):**
-   - Os imports XML legados já têm `numero_nf` sem zeros (coerção do parser), então a consulta por número normalizado os encontra.
-   - O CNPJ do legado vem de `parsed_data.cnpj_fornecedor` (com `padStart(14, '0')` para reparar a coerção) quando existir. Sem ele, entra o fallback por número.
-   - Os manuais legados com zeros digitados não precisam ser encontrados: pela matriz v1, só imports **XML** bloqueiam ou retomam. Os manuais nunca bloqueiam nada.
+   As duas rotas usam as guardas de #390 (`verifyBearerToken` + `checkParseNfeClaims`, ou seja, `clinic_admin` ativo com `tenant_id`) e, na rota XML, `checkRequestContentLength` + `validateNfeUploadEntries`.
+4. **Transação** (`adminDb.runTransaction`):
+   - **Leituras:** `nf_identidades/{chave}`; `contadores/nf_imports`; para XML, o catálogo (`master_products where code in [...]`, em blocos de 30); no complemento manual, o registro existente.
+   - **Decisão:** `evaluateIdentityConflict`.
+   - **Escritas, criação XML:** contador, registro, identidade, N itens de `inventory` e P pendências (`pending_master_products/{tenantId}_{importId}_{linha}`).
+   - **Escritas, complemento manual:** o registro (`produtos_importados`, `lancamentos_manuais`, `updated_at`) e N itens.
+
+   Transações concorrentes sobre a mesma identidade e o mesmo contador são serializadas pelo Firestore. A segunda tenta de novo, vê a identidade criada e responde 409 (ou complementa, no manual × manual).
+5. **Limite de 500 escritas** (`checkWriteBudget`, antes de abrir a transação):
+   - criação XML = 3 + N + P;
+   - criação manual = 3 + N;
+   - complemento = 1 + N.
+
+   Até **497** linhas por importação. Acima disso, 422. Uma NF Rennova típica tem cerca de 13 linhas. Não é possível dividir a importação XML sem quebrar a atomicidade; no manual, o usuário divide em complementos. O documento do registro deixa de embutir `parsed_data`/`produtos` (o inventário e as pendências são a fonte, via `nf_id`), o que mantém o documento pequeno.
+6. **Arquivo no Storage: depois do commit, best-effort.** A rota grava `danfe/{tenantId}/{importId}.xml` com o Admin SDK (`getAdminStorage()`, a criar em `firebase-admin.ts`) e atualiza `arquivo_path` + `arquivo_status: 'salvo'`. Se falhar, grava `arquivo_status: 'falhou'`, registra `console.error` sem conteúdo e **não** desfaz a importação.
+
+   **Por quê:**
+   - o estoque e a identidade são a fonte de verdade, e o arquivo é só arquivamento;
+   - fazer o upload antes exigiria limpeza em toda rejeição, e a rejeição mais comum é justamente a duplicata;
+   - uma limpeza que falhasse deixaria arquivo órfão de NF rejeitada, violando UC-10 RN-04;
+   - o caminho determinístico pelo ID permite reenviar só o arquivo no futuro, se necessário.
+
+   A rota já tem o buffer em memória (≤ 10MB, guarda de #390).
+7. **Incorporação automática: Cloud Function `onMasterProductWritten`** (`onDocumentWritten('master_products/{productId}')`, `southamerica-east1`) + callable **`reprocessPendingMasterProducts({ codigo })`** (só system_admin) para o botão "Reprocessar".
+
+   **Por que trigger e não API do admin:** o catálogo é escrito por três caminhos (`createMasterProduct`, `updateMasterProduct`/`reactivateMasterProduct` pelo client e os scripts `scripts/import-master-products*.js` com Admin SDK). Só o trigger cobre os três sem depender de o client chamar algo depois.
+
+   A lógica pura fica em `functions/src/nfPendingResolutionRules.ts`, como **espelho manual** de `src/lib/nfPendingResolutionRules.ts` (mesmo padrão de `alertRules.ts`), com teste de paridade.
+8. **CNPJ armazenado na forma canônica de 14 posições (com zeros, sem máscara).** O usuário pediu para avaliar se o CNPJ deve ser armazenado normalizado:
+   - o DV é validado **antes** de qualquer transformação;
+   - um CNPJ válido sempre tem 14 posições, então comparar a forma canônica equivale a comparar a forma sem zeros, mas a canônica preserva a possibilidade de revalidar o DV e de formatar a máscara para exibição;
+   - remover zeros do CNPJ não traria nenhuma vantagem e criaria uma forma ambígua (12–13 caracteres) que não passa na validação.
+
+   Em resumo: o CNPJ é "normalizado para comparação" no sentido de canônico, não de sem zeros.
+9. **Código do catálogo sem zeros à esquerda** (STEP 8): `validateProductCode` aceita 1–7 dígitos e o serviço grava `normalizeLeadingZeros(code)`. A rule de `master_products` passa a exigir `^[1-9][0-9]{0,6}$`. Sem isso, um `cProd` normalizado nunca casaria com um código de catálogo que tivesse zero.
+10. **Rules:** Seção 6.5.
 
 ### 4.2 Alternativas descartadas
 
 | Alternativa | Por que foi descartada |
 |---|---|
-| Mover criação e processamento do import para uma API route com Admin SDK, onde a transação pode incluir consultas | Fecharia também a corrida XML × manual, mas exige reescrever `processNFAndAddToInventory` (catálogo, inventário, pendências) no servidor. É escopo de refactor. Sugestão futura. |
-| Documento-trava separado (`nf_keys/{cnpj_serie_numero}`) para manual e XML | Não funciona para manual sem CNPJ (D3 opcional) e duplica o estado. O ID determinístico no próprio `nf_imports` resolve o caso principal (XML × XML). |
-| Campo derivado `numero_nf_normalizado` + backfill | Desnecessário, porque `numero_nf` passa a ser gravado normalizado e os legados que importam (XML) já estão normalizados. |
-| Renomear (re-keyar) os documentos legados para o ID da chave | Quebra `inventory.nf_id`, `nf_import_id` e `pending_master_products.nf_id`. A chave do legado não está gravada; exigiria baixar o XML do Storage. |
-| Trocar `parseTagValue` para `false` no parser inteiro | Corrige A1 por completo, mas muda `cProd`/`nLote` de imports futuros em relação ao catálogo e ao histórico. Precisa de análise própria. |
-| Validar DV da chave nas rules | Impraticável na linguagem de rules. O DV é validado no parser. Um `clinic_admin` que forjasse a chave só afetaria o próprio tenant. |
+| Chave de acesso como ID do documento (v1.0) | Revisado pelo usuário (D1): o ID precisa ser legível ("ID 1000"), e o manual nem sempre tem chave. |
+| Transação client-side + reserva antes do preview + trava de 10 min (v1.0, D5/D6) | Substituído: o SDK web não faz consulta dentro de transação, a escrita de estoque ficaria fora da transação e precisaria de estados retomáveis (`pending`/`error`/`processing`). A transação única no servidor elimina tudo isso. |
+| Fallback "só número" para registros antigos (v1.0, D4) | Revogado: não há registros antigos a considerar (fase de implementação). |
+| Upload do XML antes da transação, com limpeza na rejeição | Pode deixar arquivo órfão se a limpeza falhar; o caso comum de rejeição (duplicata) pagaria upload e delete sem necessidade. |
+| Incorporação por API route chamada pela tela do admin depois de cadastrar | Não cobre os scripts de importação do catálogo nem reativações feitas por outros caminhos; depende do client. |
+| Importar `src/lib` dentro de `functions/src` | O deploy empacota só `functions/src` (comentário de `functions/src/alertRules.ts`). |
+| Remover zeros do CNPJ na gravação | Seção 4.1, item 8. |
+| Lookup do catálogo tentando `[codigo, codigo.padStart(7,'0')]` | Mantém duas formas canônicas para o mesmo código; o usuário pediu consistência. |
+| Dividir uma NF XML com mais de 497 linhas em várias transações | Quebra a garantia "tudo ou nada". O limite fica bem acima do uso real. |
 
 ### 4.3 Trade-offs aceitos
 
-- **Corrida XML × manual não é fechada no servidor:** a consulta cruzada fica fora da transação. A janela é de segundos e exige o mesmo admin (ou dois admins) lançando a mesma NF pelos dois caminhos ao mesmo tempo. Aceito (Baixa).
-- **Legado retomado sem proteção de ID:** um import legado parcial é retomado pelo ID aleatório. A trava (RN-06) cobre a corrida de processamento; não há proteção de criação, porque o documento já existe.
-- **Fallback conservador:** sem CNPJ em um dos lados, NFs de fornecedores diferentes com o mesmo número ainda colidem. Isso só acontece com legado ou manual sem CNPJ, e diminui com o tempo. A mensagem sugere informar o CNPJ (D3).
-- **Relógio do cliente na trava:** `canClaimForProcessing` compara `updated_at` (servidor) com `Date.now()` (cliente). Um relógio errado em minutos só antecipa ou atrasa a liberação de um `processing` parado.
-- **Abas abertas durante o deploy:** um bundle antigo em cache tenta `addDoc` com ID aleatório e `origem: 'xml'` e recebe `permission-denied` depois que as rules novas entram. Recarregar a página resolve.
+- **O arquivo pode faltar** (`arquivo_status: 'falhou'`) numa importação válida. É raro, fica visível no registro e não afeta o estoque.
+- **Espelho manual** da lógica de incorporação em `functions/src`. É mitigado pelo teste de paridade, que roda os mesmos casos contra os dois módulos.
+- **O contador é um documento quente por clínica.** Duas confirmações simultâneas da mesma clínica são serializadas, com espera de milissegundos. É aceitável no volume de uma clínica.
+- **Catálogo lido na transação do XML e incorporação pelo trigger:** se o produto for ativado entre a leitura e o commit, a linha vira pendência depois que o trigger já rodou. O botão "Reprocessar" (RF-10) cobre esse caso, e a próxima escrita no produto também.
+- **Fragmentação usa o catálogo do momento da incorporação**, não o do momento da importação. É coerente com o fluxo atual, em que o reenvio do XML também usava o catálogo do momento.
+- **Bundle antigo em cache** recebe `permission-denied` ao tentar o fluxo antigo pelo client depois do deploy das rules. Recarregar a página resolve.
 
-### 4.4 Relação com a decisão de produto `UC-10-RN-02` (continua aberta)
+### 4.4 Relação com `UC-10-RN-02`
 
-| Aspecto | Status nesta task |
+| Aspecto | Situação após v1.1 |
 |---|---|
-| **Critério de identidade** ("o que é a mesma NF") | **Decidido aqui** (sujeito a D2): (CNPJ + série + número normalizado), com fallback por número. Substitui UC-10 RN-01. |
-| **Significado de "XML completo"** em (d) | **Decidido aqui** (sujeito a D6): só `status == 'success'`. Hoje, `pending`/`error`/`processing` também bloqueiam, contra o texto da regra. |
-| **Garantia no servidor** | **Decidido aqui** (D1, D5, D7). |
-| **Matriz (a)–(d) em si** | **Pendente para o usuário — não alterada.** Pontos que esta investigação levanta para a revisão de negócio, sem implementação aqui: (1) a regra (b) permite XML depois de lançamentos manuais da mesma NF, o que pode **duplicar estoque por design** se o manual já tiver lançado os mesmos itens; (2) a regra (b) permite lançamentos manuais ilimitados para o mesmo número; (3) UC-11 RN-06, checagem só no último passo do wizard manual. |
+| Critério de identidade | **Decidido:** CNPJ + série + número (RN-01). |
+| Matriz de bloqueio | **Decidido:** RN-02 (1)–(3). A regra (b) foi revogada e o complemento manual usa o mesmo ID. |
+| Reenvio para completar | **Decidido:** deixa de existir (RN-08); a incorporação é automática (RN-07). |
+| Garantia no servidor | **Decidido:** transação Admin SDK + rules (D7). |
+| **Questão futura (não bloqueia esta task)** | Uma pendência cujo produto nunca entra no catálogo fica aberta indefinidamente. Não existe ação de "descartar pendência" com aviso à clínica. Registrar no mapa como decisão de produto futura. |
 
-### 4.5 Decisões pendentes (gate — responder a todas antes de mudar o Status)
+### 4.5 Decisões do usuário (14/10/2026) — todas resolvidas
 
-> ⚠️ **Decisão necessária D1 — Chave de acesso como ID e obrigatoriedade.** Usar `chave_acesso` (44 posições, **sem** o prefixo `NFe`) como ID de `nf_imports` para XML **e** rejeitar XML sem chave válida (ausente, formato inválido, DV inválido ou `nNF` divergente da chave)?
-> - Opções: (a) sim, rejeitar; (b) aceitar XML sem chave, com ID aleatório e checagem só por (CNPJ + série + número), sem proteção no servidor.
-> - **Recomendação: (a).** Toda NF-e v4.00 válida tem `infNFe@Id` obrigatório no schema SEFAZ (`NFe` + 44 posições). XML sem ele não é NF-e autorizada.
+| ID | Decisão | Onde está refletida |
+|---|---|---|
+| D1 (revisada) | ID legível sequencial por clínica a partir de 1000, exibido como "ID 1000"; a chave de acesso é só um campo. | RN-03, RN-04, 4.1 (item 4), 6.1 |
+| D2/D3/D4 | Identidade = CNPJ + série + número nos dois caminhos, consultando todas as notas da clínica. Manual com CNPJ e série obrigatórios e chave opcional. Sem registros antigos e sem fallback. Unicidade por `nf_identidades` criada na mesma transação. | RN-01, RN-02, RF-05, 4.2 |
+| D5/D6 (substituídas) | Confirmação atômica no servidor; o preview não grava; sem trava de 10 min e sem estados retomáveis; erro desfaz tudo; rules bloqueiam escrita do client; limite de 500 escritas tratado; Storage depois do commit. | 4.1 (itens 3–6), RF-01/02/07/08/15, 6.5 |
+| Produtos fora do catálogo | Mostrar os não importados, criar pendência (alerta ao system_admin) e incorporar automaticamente em todas as clínicas ao cadastrar o produto, com notificação. Reenvio desnecessário e bloqueado. | RF-03/09/10/11, RN-06/07/08, 4.1 (item 7) |
+| D7 | Rules completas. | 6.5 |
+| D8 | Número gravado normalizado. | RN-05 |
+| D9 | CNPJ alfanumérico aceito. | A4, 6.2 |
+| Fracionado | O lançamento manual repetido complementa o mesmo registro (mesmo ID). | RN-02 (2), RF-06 |
+| Regra (b) | Revogada: XML bloqueado quando já existe registro manual, e vice-versa. | RN-02 |
+| Zeros à esquerda | Limpar número, série, código e lote; CNPJ com DV validado antes e armazenado na forma canônica (justificativa na Seção 4.1, item 8). | RN-05, 4.1 (itens 8–9) |
+| A3 | Explicado: some com o Admin SDK. | 1.4 |
 
-> ⚠️ **Decisão necessária D2 — Critério de "mesma NF".** Aplicar RN-01 (CNPJ + série + número normalizado, com fallback por número quando falta CNPJ e série ignorada quando falta em um dos lados)?
-> - Opções: (a) RN-01 como está; (b) exigir CNPJ dos dois lados e, sem CNPJ, tratar como NF distinta (libera mais e arrisca duplicata com legado e manual); (c) incluir o modelo (55/65) na comparação.
-> - **Recomendação: (a).**
-
-> ⚠️ **Decisão necessária D3 — CNPJ e série na inserção manual (UC-11).** Hoje o manual só tem o número.
-> - Opções: (a) nenhum campo novo (só normalização; o manual compara só por número com imports XML, e o falso bloqueio entre fornecedores continua nesse caminho); (b) campos **opcionais** "CNPJ do emitente" (com máscara e validação de DV quando preenchido) e "Série" no Passo 2. Se preenchidos, entram na comparação; se não, vale o fallback por número; (c) os mesmos campos **obrigatórios**.
-> - **Recomendação: (b).** O DANFE impresso traz CNPJ e série. Para "Outras Marcas" isso elimina o falso bloqueio contra NFs Rennova sem forçar atrito em quem não tem o dado. Na mensagem de bloqueio por fallback, sugerir "Informe o CNPJ do emitente para diferenciar notas de fornecedores distintos".
-
-> ⚠️ **Decisão necessária D4 — Registros legados.**
-> - Opções: (a) **sem migração**: compatibilidade em leitura (`toNFIdentitySnapshot` usa `parsed_data.cnpj_fornecedor` com `padStart(14, '0')` quando existir e cai no fallback por número quando não existir); (b) script `scripts/backfill-nf-imports-identity.js` (dry-run por padrão, `--apply`, padrão de `scripts/migrate-brand-rennova.js`) gravando `cnpj_emitente` a partir de `parsed_data` nos legados XML, rodado em dev e prod; (c) o mesmo script, baixando também o XML do Storage (`arquivo_url`) para gravar `chave_acesso` e `serie`.
-> - **Recomendação: (a).** Os legados XML já têm `numero_nf` normalizado e manuais legados nunca bloqueiam (Seção 4.1, item 7). O ganho de (b)/(c) é marginal e acrescenta uma operação manual em produção. O ID dos legados **não** muda em nenhuma opção.
-
-> ⚠️ **Decisão necessária D5 — Trava de processamento.** Incluir `claimNFImportForProcessing` (transação) com liberação de `processing` parado após `STALE_PROCESSING_MS`?
-> - Opções: (a) sim, com 10 min; (b) sim, com outro valor; (c) não incluir. Sem a trava, o ID determinístico só impede o segundo **documento**; duas abas confirmando o mesmo import ainda duplicam estoque.
-> - **Recomendação: (a).** É o que efetivamente fecha `UC-10-RN-15` para o reenvio.
-
-> ⚠️ **Decisão necessária D6 — Imports XML abandonados ou com falha.** Corrigir aqui o achado A2 (Seção 1.4): `pending`, `error` e `processing` deixam de contar como "completo" e passam a ser retomáveis?
-> - Opções: (a) sim, nesta task; (b) não, registrar no mapa para task própria.
-> - **Recomendação: (a).** Com ID determinístico, o import abandonado passa a ser **o mesmo** documento da próxima tentativa. Mantê-lo bloqueante tornaria a NF impossível de importar, porque não haveria mais como criar outro documento.
-
-> ⚠️ **Decisão necessária D7 — Endurecimento da regra `nf_imports`.** Aplicar a regra da Seção 6.5?
-> - Ela inclui: create com ID/formato/`created_by == auth.uid`/status inicial validados; update sem alterar `tenant_id`, `origem`, `numero_nf`, `chave_acesso`, `cnpj_emitente`, `serie`, `created_by` e `created_at`, e vedado quando `status == 'success'`; delete negado ao `clinic_admin` (system_admin continua com tudo pelo bloco genérico).
-> - Opções: (a) a regra completa; (b) só create determinístico + imutabilidade de identidade, mantendo update de `success` e delete.
-> - **Recomendação: (a).** Nenhum código apaga ou edita `nf_imports` concluído (verificado por busca em `src/` e `functions/src/`). O teste de rules existente que faz `updateDoc` num documento `success` precisa ser ajustado.
-
-> ⚠️ **Decisão necessária D8 — Forma gravada do número manual.**
-> - Opções: (a) gravar `numero_nf` e `inventory.nf_numero` **normalizados** ("026229" passa a aparecer como "26229" no inventário e nos relatórios); (b) gravar o texto digitado (com `trim`) em `numero_nf_informado` para exibição e o normalizado em `numero_nf`.
-> - **Recomendação: (a).** O XML já grava sem zeros. Exibição uniforme entre os dois caminhos e nenhum campo novo de exibição.
-
-> ⚠️ **Decisão necessária D9 — CNPJ alfanumérico.** Aceitar já a chave com as 12 primeiras posições do CNPJ em `[0-9A-Z]` e DV calculado com `charCode - 48` (aplicável a dígitos e letras)?
-> - Opções: (a) sim, conferindo antes o leiaute na NT 2025.001 vigente; (b) só numérico agora e task própria quando surgir o primeiro fornecedor com CNPJ alfanumérico.
-> - **Recomendação: (a).** Com (b), um XML legítimo de fornecedor novo seria **rejeitado** pela D1. O custo é pequeno: um regex e a função de valor do caractere.
+Não há `⚠️ Decisão necessária` em aberto. O item A4 traz uma **verificação técnica** (conferir a NT vigente), não uma decisão.
 
 ---
 
@@ -294,543 +351,746 @@ O estoque é a base de todos os relatórios (UC-47, UC-51, UC-52) e do consumo p
 
 | Arquivo | Tipo | Propósito |
 |---|---|---|
-| `src/lib/nfIdentity.ts` | Lib (pura) | Normalização, chave de acesso, comparação, decisão de duplicidade, trava e adaptador de snapshot. |
-| `src/__tests__/nfIdentity.test.ts` | Teste Jest | Normalização, chave/DV, `isSameNF`, `formatNFLabel`, `toNFIdentitySnapshot`. |
-| `src/__tests__/nfDuplicateRules.test.ts` | Teste Jest | `evaluateNFDuplicateStatus` (matriz v1 × identidade) e `canClaimForProcessing`. |
+| `src/lib/nfIdentity.ts` | Lib pura | Normalização, CNPJ, chave, identidade e rótulos. |
+| `src/lib/nfImportPlanner.ts` | Lib pura | Conflito, próximo ID, plano de linhas, orçamento e mensagens. |
+| `src/lib/inventoryQuantity.ts` | Lib pura | `calcularQuantidadeInventario` movido (reexportado por `inventoryService.ts`). |
+| `src/lib/nfPendingResolutionRules.ts` | Lib pura | `shouldResolvePendingForProduct`, `planPendingResolution`, `chunkPendingLines`, `buildPendingResolvedMessage`. |
+| `src/lib/services/nfImportServer.ts` | Serviço server-only | `confirmXmlImport`, `confirmManualLaunch`, `saveNfXmlFileBestEffort` (Admin SDK). |
+| `src/app/api/nf-imports/xml/route.ts` | API route | `POST`: confirmação XML. |
+| `src/app/api/nf-imports/manual/route.ts` | API route | `POST`: lançamento manual. |
+| `functions/src/nfPendingResolutionRules.ts` | Function (pura, espelho) | Espelho de `src/lib/nfPendingResolutionRules.ts` + `calcularQuantidadeInventario` e `formatImportId`. |
+| `functions/src/onMasterProductWritten.ts` | Cloud Function | Trigger de incorporação. |
+| `functions/src/reprocessPendingMasterProducts.ts` | Cloud Function (callable) | "Reprocessar" do admin. |
+| `functions/src/pendingResolution.ts` | Orquestração (Admin SDK) | `resolvePendingForCode(db, codigo)`, compartilhada pelo trigger e pelo callable. |
+| `src/__tests__/nfIdentity.test.ts` | Jest | Seção 8.1. |
+| `src/__tests__/nfImportPlanner.test.ts` | Jest | Seção 8.1. |
+| `src/__tests__/nfPendingResolutionRules.test.ts` | Jest | Seção 8.1, incluindo paridade com o espelho. |
+| `src/__tests__/nfImportRoutes.test.ts` | Jest | Seção 8.2. |
 
 ### 5.2 Arquivos a MODIFICAR
 
 | Arquivo | Natureza da mudança |
 |---|---|
-| `src/types/nf.ts` | `ParsedNF` + `chave_acesso`, `modelo`, `serie`. `XmlParseErrorCode` + `MISSING_ACCESS_KEY`, `INVALID_ACCESS_KEY`. `NFImport`/`NFImportCreate` + `chave_acesso?`, `cnpj_emitente?`, `serie?`. Novos tipos `NFIdentity`, `NFImportIdentitySnapshot`, `NFDuplicateDecision`. `NFNumeroStatus` removido no STEP 6, quando sai o último uso. |
-| `src/lib/parseNfeXml.ts` | Lê `infNFe['@_Id']`, valida e deriva campos (Seção 6.2). Restante intacto. |
-| `src/__tests__/parseNfeXml.test.ts` | `makeXml` ganha atributo `Id` com chave válida (parâmetro opcional). Novos casos da Seção 8.1. |
-| `src/lib/services/nfImportService.ts` | Novas `reserveXmlNFImport`, `checkNFDuplicateStatus`, `claimNFImportForProcessing`. `processNFAndAddToInventory` perde o 4º parâmetro e usa a trava (STEP 5). `mapNFImportDoc` lê os campos novos. `checkNumeroNFStatus` e `createNFImport` são removidas quando ficam sem chamador (STEPs 6/5). |
-| `src/app/(clinic)/clinic/upload/page.tsx` | `handleUpload` usa `reserveXmlNFImport` antes do upload. `handleConfirmImport` chama `processNFAndAddToInventory(tenantId, importId, parsedData)`. Estado `existingXmlImport` removido. |
-| `src/app/(clinic)/clinic/add-products/page.tsx` | Normaliza o número (Passo 2 e `handleSaveNF`). Campos CNPJ/Série (D3). `checkNFDuplicateStatus`. Grava `numero_nf` normalizado, `cnpj_emitente?` e `serie?`. `inventory.nf_numero` normalizado. |
-| `firestore.rules` | Bloco `tenants/{tenantId}/nf_imports/{nfImportId}` reescrito (Seção 6.5) + helpers `isNFImportCreateValid`, `nfImportIdentityUnchanged`. `isRestrictedTenantCollection` e `consultantReadableSubcollection` **não mudam**. |
-| `tests/rules/firestore-tenant-subcollections.test.ts` | `describe('tenants/{tenantId}/nf_imports')` ampliado (Seção 8.2). O seed do teste "clinic_admin … escreve" passa a `status: 'pending'`. |
+| `src/lib/parseNfeXml.ts` | `parseTagValue: false`; identidade das tags; chave obrigatória e conferida; `codigo`/`lote`/`numero`/`serie` normalizados; CPF → erro. |
+| `src/__tests__/parseNfeXml.test.ts` | `makeXml` com `Id` válido padrão e `serie`; casos novos (Seção 8.1). |
+| `src/types/nf.ts` | `ParsedNF` + `chave_acesso`, `serie`, `cnpj_fornecedor` obrigatório; novos códigos de erro; `NFImport` reescrito (Seção 6.1); `NFImportCreate` e `NFNumeroStatus` removidos; tipos das rotas. |
+| `src/types/pendingMasterProduct.ts` | Campos da linha + `status`, `nf_import_id`, `id_sequencial`, `inventory_id?`, `resolved_at?`. |
+| `src/types/notification.ts` | `NotificationType` + `'nf_pending_resolved'`; `metadata` + `nf_import_id?`, `product_names?`. |
+| `src/lib/services/notificationService.ts` | `by_type` inicializado com `nf_pending_resolved: 0`. |
+| `src/components/notifications/NotificationBell.tsx` | Ícone `Package` verde para `nf_pending_resolved`. |
+| `src/lib/services/nfImportService.ts` | Removidos `uploadNFFile`, `createNFImport`, `updateNFImportStatus`, `checkNumeroNFStatus` e `processNFAndAddToInventory`. Ficam `getNFImport`/`listNFImports` (só leitura) com o `mapNFImportDoc` novo. |
+| `src/lib/services/inventoryService.ts` | `calcularQuantidadeInventario` reexportado de `inventoryQuantity.ts`. `addInventoryItems`/`getInventoryProdutoLoteKeysByNfId` removidos se `git grep` confirmar que não há outro chamador. |
+| `src/lib/services/pendingMasterProductService.ts` | Removidos `registerPendingMasterProducts` e `resolvePendingMasterProduct`. `listPendingMasterProducts` passa a `where('status','==','aberta')` + `orderBy('created_at','desc')` e mapeia os campos novos. |
+| `src/lib/firebase-admin.ts` | `getAdminStorage()` (bucket de `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`). |
+| `src/app/(clinic)/clinic/upload/page.tsx` | Preview sem gravação + marcação de produtos fora do catálogo; confirmação via `POST /api/nf-imports/xml`; tela de resultado com "ID 1000" e lista de não importados; tratamento de 409/422. |
+| `src/app/(clinic)/clinic/add-products/page.tsx` | Passo 2 com CNPJ (obrigatório), série (obrigatória) e chave (opcional); normalização; `handleSaveNF` via `POST /api/nf-imports/manual`; o `writeBatch` e os `console.log` de `handleSaveNF` saem; toast com "ID 1000" / "complementada"; código e lote normalizados ao adicionar produto. |
+| `src/app/(clinic)/clinic/inventory/[id]/page.tsx` | "NF-e {nf_numero} · ID {nf_id}" (RF-14). |
+| `src/app/(admin)/admin/pending-products/page.tsx` | Colunas novas; "Reprocessar" (callable) no lugar de "Marcar Resolvido". |
+| `src/types/masterProduct.ts` | `validateProductCode` aceita 1–7 dígitos; `formatProductCode` mantém o limite de 7. |
+| `src/lib/services/masterProductService.ts` | `createMasterProduct`/`updateMasterProduct` gravam e buscam `normalizeLeadingZeros(code)`; `getMasterProductByCode` normaliza o argumento. |
+| `functions/src/index.ts` | Exporta `onMasterProductWritten` e `reprocessPendingMasterProducts`. |
+| `.github/workflows/deploy-gscandelari-dev.yml` | Inclui as duas functions novas no `lib/index.js` gerado e no `--only` (l. 113). |
+| `firestore.rules` | Seção 6.5. |
+| `firestore.indexes.json` | `pending_master_products (status ASC, created_at DESC)`. |
+| `storage.rules` | `danfe/`: escrita negada ao client (leitura do tenant mantida). |
+| `tests/rules/firestore-tenant-subcollections.test.ts` | Seção 8.3. |
 
 ### 5.3 Arquivos a REMOVER
 
 | Arquivo | Motivo |
 |---|---|
-| — | Nenhum arquivo. Saem apenas as funções `checkNumeroNFStatus` e `createNFImport` de `nfImportService.ts` e o tipo `NFNumeroStatus`, substituídos. |
+| — | Nenhum arquivo inteiro. Saem as funções listadas em 5.2. |
 
-### 5.4 Impacto no Firestore
+### 5.4 Impacto no Firestore e no Storage
 
-| Coleção | Ação | Detalhes |
+| Coleção / caminho | Ação | Detalhes |
 |---|---|---|
-| `tenants/{tenantId}/nf_imports` | Schema + rules | Novos imports XML com ID = chave. Campos novos no topo: `chave_acesso` (só XML), `cnpj_emitente`, `serie`. `numero_nf` sempre normalizado. Rules: create/update/delete conforme D7. Legados intactos (D4). |
-| `tenants/{tenantId}/inventory` | Valor | `nf_numero` normalizado em lançamentos manuais novos (D8). `nf_id` dos imports XML novos passa a ser a chave (string de 44 posições). Nenhum leitor depende do formato do ID. |
-| `pending_master_products` | Valor | `nf_id` dos imports XML novos passa a ser a chave. Sem mudança de rule. |
-| `firestore.indexes.json` | Nenhuma | Igualdade em `numero_nf` e `getDoc` por ID. |
-| `storage.rules` / Storage | Nenhuma | Caminho `danfe/{tenantId}/{timestamp}_{nome}` inalterado. |
+| `tenants/{t}/nf_imports/{id}` | Schema + rules | ID = `"1000"`, `"1001"`, …; schema na Seção 6.1. Leitura: `clinic_admin`. Escrita: só Admin SDK. |
+| `tenants/{t}/nf_identidades/{cnpj_serie_numero}` | **Nova** | `{ nf_import_id, origem, created_at }`. Escrita só Admin SDK. Leitura só system_admin (restrita). |
+| `tenants/{t}/contadores/nf_imports` | **Nova** | `{ ultimo_id, updated_at }`. Escrita só Admin SDK. Leitura só system_admin (restrita). |
+| `tenants/{t}/inventory` | Valor | Itens gravados pelo servidor com `nf_id: "1000"`, `nf_numero` normalizado, `codigo_produto`/`lote` normalizados. Rules inalteradas (a escrita do client em outros fluxos continua). |
+| `tenants/{t}/notifications` | Valor | Novo tipo `nf_pending_resolved`, gravado pela function. |
+| `pending_master_products/{tenantId}_{importId}_{linha}` | Schema + rules | Linha completa + `status`. Escrita só Admin SDK. Leitura só system_admin. |
+| `master_products` | Rule + valor | Código sem zeros à esquerda. A escrita dispara o trigger. |
+| `firestore.indexes.json` | Novo índice | `pending_master_products (status ASC, created_at DESC)`. |
+| Storage `danfe/{t}/{importId}.xml` | Rule + caminho | Gravado pelo servidor; escrita do client negada. |
 
 ### 5.5 O que NÃO muda
 
-- `src/app/api/parse-nf-xml/route.ts`: já devolve 422 para qualquer erro lançado pelo parser com `message` (l. 27–35). Os códigos novos passam por ali sem alteração. A versão de `gscandelari_setup` (com auth) também não é tocada.
-- `src/lib/services/inventoryService.ts`: `addInventoryItems` e `getInventoryProdutoLoteKeysByNfId` são reutilizadas sem mudança.
-- `src/lib/services/pendingMasterProductService.ts` (A3 fica fora do escopo).
-- `isRestrictedTenantCollection`, `consultantReadableSubcollection` e todos os demais blocos de `firestore.rules`.
-- A matriz de bloqueio v1 (RN-02 (a)–(d)) e a regra UC-11 RN-06 (checagem só no último passo do wizard).
-- Coerção de `cProd`/`nLote` no parser (A1, fora do escopo).
-- `src/types/index.ts` (`NFImport` legado não usado).
-- `CLAUDE.md`, UCs e mapa: são atualizados pelos agentes no PR, não por esta task.
+- `src/app/api/parse-nf-xml/route.ts` (versão de #390): continua sendo a rota de preview, só parse. Os campos novos de `ParsedNF` passam por ela sem mudança.
+- `isRestrictedTenantCollection` e `consultantReadableSubcollection` continuam com a mesma semântica. A primeira ganha `nf_identidades` e `contadores` como itens da lista.
+- Regras de `inventory`, `stock_limits`, `solicitacoes`, `protocolos`, `financeiro`, `precificacao_procedimentos` e `notifications`.
+- `calcularQuantidadeInventario`: a fórmula não muda, só o arquivo.
+- `FileUpload.tsx`, `TipoNotaBadge.tsx`, fluxos de procedimento (UC-16 a UC-19).
+- `CLAUDE.md`, os UCs e o mapa (atualizados pelos agentes no PR).
 
 ---
 
 ## 6. Especificação Técnica
 
-### 6.1 Mudanças no modelo de dados
+### 6.1 Modelo de dados
 
 ```ts
-// src/types/nf.ts — ANTES
+// src/types/nf.ts — ParsedNF (DEPOIS)
 export interface ParsedNF {
-  numero: string;
+  numero: string;           // normalizado
+  serie: string;            // normalizada
+  cnpj_fornecedor: string;  // canônico 14 posições, DV validado (antes: opcional e com coerção)
+  chave_acesso: string;     // 44 posições, sem "NFe", validada (RN-04)
   data_emissao?: string;
   fornecedor?: string;
-  cnpj_fornecedor?: string;
   natureza_operacao?: string;
   forma_pagamento?: string;
   tipo_nota: TipoNota;
-  produtos: NFProduct[];
-}
-
-// DEPOIS
-export interface ParsedNF {
-  numero: string;              // normalizado (sem zeros à esquerda)
-  chave_acesso: string;        // 44 posições, sem prefixo "NFe" — obrigatório para XML (D1)
-  modelo: string;              // "55" (da chave)
-  serie: string;               // normalizado: "001" -> "1" (da chave)
-  data_emissao?: string;
-  fornecedor?: string;
-  cnpj_fornecedor?: string;    // 14 posições, da chave (corrige perda de zero à esquerda — A1)
-  natureza_operacao?: string;
-  forma_pagamento?: string;
-  tipo_nota: TipoNota;
-  produtos: NFProduct[];
+  produtos: NFProduct[];    // codigo e lote normalizados
 }
 
 export type XmlParseErrorCode =
-  | 'INVALID_FORMAT'
-  | 'MISSING_NF_NUMBER'
+  | 'INVALID_FORMAT' | 'MISSING_NF_NUMBER' | 'NO_PRODUCTS_FOUND' | 'MALFORMED_PRODUCT'
   | 'MISSING_ACCESS_KEY'   // novo
-  | 'INVALID_ACCESS_KEY'   // novo (formato, DV ou nNF divergente)
-  | 'NO_PRODUCTS_FOUND'
-  | 'MALFORMED_PRODUCT';
+  | 'INVALID_ACCESS_KEY'   // novo: formato, DV ou divergência com as tags
+  | 'INVALID_ISSUER';      // novo: emitente sem CNPJ, CNPJ inválido ou série inválida
 
-// NFImport e NFImportCreate ganham (opcionais — ausentes em legados e, conforme D3, no manual):
-//   chave_acesso?: string;   // só origem 'xml'; igual ao id do documento
-//   cnpj_emitente?: string;  // 14 posições
-//   serie?: string;          // normalizada
+export interface NFIdentity { cnpj: string; serie: string; numero: string }
 
-/** Identidade de uma NF para comparação (RN-01). */
-export interface NFIdentity {
-  numero: string;   // normalizado, não vazio
-  cnpj?: string;    // 14 posições
-  serie?: string;   // normalizada
-}
+export type NFImportStatus = 'success' | 'novo_produto_pendente';
 
-/** Visão mínima de um documento nf_imports para a decisão de duplicidade. */
-export interface NFImportIdentitySnapshot {
-  id: string;
-  origem: NFOrigem;
-  status: NFImport['status'];
-  identity: NFIdentity;
-  produtosImportados: number;
-}
-
-export type NFDuplicateDecision =
-  | { action: 'create' }                                         // xml: criar nf_imports/{chave}; manual: criar lançamento
-  | { action: 'resume'; importId: string; snapshot: NFImportIdentitySnapshot } // xml: retomar existente
-  | { action: 'blocked'; reason: string };
-```
-
-Remoção: `NFNumeroStatus` (l. 80–86) sai no STEP 6.
-
-### 6.2 Mudanças no parser e nas funções puras
-
-**`src/lib/nfIdentity.ts` (a criar):**
-
-```ts
-export const STALE_PROCESSING_MS = 10 * 60 * 1000; // D5
-
-/** Só dígitos, sem zeros à esquerda. '' se não houver dígito diferente de zero. */
-export function normalizeNumeroNF(raw: unknown): string;
-// ' 026.229 ' -> '26229'; '26229' -> '26229'; 26229 (number) -> '26229'; 'abc' -> ''; '000' -> ''; '' / null -> ''
-
-/** Só dígitos, sem zeros à esquerda, mas "0" preservado. '' se não houver dígito. */
-export function normalizeSerie(raw: unknown): string;
-// '001' -> '1'; '000' -> '0'; 1 (number) -> '1'; '' -> ''
-
-/** Remove máscara (. / -), uppercase; exige 14 posições ([0-9A-Z]{12}[0-9]{2} se D9=a, senão [0-9]{14}). '' se inválido. */
-export function normalizeCnpj(raw: unknown, opts?: { repairLeadingZeros?: boolean }): string;
-// repairLeadingZeros: só dígitos com 12–13 posições -> padStart(14,'0') (reparo da coerção, uso exclusivo em legado)
-
-/** Valida o DV do CNPJ (usado na entrada manual — D3). */
-export function isValidCnpj(cnpj14: string): boolean;
-
-/** DV módulo 11 da chave (pesos 2..9 da direita p/ esquerda; resto < 2 -> 0; senão 11 - resto). Valor do caractere = charCode - 48 (D9). */
-export function computeChaveAcessoDV(first43: string): number;
-
-export interface ChaveAcessoInfo {
-  chave: string;   // 44 posições
-  cUF: string;     // [0,2)
-  aamm: string;    // [2,6)
-  cnpj: string;    // [6,20)
-  modelo: string;  // [20,22)
-  serie: string;   // [22,25) normalizada
-  numero: string;  // [25,34) normalizado
-}
-
-/** Aceita "NFe"+44 ou 44 posições; trim; valida formato e DV. null se inválida. */
-export function parseChaveAcesso(raw: unknown): ChaveAcessoInfo | null;
-
-/** RN-01. */
-export function isSameNF(a: NFIdentity, b: NFIdentity): boolean;
-
-/** "NF 26229 (série 1, CNPJ 12.345.678/0001-99)" — omite partes ausentes. */
-export function formatNFLabel(identity: NFIdentity): string;
-
-/** Converte um documento nf_imports (inclusive legado) em snapshot (D4). */
-export function toNFIdentitySnapshot(id: string, data: Record<string, unknown>): NFImportIdentitySnapshot;
-// numero: normalizeNumeroNF(data.numero_nf)
-// cnpj:   data.cnpj_emitente  ||  normalizeCnpj(data.parsed_data?.cnpj_fornecedor, { repairLeadingZeros: true })  ||  undefined
-// serie:  data.serie  ||  data.parsed_data?.serie  ||  undefined
-// origem: data.origem ?? 'manual' (mesmo default de mapNFImportDoc)
-
-/** Matriz v1 (RN-02) aplicada sobre os snapshots que são a "mesma NF" (RN-01). */
-export function evaluateNFDuplicateStatus(
-  attempt: { origem: NFOrigem; identity: NFIdentity; chaveAcesso?: string },
-  existing: NFImportIdentitySnapshot[]
-): NFDuplicateDecision;
-
-/** RN-06. */
-export function canClaimForProcessing(
-  status: NFImport['status'],
-  updatedAtMs: number | null,
-  nowMs: number,
-  staleMs?: number
-): { ok: true } | { ok: false; reason: string };
-```
-
-Lógica de `evaluateNFDuplicateStatus`:
-1. `same = existing.filter((e) => isSameNF(attempt.identity, e.identity))`. `xml = same.filter((e) => e.origem === 'xml')`.
-2. `attempt.origem === 'manual'`:
-   - se `xml.length > 0`: `blocked` com "A {formatNFLabel} já foi importada via XML e não aceita adição manual de produtos." Quando a decisão saiu do fallback (sem CNPJ na tentativa) e D3 = (b), acrescentar a sugestão de informar o CNPJ;
-   - senão, `create`.
-3. `attempt.origem === 'xml'`:
-   - se `xml.length === 0`: `create`;
-   - se algum `xml[i].status === 'success'`: `blocked` com "A {label} já foi totalmente importada anteriormente.";
-   - senão, `resume` do snapshot com `id === attempt.chaveAcesso`, se houver; caso contrário, do primeiro legado.
-
-`canClaimForProcessing`:
-- `success` → `{ ok: false, reason: 'Esta NF-e já foi totalmente importada.' }`;
-- `processing` com `updatedAtMs !== null && nowMs - updatedAtMs < staleMs` → `{ ok: false, reason: 'Esta NF-e já está sendo processada em outra sessão. Aguarde alguns minutos e tente novamente.' }`;
-- qualquer outro caso → `ok`.
-
-**`src/lib/parseNfeXml.ts`:** depois de obter `nfe` e `numeroNF` (l. 88–97):
-
-```ts
-const rawId = (nfe as Record<string, unknown>)['@_Id'];
-if (rawId === undefined || rawId === null || String(rawId).trim() === '') {
-  throw { code: 'MISSING_ACCESS_KEY', message: 'Chave de acesso da NF-e (atributo Id de <infNFe>) não encontrada no XML.' } satisfies XmlParseError;
-}
-const chaveInfo = parseChaveAcesso(rawId);
-if (!chaveInfo) {
-  throw { code: 'INVALID_ACCESS_KEY', message: 'Chave de acesso da NF-e inválida (formato ou dígito verificador).' } satisfies XmlParseError;
-}
-if (chaveInfo.numero !== normalizeNumeroNF(numeroNF)) {
-  throw { code: 'INVALID_ACCESS_KEY', message: 'O número da NF-e (<nNF>) não confere com a chave de acesso.' } satisfies XmlParseError;
+// nf_imports/{id} — documento gravado pelo servidor
+export interface NFImport {
+  id: string;                  // "1000"
+  id_sequencial: number;       // 1000
+  tenant_id: string;
+  origem: NFOrigem;            // 'xml' | 'manual'
+  identidade: string;          // "12345678000199_1_26229"
+  numero_nf: string;
+  serie: string;
+  cnpj_emitente: string;
+  chave_acesso?: string;
+  fornecedor?: string;
+  data_emissao?: string;
+  natureza_operacao?: string;
+  forma_pagamento?: string;
+  tipo_nota?: TipoNota;
+  tipo?: 'rennova' | 'outra_marca';      // manual (do primeiro lançamento)
+  status: NFImportStatus;
+  produtos_importados: number;
+  produtos_pendentes: Array<{ codigo: string; nome_produto: string; lote: string }>;
+  lancamentos_manuais?: number;          // manual: 1 + complementos
+  arquivo_nome?: string;
+  arquivo_path?: string;                 // "danfe/{t}/1000.xml"
+  arquivo_status?: 'salvo' | 'falhou';
+  created_by: string;
+  created_at: Date | Timestamp;
+  updated_at: Date | Timestamp;
 }
 ```
 
-No `return`: `numero: normalizeNumeroNF(numeroNF)`, `chave_acesso: chaveInfo.chave`, `modelo: chaveInfo.modelo`, `serie: chaveInfo.serie`, `cnpj_fornecedor: chaveInfo.cnpj`. A ordem dos erros existentes (`INVALID_FORMAT` → `MISSING_NF_NUMBER` → chave → produtos) fica preservada. O `Id` é lido de `infNFe` em qualquer das duas raízes aceitas.
-
-### 6.3 Mudanças em serviços (`src/lib/services/nfImportService.ts`)
+- `nf_identidades/{identidade}`: `{ nf_import_id: string; origem: NFOrigem; created_at }`.
+- `contadores/nf_imports`: `{ ultimo_id: number; updated_at }`.
 
 ```ts
-/** Busca candidatos por número (manuais, legados e o próprio doc da chave) — fora de transação. */
-async function queryNFImportSnapshotsByNumero(tenantId: string, numeroNormalizado: string): Promise<NFImportIdentitySnapshot[]>;
-// query(collection(db,'tenants',tenantId,'nf_imports'), where('numero_nf','==',numeroNormalizado)) -> toNFIdentitySnapshot
+// src/types/pendingMasterProduct.ts (DEPOIS)
+export interface PendingMasterProduct {
+  id: string;                 // `${tenant_id}_${nf_import_id}_${linha}`
+  tenant_id: string;
+  nf_import_id: string;       // "1000"
+  id_sequencial: number;      // 1000
+  numero_nf: string; serie: string; cnpj_emitente: string;
+  linha: number;              // índice em parsedNF.produtos
+  codigo: string; nome_produto: string; lote: string;
+  quantidade: number;         // como na NF (embalagens)
+  valor_unitario: number;     // como na NF (por embalagem)
+  dt_validade: Date | Timestamp;
+  dt_fabricacao?: Date | Timestamp;
+  sem_rastro?: boolean;
+  status: 'aberta' | 'resolvida';
+  inventory_id?: string;
+  created_at: Date | Timestamp;
+  resolved_at?: Date | Timestamp;
+}
+```
 
-/** XML: cria nf_imports/{chave} ou retoma o existente, atomicamente. */
-export async function reserveXmlNFImport(params: {
-  tenantId: string;
-  parsedNF: ParsedNF;
-  userId: string;
-  arquivoNome: string;
+Campos herdados do cabeçalho (`natureza_operacao`, `tipo_nota`, `nf_numero`) são lidos do registro `nf_imports` na incorporação, sem duplicação na pendência.
+
+### 6.2 Funções puras
+
+```ts
+// src/lib/nfIdentity.ts
+export function normalizeNumeroNF(raw: unknown): string;        // '026.229'→'26229'; '000'/'abc'/''→''
+export function normalizeSerie(raw: unknown): string;           // '001'→'1'; '000'→'0'; ''/'abc'→''; >999→''
+export function normalizeLeadingZeros(raw: unknown): string;    // trim; '0012345'→'12345'; '00A12'→'A12'; '000'→'0'; ''→''
+export function normalizeCnpj(raw: unknown): string;            // remove . / - espaço; uppercase; exige /^[0-9A-Z]{12}[0-9]{2}$/ e isValidCnpj; senão ''
+export function isValidCnpj(cnpj14: string): boolean;           // mód. 11, pesos 2..9 (dir→esq), valor = charCode-48; rejeita 14 caracteres iguais
+export function formatCnpj(cnpj14: string): string;             // '12.345.678/0001-99'
+export function computeChaveAcessoDV(first43: string): number;  // mód. 11; resto<2→0; senão 11-resto; valor = charCode-48
+export interface ChaveAcessoInfo { chave: string; cnpj: string; modelo: string; serie: string; numero: string }
+export function parseChaveAcesso(raw: unknown): ChaveAcessoInfo | null; // aceita 'NFe'+44 ou 44; /^[0-9]{6}[0-9A-Z]{12}[0-9]{26}$/ + DV
+export function buildIdentityKey(id: NFIdentity): string;       // `${cnpj}_${serie}_${numero}`
+export function chaveMatchesIdentity(chave: ChaveAcessoInfo, id: NFIdentity): boolean;
+export function validateManualIdentity(input: { numero: string; cnpj: string; serie: string; chave?: string }):
+  | { ok: true; identity: NFIdentity; chave_acesso?: string }
+  | { ok: false; error: string };
+// erros: 'Número da NF inválido…' | 'CNPJ do emitente inválido' | 'Série inválida' | 'Chave de acesso inválida' | 'A chave de acesso não confere com CNPJ, série e número informados'
+export function formatImportId(id: string | number): string;    // 'ID 1000'
+export function formatNFLabel(id: NFIdentity): string;          // 'NF 26229 · série 1 · CNPJ 12.345.678/0001-99'
+```
+
+```ts
+// src/lib/nfImportPlanner.ts
+export const NF_IMPORT_FIRST_ID = 1000;
+export const MAX_TRANSACTION_WRITES = 500;
+export function nextImportId(ultimoId: number | undefined | null): number; // undefined→1000; 1000→1001; <999 → 1000 (robustez)
+
+export type IdentityConflictDecision =
+  | { action: 'create' }
+  | { action: 'complement'; nfImportId: string }
+  | { action: 'blocked'; status: 409; nfImportId: string; reason: string };
+export function evaluateIdentityConflict(
+  attempt: NFOrigem,
+  existing: { nf_import_id: string; origem: NFOrigem; hasPending?: boolean } | null
+): IdentityConflictDecision; // RN-02 + mensagens de RF-04/RF-11
+
+export interface MasterLite { id: string; code: string; active: boolean; category?: string; fragmentavel?: boolean; unidades_por_embalagem?: number }
+export function planXmlLines(produtos: NFProduct[], mastersByCode: Map<string, MasterLite>): {
+  inventory: Array<{ linha: number; produto: NFProduct; master: MasterLite; quantidade: number; valor_unitario: number }>;
+  pending: Array<{ linha: number; produto: NFProduct }>;
+}; // inativo ou ausente → pending; usa calcularQuantidadeInventario
+
+export function checkWriteBudget(fixedWrites: number, lineWrites: number):
+  | { ok: true } | { ok: false; status: 422; error: string };
+// erro XML: 'Esta NF-e tem {n} itens; o limite por importação é {max}.'
+// erro manual (via wrapper): '… divida o lançamento: os complementos mantêm o mesmo ID.'
+```
+
+```ts
+// src/lib/inventoryQuantity.ts — conteúdo movido sem alteração
+export function calcularQuantidadeInventario(params: CalcInventarioParams): CalcInventarioResult;
+```
+
+```ts
+// src/lib/nfPendingResolutionRules.ts  (espelhado em functions/src/nfPendingResolutionRules.ts)
+export function shouldResolvePendingForProduct(
+  before: { code?: string; active?: boolean } | null,
+  after: { code?: string; active?: boolean } | null
+): string | null; // devolve o código normalizado a resolver ou null
+// after ausente ou inativo → null; before ausente → after.code; before.active !== true → after.code; before.code !== after.code → after.code; senão null
+
+export function planPendingResolution(
+  pendings: Array<Pick<PendingMasterProduct, 'id' | 'codigo' | 'nome_produto' | 'lote' | 'quantidade' | 'valor_unitario'>>,
+  master: { fragmentavel?: boolean; unidades_por_embalagem?: number }
+): Array<{ pendingId: string; quantidade: number; valor_unitario: number; quantidade_embalagens?: number; valor_por_embalagem?: number }>;
+
+export const MAX_PENDING_PER_TRANSACTION = 248; // 2 escritas por linha + registro + notificação ≤ 500
+export function chunkPendingLines<T>(lines: T[], size?: number): T[][];
+export function buildPendingResolvedMessage(importId: string, productNames: string[]): string;
+// 'A NF (ID 1000) foi atualizada: os produtos X, Y, Z foram adicionados ao inventário automaticamente.'
+// 1 produto: 'A NF (ID 1000) foi atualizada: o produto X foi adicionado ao inventário automaticamente.'
+// nomes repetidos (mesmo produto, lotes diferentes) aparecem uma vez
+```
+
+**Parser** (`parseNfeXml`):
+- `new XMLParser({ ..., parseTagValue: false })`.
+- Depois de `numeroNF`:
+  - `cnpjRaw = extractText(emit.CNPJ)`. Se estiver vazio e `emit.CPF` existir → `INVALID_ISSUER` ("Emitente sem CNPJ não é suportado.").
+  - `cnpj = normalizeCnpj(cnpjRaw)`. Se vazio → `INVALID_ISSUER` ("CNPJ do emitente inválido no XML.").
+  - `serie = normalizeSerie(ide.serie)`. Se vazia → `INVALID_ISSUER` ("Série da NF-e inválida no XML.").
+  - `numero = normalizeNumeroNF(numeroNF)`. Se vazio → `MISSING_NF_NUMBER`.
+  - Sem `infNFe['@_Id']` → `MISSING_ACCESS_KEY`.
+  - `parseChaveAcesso(...) === null` → `INVALID_ACCESS_KEY` ("Chave de acesso da NF-e inválida (formato ou dígito verificador).").
+  - `!chaveMatchesIdentity` → `INVALID_ACCESS_KEY` ("A chave de acesso não confere com CNPJ, série e número do XML.").
+- Nos produtos: `codigo: normalizeLeadingZeros(cProd)` e `lote: normalizeLeadingZeros(nLote) || 'NÃO_INFORMADO'`. `qCom`/`vUnCom` continuam com `parseFloat` sobre string.
+
+### 6.3 Serviço server-only e API Routes
+
+```ts
+// src/lib/services/nfImportServer.ts  (import 'server-only' não é necessário; só é importado por rotas)
+export async function confirmXmlImport(p: {
+  tenantId: string; uid: string; parsedNF: ParsedNF; arquivoNome: string;
 }): Promise<
-  | { status: 'created'; importId: string }
-  | { status: 'resumed'; importId: string; produtosImportados: number }
-  | { status: 'blocked'; reason: string }
+  | { kind: 'created'; importId: string; produtosImportados: number; pendentes: Array<{ codigo: string; nome_produto: string; lote: string }> }
+  | { kind: 'blocked'; importId: string; reason: string }
 >;
+
+export async function confirmManualLaunch(p: {
+  tenantId: string; uid: string; identity: NFIdentity; chave_acesso?: string;
+  tipo: 'rennova' | 'outra_marca'; produtos: ManualNfProductInput[];
+}): Promise<
+  | { kind: 'created' | 'complemented'; importId: string; produtosImportados: number }
+  | { kind: 'blocked'; importId: string; reason: string }
+  | { kind: 'invalid'; error: string }   // produto Rennova inexistente/inativo no catálogo
+>;
+
+export async function saveNfXmlFileBestEffort(tenantId: string, importId: string, buffer: Buffer): Promise<'salvo' | 'falhou'>;
 ```
 
-Lógica:
-1. `identity = { numero: parsedNF.numero, cnpj: parsedNF.cnpj_fornecedor, serie: parsedNF.serie }`. `candidatos = await queryNFImportSnapshotsByNumero(...)`.
-2. `runTransaction(db, async (tx) => { ... })`:
-   - `chaveSnap = await tx.get(doc(db,'tenants',tenantId,'nf_imports',parsedNF.chave_acesso))`;
-   - monta `existing` (o `chaveSnap`, se existir, substitui o candidato de mesmo id) e chama `evaluateNFDuplicateStatus({ origem: 'xml', identity, chaveAcesso }, existing)`;
-   - para `resume` de um legado (id ≠ chave), faz `tx.get` do legado **antes** de qualquer escrita e reavalia com o snapshot fresco;
-   - `create` → `tx.set(chaveRef, { tenant_id, numero_nf, origem: 'xml', chave_acesso, cnpj_emitente, serie, arquivo_nome, natureza_operacao?, forma_pagamento?, tipo_nota, status: 'pending', produtos_importados: 0, produtos_novos: 0, created_by: userId, created_at: serverTimestamp(), updated_at: serverTimestamp() })`. Campos `undefined` são removidos, como em `createNFImport` hoje;
-   - `resume` → `tx.update(ref, { status: 'pending', arquivo_nome, updated_at: serverTimestamp() })`;
-   - `blocked` → sem escrita.
-3. Retorna o resultado.
+**Transação de `confirmXmlImport`:**
+1. Fora da transação:
+   - `identidade = buildIdentityKey(...)`;
+   - `codes = unique(parsedNF.produtos.map(p => p.codigo))`;
+   - pré-checagem de orçamento: `checkWriteBudget(3, parsedNF.produtos.length)`, pior caso, já que cada linha vira inventário ou pendência.
+2. `adminDb.runTransaction(async (tx) => { … })`, nesta ordem:
+   1. `identSnap = await tx.get(identRef)`.
+   2. Se existe: lê o registro (`tx.get(nf_imports/{id})`) para `hasPending`, chama `evaluateIdentityConflict('xml', …)` e retorna `blocked`.
+   3. `counterSnap = await tx.get(counterRef)`.
+   4. `masters = await tx.get(master_products where code in chunk)`, em blocos de 30.
+   5. `plan = planXmlLines(...)`; `importId = String(nextImportId(counterSnap.data()?.ultimo_id))`.
+   6. Escritas:
+      - `tx.set(counterRef, { ultimo_id, updated_at })`;
+      - `tx.set(importRef, { …NFImport, status: plan.pending.length ? 'novo_produto_pendente' : 'success', produtos_importados: plan.inventory.length, produtos_pendentes })`;
+      - `tx.set(identRef, { nf_import_id: importId, origem: 'xml', created_at })`;
+      - para cada item de inventário, `tx.set(inventoryRef(auto), {...})`, com os mesmos campos de hoje em `addInventoryItems` + `nf_id: importId`, `nf_numero`, `brand: 'Rennova'`, `codigo_produto`/`lote` normalizados;
+      - para cada pendência, `tx.set(pending_master_products/{tenantId}_{importId}_{linha}, {...status: 'aberta'})`.
+3. Retorna `created`. A rota chama `saveNfXmlFileBestEffort` depois e atualiza `arquivo_path`/`arquivo_status` com um `update` simples (Admin SDK).
+
+**Transação de `confirmManualLaunch`:**
+1. Identidade inexistente → contador + registro (`origem: 'manual'`, `lancamentos_manuais: 1`, `status: 'success'`, `produtos_pendentes: []`) + identidade + N itens.
+2. Identidade existente com `origem: 'manual'` → `tx.update(registro, { produtos_importados: FieldValue.increment(N), lancamentos_manuais: FieldValue.increment(1), updated_at })` + N itens, sem consumir ID.
+3. Identidade existente com `origem: 'xml'` → `blocked`.
+4. Rennova: os produtos são resolvidos no catálogo **dentro** da transação (`tx.get` por código normalizado). Se algum não existir ou estiver inativo → `invalid` (422), porque o manual Rennova só oferece produtos ativos no autocomplete. Quantidade e valor são calculados pelo servidor (`calcularQuantidadeInventario`), e os campos `fragmentavel`, `unidades_por_embalagem`, `quantidade_embalagens` e `valor_por_embalagem` são gravados como hoje.
+5. Outra marca: os valores são usados como informados.
+6. Os itens mantêm os campos atuais do manual (`is_rennova`, `master_product_id`/`produto_id`, `nf_import_id` alias, `brand`, `category`, `dt_validade` como Timestamp).
+
+**`POST /api/nf-imports/xml`**
+- Auth: `Authorization: Bearer <idToken>` de `clinic_admin` ativo com `tenant_id`.
+- Ordem: `verifyBearerToken` → `checkParseNfeClaims` → `checkRequestContentLength` → `formData` → `validateNfeUploadEntries` → `parseNfeXml` (422) → `checkWriteBudget` (422) → `confirmXmlImport` → arquivo best-effort.
 
 ```ts
-/** Manual: decide se o lançamento é permitido (sem escrita). */
-export async function checkNFDuplicateStatus(
-  tenantId: string,
-  identity: NFIdentity
-): Promise<{ blocked: false } | { blocked: true; reason: string }>;
-// candidatos por número -> evaluateNFDuplicateStatus({ origem: 'manual', identity }, candidatos)
-
-/** Trava de processamento (RN-06). Lança Error(reason) se não puder. */
-export async function claimNFImportForProcessing(
-  tenantId: string,
-  importId: string
-): Promise<{ produtosImportados: number }>;
-// runTransaction: get -> canClaimForProcessing(status, updated_at?.toMillis() ?? null, Date.now()) -> update { status: 'processing', updated_at: serverTimestamp() }
+// Request: multipart/form-data { file: File (1, *.xml, ≤10MB) }
+type ConfirmXmlResponse =
+  | { importId: string; idLabel: string; numero: string; serie: string; cnpj: string;
+      produtosImportados: number; pendentes: Array<{ codigo: string; nome_produto: string; lote: string }>;
+      arquivoSalvo: boolean }                                        // 201
+  | { error: string; importId?: string };                            // 400|401|403|409|413|422|500
 ```
 
-`processNFAndAddToInventory`:
+**`POST /api/nf-imports/manual`**
+- Mesma auth. Corpo JSON validado.
 
 ```ts
-// ANTES
-processNFAndAddToInventory(tenantId, importId, parsedData, existingXmlImport?: NFImport)
-// DEPOIS
-processNFAndAddToInventory(tenantId: string, importId: string, parsedData: ParsedNF): Promise<{ success: boolean; message: string }>
+interface ManualNfProductInput {
+  codigo: string; nome_produto: string; lote: string;
+  quantidade: number;         // como informado (embalagens, se Rennova fragmentável)
+  valor_unitario: number;     // como informado (por embalagem, se fragmentável)
+  dt_validade: string;        // 'YYYY-MM-DD'
+  brand?: string; category?: string;  // outra_marca
+}
+interface ManualNfLaunchRequest {
+  numero: string; cnpj: string; serie: string; chave_acesso?: string;
+  tipo: 'rennova' | 'outra_marca';
+  produtos: ManualNfProductInput[];   // 1..(MAX - 3)
+}
+type ManualNfLaunchResponse =
+  | { importId: string; idLabel: string; complemento: boolean; produtosImportados: number } // 201 (criado) | 200 (complemento)
+  | { error: string; importId?: string };                                                  // 400|401|403|409|422|500
 ```
 
-- Primeira linha: `const { produtosImportados } = await claimNFImportForProcessing(tenantId, importId)`. Se lançar, retorna `{ success: false, message }` **sem** marcar `'error'`, para não sobrescrever o `processing` da outra sessão. Isso substitui o `updateNFImportStatus(..., 'processing')` atual.
-- `jaImportados = await getInventoryProdutoLoteKeysByNfId(tenantId, importId)` **sempre** (RN-07).
-- `totalJaImportado = produtosImportados + resolvedItems.length`.
-- Resto inalterado.
-
-`mapNFImportDoc` passa a mapear `chave_acesso`, `cnpj_emitente` e `serie`. Saem do serviço: `createNFImport` (STEP 5) e `checkNumeroNFStatus` (STEP 6).
+| Status | Quando |
+|---|---|
+| 400 | Corpo inválido, `validateManualIdentity` falhou, produto com campo obrigatório ausente, quantidade ≤ 0, data inválida; no XML, guardas de arquivo. |
+| 401 / 403 | Guardas de #390. |
+| 409 | `blocked`: mensagem de RN-02 com `importId`. |
+| 413 | Arquivo maior que 10MB. |
+| 422 | Parse do XML; orçamento; produto Rennova inexistente ou inativo (manual). |
 
 ### 6.4 Mudanças na UI
 
-**`/clinic/upload` (`handleUpload`)**
-- Antes: parse → `checkNumeroNFStatus` → upload → `createNFImport`/`updateNFImportStatus` → preview.
-- Depois: parse → `reserveXmlNFImport` → `blocked` mostra `reason` no `Alert` de erro existente (`setUploadStatus('error')`) → upload → `updateNFImportStatus(tenantId, importId, 'pending', { arquivo_nome, arquivo_url })` → preview.
-- Se a reserva foi `resumed`, o preview mostra o aviso informativo "Esta NF-e já foi parcialmente importada; apenas os produtos ainda não gravados serão adicionados." (hoje a tela já trata `existingXmlImport`; o aviso passa a depender de `reservation.status === 'resumed'`).
-- O preview ganha uma linha "Série / CNPJ do emitente" (`formatNFLabel`), no mesmo card onde já aparecem número e fornecedor.
-- `handleConfirmImport`: `processNFAndAddToInventory(tenantId, importId, parsedData)`. Uma falha da trava aparece no `Alert` de erro existente.
-- Sem mudança no `FileUpload` nem no envio do token (que vem do PR #390).
+**`/clinic/upload`**
+- `handleUpload` → **"Ler XML"**: só `POST /api/parse-nf-xml` (com token) e, depois, `getMasterProductByCode` para cada código único, para marcar no preview "Não cadastrado — ficará pendente" (badge `variant="outline"`). Nada é gravado. Saem `uploadNFFile`, `checkNumeroNFStatus`, `createNFImport` e `updateNFImportStatus`, e também os estados `importId`/`existingXmlImport`.
+- O preview mostra `formatNFLabel` + fornecedor, como hoje.
+- `handleConfirmImport` → `POST /api/nf-imports/xml` com o mesmo `selectedFile` e o token.
+  - **201** → tela de sucesso: título "Importação concluída — ID 1000", "{n} produto(s) adicionados ao estoque". Se `pendentes.length`, um `Alert` lista código, nome e lote dos não importados, com o texto do RF-03. Se `!arquivoSalvo`, aviso discreto "O arquivo XML não pôde ser arquivado; a importação foi concluída normalmente."
+  - **409/422/4xx** → o `Alert` de erro existente com `error`.
 
 **`/clinic/add-products`**
-- Passo 2, "Número da NF": continua texto livre. Abaixo dele, `<p className="text-sm text-muted-foreground">` com "Será registrada como {normalizeNumeroNF(numeroNF)}" quando o valor normalizado for diferente do digitado e não vazio.
-- `handleContinueToProducts` e `handleSaveNF` validam `normalizeNumeroNF(numeroNF) !== ''`. Se vazio, toast "Número da NF inválido — informe ao menos um dígito diferente de zero".
-- **Se D3 = (b):** campos "CNPJ do emitente (opcional)" (`id="cnpj-emitente"`, máscara `00.000.000/0000-00`) e "Série (opcional)" (`id="serie-nf"`). Com CNPJ preenchido e `isValidCnpj` falso, toast "CNPJ do emitente inválido" e o fluxo não avança. Os resumos (l. 660–670 e 955–960) mostram `formatNFLabel`. **Se D3 = (c):** os mesmos campos, obrigatórios. **Se D3 = (a):** nenhum campo novo.
-- `handleSaveNF`: `checkNFDuplicateStatus(tenantId, identity)`. O `nfData` grava `numero_nf: identity.numero`, `cnpj_emitente?` e `serie?` (sem `undefined`). `created_by` fica `user.uid`; o fallback `'unknown'` sai, porque a rule exige `auth.uid`. Ampliar a guarda inicial com `!user`. `inventoryData.nf_numero: identity.numero`.
+- Passo 2 com quatro campos:
+  - "Número da NF" (obrigatório; dica "Será registrada como {n}" quando a normalização mudar o valor);
+  - "CNPJ do emitente" (obrigatório; máscara `00.000.000/0000-00`, aceita letras nas 12 primeiras posições);
+  - "Série" (obrigatória);
+  - "Chave de acesso (opcional)" (44 caracteres, aceita com espaços ou com o prefixo `NFe`).
+- `handleContinueToProducts` chama `validateManualIdentity`; em erro, toast com a mensagem.
+- Ao adicionar produto à lista local, `codigo` e `lote` passam por `normalizeLeadingZeros`. O cálculo de fragmentação na lista local continua só para exibição.
+- `handleSaveNF` → `POST /api/nf-imports/manual`. O payload envia `quantidade: p.fragmentavel ? p.quantidade_embalagens : p.quantidade` e `valor_unitario: p.fragmentavel ? p.valor_por_embalagem : p.valor_unitario`.
+  - **201** → toast "Nota fiscal salva — ID 1000".
+  - **200** com `complemento` → toast "Lançamento adicionado à NF já cadastrada (ID 1000)".
+  - Em seguida, `router.push('/clinic/inventory')` como hoje.
+  - **409/422/400** → toast destrutivo com `error`.
+- Os resumos (l. 660–670 e 955–960) mostram `formatNFLabel`. Saem `writeBatch` e os `console.log` de `handleSaveNF`.
 
-### 6.5 Mudanças em `firestore.rules` (bloco `nf_imports`)
+**`/clinic/inventory/[id]`** (l. 348–356): quando `item.nf_id` existe, mostra "NF-e {nf_numero} · ID {nf_id}".
+
+**`/admin/pending-products`**
+- A tabela passa a ter as colunas Clínica | Importação ("ID 1000") | NF (`formatNFLabel`) | Código | Produto | Lote | Qtd. | Data.
+- "Cadastrar Produto" continua igual.
+- "Reprocessar" chama `httpsCallable(functions, 'reprocessPendingMasterProducts')({ codigo })`. O toast mostra "{n} item(ns) incorporado(s)", ou "Produto ainda não está ativo no catálogo" se `n == 0` e o produto não estiver ativo. Depois, recarrega a lista.
+- O texto do estado vazio continua.
+
+### 6.5 Regras
+
+**`firestore.rules`** (mudanças):
 
 ```
-// nf_imports — leitura só clinic_admin do tenant (inalterado; fora do
-// fallback genérico via isRestrictedTenantCollection e fora da allowlist do
-// consultor). Escrita: identidade validada no create e imutável no update
-// (BUGFIX-identidade-e-duplicidade-nfe — UC-10-RN-14/RN-15, UC-11-RN-12).
-// XML: id do documento == chave de acesso (44 posições) => um único
-// documento por NF por tenant. Manual: id aleatório, nunca no formato de
-// chave. Delete só system_admin (bloco genérico).
-function isChaveAcessoFormat(value) {
-  // D9 = (a): CNPJ alfanumérico nas posições 7–18; senão '^[0-9]{44}$'
-  return value is string && value.matches('^[0-9]{6}[0-9A-Z]{12}[0-9]{26}$');
+// Subcoleções do tenant gravadas apenas pelo servidor (Admin SDK) — client
+// não escreve nem como system_admin (BUGFIX-identidade-e-duplicidade-nfe).
+function isServerManagedTenantCollection(collectionId) {
+  return collectionId in ['nf_imports', 'nf_identidades', 'contadores'];
 }
 
-function isNFImportCreateValid(tenantId, nfImportId) {
-  let d = request.resource.data;
-  return d.tenant_id == tenantId
-    && d.created_by == request.auth.uid
-    && d.numero_nf is string
-    && d.numero_nf.matches('^[1-9][0-9]*$')
-    && (
-      (d.origem == 'xml'
-        && isChaveAcessoFormat(d.get('chave_acesso', null))
-        && d.chave_acesso == nfImportId
-        && d.status == 'pending')
-      ||
-      (d.origem == 'manual'
-        && !('chave_acesso' in d)
-        && !isChaveAcessoFormat(nfImportId)
-        && d.status == 'success')
-    );
+function isRestrictedTenantCollection(collectionId) {
+  return collectionId in ['nf_imports', 'financeiro', 'precificacao_procedimentos',
+                          'nf_identidades', 'contadores'];
 }
 
-function nfImportIdentityUnchanged() {
-  return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-    'tenant_id', 'origem', 'numero_nf', 'chave_acesso', 'cnpj_emitente',
-    'serie', 'created_by', 'created_at'
-  ]);
+match /tenants/{tenantId}/{collectionId}/{document=**} {
+  allow read: if isSystemAdmin();
+  allow write: if isSystemAdmin() && !isServerManagedTenantCollection(collectionId);
+  // ... demais allow read inalterados (tenant fora das restritas; consultor pela allowlist)
 }
 
+// nf_imports — leitura só clinic_admin do tenant; nenhuma escrita de client.
 match /tenants/{tenantId}/nf_imports/{nfImportId} {
   allow read: if belongsToTenant(tenantId) && hasRole('clinic_admin');
-  allow create: if belongsToTenant(tenantId) && hasRole('clinic_admin')
-    && isNFImportCreateValid(tenantId, nfImportId);
-  allow update: if belongsToTenant(tenantId) && hasRole('clinic_admin')
-    && resource.data.get('status', '') != 'success'
-    && nfImportIdentityUnchanged();
-  // delete: não concedido ao clinic_admin (D7); system_admin pelo bloco genérico.
+}
+// nf_identidades e contadores: sem bloco dedicado — só leitura do system_admin (genérico).
+
+match /master_products/{productId} {
+  allow read: if isAuthenticated();
+  allow create: if isSystemAdmin()
+    && request.resource.data.code.matches('^[1-9][0-9]{0,6}$')
+    && request.resource.data.name is string && request.resource.data.name.size() > 0;
+  allow update: if isSystemAdmin()
+    && (!('code' in request.resource.data) || request.resource.data.code.matches('^[1-9][0-9]{0,6}$'))
+    && (!('name' in request.resource.data)
+        || (request.resource.data.name is string && request.resource.data.name.size() > 0));
+  allow delete: if isSystemAdmin();
+}
+
+match /pending_master_products/{docId} {
+  allow read: if isSystemAdmin();   // escrita só Admin SDK
 }
 ```
 
-Notas:
-- `diff().affectedKeys()` só funciona em `update`. Por isso create e update ficam separados.
-- `transaction.set` num documento inexistente é avaliado como **create**. `setDoc`/`tx.set` sobre um documento existente é avaliado como **update**. Assim, a tentativa de "criar de novo" a mesma chave cai no update: é negada se o documento estiver `success` e não consegue trocar a identidade nos demais estados.
-- Os helpers ficam junto dos demais no topo do `match /databases/{database}/documents`, seguindo o padrão do arquivo.
-- Imports legados XML com ID aleatório continuam aceitando update (status ≠ `success`, identidade intacta), o que permite a retomada.
+> Ao aplicar, preserve o restante do bloco genérico como está na base (em `develop` depois de #389: `consultantReadableSubcollection`). Só a linha `allow read, write: if isSystemAdmin();` é dividida em duas.
+
+**`storage.rules`**, `match /danfe/{tenantId}/{nfId}`:
+- mantém `allow read: if isSystemAdmin();` e `allow read: if belongsToTenant(tenantId);`;
+- remove os dois `allow write` (system_admin e tenant);
+- atualiza o comentário: "gravado só pelo servidor (Admin SDK) em `danfe/{tenantId}/{importId}.xml`".
+
+**`firestore.indexes.json`:** `{ collectionGroup: 'pending_master_products', queryScope: 'COLLECTION', fields: [status ASC, created_at DESC] }`.
+
+### 6.6 Cloud Functions
+
+```ts
+// functions/src/onMasterProductWritten.ts
+export const onMasterProductWritten = onDocumentWritten(
+  { document: 'master_products/{productId}', region: 'southamerica-east1' },
+  async (event) => {
+    const codigo = shouldResolvePendingForProduct(event.data?.before.data() ?? null, event.data?.after.data() ?? null);
+    if (!codigo) return;
+    await resolvePendingForCode(admin.firestore(), codigo); // guard admin.app()/initializeApp como nas demais
+  }
+);
+
+// functions/src/reprocessPendingMasterProducts.ts — onCall, is_system_admin obrigatório
+//   input { codigo: string } -> { incorporados: number; produtoAtivo: boolean }
+
+// functions/src/pendingResolution.ts
+export async function resolvePendingForCode(db, codigoRaw): Promise<{ incorporados: number; produtoAtivo: boolean }>;
+```
+
+1. Normaliza `codigo`; busca o master por `code == codigo`. Se ausente ou inativo, retorna `{ 0, false }`.
+2. `pending_master_products where codigo == X and status == 'aberta'`; agrupa por `(tenant_id, nf_import_id)`; aplica `chunkPendingLines`.
+3. Para cada bloco, `db.runTransaction`:
+   - `tx.get` de cada pendência (descarta as que não estão mais `aberta`, o que garante idempotência) e do registro;
+   - `planPendingResolution`;
+   - `tx.set` dos itens de `inventory` (mesmos campos da importação XML, com cabeçalho lido do registro);
+   - `tx.update` das pendências (`status: 'resolvida'`, `inventory_id`, `resolved_at`);
+   - `tx.update` do registro: remove de `produtos_pendentes` os pares (código, lote) resolvidos, `produtos_importados += n`, `status` passa a `success` se a lista ficar vazia, `updated_at`;
+   - `tx.set` da notificação em `tenants/{t}/notifications` (`type: 'nf_pending_resolved'`, `priority: 'medium'`, `title: 'Produtos incorporados ao estoque'`, `message: buildPendingResolvedMessage(...)`, `read: false`, `metadata: { nf_import_id, product_names }`).
+4. Erros são registrados por bloco e não interrompem os demais.
 
 ---
 
 ## 7. Plano de Implementação
 
-### STEP 1 — Normalização e chave de acesso (funções puras)
+### STEP 1 — Identidade e normalização (puras)
 
-**Objetivo:** Ter `normalizeNumeroNF`, `normalizeSerie`, `normalizeCnpj`, `isValidCnpj`, `computeChaveAcessoDV`, `parseChaveAcesso`, `isSameNF`, `formatNFLabel` e `toNFIdentitySnapshot` implementadas e testadas.
+**Objetivo:** Implementar e testar `src/lib/nfIdentity.ts`.
 
 **Arquivos afetados:**
-- `src/lib/nfIdentity.ts`: criar (Seção 6.2, sem `evaluateNFDuplicateStatus`/`canClaimForProcessing`).
-- `src/types/nf.ts`: adicionar `NFIdentity`, `NFImportIdentitySnapshot` e os campos opcionais de `NFImport`/`NFImportCreate`.
-- `src/__tests__/nfIdentity.test.ts`: criar (Seção 8.1).
+- `src/lib/nfIdentity.ts`: criar (Seção 6.2).
+- `src/types/nf.ts`: `NFIdentity`.
+- `src/__tests__/nfIdentity.test.ts`: criar.
 
 **Ações:**
-1. Implementar as funções exatamente como especificado. DV com valor `charCode - 48` (D9).
-2. Escrever os testes, incluindo as chaves de exemplo da Seção 8.1, cujo DV foi conferido com a chave pública de exemplo `52060433009911002506550120000007800267301615` (DV 5).
+1. Implementar as funções da Seção 6.2 (bloco `nfIdentity.ts`).
+2. Antes de fechar a função de valor do caractere (A4), conferir na NT 2025.001 vigente o leiaute da chave e o cálculo do DV do CNPJ alfanumérico.
 
-**Validação:** `npm run test -- nfIdentity` verde. `npm run lint` e `npm run type-check` sem erros.
+**Validação:** `npm run test -- nfIdentity` verde; `npm run lint` e `npm run type-check` sem erros.
 
-**Commits:** `fix(inventory): add NF-e identity normalization helpers` e `test(inventory): cover NF-e identity normalization helpers`
+**Commits:** `fix(inventory): add NF-e identity and normalization helpers` e `test(inventory): cover NF-e identity and normalization helpers`
 
 ---
 
-### STEP 2 — Parser extrai chave, modelo e série
+### STEP 2 — Parser sem coerção e com identidade
 
-**Objetivo:** `parseNfeXml` devolve `chave_acesso`, `modelo`, `serie` e `cnpj_fornecedor` (da chave) e rejeita XML sem chave válida (D1).
+**Objetivo:** `parseNfeXml` devolve identidade, chave e campos normalizados, e corrige A1/A5.
 
 **Arquivos afetados:**
 - `src/lib/parseNfeXml.ts`: Seção 6.2.
-- `src/types/nf.ts`: `ParsedNF` e `XmlParseErrorCode`.
-- `src/__tests__/parseNfeXml.test.ts`: `makeXml` ganha `opts.id?: string | null` (padrão: `'NFe' + chave válida com nNF 27117 e CNPJ 12345678000199`; `null` omite o atributo). Casos novos da Seção 8.1.
+- `src/types/nf.ts`: `ParsedNF`, `XmlParseErrorCode`.
+- `src/__tests__/parseNfeXml.test.ts`: `makeXml` com `serie` e `Id` padrão válido (`nNF 27117`, `CNPJ 12345678000199`, série 1); casos novos.
 
 **Ações:**
-1. Ler `@_Id`, validar e derivar os campos. Normalizar `numero`.
-2. Ajustar o fixture: o `Id` padrão tem de bater com o `nNF` padrão (`27117`) e com o CNPJ do fixture.
-3. Conferir que `upload/page.tsx` e a rota compilam (`ParsedNF` ganhou campos obrigatórios só produzidos pelo parser).
+1. Ativar `parseTagValue: false`, ler a identidade e conferir a chave.
+2. Normalizar `codigo` e `lote`.
+3. Garantir que a tela atual continua compilando. `ParsedNF` só ganha campos e `cnpj_fornecedor` vira obrigatório, então a tela atual continua funcionando.
 
-**Validação:** `npm run test -- parseNfeXml` verde (casos antigos + novos). `npm run type-check`. Nesta altura a importação na UI continua funcionando, porque nada consome os campos novos ainda.
+**Validação:** `npm run test -- parseNfeXml` verde, com os casos antigos e os novos, inclusive `tPag=01` → "Dinheiro". `npm run type-check`.
 
-**Commits:** `fix(inventory): extract NF-e access key and series in XML parser` e `test(inventory): cover access key extraction in parseNfeXml`
+**Commits:** `fix(inventory): stop numeric coercion and normalize NF-e XML fields` e `test(inventory): cover normalized fields and access key in parser`
 
 ---
 
-### STEP 3 — Decisão de duplicidade e trava (funções puras)
+### STEP 3 — Extrair o cálculo de quantidade
 
-**Objetivo:** Implementar e testar `evaluateNFDuplicateStatus` e `canClaimForProcessing`.
+**Objetivo:** `calcularQuantidadeInventario` passa a ficar num módulo puro, importável pela rota server-side.
 
 **Arquivos afetados:**
-- `src/lib/nfIdentity.ts`: adicionar as duas funções e `STALE_PROCESSING_MS`.
-- `src/types/nf.ts`: `NFDuplicateDecision`.
-- `src/__tests__/nfDuplicateRules.test.ts`: criar (Seção 8.1).
+- `src/lib/inventoryQuantity.ts`: criar (move a função e os tipos `CalcInventarioParams`/`CalcInventarioResult`).
+- `src/lib/services/inventoryService.ts`: `export { calcularQuantidadeInventario } from '@/lib/inventoryQuantity'` (e os tipos).
 
-**Ações:**
-1. Implementar conforme a lógica da Seção 6.2.
-2. Testar a matriz v1 completa sob cada variação de identidade.
+**Validação:** `npm run test` (testes existentes de `calcularQuantidadeInventario`, se houver, continuam verdes) e `npm run type-check`.
 
-**Validação:** `npm run test -- nfDuplicateRules` verde.
-
-**Commits:** `fix(inventory): add pure NF-e duplicate evaluation rules` e `test(inventory): cover NF-e duplicate evaluation rules`
+**Commit:** `refactor(inventory): extract pure inventory quantity calculation`
 
 ---
 
-### STEP 4 — Serviços: reserva, checagem e trava
+### STEP 4 — Planejador puro
 
-**Objetivo:** Disponibilizar `reserveXmlNFImport`, `checkNFDuplicateStatus` e `claimNFImportForProcessing` sem alterar ainda nenhum chamador.
+**Objetivo:** Implementar e testar `src/lib/nfImportPlanner.ts`.
 
 **Arquivos afetados:**
-- `src/lib/services/nfImportService.ts`: novas funções (Seção 6.3), `queryNFImportSnapshotsByNumero` interna, `mapNFImportDoc` com os campos novos. Import de `runTransaction`.
+- `src/lib/nfImportPlanner.ts`: criar.
+- `src/__tests__/nfImportPlanner.test.ts`: criar.
 
-**Ações:**
-1. Implementar as funções. Reaproveitar o filtro de `undefined` de `createNFImport` num helper local `omitUndefined`.
-2. **Não** remover `checkNumeroNFStatus`/`createNFImport` ainda (ainda têm chamadores).
+**Validação:** `npm run test -- nfImportPlanner` verde.
 
-**Validação:** `npm run lint`, `npm run type-check` e `npm run test` verdes. Testes de serviço não são exigidos (MVP: só funções puras). A lógica de decisão já está coberta no STEP 3.
-
-**Commit:** `fix(inventory): reserve XML NF-e imports by access key in a transaction`
+**Commits:** `fix(inventory): add pure NF import planner and identity conflict rules` e `test(inventory): cover NF import planner and write budget`
 
 ---
 
-### STEP 5 — Tela XML usa reserva e trava
+### STEP 5 — Rotas de confirmação no servidor
 
-**Objetivo:** `/clinic/upload` cria e retoma pelo ID da chave; a confirmação passa pela trava.
+**Objetivo:** `POST /api/nf-imports/xml` e `POST /api/nf-imports/manual` funcionando com transação Admin SDK. As telas ainda não as chamam.
+
+**Arquivos afetados:**
+- `src/lib/firebase-admin.ts`: `getAdminStorage()`.
+- `src/lib/services/nfImportServer.ts`: criar (Seção 6.3).
+- `src/app/api/nf-imports/xml/route.ts` e `src/app/api/nf-imports/manual/route.ts`: criar.
+- `src/types/nf.ts` e `src/types/pendingMasterProduct.ts`: tipos novos.
+- `src/__tests__/nfImportRoutes.test.ts`: criar (Seção 8.2).
+
+**Ações:**
+1. Implementar o serviço e as rotas na ordem de guardas da Seção 6.3.
+2. Pendências com ID determinístico `${tenantId}_${importId}_${linha}`.
+3. Testes de rota com `../lib/firebase-admin`, `@/lib/services/nfImportServer` e `@/lib/parseNfeXml` mockados (padrão de `auditLogRoutes.test.ts` e `parseNfXmlRoute.test.ts`).
+
+**Validação:**
+- `npm run test` verde.
+- Emulador com `curl -F file=@nfA.xml -H "Authorization: Bearer <token clinic_admin>" http://localhost:3000/api/nf-imports/xml` → 201 `{"importId":"1000"…}`.
+- O mesmo comando de novo → 409 "Esta NF já foi cadastrada (ID 1000)."
+
+**Commits:** `fix(api): confirm NF-e imports atomically with Admin SDK` e `test(api): cover NF import confirmation routes responses`
+
+---
+
+### STEP 6 — Tela XML usa a rota
+
+**Objetivo:** O preview não grava nada; a confirmação usa a rota; a tela de resultado mostra o ID e os não importados.
 
 **Arquivos afetados:**
 - `src/app/(clinic)/clinic/upload/page.tsx`: Seção 6.4.
-- `src/lib/services/nfImportService.ts`: `processNFAndAddToInventory` com a nova assinatura e a trava (Seção 6.3); remover `createNFImport`, que fica sem chamador.
+- `src/lib/services/nfImportService.ts`: remover `uploadNFFile`, `createNFImport`, `updateNFImportStatus`, `processNFAndAddToInventory`.
+- `src/lib/services/pendingMasterProductService.ts`: remover `registerPendingMasterProducts`.
+- `src/lib/services/inventoryService.ts`: remover `addInventoryItems` e `getInventoryProdutoLoteKeysByNfId` se não houver outro chamador.
 
-**Ações:**
-1. Trocar `checkNumeroNFStatus` + `createNFImport`/`updateNFImportStatus` por `reserveXmlNFImport` **antes** do `uploadNFFile`, e depois `updateNFImportStatus(..., 'pending', { arquivo_nome, arquivo_url })`.
-2. Remover o estado `existingXmlImport` e o 4º argumento de `processNFAndAddToInventory`.
-3. Linha "Série / CNPJ" e aviso de retomada no preview.
+**Validação:** emulador. "Ler XML" não cria documento nem arquivo. "Confirmar" cria `nf_imports/1000`, `nf_identidades/12345678000199_1_26229`, `contadores/nf_imports` (`ultimo_id: 1000`), o inventário e `danfe/test-clinic-a/1000.xml`. `npm run type-check` e `npm run build`.
 
-**Validação:** emulador. Importar uma NF nova: o documento aparece no Emulator UI como `nf_imports/{chave}` com `cnpj_emitente` e `serie`. Reimportar a mesma NF: "já foi totalmente importada". `npm run type-check`.
-
-**Commit:** `fix(inventory): use access key reservation and claim on XML upload`
+**Commit:** `fix(inventory): confirm XML import through server route`
 
 ---
 
-### STEP 6 — Inserção manual normalizada e por emitente
+### STEP 7 — Inserção manual com identidade
 
-**Objetivo:** `/clinic/add-products` normaliza o número, aceita CNPJ/série (D3) e usa `checkNFDuplicateStatus`.
+**Objetivo:** Exigir CNPJ e série, aceitar a chave opcional, gravar pela rota e complementar o mesmo ID.
 
 **Arquivos afetados:**
 - `src/app/(clinic)/clinic/add-products/page.tsx`: Seção 6.4.
 - `src/lib/services/nfImportService.ts`: remover `checkNumeroNFStatus`.
-- `src/types/nf.ts`: remover `NFNumeroStatus`.
+- `src/types/nf.ts`: remover `NFNumeroStatus` e `NFImportCreate`.
 
 **Ações:**
-1. Normalização e validação no Passo 2 e em `handleSaveNF`.
-2. Campos conforme D3.
-3. Gravar os campos normalizados (D8) e `created_by: user.uid`.
-4. `git grep -n "checkNumeroNFStatus\|NFNumeroStatus\|createNFImport"` deve retornar só documentação em `ONLY_FOR_DEVS/`.
+1. Ajustar o Passo 2, `handleContinueToProducts`, a lista local (normalização) e `handleSaveNF`.
+2. `git grep -n "checkNumeroNFStatus\|NFNumeroStatus\|createNFImport\|registerPendingMasterProducts\|processNFAndAddToInventory"` deve retornar só documentação.
 
-**Validação:** emulador. Digitar "026229" mostra a dica "Será registrada como 26229". Salvar grava `numero_nf: "26229"` e `inventory.nf_numero: "26229"`. `npm run lint`, `npm run type-check` e `npm run build` verdes.
+**Validação:** emulador. O primeiro lançamento cria "ID 100x". Repetir com a mesma identidade → "Lançamento adicionado à NF já cadastrada (ID 100x)", e `lancamentos_manuais` vai a 2. `npm run lint`, `npm run type-check` e `npm run build`.
 
-**Commit:** `fix(inventory): normalize manual NF number and match by issuer`
+**Commit:** `fix(inventory): require issuer identity on manual NF entry`
 
 ---
 
-### STEP 7 — Regras do Firestore + testes de rules
+### STEP 8 — Código do catálogo sem zeros à esquerda
 
-**Objetivo:** Proteger no servidor a identidade e a unicidade dos imports (D7).
+**Objetivo:** Fazer o código do catálogo master usar a mesma forma normalizada do `cProd`.
 
 **Arquivos afetados:**
-- `firestore.rules`: Seção 6.5.
-- `tests/rules/firestore-tenant-subcollections.test.ts`: Seção 8.2.
+- `src/types/masterProduct.ts`: `validateProductCode` (1–7 dígitos, não pode ser só zeros).
+- `src/lib/services/masterProductService.ts`: normalização na gravação e na busca.
+- `src/app/(admin)/admin/products/new/page.tsx` e `[id]/page.tsx`: texto de ajuda "até 7 dígitos; zeros à esquerda são removidos".
 
 **Ações:**
-1. Reescrever o bloco `nf_imports` e adicionar os helpers, mantendo intactos `isRestrictedTenantCollection` e (se já presente na base) `consultantReadableSubcollection`.
-2. Ajustar o seed do teste existente e acrescentar os casos da Seção 8.2. **Todo cenário de leitura testa `getDoc` e `getDocs(query(...))`**, como pede a lição do PR #344 registrada no cabeçalho da suíte.
+1. Antes do merge em `develop`, rodar no console do projeto de produção (Admin SDK ou Firestore UI) a busca por códigos que começam com `0`: `master_products where code >= '0' and code < '1'`. O resultado esperado é vazio (os 112 códigos conhecidos não têm zero à esquerda). Se aparecer algum, registrar no PR e normalizar com um script pontual antes do deploy das rules.
 
-**Validação:** `npm run test:rules` verde. Repetir o STEP 5 e o STEP 6 no emulador com as rules novas: importação e lançamento manual continuam funcionando.
+**Validação:** cadastrar `0123456` no emulador → gravado `123456`. `npm run test`.
 
-**Commits:** `fix(firebase): enforce NF-e identity in nf_imports rules` e `test(firebase): cover nf_imports identity rules for get and list`
+**Commit:** `fix(admin): store master product codes without leading zeros`
 
 ---
 
-### STEP 8 — Validação Manual
+### STEP 9 — Incorporação automática (Cloud Functions)
 
-**Objetivo:** Confirmar no emulador e no domínio pessoal que (1) NFs de mesmo número de emitentes ou séries diferentes convivem, (2) a mesma NF não entra duas vezes por nenhum caminho, (3) reenvio e retomada funcionam e (4) as rules recusam escrita fora do contrato. Este roteiro é a **fonte do caderno E2E `tests/e2e/UC-10-importar-nfe-via-upload-de-xml.spec.ts`** (e de trechos de um futuro `UC-11-…spec.ts`), a ser gerado pelo `qa-agent` (Modo A) conforme a regra 8 do `CLAUDE.md`.
+**Objetivo:** Ativar um produto no catálogo lança as pendências e notifica as clínicas.
+
+**Arquivos afetados:**
+- `src/lib/nfPendingResolutionRules.ts`: criar.
+- `functions/src/nfPendingResolutionRules.ts`: criar como espelho, com cabeçalho igual ao de `alertRules.ts`.
+- `functions/src/pendingResolution.ts`, `functions/src/onMasterProductWritten.ts`, `functions/src/reprocessPendingMasterProducts.ts`: criar.
+- `functions/src/index.ts`: exports.
+- `src/types/notification.ts`, `src/lib/services/notificationService.ts`, `src/components/notifications/NotificationBell.tsx`: tipo `nf_pending_resolved`.
+- `src/__tests__/nfPendingResolutionRules.test.ts`: criar, com bloco de paridade importando `../../functions/src/nfPendingResolutionRules`.
+- `.github/workflows/deploy-gscandelari-dev.yml`: incluir `onMasterProductWritten` e `reprocessPendingMasterProducts` no `lib/index.js` gerado e no `--only`.
+
+**Validação:**
+- `npm run test` verde, incluindo a paridade.
+- `cd functions && npm run build` sem erros.
+- No emulador com functions: criar a pendência pelo STEP 6 (produto fora do catálogo) e cadastrar o produto. O item entra no inventário, a pendência fica `resolvida`, o registro passa a `success` e a notificação aparece no sino da clínica.
+
+**Commits:** `feat(inventory): auto-import pending NF items on catalog activation`, `test(inventory): cover pending resolution rules and mirror parity` e `ci(deploy): deploy pending resolution functions to dev`
+
+---
+
+### STEP 10 — Telas do admin e do inventário
+
+**Objetivo:** Mostrar "ID 1000" no admin e no detalhe do item, e oferecer "Reprocessar".
+
+**Arquivos afetados:**
+- `src/app/(admin)/admin/pending-products/page.tsx`: Seção 6.4.
+- `src/lib/services/pendingMasterProductService.ts`: `listPendingMasterProducts` com o novo filtro e os campos novos; remover `resolvePendingMasterProduct`.
+- `src/app/(clinic)/clinic/inventory/[id]/page.tsx`: RF-14.
+- `firestore.indexes.json`: índice `(status, created_at)`.
+
+**Validação:** emulador. A lista do admin mostra só as pendências abertas, com ID. "Reprocessar" em um código já ativo incorpora o item. `npm run build`.
+
+**Commit:** `feat(admin): show import ID and reprocess action on pending products`
+
+---
+
+### STEP 11 — Rules + testes de rules
+
+**Objetivo:** Fechar a escrita do client nas coleções gerenciadas pelo servidor (D7).
+
+**Arquivos afetados:**
+- `firestore.rules`, `storage.rules`: Seção 6.5.
+- `tests/rules/firestore-tenant-subcollections.test.ts`: Seção 8.3.
+
+**Ações:**
+1. Aplicar as rules.
+2. Ajustar os testes existentes de `nf_imports`: o `clinic_admin` e o system_admin agora **falham** ao escrever.
+3. Adicionar os casos novos, sempre com get **e** list.
+
+**Validação:** `npm run test:rules` verde. Repetir os STEPs 6, 7, 9 e 10 no emulador com as rules novas (Firestore e Storage): tudo continua funcionando, porque as escritas vêm do Admin SDK.
+
+**Commits:** `fix(firebase): block client writes to server-managed NF collections` e `test(firebase): cover NF collections rules for get and list`
+
+---
+
+### STEP 12 — Validação Manual
+
+**Objetivo:** Confirmar de ponta a ponta a identidade, a atomicidade, a concorrência, o ID sequencial, o complemento manual, a normalização, as pendências com incorporação e notificação, e as rules. Este roteiro é a **fonte do caderno E2E** `tests/e2e/UC-10-importar-nfe-via-upload-de-xml.spec.ts` (e de trechos de `UC-11-…` e `UC-12-…`), que o `qa-agent` (Modo A) gera conforme a regra 8 do `CLAUDE.md`.
 
 **Pré-requisitos:**
-- `firebase emulators:start --project demo-curva-mestra-e2e --only auth,firestore,storage` + `npm run test:e2e:seed` + `npm run dev` com `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` (mesmas variáveis do `playwright.config.ts`).
-- **Catálogo master:** o seed não cria `master_products`. Pelo Emulator UI, criar `master_products/p-bt100` com `{ code: '3076528', name: 'BOTOX 100UI', active: true, category: 'Toxina', fragmentavel: false }` (ajustar aos campos obrigatórios de `src/types/masterProduct.ts`).
-- **XMLs de teste.** Partir do XML mínimo de `makeXml` (`src/__tests__/parseNfeXml.test.ts`) com `detWithRastro` (cProd `3076528`) e variar `Id`, `nNF`, `serie` e `CNPJ`. O `nNF` dentro da chave tem de bater com `<nNF>`. Chaves já calculadas (cUF 35, AAMM 2503, modelo 55, tpEmis 1, cNF 00026229):
+- `cd functions && npm run build`.
+- `firebase emulators:start --project demo-curva-mestra-e2e --only auth,firestore,storage,functions`. As functions de e-mail podem avisar sobre secrets ausentes; isso não afeta as functions novas.
+- `npm run test:e2e:seed` e `npm run dev` com `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` (variáveis do `playwright.config.ts`).
+- Catálogo pelo Emulator UI, como system_admin: `master_products/p1` com `{ code: '3076528', name: 'BOTOX 100UI', active: true, fragmentavel: false }`. **Não** cadastrar `9999999`.
+- XMLs a partir do `makeXml` de `src/__tests__/parseNfeXml.test.ts` (cProd `3076528`, lote `BT2024A`), ajustando `Id`, `<serie>`, `<nNF>` e `<CNPJ>`. As chaves abaixo usam cUF 35, AAMM 2503, modelo 55, tpEmis 1 e cNF 00026229; o DV foi conferido com a chave pública de exemplo `52060433009911002506550120000007800267301615` (DV 5).
 
-| Arquivo | CNPJ emitente | Série | nNF | `Id` |
+| Arquivo | CNPJ | Série | nNF | `Id` |
 |---|---|---|---|---|
 | `nfA.xml` | 12345678000199 | 1 | 26229 | `NFe35250312345678000199550010000262291000262296` |
-| `nfB.xml` (outro fornecedor) | 98765432000110 | 1 | 26229 | `NFe35250398765432000110550010000262291000262297` |
-| `nfC.xml` (outra série) | 12345678000199 | 2 | 26229 | `NFe35250312345678000199550020000262291000262292` |
-| `nfD.xml` (CNPJ com zero à esquerda) | 01234567000189 | 1 | 26229 | `NFe35250301234567000189550010000262291000262298` |
-| `nfSemId.xml` | igual a `nfA.xml` sem o atributo `Id` | | | |
-| `nfDvErrado.xml` | igual a `nfA.xml` com o último dígito do `Id` trocado para `0` | | | |
+| `nfB.xml` | 98765432000110 | 1 | 26229 | `NFe35250398765432000110550010000262291000262297` |
+| `nfC.xml` | 12345678000199 | 2 | 26229 | `NFe35250312345678000199550020000262291000262292` |
+| `nfD.xml` | 01234567000189 | 1 | 26229 | `NFe35250301234567000189550010000262291000262298` |
 
-- `nfPendente.xml`: igual a `nfA.xml` (mesmo `Id`), com um segundo `<det>` de cProd `9999999` (fora do catálogo).
-- Logins: `qa.clinic-admin-a@curvamestra.test` / `TEST_PASSWORD` de `tests/e2e/fixtures/seed-data.ts`.
+- `nfA-zeros.xml`: igual a `nfA.xml` com `<nNF>026229</nNF>`, `<serie>001</serie>`, `<cProd>0003076528</cProd>`, `<nLote>00BT2024A</nLote>` e `<tPag>01</tPag>`.
+- `nfE-pendente.xml`: CNPJ 12345678000199, série 3, nNF 26229 (calcular o `Id` com `computeChaveAcessoDV` do STEP 1), dois `<det>`: `3076528` e `9999999` (lote `L9`).
+- `nfSemId.xml` = `nfA.xml` sem `Id`; `nfDvErrado.xml` = `nfA.xml` com o último dígito do `Id` trocado; `nfChaveDivergente.xml` = `nfA.xml` com `<nNF>26230</nNF>`.
+- Logins `qa.clinic-admin-a@curvamestra.test`, `qa.clinic-admin-b@curvamestra.test`, `qa.system-admin@curvamestra.test` / `TEST_PASSWORD` (`tests/e2e/fixtures/seed-data.ts`).
 
-**Roteiro A — Identidade XML (sempre executar):**
-1. `/clinic/upload` → `nfA.xml` → Processar. **Esperado:** preview com "NF 26229 (série 1, CNPJ 12.345.678/0001-99)". Confirmar → sucesso. No Emulator UI, `tenants/test-clinic-a/nf_imports/35250312345678000199550010000262291000262296` com `status: 'success'`, `numero_nf: '26229'`, `cnpj_emitente`, `serie: '1'` e `chave_acesso` igual ao ID.
-2. `nfA.xml` de novo. **Esperado:** "A NF 26229 (série 1, CNPJ 12.345.678/0001-99) já foi totalmente importada anteriormente." Nenhum arquivo novo em `danfe/test-clinic-a/` (Storage UI).
-3. `nfB.xml`. **Esperado:** importa normalmente; **segundo** documento com o ID da chave de B; inventário com os itens de B e `nf_id` = chave B. (Hoje: bloqueado.)
-4. `nfC.xml`. **Esperado:** importa normalmente (série distinta).
-5. `nfD.xml`. **Esperado:** preview mostra "CNPJ 01.234.567/0001-89" (zero preservado).
-6. `nfSemId.xml` → erro "Chave de acesso da NF-e (atributo Id de <infNFe>) não encontrada no XML." `nfDvErrado.xml` → "Chave de acesso da NF-e inválida (formato ou dígito verificador)." Nenhum documento criado em nenhum dos dois casos.
+**Roteiro A — Preview sem gravação e ID sequencial (sempre executar):**
+1. Clinic admin A → `/clinic/upload` → `nfA.xml` → "Ler XML". **Esperado:** preview com "NF 26229 · série 1 · CNPJ 12.345.678/0001-99". O Emulator UI **não** mostra `nf_imports`, `nf_identidades` nem `danfe/`.
+2. Fechar a aba e repetir o passo 1. **Esperado:** nenhum bloqueio (nada foi gravado).
+3. Confirmar. **Esperado:** "Importação concluída — ID 1000". Existem `nf_imports/1000` (`id_sequencial: 1000`, `identidade: 12345678000199_1_26229`, `chave_acesso`, `status: success`), `nf_identidades/12345678000199_1_26229`, `contadores/nf_imports` com `ultimo_id: 1000`, o inventário com `nf_id: '1000'` e `danfe/test-clinic-a/1000.xml`.
+4. `/clinic/inventory` → abrir o item. **Esperado:** "NF-e 26229 · ID 1000". Em nenhuma tela aparece "NF 1000".
 
-**Roteiro B — Retomada, abandono e trava (sempre executar):**
-7. Limpar `nf_imports` e `inventory` do tenant (Emulator UI). `nfPendente.xml` → confirmar. **Esperado:** status `novo_produto_pendente` (ou `error`, ver passo 8), 1 item no inventário. Reenviar `nfPendente.xml` → aviso de retomada → confirmar → **nenhum** item duplicado para `3076528`.
-8. **Achado A3:** se o passo 7 terminar com `status: 'error'` e mensagem de permissão, A3 está confirmado. Registrar o resultado no PR. Com D6 = sim, o reenvio continua possível e o item já gravado não é duplicado.
-9. Limpar. `nfA.xml` → Processar → **fechar a aba no preview**. Reabrir `/clinic/upload` → `nfA.xml`. **Esperado:** retoma (não bloqueia). Confirmar → sucesso, um único documento.
-10. Trava: limpar; `nfPendente.xml` → Processar em **duas abas** até o preview. Confirmar na aba 1 e, imediatamente, na aba 2. **Esperado:** a aba 2 mostra "Esta NF-e já está sendo processada em outra sessão…" ou retoma sem duplicar. O inventário fica sem itens repetidos para (código, lote).
-11. Processing parado: no Emulator UI, colocar um import em `status: 'processing'` com `updated_at` 11 minutos no passado. Reenviar e confirmar. **Esperado:** processa. Com `updated_at` = agora, **esperado:** mensagem de "já está sendo processada".
+**Roteiro B — Duplicidade e identidade (sempre executar):**
+5. `nfA.xml` de novo → Confirmar. **Esperado:** 409 "Esta NF já foi cadastrada (ID 1000)." Sem documento novo e sem arquivo novo.
+6. `nfA-zeros.xml` → preview com "NF 26229 · série 1", código `3076528`, lote `BT2024A` e forma de pagamento "Dinheiro". Confirmar → 409 "(ID 1000)" (mesma identidade).
+7. `nfB.xml` → **ID 1001** (outro CNPJ). `nfC.xml` → **ID 1002** (outra série). `nfD.xml` → preview com "CNPJ 01.234.567/0001-89" → **ID 1003**.
+8. `nfSemId.xml` → "Chave de acesso … não encontrada". `nfDvErrado.xml` → "Chave de acesso … inválida". `nfChaveDivergente.xml` → "A chave de acesso não confere…". Nada gravado; o contador continua em 1003.
+9. Clinic admin **B** → `nfA.xml` → **ID 1000** na clínica B (contador e identidade por clínica).
 
-**Roteiro C — Inserção manual (sempre executar):**
-12. Com `nfA.xml` importada (passo 1): `/clinic/add-products` → Rennova → Inserção Manual → número `026229`. **Esperado:** dica "Será registrada como 26229". Adicionar produto → Confirmar e Salvar → **bloqueado** ("já foi importada via XML…"). (Hoje: passava.)
-13. Mesmo fluxo com número `" 26229 "` → bloqueado.
-14. **(D3 = b)** Outras Marcas → número `26229` + CNPJ `98.765.432/0001-10`. **Esperado:** permitido se a NF B **não** foi importada via XML no tenant; bloqueado se foi (passo 3). Com CNPJ `11.111.111/1111-11` (DV inválido) → toast "CNPJ do emitente inválido".
-15. Outras Marcas → número `55501` (sem XML correspondente) → salva. Repetir com o mesmo número → salva de novo (lançamento fracionado, RN-02 (b) mantida). No Emulator UI, `numero_nf: '55501'` e ID aleatório (não 44 posições).
-16. Número `abc` ou `000` → toast "Número da NF inválido…".
+**Roteiro C — Concorrência (sempre executar):**
+10. Clinic admin A, NF nova (`nfA.xml` com nNF 26300 e o `Id` recalculado). Abrir **duas abas** até o preview e confirmar nas duas quase ao mesmo tempo. **Esperado:** uma recebe "ID 1004" e a outra 409 "Esta NF já foi cadastrada (ID 1004)." Um único item no inventário por (código, lote).
+11. Alternativa por terminal: dois `curl` em paralelo para `/api/nf-imports/xml` com o mesmo arquivo (`& wait`). **Esperado:** um 201 e um 409.
 
-**Roteiro D — Regras no servidor (sempre executar; complementa o `npm run test:rules`):**
-17. No console do navegador logado como `clinic_admin` (bundle de dev expõe o SDK), ou por um script com `@firebase/rules-unit-testing`: `setDoc` em `nf_imports/{chave A}` com `status: 'pending'` sobre o documento `success` → `permission-denied`. `deleteDoc` → `permission-denied`.
-18. `addDoc` com `origem: 'xml'` e ID aleatório → `permission-denied`.
+**Roteiro D — Inserção manual (sempre executar):**
+12. `/clinic/add-products` → Outras Marcas → número `0055501`, CNPJ `98.765.432/0001-10`, série `001`, sem chave. **Esperado:** dica "Será registrada como 55501". Adicionar um produto (código `0042`, lote `007X`) → salvar → "Nota fiscal salva — ID 1005". No Emulator UI: `numero_nf: '55501'`, `serie: '1'`, `cnpj_emitente: '98765432000110'`, e o item com `codigo_produto: '42'`, `lote: '7X'`.
+13. Repetir com a mesma identidade e outro produto. **Esperado:** "Lançamento adicionado à NF já cadastrada (ID 1005)", com `lancamentos_manuais: 2` e o contador inalterado.
+14. Manual com a identidade de `nfA.xml` (26229 / 1 / 12.345.678/0001-99). **Esperado:** 409 "…importada via XML (ID 1000)…". (A regra (b) revogada é coberta no passo 15.)
+15. Importar via XML uma NF cujo registro manual foi criado no passo 12: montar um XML com CNPJ 98765432000110, série 1, nNF 55501 e o `Id` correspondente. **Esperado:** 409 "Esta NF já foi cadastrada manualmente (ID 1005) e não pode ser importada via XML."
+16. CNPJ `11.111.111/1111-11` → "CNPJ do emitente inválido". Série vazia → "Série inválida". Chave informada que não bate → "A chave de acesso não confere…". Número `000` → "Número da NF inválido".
+17. Rennova manual com produto fragmentável (cadastrar no catálogo `p2 { code: '3000001', fragmentavel: true, unidades_por_embalagem: 10, active: true }`), 2 embalagens a R$ 100. **Esperado:** inventário com `quantidade_inicial: 20`, `valor_unitario: 10`, `quantidade_embalagens: 2`, `valor_por_embalagem: 100`, igual ao comportamento atual.
 
-**Roteiro E — Domínio Firebase pessoal (após merge na branch pessoal):**
-19. Em `dev-gscandelari.web.app`, repetir os passos 1, 2, 3, 9 e 12 com um `clinic_admin` real de teste e XMLs reais de teste (NF-e 026229 se disponível). Conferir que NFs importadas **antes** do deploy (legadas, ID aleatório) continuam bloqueando a reimportação (RF-11): reimportar uma NF legada concluída → bloqueada.
+**Roteiro E — Pendências e incorporação automática (sempre executar):**
+18. Clinic admin A → `nfE-pendente.xml`. O preview marca `9999999` como "Não cadastrado — ficará pendente". Confirmar. **Esperado:** "ID 100x", 1 produto importado, e um `Alert` listando `9999999 · … · L9`. O registro fica `novo_produto_pendente` e `pending_master_products/test-clinic-a_100x_1` fica `aberta`, com lote, quantidade, validade e valor. **Achado A3:** a operação conclui sem `permission-denied`.
+19. Clinic admin B importa uma NF própria (outra identidade) também com `9999999`. **Esperado:** pendência aberta na clínica B.
+20. Reenviar `nfE-pendente.xml` na clínica A. **Esperado:** 409 "Esta NF já foi cadastrada (ID 100x). Os produtos pendentes desta NF serão adicionados automaticamente quando cadastrados no catálogo."
+21. System admin → `/admin/pending-products`. **Esperado:** duas linhas (A e B) com "ID …", NF, lote e quantidade. Clicar em "Cadastrar Produto" na linha de `9999999` e salvar (ativo).
+22. **Esperado** em até alguns segundos:
+    - nas clínicas A e B, os itens de `9999999` aparecem no inventário;
+    - as pendências ficam `resolvidas` e somem da lista do admin;
+    - o registro da clínica A passa a `success` com `produtos_pendentes: []`;
+    - o sino de cada clínica mostra "A NF (ID 100x) foi atualizada: o produto … foi adicionado ao inventário automaticamente."
+23. Idempotência: editar o nome do produto `9999999` no catálogo (o trigger dispara, mas o código não mudou e o produto já estava ativo). **Esperado:** nenhum item novo e nenhuma notificação nova.
+24. Reativação: desativar `3076528`, importar uma NF nova com ele (vira pendência) e reativar o produto. **Esperado:** incorporação e notificação.
+25. "Reprocessar": criar uma pendência e, pelo Emulator UI, ativar o produto sem disparar o trigger (com o emulador de functions parado) e depois religar o emulador. Na tela do admin, "Reprocessar" → toast "1 item(ns) incorporado(s)".
+
+**Roteiro F — Rules (sempre executar; complementa `npm run test:rules`):**
+26. No console do navegador, logado como clinic admin A (SDK exposto no bundle de dev), ou com `@firebase/rules-unit-testing`:
+    - `setDoc` em `tenants/test-clinic-a/nf_imports/9999` → `permission-denied`;
+    - `updateDoc` em `nf_imports/1000` → negado;
+    - `getDoc` em `nf_identidades/…` → negado;
+    - `addDoc` em `pending_master_products` → negado;
+    - upload no Storage `danfe/test-clinic-a/x.xml` → negado.
+27. Logado como system admin: `updateDoc` em `nf_imports/1000` → negado; `getDoc`/`getDocs` em `nf_imports` → permitido.
+
+**Roteiro G — Domínio Firebase pessoal (após merge na branch pessoal):**
+28. Em `dev-gscandelari.web.app`:
+    - repetir os passos 1, 3, 5, 7 (`nfB`), 12, 13, 18 e 21–22 com XMLs reais de teste (NF-e 026229 se disponível);
+    - conferir no console do Firebase que as functions `onMasterProductWritten` e `reprocessPendingMasterProducts` foram publicadas;
+    - conferir que o índice `pending_master_products (status, created_at)` está `Enabled`.
 
 **Commit:** nenhum.
 
@@ -840,89 +1100,121 @@ Notas:
 
 ### 8.1 Jest — funções puras
 
-`src/__tests__/nfIdentity.test.ts`:
+`src/__tests__/nfIdentity.test.ts`
 
 | Função | Cenários obrigatórios |
 |---|---|
-| `normalizeNumeroNF` | `'26229'`→`'26229'`; `'026229'`→`'26229'`; `' 026.229 '`→`'26229'`; `26229` (number)→`'26229'`; `'NF 0001'`→`'1'`; `'000'`→`''`; `'abc'`→`''`; `''`/`null`/`undefined`→`''`. |
-| `normalizeSerie` | `'001'`→`'1'`; `'000'`→`'0'`; `1`→`'1'`; `''`→`''`. |
-| `normalizeCnpj` | `'12.345.678/0001-99'`→`'12345678000199'`; `'1234567000189'` sem reparo→`''`; com `repairLeadingZeros`→`'01234567000189'`; `'123'`→`''`; (D9=a) `'12ABC34501DE35'`→aceito. |
-| `isValidCnpj` | CNPJ válido conhecido → true; DV alterado → false; 14 dígitos iguais (`'11111111111111'`) → false. |
-| `computeChaveAcessoDV` | `'5206043300991100250655012000000780026730161'`→`5`; as quatro chaves da tabela do STEP 8 → DVs `6, 7, 2, 8`. |
-| `parseChaveAcesso` | `'NFe3525…2296'` → campos (`cnpj: '12345678000199'`, `modelo: '55'`, `serie: '1'`, `numero: '26229'`); sem prefixo → mesmo resultado; com espaços → `trim`; 43 posições → null; DV errado → null; letra fora da faixa do CNPJ → null; `null`/number → null. |
-| `isSameNF` | mesmo número/CNPJ/série → true; CNPJ diferente → false; série diferente → false; CNPJ ausente em um lado → true (fallback); série ausente em um lado com CNPJ igual → true; número diferente → false. |
-| `formatNFLabel` | completo; sem série; sem CNPJ; CNPJ formatado com máscara. |
-| `toNFIdentitySnapshot` | doc novo (topo); legado XML com `parsed_data.cnpj_fornecedor: '1234567000189'` → CNPJ reparado; legado sem `parsed_data` → sem CNPJ; manual legado `numero_nf: ' 026229'` → `'26229'`; sem `origem` → `'manual'`. |
+| `normalizeNumeroNF` | `'026229'`→`'26229'`; `' 026.229 '`→`'26229'`; `26229`→`'26229'`; `'000'`→`''`; `'abc'`→`''`; `null`→`''`. |
+| `normalizeSerie` | `'001'`→`'1'`; `'000'`→`'0'`; `'1000'`→`''`; `''`→`''`. |
+| `normalizeLeadingZeros` | `'0012345'`→`'12345'`; `'00A12'`→`'A12'`; `'000'`→`'0'`; `' 007X '`→`'7X'`; `'BT2024A'`→`'BT2024A'`; `''`→`''`. |
+| `normalizeCnpj` / `isValidCnpj` | com máscara e válido → 14 posições; DV errado → `''`; 13 dígitos → `''` (sem reparo); `'11111111111111'` → inválido; um CNPJ alfanumérico válido construído com a regra `charCode-48` → aceito. |
+| `computeChaveAcessoDV` | `'5206043300991100250655012000000780026730161'`→`5`; as quatro chaves da tabela do STEP 12 → `6, 7, 2, 8`. |
+| `parseChaveAcesso` | com e sem `NFe`; com espaços; 43 posições → null; DV errado → null; letra fora das posições do CNPJ → null. |
+| `chaveMatchesIdentity` | igual → true; série, número ou CNPJ diferente → false. |
+| `validateManualIdentity` | válido sem chave; válido com chave coerente; cada erro da Seção 6.2. |
+| `buildIdentityKey` / `formatImportId` / `formatNFLabel` / `formatCnpj` | formatos exatos; `formatImportId(1000)` = `'ID 1000'`. |
 
-`src/__tests__/nfDuplicateRules.test.ts`:
+`src/__tests__/parseNfeXml.test.ts` (novos): `Id` válido → `chave_acesso`, `serie`, `cnpj_fornecedor`; `<CNPJ>01234567000189</CNPJ>` preservado (A1); `<nNF>026229</nNF>`, `<serie>001</serie>` normalizados; `cProd 0003076528` → `'3076528'`; `nLote 00BT2024A` → `'BT2024A'`; `tPag 01` → `'Dinheiro'` (A5); sem `Id` → `MISSING_ACCESS_KEY`; DV errado e chave divergente → `INVALID_ACCESS_KEY`; `emit/CPF` → `INVALID_ISSUER`; CNPJ com DV inválido → `INVALID_ISSUER`. Todos os casos existentes continuam verdes.
+
+`src/__tests__/nfImportPlanner.test.ts`
 
 | Função | Cenários obrigatórios |
 |---|---|
-| `evaluateNFDuplicateStatus` | xml × nada → create; xml × manual mesmo número → create (b); xml × xml `success` mesma identidade → blocked; xml × xml `success` **CNPJ diferente** → create; xml × xml `success` **série diferente** → create; xml × xml `novo_produto_pendente` → resume do id da chave; xml × xml legado `pending`/`error`/`processing` → resume do legado (D6); xml × legado sem CNPJ mesmo número `success` → blocked (fallback); xml com `chaveAcesso` igual a um snapshot e outro legado → resume do de id == chave; manual × xml qualquer status → blocked; manual × xml de outro CNPJ (com CNPJ informado) → create; manual sem CNPJ × xml de qualquer CNPJ mesmo número → blocked (fallback, com sugestão de informar CNPJ); manual × manual → create. |
-| `canClaimForProcessing` | `pending`/`error`/`novo_produto_pendente` → ok; `success` → não; `processing` há 1 min → não; `processing` há 11 min → ok; `processing` com `updatedAtMs: null` → ok. |
+| `nextImportId` | `undefined`→1000; `1000`→1001; `5`→1000. |
+| `evaluateIdentityConflict` | xml×null → create; manual×null → create; manual×manual → complement (mesmo id); xml×manual → blocked 409 com "cadastrada manualmente (ID n)"; xml×xml → blocked "Esta NF já foi cadastrada (ID n)."; xml×xml com `hasPending` → mensagem com a frase de pendentes; manual×xml → blocked. |
+| `planXmlLines` | todos no catálogo; um ausente → pending; um inativo → pending; fragmentável → quantidade × unidades e valor ÷ unidades; mesma linha de código com dois lotes → duas entradas. |
+| `checkWriteBudget` | `(3, 497)` → ok; `(3, 498)` → 422; `(1, 499)` → ok; `(1, 500)` → 422. |
 
-`src/__tests__/parseNfeXml.test.ts` (casos novos): `Id` válido → `chave_acesso`, `modelo: '55'`, `serie`, `cnpj_fornecedor` da chave; `<CNPJ>01234567000189</CNPJ>` + chave correspondente → `cnpj_fornecedor: '01234567000189'` (regressão A1); `<nNF>026229</nNF>` com chave de nNF 26229 → `numero: '26229'`; sem `Id` → `MISSING_ACCESS_KEY`; DV errado → `INVALID_ACCESS_KEY`; `nNF` divergente da chave → `INVALID_ACCESS_KEY`; raiz `NFe` sem `nfeProc` com `Id` → ok. Todos os casos existentes continuam verdes com o `Id` padrão do fixture.
+`src/__tests__/nfPendingResolutionRules.test.ts`
 
-### 8.2 Regras do Firestore — `npm run test:rules` (`tests/rules/firestore-tenant-subcollections.test.ts`)
-
-Prioridade alta (segurança). Toda leitura é testada com **get** (`getDoc`) **e list** (`getDocs(query(collection(...)))`). Constantes: `CHAVE_A = '35250312345678000199550010000262291000262296'`; `docXmlA = tenants/tenant-a/nf_imports/${CHAVE_A}`; `manualDoc = tenants/tenant-a/nf_imports/manual1`.
-
-| Cenário | Esperado |
+| Função | Cenários obrigatórios |
 |---|---|
-| Seed `docXmlA` (`status: 'pending'`) — `clinic_admin` A: get e list | sucesso |
-| `clinic_user` A: get e list de `docXmlA` | falha |
-| Consultor com acesso a A: get de `docXmlA` e list de `nf_imports` | falha |
-| `clinic_admin` B: get e list de `nf_imports` de A | falha |
-| system_admin: get e list | sucesso |
-| `clinic_admin` A cria XML com id == chave, `numero_nf: '26229'`, `status: 'pending'`, `created_by` = próprio uid | sucesso |
-| … id ≠ `chave_acesso` | falha |
-| … `chave_acesso` com 43 posições | falha |
-| … sem `chave_acesso` | falha |
-| … `status: 'success'` na criação XML | falha |
-| … `numero_nf: '026229'` / `' 26229'` / `''` | falha |
-| … `created_by` de outro uid | falha |
-| … `tenant_id: 'tenant-b'` no caminho de A | falha |
-| `clinic_admin` A cria manual em `manual1` com `status: 'success'`, sem `chave_acesso` | sucesso |
-| … manual com id no formato de chave | falha |
-| … manual com campo `chave_acesso` | falha |
-| `clinic_user` A cria manual válido | falha |
-| Update em `docXmlA` `pending`: `status`, `arquivo_url`, `produtos_importados` | sucesso |
-| Update em `docXmlA` `pending`: alterar `numero_nf` / `cnpj_emitente` / `serie` / `chave_acesso` / `origem` / `created_by` | falha (cada campo) |
-| Seed `docXmlA` `success`: `setDoc` (sobrescrita "segunda criação") pelo `clinic_admin` | falha |
-| Seed `docXmlA` `success`: `updateDoc` de `status` | falha |
-| Seed legado `tenants/tenant-a/nf_imports/legado1` (`origem: 'xml'`, sem `chave_acesso`, `status: 'novo_produto_pendente'`): `updateDoc` de `status` | sucesso (retomada de legado) |
-| `deleteDoc` pelo `clinic_admin` A | falha |
-| `deleteDoc` e `updateDoc` em doc `success` pelo system_admin | sucesso |
-| Teste existente "clinic_admin … lê e escreve": seed passa a `status: 'pending'` | sucesso |
+| `shouldResolvePendingForProduct` | criação ativa → código; criação inativa → null; false→true → código; true→true com mesmo código → null; true→true com código alterado → novo código; exclusão → null; código com zeros → normalizado. |
+| `planPendingResolution` | não fragmentável; fragmentável (`quantidade_embalagens`/`valor_por_embalagem`); `unidades_por_embalagem` ausente → como não fragmentável. |
+| `chunkPendingLines` | 0, 248, 249 e 500 itens. |
+| `buildPendingResolvedMessage` | um produto (singular); três produtos (lista "X, Y, Z"); nomes repetidos deduplicados. |
+| **Paridade** | Para cada caso acima, chamar também a versão de `../../functions/src/nfPendingResolutionRules` (e o `calcularQuantidadeInventario` espelhado contra `@/lib/inventoryQuantity`) e esperar o mesmo resultado. |
 
-### 8.3 E2E
+### 8.2 Jest — rotas (`src/__tests__/nfImportRoutes.test.ts`)
 
-- `npm run test:e2e`: regressão geral. Ainda não há caderno de UC-10/UC-11.
-- Depois da conclusão, o `qa-agent` (Modo A) gera `tests/e2e/UC-10-importar-nfe-via-upload-de-xml.spec.ts` a partir do STEP 8. Esse caderno precisa de XMLs em fixture versionada (a tabela do STEP 8 traz as chaves prontas) e de `master_products` no seed. O `qa-agent` deve **sinalizar** a extensão do seed em vez de inventar dados. Revisão humana obrigatória.
-- Componentes, pages e serviços com Firestore não ganham teste Jest (regra do template). A decisão está toda nas funções puras.
+Lógica de segurança, prioridade alta. Mocks de `../lib/firebase-admin`, `@/lib/services/nfImportServer` e `@/lib/parseNfeXml`.
+
+| Rota | Cenário | Esperado |
+|---|---|---|
+| ambas | sem token / token inválido | 401; serviço não chamado |
+| ambas | `clinic_user`, consultor, system_admin, `active: false` | 403 |
+| xml | `content-length` 20MB | 413 |
+| xml | 2 arquivos / `.pdf` | 400 |
+| xml | parser lança `INVALID_ACCESS_KEY` | 422 com a mensagem |
+| xml | 498 linhas | 422; serviço não chamado |
+| xml | serviço `created` | 201 com `importId`, `idLabel: 'ID 1000'`, `pendentes` |
+| xml | serviço `blocked` | 409 `{ error, importId }` |
+| xml | `tenantId` passado ao serviço vem do token, mesmo com `tenantId` forjado no form | sim |
+| manual | identidade inválida (CNPJ DV) | 400 |
+| manual | `produtos` vazio / quantidade 0 / data inválida | 400 |
+| manual | serviço `created` / `complemented` | 201 / 200 com `complemento` |
+| manual | serviço `blocked` / `invalid` | 409 / 422 |
+| manual | `tenantId` no corpo é ignorado (vem do token) | sim |
+
+### 8.3 Regras — `npm run test:rules` (`tests/rules/firestore-tenant-subcollections.test.ts`)
+
+Toda leitura é testada com **get** (`getDoc`) **e list** (`getDocs(query(collection(...)))`), conforme a lição do PR #344 no cabeçalho da suíte.
+
+| Coleção | Cenário | Esperado |
+|---|---|---|
+| `nf_imports` (seed `1000`) | clinic_admin A: get e list | sucesso |
+| | clinic_user A, consultor com acesso, clinic_admin B: get e list | falha |
+| | system_admin: get e list | sucesso |
+| | clinic_admin A: `setDoc` novo, `updateDoc`, `deleteDoc` | falha (cada um) |
+| | system_admin: `setDoc` novo, `updateDoc`, `deleteDoc` | falha (cada um) |
+| `nf_identidades` (seed `12345678000199_1_26229`) | clinic_admin A, clinic_user A, consultor: get e list | falha |
+| | system_admin: get e list | sucesso; `setDoc`/`deleteDoc` → falha |
+| | clinic_admin A: `setDoc` | falha |
+| `contadores` (seed `nf_imports`) | clinic_admin A, consultor: get e list | falha |
+| | system_admin: get e list | sucesso; `updateDoc` → falha |
+| `pending_master_products` (seed) | system_admin: get e list | sucesso; `updateDoc`/`deleteDoc` → falha |
+| | clinic_admin A: get, list e `setDoc` (create) | falha (o create era permitido antes) |
+| `master_products` | system_admin cria `code: '3076528'` | sucesso |
+| | `code: '123456'` | sucesso |
+| | `code: '0123456'` / `'12345678'` | falha |
+| Regressão do bloco genérico | system_admin `updateDoc` em `inventory` e `financeiro` | sucesso |
+| | clinic_admin A `updateDoc` em `inventory` | sucesso |
+
+O Storage não é coberto pela suíte de rules (que roda só o emulador de Firestore). Ele é validado no STEP 12, passo 26.
+
+### 8.4 E2E
+
+- `npm run test:e2e`: regressão.
+- Depois da conclusão, o `qa-agent` (Modo A) gera o caderno a partir do STEP 12. O caderno precisa de: XMLs em fixture versionada (a tabela traz as chaves), `master_products` no seed e o emulador de functions no `test:e2e`. O `qa-agent` deve **sinalizar** essas extensões em vez de inventá-las. Revisão humana obrigatória.
 
 ---
 
 ## 9. Checklist de Definition of Done
 
 ```
-[ ] D1–D9 respondidas pelo usuário e incorporadas (Status → Planejamento)
-[ ] npm run lint        — zero erros ou warnings
-[ ] npm run type-check  — zero erros TypeScript
-[ ] npm run build       — build de produção sem falhas
-[ ] npm run test        — verde, com nfIdentity.test.ts, nfDuplicateRules.test.ts e parseNfeXml.test.ts ampliado
-[ ] npm run test:rules  — verde, com get E list em todos os cenários de leitura de nf_imports
-[ ] npm run test:e2e    — verde (regressão)
-[ ] Multi-tenant: toda consulta/transação sob tenants/{tenantId}/nf_imports; tenantId só das claims
-[ ] Segurança: nenhum secret; nenhum log novo com CNPJ completo ou chave de acesso
-[ ] git grep "checkNumeroNFStatus\|NFNumeroStatus\|createNFImport" — só documentação
-[ ] isRestrictedTenantCollection e consultantReadableSubcollection inalteradas
-[ ] STEP 8 executado (Roteiros A–E); resultado do passo 8 (achado A3) registrado no PR
+[ ] #389/#390 em develop antes de criar a branch (ou cherry-pick registrado no PR)
+[ ] npm run lint                — zero erros ou warnings
+[ ] npm run type-check          — zero erros TypeScript
+[ ] npm run build               — build de produção sem falhas
+[ ] cd functions && npm run build — sem erros
+[ ] npm run test                — verde (nfIdentity, nfImportPlanner, nfPendingResolutionRules + paridade, nfImportRoutes, parseNfeXml)
+[ ] npm run test:rules          — verde, get E list em todos os cenários de leitura
+[ ] npm run test:e2e            — verde (regressão)
+[ ] Multi-tenant: tenantId só do token; todas as escritas sob tenants/{tenantId}; pendências com tenant_id
+[ ] Segurança: nenhum secret; nenhum log novo com CNPJ completo, chave ou conteúdo do XML
+[ ] git grep sem chamadores de checkNumeroNFStatus/createNFImport/processNFAndAddToInventory/registerPendingMasterProducts/resolvePendingMasterProduct
+[ ] Nenhuma tela exibe "NF 1000" — o ID aparece sempre como "ID 1000"
+[ ] Consulta de códigos de master_products com zero à esquerda em produção executada (STEP 8)
+[ ] deploy-gscandelari-dev.yml publica as duas functions novas
+[ ] STEP 12 executado (Roteiros A–G)
 [ ] Branch pessoal: task branch mergeada em gscandelari_setup e validada em dev-gscandelari.web.app
-[ ] PR: aberto para develop com template preenchido
-[ ] uml-use-case-writer: UC-10 (RN-01, RN-02 nota, RN-03, RN-11, fluxo 10–15, exceções) e UC-11 (RN-01, RN-08, campos CNPJ/série)
-[ ] uc-issues-tracker (Modo B): UC-10-RN-14, UC-10-RN-15, UC-11-RN-12 → Corrigido e Documentado; registrar A1 (cProd/nLote), A3 (se confirmado); UC-10-RN-02 continua aberto com os pontos da Seção 4.4
-[ ] qa-agent (Modo A) acionado para o caderno UC-10
+[ ] PR: aberto para develop com template preenchido, incluindo nota de release (abaixo)
+[ ] Nota de release no PR: produção NÃO publica firestore:rules, firestore:indexes nem storage pelo CI
+    (deploy-firebase.yml) — publicar manualmente junto com hosting/functions na release
+[ ] uml-use-case-writer: UC-10, UC-11, UC-12, UC-31/32, UC-44
+[ ] uc-issues-tracker (Modo B): fechar UC-10-RN-14/RN-15, UC-11-RN-12; UC-10-RN-02 parcialmente decidido;
+    registrar A1–A5 como corrigidos; registrar a questão futura da Seção 4.4
+[ ] qa-agent (Modo A) acionado para o caderno UC-10 (+ trechos UC-11/UC-12)
 ```
 
 ---
@@ -931,16 +1223,18 @@ Prioridade alta (segurança). Toda leitura é testada com **get** (`getDoc`) **e
 
 | Risco | Probabilidade | Impacto | Mitigação |
 |---|---|---|---|
-| XML real de fornecedor sem `Id` ou com formato inesperado ser rejeitado (D1) | Baixa | Médio | Schema SEFAZ exige `Id`; mensagem clara; STEP 8 passo 19 com XML real; D1 permite optar por (b). |
-| CNPJ alfanumérico com leiaute diferente do assumido (A4) | Média | Médio | D9 exige conferir a NT vigente antes de implementar; testes com chave alfanumérica construída pela própria regra. |
-| Conflito com #389/#390 (rules, testes de rules, upload page) | Alta (se a base não estiver sincronizada) | Baixo | Seção 0: iniciar depois do merge em `develop`, ou resolver os hunks vizinhos no PR para `gscandelari_setup`. |
-| Abas com bundle antigo recebem `permission-denied` depois do deploy das rules | Média | Baixo | Rules entram no último commit; mensagem de erro existente; recarregar resolve. |
-| Legado retomado em corrida de criação (sem ID determinístico) | Baixa | Baixo | Trava de processamento (RN-06) impede duplicar estoque; RN-07 pula itens já gravados. |
-| Fallback por número ainda bloquear NFs de fornecedores diferentes (manual sem CNPJ / legado) | Média | Baixo | D3 (b) + mensagem sugerindo informar CNPJ; casos diminuem com o tempo. |
-| `processing` travado bloquear a NF | Baixa | Médio | `STALE_PROCESSING_MS` (D5); passo 11 do STEP 8. |
-| Mudança de `nf_numero` para forma normalizada confundir quem procura "026229" no inventário | Baixa | Baixo | D8; o XML já grava sem zeros desde sempre. |
-| Achado A3 confirmar que NF com produto fora do catálogo sempre termina em `error` | Média | Médio | Fora do escopo; D6 torna o import retomável; registrar no mapa para task própria. |
-| `transaction.get` de legado + `set` da chave estourarem o limite de retries da transação sob concorrência alta | Baixa | Baixo | Concorrência real é de 2 sessões no máximo; erro final cai no `Alert` existente. |
+| Rules, índices e Storage não publicados em produção (o CI de produção não os inclui) e o client novo convivendo com rules antigas | Alta | Médio | Item do DoD com publicação manual na release. As rules antigas são **mais** permissivas, então o fluxo novo funciona com elas; o risco é só a proteção ficar atrasada. |
+| Functions novas não publicadas no dev (lista explícita no workflow) | Alta, se esquecido | Médio | STEP 9 altera o workflow; passo 28 confere a publicação. |
+| Leiaute do CNPJ alfanumérico diferente do assumido (A4) | Média | Médio | Conferir a NT no STEP 1; testes com CNPJ alfanumérico construído pela regra. |
+| Conflito com #389/#390 | Alta, sem sincronização | Baixo | Pré-requisito da Seção 0. |
+| Divergência entre `src/lib` e o espelho em `functions/src` | Média | Médio | Teste de paridade obrigatório (Seção 8.1). |
+| Produto ativado entre a leitura do catálogo e o commit da importação (a linha vira pendência depois do trigger) | Baixa | Baixo | "Reprocessar" (RF-10). A próxima escrita no produto também resolve. |
+| Código de catálogo com zero à esquerda já existente em produção | Baixa (112 códigos conhecidos sem zero) | Médio | Consulta e normalização pontual no STEP 8, antes das rules. |
+| NF com mais de 497 linhas | Muito baixa | Médio | 422 com mensagem clara; no manual, dividir em complementos. |
+| Falha no upload do XML após o commit | Baixa | Baixo | `arquivo_status: 'falhou'` visível; o estoque não é afetado. |
+| Contenção no contador por clínica | Baixa | Baixo | Transações curtas; o Firestore tenta de novo automaticamente. |
+| Remover a escrita do system_admin em `nf_imports` bloquear alguma correção manual que hoje é feita pelo painel | Baixa (nenhum código do painel escreve ali; verificado por `git grep`) | Baixo | Correções via Admin SDK (RN-10). |
+| Cache do PWA com bundle antigo depois do deploy | Média | Baixo | Mensagem de erro existente; recarregar resolve. |
 
 ---
 
@@ -948,34 +1242,30 @@ Prioridade alta (segurança). Toda leitura é testada com **get** (`getDoc`) **e
 
 | Termo | Definição |
 |---|---|
-| Chave de acesso | Identificador nacional da NF-e com 44 posições: cUF(2) + AAMM(2+2) + CNPJ emitente(14) + modelo(2) + série(3) + nNF(9) + tpEmis(1) + cNF(8) + DV(1). No XML, aparece no atributo `Id` de `<infNFe>` com o prefixo `NFe`. |
-| DV | Dígito verificador da chave, calculado por módulo 11 sobre as 43 primeiras posições (pesos 2 a 9, da direita para a esquerda). |
-| nNF | Número da NF-e (`<ide><nNF>`), de 1 a 999.999.999, sem zeros à esquerda no XML. |
-| Série | `<ide><serie>`, de 0 a 999. Junto com CNPJ e modelo, forma o espaço de numeração do emitente. |
-| Identidade da NF | Neste documento: (CNPJ do emitente, série, número normalizado), conforme RN-01. |
-| ID determinístico | ID de documento derivado do conteúdo (aqui, a chave), de modo que a mesma NF resulte sempre no mesmo documento. |
-| Reserva | Transação que cria ou retoma o documento de import antes do upload do arquivo. |
-| Trava de processamento (claim) | Transação que passa o import para `processing` só se nenhuma outra sessão o estiver processando. |
-| Legado | Documento `nf_imports` criado antes desta correção: ID aleatório, sem `chave_acesso`, `cnpj_emitente` e `serie` no topo. |
-| Coerção numérica | Conversão automática, pelo `fast-xml-parser`, de valores de tag só com dígitos em `number`, o que remove zeros à esquerda. |
-| CNPJ alfanumérico | Novo formato de CNPJ (IN RFB 2.229/2024): 12 posições alfanuméricas + 2 dígitos verificadores. |
+| Identidade da NF | (CNPJ do emitente canônico, série normalizada, número normalizado); chave `cnpj_serie_numero`. |
+| ID do registro ("ID 1000") | Número sequencial por clínica, a partir de 1000, que identifica o registro de importação. Não é o número da nota. |
+| Registro de importação | Documento `tenants/{t}/nf_imports/{id}`. Um por identidade de NF; os complementos manuais reutilizam o mesmo. |
+| Complemento manual | Novo lançamento manual de uma NF já cadastrada manualmente: soma itens ao mesmo registro. |
+| Chave de acesso | 44 posições: cUF(2) + AAMM(4) + CNPJ(14) + modelo(2) + série(3) + nNF(9) + tpEmis(1) + cNF(8) + DV(1). No XML, vem em `infNFe@Id` com o prefixo `NFe`. |
+| DV | Dígito verificador por módulo 11 (pesos 2 a 9, da direita para a esquerda; valor do caractere = `charCode - 48`). |
+| Forma canônica do CNPJ | 14 posições, sem máscara, maiúsculas, com zeros, DV validado. |
+| Pendência | Linha de NF-e (código + lote) sem produto ativo no catálogo, guardada em `pending_master_products` com os dados para lançamento posterior. |
+| Incorporação automática | Lançamento das pendências no inventário pela Cloud Function quando o produto fica ativo no catálogo. |
+| Orçamento de escrita | Número de documentos escritos por transação; limite de 500 no Firestore. |
+| Espelho manual | Cópia da lógica pura de `src/lib` em `functions/src`, necessária porque o deploy de functions não inclui `src/`. |
+| Coerção numérica | Conversão automática, pelo `fast-xml-parser`, de valores de tag numéricos em `number`, desligada com `parseTagValue: false`. |
 
 ---
 
 ## 12. Referências
 
-- `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` (v3.52): `UC-10-RN-14`, `UC-10-RN-15`, `UC-11-RN-12`, destaque 13, decisão `UC-10-RN-02` (Seção 4.1).
-- `ONLY_FOR_DEVS/PO_BA_Docs/UC-10-importar-nfe-via-upload-de-xml.md`: RN-01 a RN-04, RN-11, Seção 14 itens 1–2.
-- `ONLY_FOR_DEVS/PO_BA_Docs/UC-11-inserir-nota-fiscal-manualmente.md`: RN-01, RN-06, RN-08.
-- `ONLY_FOR_DEVS/PO_BA_Docs/UC-12-resolver-produtos-pendentes-de-cadastro.md`: RN-05 (achado A3).
-- `ONLY_FOR_DEVS/TO_DO/BUGFIX-protecao-rotas-parse-nfe.md` (PR #390) e `ONLY_FOR_DEVS/TO_DO/BUGFIX-consultor-allowlist-subcolecoes.md` (PR #389): estado em `gscandelari_setup`.
-- `ONLY_FOR_DEVS/TO_DO/FEAT-importacao-xml-nfe.md`: origem da importação XML.
-- Código: `src/lib/parseNfeXml.ts`, `src/lib/services/nfImportService.ts`, `src/lib/services/inventoryService.ts` (l. 839–898), `src/lib/services/pendingMasterProductService.ts`, `src/app/(clinic)/clinic/upload/page.tsx`, `src/app/(clinic)/clinic/add-products/page.tsx`, `src/app/api/parse-nf-xml/route.ts`, `src/types/nf.ts`, `firestore.rules`, `firestore.indexes.json`.
-- Testes: `src/__tests__/parseNfeXml.test.ts`, `tests/rules/firestore-tenant-subcollections.test.ts`, `jest.rules.config.js`, `tests/e2e/fixtures/seed-data.ts`.
-- Padrão de script de migração (D4 b/c): `scripts/migrate-brand-rennova.js`.
-- Externas: Manual de Orientação do Contribuinte NF-e (leiaute 4.00, composição da chave de acesso e cálculo do DV); NT 2025.001 (CNPJ alfanumérico em documentos fiscais eletrônicos — conferir a versão vigente); documentação do `fast-xml-parser` v5 (`parseTagValue`, `parseAttributeValue`); Firestore Security Rules (`request.resource.data.diff`, avaliação de `set` como create/update).
-- `ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md`: Seções 1, 2 e 15.
-- `CLAUDE.md`: Multi-Tenant, regra 8 (cadernos de teste), "Importação via XML NF-e".
+- `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` (v3.52): `UC-10-RN-14`, `UC-10-RN-15`, `UC-11-RN-12`, destaque 13, `UC-10-RN-02`.
+- `ONLY_FOR_DEVS/PO_BA_Docs/UC-10-…`, `UC-11-…`, `UC-12-resolver-produtos-pendentes-de-cadastro.md` (RN-05), `UC-31-…`, `UC-32-…`, `UC-44-consultar-e-gerenciar-notificacoes-recebidas.md`.
+- `ONLY_FOR_DEVS/TO_DO/BUGFIX-protecao-rotas-parse-nfe.md` (#390) e `ONLY_FOR_DEVS/TO_DO/BUGFIX-consultor-allowlist-subcolecoes.md` (#389).
+- Código: `src/lib/parseNfeXml.ts`, `src/lib/services/{nfImportService,inventoryService,pendingMasterProductService,masterProductService,notificationService,accessRequestRouteHelpers}.ts`, `src/lib/firebase-admin.ts`, `src/lib/validations/nfeUploadValidation.ts` (#390), `src/app/(clinic)/clinic/{upload,add-products,inventory/[id]}/page.tsx`, `src/app/(admin)/admin/{pending-products,products/new,products/[id]}/page.tsx`, `src/types/{nf,pendingMasterProduct,notification,masterProduct}.ts`, `src/components/notifications/NotificationBell.tsx`, `functions/src/{index,alertRules,alertChecks,onTenantCreated,checkClaimsIntegrityOnDemand}.ts`, `firestore.rules`, `storage.rules`, `firestore.indexes.json`, `.github/workflows/{deploy-gscandelari-dev,deploy-firebase}.yml`, `scripts/import-master-products*.js`.
+- Testes: `src/__tests__/{parseNfeXml,auditLogRoutes,alertRules}.test.ts`, `tests/rules/firestore-tenant-subcollections.test.ts`, `jest.rules.config.js`, `tests/e2e/fixtures/seed-data.ts`.
+- Externas: Manual de Orientação do Contribuinte NF-e 4.00 (chave de acesso e DV); NT 2025.001 (CNPJ alfanumérico; conferir a versão vigente); `fast-xml-parser` v5 (`parseTagValue`); Firestore (transações serializáveis no Admin SDK, limite de 500 escritas, `onDocumentWritten` v2).
+- `ONLY_FOR_DEVS/GUIA_CONFIGURACAO_PIPELINE_PADRONIZACAO.md`: Seções 1, 2 e 15. `CLAUDE.md`: Multi-Tenant, regra 8, "Importação via XML NF-e".
 
 ---
 
@@ -983,4 +1273,5 @@ Prioridade alta (segurança). Toda leitura é testada com **get** (`getDoc`) **e
 
 | Versão | Data | Autor | O que mudou |
 |---|---|---|---|
-| 1.0 | 14/10/2026 | Doc Writer (Claude) | Versão inicial. Status **Aguardando decisão**: D1–D9 pendentes (Seção 4.5). Inclui os achados adicionais A1–A4 (Seção 1.4), não registrados no mapa v3.52. |
+| 1.0 | 14/10/2026 | Doc Writer (Claude) | Versão inicial. Status Aguardando decisão, com D1–D9 pendentes e achados A1–A4. |
+| 1.1 | 14/10/2026 | Doc Writer (Claude) | **Decisões do usuário de 14/10/2026 (via coordenador) incorporadas; Status → Planejamento.** Reescrita das Seções 0–13. D1 revisada: ID sequencial por clínica a partir de 1000 ("ID 1000"), com a chave de acesso como campo. D2/D3/D4: identidade CNPJ + série + número nos dois caminhos; manual com CNPJ e série obrigatórios e chave opcional; sem legado nem fallback; unicidade por `nf_identidades`. D5/D6 substituídas por confirmação atômica no servidor (API routes com Admin SDK, uma transação, preview sem gravação, limite de 500 escritas, Storage após o commit em modo best-effort). Produtos fora do catálogo: pendência por linha e incorporação automática em todas as clínicas por Cloud Function (trigger + callable "Reprocessar"), com notificação; reenvio do XML removido. D7, D8 e D9 aceitas. Complemento manual no mesmo ID. Regra (b) de UC-10-RN-02 revogada (nova matriz RN-02). Normalização de zeros em número, série, código (inclusive no catálogo master) e lote; CNPJ canônico com justificativa. A3 explicado (some com o Admin SDK). Novo achado A5 (`tPag` 01–09). Commits replanejados (STEPs 1–12). Observação: pela convenção do template, uma mudança de escopo desse porte seria versão major (2.0); usado 1.1 por instrução explícita do coordenador. |
