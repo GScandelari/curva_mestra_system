@@ -64,8 +64,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 422 });
     }
 
-    // Pior caso: cada linha vira item de estoque ou pendência (+3 fixas)
-    const budget = checkWriteBudget(3, parsedNF.produtos.length);
+    // Pior caso: cada linha vira item de estoque ou pendência, mais as fixas:
+    // identidade + contador + registro + alerta do system_admin (pior caso:
+    // a rota não sabe antes da transação se alguma linha vira pendência)
+    const budget = checkWriteBudget(4, parsedNF.produtos.length);
     if (!budget.ok) return NextResponse.json({ error: budget.error }, { status: budget.status });
 
     const result = await confirmXmlImport({

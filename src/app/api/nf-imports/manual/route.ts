@@ -42,8 +42,9 @@ export async function POST(request: NextRequest) {
     if (!validation.ok) return NextResponse.json({ error: validation.error }, { status: 400 });
     const { identity, chave_acesso, tipo, produtos } = validation.value;
 
-    // Registro novo: contador + registro + identidade; complemento: só o registro
-    const budget = checkManualWriteBudget(3, produtos.length);
+    // Registro novo: contador + registro + identidade + alerta do system_admin
+    // (pior caso); complemento: registro + alerta
+    const budget = checkManualWriteBudget(4, produtos.length);
     if (!budget.ok) return NextResponse.json({ error: budget.error }, { status: budget.status });
 
     const result = await confirmManualLaunch({
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       );
     }
     if (result.kind === 'invalid') {
-      return NextResponse.json({ error: result.error }, { status: 422 });
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
     const complemento = result.kind === 'complemented';
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
         idLabel: formatImportId(result.importId),
         complemento,
         produtosImportados: result.produtosImportados,
+        pendentes: result.pendentes,
       },
       { status: complemento ? 200 : 201 }
     );

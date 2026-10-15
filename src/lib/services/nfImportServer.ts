@@ -10,15 +10,25 @@
 import { FieldValue, Timestamp, type Transaction } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { adminDb, getAdminApp } from '@/lib/firebase-admin';
-import { calcularQuantidadeInventario } from '@/lib/inventoryQuantity';
 import { buildIdentityKey, normalizeLeadingZeros } from '@/lib/nfIdentity';
 import {
+  buildPendingAdminAlertMessage,
   evaluateIdentityConflict,
+  hasResolvablePending,
   nextImportId,
+  planManualLines,
   planXmlLines,
   type MasterLite,
 } from '@/lib/nfImportPlanner';
-import type { ManualNfProductInput, NFIdentity, NFOrigem, ParsedNF } from '@/types/nf';
+import { isCatalogProductCode } from '@/types/masterProduct';
+import type {
+  ManualNfProductInput,
+  NFIdentity,
+  NFOrigem,
+  NFProdutoPendente,
+  NfIdentityLookupResponse,
+  ParsedNF,
+} from '@/types/nf';
 
 const IN_QUERY_LIMIT = 30;
 
@@ -26,6 +36,7 @@ export interface PendingSummary {
   codigo: string;
   nome_produto: string;
   lote: string;
+  fora_do_padrao?: boolean;
 }
 
 export type { ManualNfProductInput } from '@/types/nf';
@@ -84,21 +95,120 @@ async function readMasters(tx: Transaction, codes: string[]): Promise<Map<string
   return masters;
 }
 
+interface ConflictInfo {
+  nf_import_id: string;
+  origem: NFOrigem;
+  hasPending: boolean; // só pendências incorporáveis (fora do padrão não contam)
+  hasRejected: boolean;
+  lancamentos_manuais?: number;
+  produtos_pendentes: NFProdutoPendente[];
+  status?: string;
+}
+
 async function readConflict(
   tx: Transaction,
   tenantId: string,
   identityKey: string
-): Promise<{ nf_import_id: string; origem: NFOrigem; hasPending: boolean } | null> {
+): Promise<ConflictInfo | null> {
   const r = refs(tenantId);
   const identSnap = await tx.get(r.identity(identityKey));
   if (!identSnap.exists) return null;
   const ident = identSnap.data() as { nf_import_id: string; origem: NFOrigem };
   const importSnap = await tx.get(r.nfImport(ident.nf_import_id));
-  const pendentes = (importSnap.data()?.produtos_pendentes ?? []) as unknown[];
+  const nf = importSnap.data() ?? {};
+  const pendentes = (nf.produtos_pendentes ?? []) as NFProdutoPendente[];
   return {
     nf_import_id: ident.nf_import_id,
     origem: ident.origem,
-    hasPending: pendentes.length > 0,
+    hasPending: hasResolvablePending(pendentes),
+    hasRejected: ((nf.produtos_recusados ?? []) as unknown[]).length > 0,
+    lancamentos_manuais:
+      typeof nf.lancamentos_manuais === 'number' ? nf.lancamentos_manuais : undefined,
+    produtos_pendentes: pendentes,
+    status: typeof nf.status === 'string' ? nf.status : undefined,
+  };
+}
+
+async function readTenantName(tx: Transaction, tenantId: string): Promise<string> {
+  const snap = await tx.get(adminDb.collection('tenants').doc(tenantId));
+  const name = snap.data()?.name;
+  return typeof name === 'string' && name.trim() ? name : tenantId;
+}
+
+/**
+ * Alerta do sino do system_admin para importação/lançamento que gerou pendência
+ * (coleção de raiz `admin_notifications`, gravada só pelo servidor).
+ */
+function setPendingAdminAlert(
+  tx: Transaction,
+  p: {
+    alertId: string;
+    tenantId: string;
+    tenantName: string;
+    origem: NFOrigem;
+    importId: string;
+    lancamento?: number;
+    identity: NFIdentity;
+    pendentes: PendingSummary[];
+    agora: FieldValue;
+  }
+): void {
+  const distintos = (lista: PendingSummary[]) => Array.from(new Set(lista.map((x) => x.codigo)));
+  const codigosForaPadrao = distintos(p.pendentes.filter((x) => x.fora_do_padrao));
+  const codigosPendentes = distintos(p.pendentes.filter((x) => !x.fora_do_padrao));
+  tx.set(adminDb.collection('admin_notifications').doc(p.alertId), {
+    type: 'nf_pendencias',
+    title: 'Pendências de catálogo em NF-e',
+    message: buildPendingAdminAlertMessage({
+      tenantName: p.tenantName,
+      origem: p.origem,
+      importId: p.importId,
+      identity: p.identity,
+      codigosPendentes,
+      codigosForaPadrao,
+    }),
+    read: false,
+    link:
+      codigosPendentes.length === 0
+        ? '/admin/pending-products#fora-do-padrao'
+        : '/admin/pending-products',
+    created_at: p.agora,
+    metadata: {
+      tenant_id: p.tenantId,
+      tenant_name: p.tenantName,
+      origem: p.origem,
+      nf_import_id: p.importId,
+      ...(p.lancamento ? { lancamento: p.lancamento } : {}),
+      numero_nf: p.identity.numero,
+      serie: p.identity.serie,
+      cnpj_emitente: p.identity.cnpj,
+      codigos_pendentes: codigosPendentes,
+      codigos_fora_padrao: codigosForaPadrao,
+    },
+  });
+}
+
+/**
+ * Consulta antecipada de duplicidade (GET /api/nf-imports/identidade): só
+ * fatos; a mensagem é montada no client com evaluateIdentityConflict. A
+ * transação de confirmação continua sendo a checagem que vale.
+ */
+export async function lookupNfIdentity(
+  tenantId: string,
+  identity: NFIdentity
+): Promise<NfIdentityLookupResponse> {
+  const r = refs(tenantId);
+  const identSnap = await r.identity(buildIdentityKey(identity)).get();
+  if (!identSnap.exists) return { existe: false };
+  const ident = identSnap.data() as { nf_import_id: string; origem: NFOrigem };
+  const nf = (await r.nfImport(ident.nf_import_id).get()).data() ?? {};
+  return {
+    existe: true,
+    importId: ident.nf_import_id,
+    idLabel: `ID ${ident.nf_import_id}`,
+    origem: ident.origem,
+    hasPending: hasResolvablePending(nf.produtos_pendentes as NFProdutoPendente[] | undefined),
+    hasRejected: ((nf.produtos_recusados ?? []) as unknown[]).length > 0,
   };
 }
 
@@ -118,7 +228,10 @@ export async function confirmXmlImport(p: {
     numero: parsedNF.numero,
   };
   const identityKey = buildIdentityKey(identity);
-  const codes = Array.from(new Set(parsedNF.produtos.map((prod) => prod.codigo)));
+  // Código fora do padrão nunca está no catálogo: não entra na consulta
+  const codes = Array.from(
+    new Set(parsedNF.produtos.map((prod) => prod.codigo).filter(isCatalogProductCode))
+  );
   const r = refs(tenantId);
 
   return adminDb.runTransaction(async (tx) => {
@@ -132,13 +245,15 @@ export async function confirmXmlImport(p: {
     const masters = await readMasters(tx, codes);
 
     const plan = planXmlLines(parsedNF.produtos, masters);
+    const tenantName = plan.pending.length > 0 ? await readTenantName(tx, tenantId) : '';
     const idSequencial = nextImportId(counterSnap.data()?.ultimo_id);
     const importId = String(idSequencial);
     const agora = FieldValue.serverTimestamp();
-    const pendentes: PendingSummary[] = plan.pending.map(({ produto }) => ({
+    const pendentes: PendingSummary[] = plan.pending.map(({ produto, fora_do_padrao }) => ({
       codigo: produto.codigo,
       nome_produto: produto.nome_produto,
       lote: produto.lote,
+      ...(fora_do_padrao ? { fora_do_padrao: true } : {}),
     }));
 
     tx.set(r.counter, { ultimo_id: idSequencial, updated_at: agora });
@@ -196,7 +311,7 @@ export async function confirmXmlImport(p: {
       });
     }
 
-    for (const { linha, produto } of plan.pending) {
+    for (const { linha, produto, fora_do_padrao } of plan.pending) {
       tx.set(
         adminDb.collection('pending_master_products').doc(`${tenantId}_${importId}_${linha}`),
         {
@@ -206,6 +321,8 @@ export async function confirmXmlImport(p: {
           numero_nf: identity.numero,
           serie: identity.serie,
           cnpj_emitente: identity.cnpj,
+          origem: 'xml',
+          ...(fora_do_padrao ? { fora_do_padrao: true } : {}),
           linha,
           codigo: produto.codigo,
           nome_produto: produto.nome_produto,
@@ -221,6 +338,19 @@ export async function confirmXmlImport(p: {
           created_at: agora,
         }
       );
+    }
+
+    if (pendentes.length > 0) {
+      setPendingAdminAlert(tx, {
+        alertId: `nf_pendencias_${tenantId}_${importId}`,
+        tenantId,
+        tenantName,
+        origem: 'xml',
+        importId,
+        identity,
+        pendentes,
+        agora,
+      });
     }
 
     return {
@@ -240,9 +370,14 @@ export async function confirmManualLaunch(p: {
   tipo: 'rennova' | 'outra_marca';
   produtos: ManualNfProductInput[];
 }): Promise<
-  | { kind: 'created' | 'complemented'; importId: string; produtosImportados: number }
+  | {
+      kind: 'created' | 'complemented';
+      importId: string;
+      produtosImportados: number;
+      pendentes: PendingSummary[];
+    }
   | { kind: 'blocked'; importId: string; reason: string }
-  | { kind: 'invalid'; error: string }
+  | { kind: 'invalid'; status: 400 | 422; error: string }
 > {
   const { tenantId, uid, identity, tipo } = p;
   const identityKey = buildIdentityKey(identity);
@@ -254,6 +389,7 @@ export async function confirmManualLaunch(p: {
   const r = refs(tenantId);
 
   return adminDb.runTransaction(async (tx) => {
+    // Todas as leituras antes das escritas (exigência da transação)
     const conflict = await readConflict(tx, tenantId, identityKey);
     const decision = evaluateIdentityConflict('manual', conflict);
     if (decision.action === 'blocked') {
@@ -263,30 +399,47 @@ export async function confirmManualLaunch(p: {
     const counterSnap = decision.action === 'create' ? await tx.get(r.counter) : null;
     const masters =
       tipo === 'rennova'
-        ? await readMasters(tx, Array.from(new Set(produtos.map((prod) => prod.codigo))))
+        ? await readMasters(
+            tx,
+            Array.from(new Set(produtos.map((prod) => prod.codigo).filter(isCatalogProductCode)))
+          )
         : new Map<string, MasterLite>();
 
-    if (tipo === 'rennova') {
-      const ausente = produtos.find((prod) => !masters.get(prod.codigo)?.active);
-      if (ausente) {
-        return {
-          kind: 'invalid',
-          error: `Produto ${ausente.codigo} não está ativo no catálogo Rennova.`,
-        };
-      }
-    }
+    // O servidor decide pelo catálogo: produto Rennova sem master ativo
+    // (ausente ou inativo) vira pendência no mesmo ID.
+    const plan = planManualLines(tipo, produtos, masters);
+    if (!plan.ok) return { kind: 'invalid', status: plan.status, error: plan.error };
+    const tenantName = plan.pending.length > 0 ? await readTenantName(tx, tenantId) : '';
 
     const agora = FieldValue.serverTimestamp();
+    const pendentes: PendingSummary[] = plan.pending.map(({ produto }) => ({
+      codigo: produto.codigo,
+      nome_produto: produto.nome_produto,
+      lote: produto.lote,
+    }));
+    // n do lançamento: 1 na criação; complementos continuam a contagem do registro
+    const lancamento =
+      decision.action === 'complement' ? (conflict?.lancamentos_manuais ?? 0) + 1 : 1;
+
     let importId: string;
+    let idSequencial: number;
     if (decision.action === 'complement') {
       importId = decision.nfImportId;
+      idSequencial = Number(importId);
+      // Leitura-modificação-escrita (não arrayUnion, que fundiria linhas iguais)
       tx.update(r.nfImport(importId), {
-        produtos_importados: FieldValue.increment(produtos.length),
+        produtos_importados: FieldValue.increment(plan.inventory.length),
         lancamentos_manuais: FieldValue.increment(1),
+        ...(pendentes.length > 0
+          ? {
+              produtos_pendentes: [...(conflict?.produtos_pendentes ?? []), ...pendentes],
+              status: 'novo_produto_pendente',
+            }
+          : {}),
         updated_at: agora,
       });
     } else {
-      const idSequencial = nextImportId(counterSnap?.data()?.ultimo_id);
+      idSequencial = nextImportId(counterSnap?.data()?.ultimo_id);
       importId = String(idSequencial);
       tx.set(r.counter, { ultimo_id: idSequencial, updated_at: agora });
       tx.set(r.nfImport(importId), {
@@ -299,9 +452,9 @@ export async function confirmManualLaunch(p: {
         cnpj_emitente: identity.cnpj,
         ...(p.chave_acesso ? { chave_acesso: p.chave_acesso } : {}),
         tipo,
-        status: 'success',
-        produtos_importados: produtos.length,
-        produtos_pendentes: [],
+        status: pendentes.length > 0 ? 'novo_produto_pendente' : 'success',
+        produtos_importados: plan.inventory.length,
+        produtos_pendentes: pendentes,
         lancamentos_manuais: 1,
         created_by: uid,
         created_at: agora,
@@ -314,19 +467,9 @@ export async function confirmManualLaunch(p: {
       });
     }
 
-    for (const prod of produtos) {
-      const master = masters.get(prod.codigo);
+    for (const linha of plan.inventory) {
+      const { produto: prod, master } = linha;
       const fragmentavel = tipo === 'rennova' && master?.fragmentavel === true;
-      const calculo =
-        tipo === 'rennova'
-          ? calcularQuantidadeInventario({
-              quantidadeInformada: prod.quantidade,
-              fragmentavel,
-              unidadesPorEmbalagem: master?.unidades_por_embalagem,
-              valorInformado: prod.valor_unitario,
-            })
-          : { quantidade_inicial: prod.quantidade, valor_unitario: prod.valor_unitario };
-
       tx.set(r.inventory(), {
         tenant_id: tenantId,
         nf_id: importId,
@@ -338,12 +481,12 @@ export async function confirmManualLaunch(p: {
         nome_produto: prod.nome_produto,
         category: (tipo === 'rennova' ? master?.category : prod.category) ?? null,
         lote: prod.lote,
-        quantidade_inicial: calculo.quantidade_inicial,
-        quantidade_disponivel: calculo.quantidade_inicial,
+        quantidade_inicial: linha.quantidade,
+        quantidade_disponivel: linha.quantidade,
         quantidade_reservada: 0,
         dt_validade: validadeFromInput(prod.dt_validade),
         dt_entrada: agora,
-        valor_unitario: calculo.valor_unitario,
+        valor_unitario: linha.valor_unitario,
         active: true,
         is_rennova: tipo === 'rennova',
         brand: tipo === 'rennova' ? 'Rennova' : (prod.brand ?? null),
@@ -360,10 +503,52 @@ export async function confirmManualLaunch(p: {
       });
     }
 
+    for (const { linha, produto } of plan.pending) {
+      tx.set(
+        adminDb
+          .collection('pending_master_products')
+          .doc(`${tenantId}_${importId}_m${lancamento}_${linha}`),
+        {
+          tenant_id: tenantId,
+          nf_import_id: importId,
+          id_sequencial: idSequencial,
+          numero_nf: identity.numero,
+          serie: identity.serie,
+          cnpj_emitente: identity.cnpj,
+          origem: 'manual',
+          lancamento,
+          linha,
+          codigo: produto.codigo,
+          nome_produto: produto.nome_produto,
+          lote: produto.lote,
+          quantidade: produto.quantidade,
+          valor_unitario: produto.valor_unitario,
+          dt_validade: validadeFromInput(produto.dt_validade),
+          status: 'aberta',
+          created_at: agora,
+        }
+      );
+    }
+
+    if (pendentes.length > 0) {
+      setPendingAdminAlert(tx, {
+        alertId: `nf_pendencias_${tenantId}_${importId}_m${lancamento}`,
+        tenantId,
+        tenantName,
+        origem: 'manual',
+        importId,
+        lancamento,
+        identity,
+        pendentes,
+        agora,
+      });
+    }
+
     return {
       kind: decision.action === 'complement' ? 'complemented' : 'created',
       importId,
-      produtosImportados: produtos.length,
+      produtosImportados: plan.inventory.length,
+      pendentes,
     };
   });
 }
