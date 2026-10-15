@@ -116,31 +116,35 @@ export function AdminNotificationBell() {
           ) : (
             <div className="space-y-1 p-2">
               {alertas.map((alerta) => (
-                <div
+                <button
+                  type="button"
                   key={alerta.id}
-                  className={`relative rounded-lg border p-3 cursor-pointer transition-colors ${
-                    !alerta.read ? 'bg-blue-50 border-blue-200' : 'hover:bg-muted'
+                  className={`relative block w-full text-left rounded-lg border p-3 cursor-pointer transition-colors ${
+                    alerta.read ? 'hover:bg-muted' : 'bg-blue-50 border-blue-200'
                   }`}
                   onClick={() => void handleClick(alerta)}
                 >
-                  <div className="flex items-start gap-3">
+                  {/* Só conteúdo "phrasing" (span) dentro do botão */}
+                  <span className="flex items-start gap-3">
                     <PackageSearch className="h-4 w-4 mt-0.5 text-amber-600" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium leading-tight">{alerta.title}</p>
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-medium leading-tight">{alerta.title}</span>
                         {!alerta.read && (
-                          <Badge variant="default" className="h-5 px-1 text-xs">
+                          <span className="rounded bg-primary px-1 text-xs font-semibold text-primary-foreground">
                             Novo
-                          </Badge>
+                          </span>
                         )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">{alerta.message}</p>
+                      </span>
+                      <span className="block text-sm text-muted-foreground mt-1">
+                        {alerta.message}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         {tempoRelativo(alerta.created_at)}
                       </span>
-                    </div>
-                  </div>
-                </div>
+                    </span>
+                  </span>
+                </button>
               ))}
             </div>
           )}

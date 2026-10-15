@@ -172,13 +172,14 @@ export default function PendingProductsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loading && (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-16 w-full" />
                 ))}
               </div>
-            ) : comuns.length === 0 ? (
+            )}
+            {!loading && comuns.length === 0 && (
               <div className="text-center py-12">
                 <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-semibold mb-2">Nenhuma pendência</h3>
@@ -186,7 +187,8 @@ export default function PendingProductsPage() {
                   Todos os produtos das NFs importadas estão cadastrados no catálogo master
                 </p>
               </div>
-            ) : (
+            )}
+            {!loading && comuns.length > 0 && (
               <Table>
                 <TableHeader>
                   <TableRow>

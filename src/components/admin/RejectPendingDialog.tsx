@@ -29,7 +29,11 @@ interface RejectPendingDialogProps {
   onDone: () => void;
 }
 
-export function RejectPendingDialog({ pendencia, onClose, onDone }: RejectPendingDialogProps) {
+export function RejectPendingDialog({
+  pendencia,
+  onClose,
+  onDone,
+}: Readonly<RejectPendingDialogProps>) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [motivo, setMotivo] = useState('');
