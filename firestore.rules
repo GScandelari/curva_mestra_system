@@ -60,6 +60,12 @@ service cloud.firestore {
       return collectionId in ['nf_imports', 'nf_identidades', 'contadores'];
     }
 
+    // Código do catálogo master: só dígitos, sem zeros à esquerda, de 5 a 8
+    // dígitos. ESPELHO de CATALOG_CODE_PATTERN (src/types/masterProduct.ts).
+    function isCatalogCode(code) {
+      return code is string && code.matches('^[1-9][0-9]{4,7}$');
+    }
+
     // Opt-in financeiro ativo PARA ESTE consultor (FEAT-precificacao-hora-clinica,
     // RN-13/RN-18): o clinic_admin ligou o compartilhamento e o amarrou ao
     // consultant_id do token. Documento inexistente => negado. Troca de
@@ -300,16 +306,18 @@ service cloud.firestore {
       // Validação de formato no servidor -- antes, só o client validava o
       // código (validateProductCode em types/masterProduct.ts); esta regra é
       // a única camada de validação server-side deste fluxo (não existe API
-      // route dedicada, a escrita é direto via client SDK). Código com 1 a 7
+      // route dedicada, a escrita é direto via client SDK). Código de 5 a 8
       // dígitos, sem zeros à esquerda -- mesma forma do cProd normalizado da
-      // NF-e (BUGFIX-identidade-e-duplicidade-nfe).
+      // NF-e (FEAT-pendencias-nfe-fora-padrao-manual-recusa-checagem).
       allow create: if isSystemAdmin()
-        && request.resource.data.code.matches('^[1-9][0-9]{0,6}$')
+        && isCatalogCode(request.resource.data.code)
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0;
+      // Formato só exigido quando o código MUDA: um produto legado fora do
+      // padrão continua editável e desativável.
       allow update: if isSystemAdmin()
-        && (!('code' in request.resource.data)
-            || request.resource.data.code.matches('^[1-9][0-9]{0,6}$'))
+        && (request.resource.data.get('code', null) == resource.data.get('code', null)
+            || isCatalogCode(request.resource.data.code))
         && (!('name' in request.resource.data)
             || (request.resource.data.name is string && request.resource.data.name.size() > 0));
       allow delete: if isSystemAdmin();

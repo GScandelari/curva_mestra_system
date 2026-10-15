@@ -24,6 +24,7 @@ import {
 } from '@/lib/services/masterProductService';
 import {
   validateProductCode,
+  formatProductCode,
   normalizeProductName,
   MASTER_PRODUCT_CATEGORIES,
   getNomeCompletoMasterProduct,
@@ -100,8 +101,12 @@ export default function EditProductPage() {
       return;
     }
 
-    if (!validateProductCode(code)) {
-      setError('Código inválido. Use até 7 dígitos (não pode ser só zeros).');
+    // Formato só exigido quando o código muda: um produto legado fora do
+    // padrão continua editável e desativável (RF-02).
+    const codigoMudou =
+      product != null && code.trim().replace(/^0+/, '') !== String(product.code).replace(/^0+/, '');
+    if (codigoMudou && !validateProductCode(code)) {
+      setError('Código inválido. Use de 5 a 8 dígitos (zeros à esquerda não contam).');
       return;
     }
 
@@ -150,9 +155,7 @@ export default function EditProductPage() {
     }
   };
 
-  const formatCodeInput = (value: string) => {
-    return value.replace(/\D/g, '').slice(0, 7);
-  };
+  const formatCodeInput = (value: string) => formatProductCode(value);
 
   if (loading) {
     return (
@@ -205,11 +208,11 @@ export default function EditProductPage() {
                   placeholder="Ex: 9274598"
                   required
                   disabled={saving}
-                  maxLength={7}
+                  maxLength={8}
                   className="font-mono"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Até 7 dígitos; zeros à esquerda são removidos
+                  5 a 8 dígitos; zeros à esquerda são removidos
                 </p>
               </div>
 
