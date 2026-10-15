@@ -12,14 +12,39 @@ import { TipoNotaBadge } from '@/components/inventory/TipoNotaBadge';
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Package, Loader2 } from 'lucide-react';
 import { getMasterProductByCode } from '@/lib/services/masterProductService';
 import { formatNFLabel } from '@/lib/nfIdentity';
+import { listOutOfPatternCodes } from '@/lib/nfImportPlanner';
 import type { ParsedNF, XmlParseError } from '@/types/nf';
+
+interface PendenteResultado {
+  codigo: string;
+  nome_produto: string;
+  lote: string;
+  fora_do_padrao?: boolean;
+}
 
 interface ImportResult {
   importId: string;
   idLabel: string;
   produtosImportados: number;
-  pendentes: Array<{ codigo: string; nome_produto: string; lote: string }>;
+  pendentes: PendenteResultado[];
   arquivoSalvo: boolean;
+}
+
+const TEXTO_PENDENTES =
+  'O Administrador do Sistema foi informado e atuará assim que possível. Quando o cadastro for concluído ou recusado, você será avisado pelo sino de notificações.';
+const TEXTO_FORA_DO_PADRAO =
+  'O código destes produtos não segue o padrão do catálogo Rennova. Eles não entrarão no estoque. O Administrador do Sistema foi informado e atuará assim que possível. Se o item for recusado, você será avisado pelo sino de notificações.';
+
+function listaPendentes(itens: PendenteResultado[]) {
+  return (
+    <ul className="list-disc pl-5">
+      {itens.map((p, i) => (
+        <li key={`${p.codigo}-${p.lote}-${i}`}>
+          {p.codigo} — {p.nome_produto} (lote {p.lote})
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export default function UploadPage() {
@@ -36,6 +61,8 @@ export default function UploadPage() {
   const [warnings, setWarnings] = useState<XmlParseError[]>([]);
   // Códigos fora do catálogo (ou inativos): ficarão pendentes na confirmação
   const [codigosSemCatalogo, setCodigosSemCatalogo] = useState<Set<string>>(new Set());
+  // Códigos fora do padrão do catálogo (5 a 8 dígitos): pendentes, nunca incorporados
+  const [codigosForaDoPadrao, setCodigosForaDoPadrao] = useState<Set<string>>(new Set());
   const [resultado, setResultado] = useState<ImportResult | null>(null);
   const isAdmin = claims?.role === 'clinic_admin';
 
@@ -98,8 +125,15 @@ export default function UploadPage() {
         );
       }
 
-      const codigos = Array.from(new Set(parseResult.parsedNF.produtos.map((p) => p.codigo)));
+      const foraDoPadrao = new Set(listOutOfPatternCodes(parseResult.parsedNF.produtos));
+      // O catálogo só é consultado para os códigos no padrão
+      const codigos = Array.from(
+        new Set(
+          parseResult.parsedNF.produtos.map((p) => p.codigo).filter((c) => !foraDoPadrao.has(c))
+        )
+      );
       const consultas = await Promise.all(codigos.map((c) => getMasterProductByCode(c)));
+      setCodigosForaDoPadrao(foraDoPadrao);
       setCodigosSemCatalogo(
         new Set(codigos.filter((_, i) => !consultas[i].product || !consultas[i].product.active))
       );
@@ -158,6 +192,7 @@ export default function UploadPage() {
     setParsedData(null);
     setWarnings([]);
     setCodigosSemCatalogo(new Set());
+    setCodigosForaDoPadrao(new Set());
     setResultado(null);
   };
 
@@ -326,6 +361,14 @@ export default function UploadPage() {
                           Não cadastrado — ficará pendente
                         </Badge>
                       )}
+                      {codigosForaDoPadrao.has(produto.codigo) && (
+                        <Badge
+                          variant="outline"
+                          className="flex-shrink-0 border-amber-400 bg-amber-50 text-amber-800"
+                        >
+                          Código fora do padrão — ficará pendente
+                        </Badge>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -336,11 +379,16 @@ export default function UploadPage() {
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Produtos fora do catálogo</AlertTitle>
                   <AlertDescription>
-                    Os produtos marcados como &quot;Não cadastrado&quot; não entrarão no estoque
-                    agora. O administrador do sistema será avisado e, assim que cadastrar o produto,
-                    ele será adicionado ao seu inventário automaticamente — sem precisar enviar o
-                    XML de novo.
+                    Estes produtos não entrarão no estoque agora. {TEXTO_PENDENTES}
                   </AlertDescription>
+                </Alert>
+              )}
+
+              {codigosForaDoPadrao.size > 0 && (
+                <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Códigos fora do padrão</AlertTitle>
+                  <AlertDescription>{TEXTO_FORA_DO_PADRAO}</AlertDescription>
                 </Alert>
               )}
 
@@ -461,23 +509,32 @@ export default function UploadPage() {
                 {resultado.produtosImportados} produto(s) adicionado(s) ao estoque.
               </p>
 
-              {resultado.pendentes.length > 0 && (
-                <Alert>
+              {resultado.pendentes.some((p) => !p.fora_do_padrao) && (
+                <Alert className="border-amber-300 bg-amber-50 text-amber-900">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Produtos não importados</AlertTitle>
                   <AlertDescription className="space-y-2">
                     <p>
-                      Estes produtos ainda não estão no catálogo. O administrador do sistema foi
-                      avisado; quando cadastrar, eles serão adicionados ao seu inventário
-                      automaticamente e você receberá uma notificação.
+                      Os produtos{' '}
+                      {new Intl.ListFormat('pt-BR').format(
+                        resultado.pendentes
+                          .filter((p) => !p.fora_do_padrao)
+                          .map((p) => p.nome_produto)
+                      )}{' '}
+                      não foram inseridos no estoque. {TEXTO_PENDENTES}
                     </p>
-                    <ul className="list-disc pl-5">
-                      {resultado.pendentes.map((p) => (
-                        <li key={`${p.codigo}-${p.lote}`}>
-                          {p.codigo} — {p.nome_produto} (lote {p.lote})
-                        </li>
-                      ))}
-                    </ul>
+                    {listaPendentes(resultado.pendentes.filter((p) => !p.fora_do_padrao))}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {resultado.pendentes.some((p) => p.fora_do_padrao) && (
+                <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Códigos fora do padrão</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>{TEXTO_FORA_DO_PADRAO}</p>
+                    {listaPendentes(resultado.pendentes.filter((p) => p.fora_do_padrao))}
                   </AlertDescription>
                 </Alert>
               )}
