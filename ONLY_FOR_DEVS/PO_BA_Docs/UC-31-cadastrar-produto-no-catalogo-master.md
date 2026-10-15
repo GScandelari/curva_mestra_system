@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Administração do Sistema (Catálogo de Produtos Master — Rennova)
-**Versão:** 1.0.1
+**Versão:** 1.1
 
-> Um System Admin cadastra um novo produto no catálogo master Rennova (código de 7 dígitos, nome, categoria opcional, e se é fragmentável) diretamente em `/admin/products/new`. **Diferente do módulo de Consultores (UC-28/UC-29) e de Clínicas (UC-21/UC-22)**, não existe nenhuma rota `/api/*` nem Cloud Function intermediando esta operação — o formulário grava diretamente no Firestore via client SDK (`addDoc`), e a única barreira de autorização real é a própria regra de segurança do Firestore (`allow write: if isSystemAdmin()`, hoje dividida em `create`/`update`/`delete`). **[CORRIGIDO no commit `7c3cbb2` — RN-02]** Desde então, a regra de segurança de `master_products` também valida o **formato** dos dados diretamente no servidor — `code` deve casar com `^[0-9]{7}$` e `name` deve ser uma string não vazia, tanto em `create` quanto em `update` (neste caso, apenas para os campos efetivamente enviados no payload) — mitigando, ainda que parcialmente, a lacuna original de validação exclusivamente client-side.
+> Um System Admin cadastra um novo produto no catálogo master Rennova (código, nome, categoria opcional, e se é fragmentável) em `/admin/products/new`. Não há rota `/api/*` intermediando a gravação: o formulário grava direto no Firestore via client SDK (`addDoc`), e a regra de segurança de `master_products` valida quem escreve (só `system_admin`) e o formato de `code` e `name` (RN-02). **[v1.1, BUGFIX-identidade-e-duplicidade-nfe, PR #393]** O código passa a ter de 1 a 7 dígitos, não pode ser só zeros e é gravado e buscado sem zeros à esquerda (rule `^[1-9][0-9]{0,6}$`), na mesma forma do `cProd` normalizado da NF-e. Como o produto nasce ativo, o cadastro dispara a Cloud Function `onMasterProductWritten`, que incorpora ao estoque das clínicas as linhas de NF-e pendentes com esse código (UC-12).
 
 ---
 
@@ -16,6 +16,7 @@
 ```mermaid
 flowchart LR
     SystemAdmin([👤 System Admin])
+    CloudFn([🔧 Cloud Function\nonMasterProductWritten])
 
     subgraph Sistema["Curva Mestra"]
         UC12(("UC-12\nResolver Produtos\nPendentes de Cadastro"))
@@ -23,8 +24,10 @@ flowchart LR
     end
 
     SystemAdmin --> UC31
-    UC12 -.->|"Cadastrar Produto"\n(sem prefill)| UC31
-    UC31 -.->|grava direto via\nclient SDK, com validação\nde formato em firestore.rules| MasterProducts[(master_products)]
+    UC12 -.->|"Cadastrar Produto"\ncom código/nome pré-preenchidos| UC31
+    UC31 -.->|grava direto via client SDK,\ncódigo sem zeros à esquerda,\nformato validado em firestore.rules| MasterProducts[(master_products)]
+    MasterProducts -.->|escrita de produto ativo dispara| CloudFn
+    CloudFn -.->|incorpora as pendências\ndo código em todas as clínicas| UC12
 ```
 
 ---
@@ -32,87 +35,90 @@ flowchart LR
 ## 2. Atores
 
 ### 2.1 Ator Primário
-**System Admin** — tela restrita por `ProtectedRoute allowedRoles: ['system_admin']` (`src/app/(admin)/layout.tsx`).
+**System Admin**, com a tela restrita por `ProtectedRoute allowedRoles: ['system_admin']` (`src/app/(admin)/layout.tsx`).
 
 ### 2.2 Atores Secundários / Sistemas Externos
-Nenhum sistema externo envolvido. Não há Firebase Auth, e-mail, nem API route — a única "camada" de proteção é a regra de segurança do Firestore, avaliada no momento da escrita (que, desde o commit `7c3cbb2`, também valida formato — ver RN-02).
+- Não há API route nem e-mail. A barreira de autorização e de formato é a regra de segurança do Firestore (RN-02).
+- **[v1.1] Cloud Function `onMasterProductWritten`** (`onDocumentWritten('master_products/{productId}')`, região `southamerica-east1`): reage à criação do produto ativo e incorpora as pendências de NF-e com o mesmo código, em todas as clínicas, notificando cada uma (UC-12, UC-44). Roda depois da gravação e não interfere no resultado deste UC.
 
 ---
 
 ## 3. Pré-condições
-- System Admin autenticado, com custom claim `is_system_admin === true` e `active === true` (exigido por `isAuthenticated()` nas regras do Firestore).
-- Não existe nenhum produto em `master_products` com o mesmo `code`.
+- System Admin autenticado, com `is_system_admin === true` e `active === true`.
+- Não existe produto em `master_products` com o mesmo código normalizado (sem zeros à esquerda).
 
 ---
 
 ## 4. Pós-condições
 
 ### 4.1 Sucesso
-- Um documento é criado em `master_products` com: `code` (7 dígitos, trim), `name` (maiúsculas), `active: true` (padrão — a tela de criação não oferece opção de criar já inativo), `fragmentavel` (`true`/`false`), `category` (se selecionada), `unidades_por_embalagem` (apenas se `fragmentavel === true`), `created_at`/`updated_at` (`serverTimestamp()`).
-- System Admin é redirecionado para `/admin/products` (listagem).
+- Um documento é criado em `master_products` com: `code` (**[v1.1]** sem zeros à esquerda), `name` (maiúsculas), `active: true` (padrão; a tela não oferece criar inativo), `fragmentavel`, `category` (se selecionada), `unidades_por_embalagem` (só se `fragmentavel === true`), `created_at`/`updated_at` (`serverTimestamp()`).
+- System Admin é redirecionado para `/admin/products`.
+- **[v1.1]** Em seguida, a Cloud Function `onMasterProductWritten` incorpora ao inventário as pendências abertas com esse código (de todas as clínicas), marca-as como `resolvida`, atualiza os registros de importação e notifica cada clínica (UC-12, RN-07). Se não houver pendência, nada acontece.
 
 ### 4.2 Falha (Garantias Mínimas)
-- Se qualquer validação de client falhar (código, nome, unidades) ou o código já existir no catálogo: nenhum documento é criado; erro exibido inline no formulário.
-- Se, apesar da validação de client, o payload enviado ao Firestore não satisfizer a validação de formato da regra de segurança (`code` fora de `^[0-9]{7}$`, ou `name` vazio/ausente) — cenário só alcançável contornando a UI — a escrita é rejeitada pelo próprio Firestore (`PERMISSION_DENIED`); nenhum documento é criado (RN-02).
-- Não há nenhuma escrita parcial possível — é uma única operação `addDoc`.
+- Se uma validação do client falhar (código, nome, unidades) ou o código já existir: nenhum documento é criado; o erro aparece no formulário.
+- Se o payload não satisfizer a rule (`code` fora de `^[1-9][0-9]{0,6}$`, ou `name` vazio/ausente) — só alcançável contornando a UI — o Firestore rejeita a escrita (`PERMISSION_DENIED`).
+- Não há escrita parcial: é uma única operação `addDoc`. Uma falha na incorporação de pendências (depois da criação) não desfaz o cadastro; as pendências continuam abertas e podem ser reprocessadas (UC-12, "Reprocessar").
 
 ---
 
 ## 5. Gatilho (Trigger)
 - **Direto:** System Admin acessa `/admin/products` e clica em "Novo Produto".
-- **Indireto (UC-12):** System Admin, na fila de produtos pendentes (`/admin/pending-products`), clica em "Cadastrar Produto" numa linha da fila — navega para a mesma tela, **sem nenhum prefill** de código ou nome (RN-04, e já documentado em UC-12 RN-01).
+- **Indireto (UC-12):** System Admin clica em "Cadastrar Produto" numa linha da fila `/admin/pending-products`; a tela abre com código e nome pré-preenchidos (RN-04).
 
 ---
 
 ## 6. Fluxo Principal (Basic Flow)
 
 1. System Admin acessa `/admin/products/new`.
-2. Preenche "Código do Produto" — input aceita apenas dígitos, limitado a 7 caracteres (`formatCodeInput` remove tudo que não é dígito e corta em 7).
-3. Preenche "Nome do Produto" — uma pré-visualização abaixo mostra o nome final (sempre convertido para maiúsculas via `normalizeProductName`).
+2. Preenche "Código do Produto": o input aceita só dígitos, até 7 caracteres (`formatCodeInput`), com a dica "Até 7 dígitos; zeros à esquerda são removidos".
+3. Preenche "Nome do Produto"; uma pré-visualização mostra o nome em maiúsculas (`normalizeProductName`).
 4. Opcionalmente seleciona uma "Categoria" (uma das 7 fixas: Preenchedores, Bioestimuladores, Fios de PDO, Toxina, Cannulas, Care Home, Care Professional).
-5. Opcionalmente ativa o switch "Produto Fragmentável" — ao ativar, exibe o campo obrigatório "Unidades por Embalagem" (mínimo 2); ao desativar, o campo é limpo.
+5. Opcionalmente ativa "Produto Fragmentável", que exige "Unidades por Embalagem" (mínimo 2); ao desativar, o campo é limpo.
 6. System Admin clica em "Criar Produto".
-7. Sistema valida no client: código não vazio e com exatamente 7 dígitos (`validateProductCode`); nome não vazio; se `fragmentavel === true`, `unidades_por_embalagem` preenchido e ≥ 2.
-8. Sistema chama `createMasterProduct({ code, name, category, fragmentavel, unidades_por_embalagem })` (sem `active` — o serviço aplica o padrão `true`).
-9. `createMasterProduct` verifica duplicidade de código via `getMasterProductByCode(code)` — se já existir, lança erro "Já existe um produto com o código {code}" e nada é gravado (RN-01).
-10. `createMasterProduct` monta o objeto (`code.trim()`, `name.trim().toUpperCase()`, `active: true`, `fragmentavel`, `category` se definida, `unidades_por_embalagem` apenas se `fragmentavel && unidades_por_embalagem !== undefined`, `created_at`/`updated_at: serverTimestamp()`) e executa `addDoc(collection(db, 'master_products'), productData)`.
-11. **[CORRIGIDO no commit `7c3cbb2` — RN-02]** A regra de segurança de `master_products` (`allow create`) revalida no servidor que `code` casa com `^[0-9]{7}$` e que `name` é uma string não vazia antes de aceitar a escrita — como o client já normaliza esses campos no passo 10, este passo é transparente no caminho feliz.
+7. Sistema valida no client: código não vazio; **[v1.1]** código com 1 a 7 dígitos e que não seja só zeros (`validateProductCode`); nome não vazio; se fragmentável, unidades ≥ 2.
+8. Sistema chama `createMasterProduct({ code, name, category, fragmentavel, unidades_por_embalagem })` (sem `active`; o serviço aplica `true`).
+9. **[v1.1]** `createMasterProduct` normaliza o código com `normalizeLeadingZeros` e verifica duplicidade com `getMasterProductByCode` (que também normaliza o argumento). Se já existir, lança "Já existe um produto com o código {código normalizado}" e nada é gravado (RN-01).
+10. `createMasterProduct` monta o objeto (`code` normalizado, `name.trim().toUpperCase()`, `active: true`, `fragmentavel`, `category` se definida, `unidades_por_embalagem` se fragmentável, timestamps) e executa `addDoc(collection(db, 'master_products'), productData)`.
+11. A regra de `master_products` (`allow create`) revalida que `code` casa com `^[1-9][0-9]{0,6}$` e que `name` é string não vazia (RN-02); transparente no caminho feliz.
 12. Sistema redireciona para `/admin/products`.
-13. Caso de uso é concluído com sucesso.
+13. **[v1.1]** A escrita dispara `onMasterProductWritten`. Como o produto foi criado ativo, a função incorpora as pendências abertas com o código (UC-12, passos 8-11).
+14. Caso de uso é concluído com sucesso.
 
 ---
 
 ## 7. Fluxos Alternativos
 
 ### 7a. Acesso via fila de pendências (a partir do passo 1, ver UC-12)
-1. System Admin chega a esta tela clicando em "Cadastrar Produto" na fila de `/admin/pending-products` (UC-12).
-2. Nenhum dado da pendência é transferido — o admin precisa copiar manualmente o código e o nome exibidos na fila (já documentado como RN-01 do UC-12).
-3. Segue o fluxo principal normalmente a partir do passo 2.
-4. Ao concluir o cadastro, o admin **não é redirecionado de volta à fila** nem a pendência é removida automaticamente — ele precisa voltar manualmente a `/admin/pending-products` e usar "Marcar Resolvido" (UC-12, Fluxo Principal 7b).
+1. System Admin chega pela ação "Cadastrar Produto" da fila `/admin/pending-products`.
+2. **[ATUALIZADO em v1.1]** A tela abre com "Código" e "Nome" pré-preenchidos a partir da URL (`?codigo=&nome=`, desde o commit `262584f`). O código passa por `formatCodeInput` (só dígitos, até 7).
+3. Segue o fluxo principal a partir do passo 2.
+4. **[v1.1]** Ao concluir, o admin **não** precisa voltar à fila para resolver a pendência: a incorporação é automática (passo 13). A pendência some da fila no próximo carregamento. O admin não é redirecionado de volta à fila.
 
 ---
 
 ## 8. Fluxos de Exceção
 
 ### 8a. Código inválido
-1. Código vazio ou com menos/mais de 7 dígitos (não deveria ocorrer via UI, já que o input já corta em 7, mas o botão "Criar Produto" ainda revalida).
-2. Sistema exibe "Código inválido. O código deve ter 7 dígitos."; nenhuma chamada ao Firestore é feita.
+1. **[ATUALIZADO em v1.1]** Código vazio, com mais de 7 dígitos ou só com zeros.
+2. Sistema exibe "Código do produto é obrigatório" (vazio) ou "Código inválido. Use até 7 dígitos (não pode ser só zeros)."; nenhuma chamada ao Firestore é feita.
 
 ### 8b. Nome vazio
 1. Campo "Nome do Produto" vazio ou só espaços.
-2. Sistema exibe "Nome do produto é obrigatório"; nenhuma chamada ao Firestore é feita.
+2. Sistema exibe "Nome do produto é obrigatório".
 
 ### 8c. Produto fragmentável sem unidades válidas
-1. `fragmentavel === true` e `unidades_por_embalagem` vazio ou menor que 2.
-2. Sistema exibe "Produto fragmentável requer unidades por embalagem (mínimo 2)"; nenhuma chamada ao Firestore é feita.
+1. `fragmentavel === true` e unidades vazias ou menores que 2.
+2. Sistema exibe "Produto fragmentável requer unidades por embalagem (mínimo 2)".
 
 ### 8d. Código duplicado
-1. `getMasterProductByCode(code)` encontra um produto existente com o mesmo código.
-2. `createMasterProduct` lança "Já existe um produto com o código {code}"; sistema exibe o erro; nenhum documento é criado.
+1. **[ATUALIZADO em v1.1]** Já existe produto com o mesmo código **normalizado** (ex.: digitar `0123456` quando já existe `123456`).
+2. `createMasterProduct` lança "Já existe um produto com o código {código}"; nenhum documento é criado.
 
 ### 8e. Falha genérica do Firestore
-1. `addDoc` falha (rede, permissão negada por token expirado, formato rejeitado pela regra de segurança desde `7c3cbb2` — RN-02 —, etc.).
-2. Sistema exibe "Erro ao criar produto" (ou a mensagem específica do erro); nenhum documento é criado.
+1. `addDoc` falha (rede, token expirado, formato rejeitado pela rule — RN-02).
+2. Sistema exibe "Erro ao criar produto" (ou a mensagem do erro); nenhum documento é criado.
 
 ---
 
@@ -120,11 +126,13 @@ Nenhum sistema externo envolvido. Não há Firebase Auth, e-mail, nem API route 
 
 | ID | Regra | Justificativa |
 |----|-------|----------------|
-| RN-01 | A checagem de duplicidade de código (`getMasterProductByCode` antes do `addDoc`) não é atômica — em tese, duas criações simultâneas com o mesmo código poderiam ambas passar pela checagem antes de qualquer uma gravar, resultando em dois documentos com o mesmo `code` (o Firestore não impõe unicidade de campo, apenas de id de documento). Mesma categoria de risco já identificada para a geração de código de consultor (UC-28, RN-02), porém sem nenhuma tentativa de retry aqui. | Confirmado por leitura de `createMasterProduct` — `getMasterProductByCode` seguido de `addDoc`, sem transação. |
-| RN-02 | **[CORRIGIDO no commit `7c3cbb2`]** Antes: toda a validação de formato (código com 7 dígitos, nome obrigatório, unidades por embalagem ≥ 2 quando fragmentável) ocorria **exclusivamente no client** (`new/page.tsx`) — não existia rota `/api/products/*` nem Cloud Function revalidando esses dados, e a única barreira real era a regra `allow write: if isSystemAdmin()`, que validava **quem** podia escrever, mas nada sobre **o formato** do que era escrito. Agora: a regra de `master_products` foi dividida em `allow create`/`allow update`/`allow delete` (antes, um único `allow write`), com `create` e `update` validando `request.resource.data.code.matches('^[0-9]{7}$')` e `request.resource.data.name is string && request.resource.data.name.size() > 0` — em `update`, cada validação só é exigida se o campo correspondente estiver de fato presente no payload (`!('code' in request.resource.data) || ...`), permitindo atualizações parciais que não tocam `code`/`name` sem revalidação desnecessária. Esta coleção é de nível raiz, sem `tenant_id` — diferente das subcoleções de tenant, onde uma condição adicional em `allow write` pode ser contornada por semântica OR já documentada em outros UCs, aqui a validação dedicada em `create`/`update` é genuinamente efetiva. **Lacuna residual:** a validação de `unidades_por_embalagem` (obrigatório e ≥ 2 quando `fragmentavel === true`) **não** foi incluída na regra corrigida — continua sendo aplicada exclusivamente no client. | Confirmado por leitura do diff do commit `7c3cbb2` em `firestore.rules` (`match /master_products/{productId}`, novas regras `allow create`/`allow update`/`allow delete`), e por leitura completa da regra resultante — ausência de qualquer validação de `unidades_por_embalagem` ou `fragmentavel`. |
-| RN-03 | Produto sempre é criado com `active: true` — a tela de criação não oferece nenhuma opção para cadastrar um produto já inativo/descontinuado. | Confirmado por leitura de `new/page.tsx` — `createMasterProduct` é chamado sem o campo `active`, e o serviço aplica o padrão `true`. |
-| RN-04 | O botão "Cadastrar Produto" da fila de pendências (UC-12) não passa nenhum parâmetro/prefill para esta tela — comportamento já confirmado e documentado em UC-12 (RN-01 daquele UC). | Confirmado por leitura de `pending-products/page.tsx` (`router.push('/admin/products/new')`, sem query params) e desta tela (sem leitura de `searchParams`). |
-| RN-05 | `master_products` é uma coleção **global**, sem `tenant_id` — é o catálogo único do fornecedor Rennova, compartilhado por todos os tenants. A regra do Firestore permite leitura a **qualquer usuário autenticado e ativo**, de qualquer role/tenant (`allow read: if isAuthenticated()`), mas restringe escrita a `system_admin`. Este é o único módulo do sistema em que a regra de negócio central é a **ausência deliberada** de isolamento por `tenant_id` na leitura. | Confirmado em `firestore.rules` (`match /master_products/{productId}`). |
+| RN-01 | A checagem de duplicidade de código (`getMasterProductByCode` antes do `addDoc`) não é atômica: duas criações simultâneas com o mesmo código poderiam passar ambas. **[v1.1]** A comparação passou a usar o código normalizado (sem zeros à esquerda), então `0123456` e `123456` são o mesmo código. | Confirmado em `createMasterProduct`, sem transação. |
+| RN-02 | **[CORRIGIDO no commit `7c3cbb2`; ATUALIZADO em v1.1]** A rule de `master_products` é dividida em `allow create`/`allow update`/`allow delete`, todas só para `isSystemAdmin()`. `create` e `update` validam `name` como string não vazia e **[v1.1]** `code.matches('^[1-9][0-9]{0,6}$')` — de 1 a 7 dígitos, sem zero à esquerda (antes de v1.1, `^[0-9]{7}$`, exatamente 7 dígitos). Em `update`, cada validação só vale se o campo estiver no payload. **Lacuna residual:** `unidades_por_embalagem` (obrigatório e ≥ 2 quando fragmentável) continua validado só no client. | Confirmado em `firestore.rules` (`match /master_products/{productId}`, l. 297-315 em HEAD) e nos testes de rules (`'3076528'` e `'123456'` aceitos; `'0123456'` e `'12345678'` recusados). |
+| RN-03 | Produto sempre é criado com `active: true`; a tela não oferece criar inativo. **[v1.1]** Por isso todo cadastro dispara a incorporação de pendências do código (RN-07). | Confirmado em `new/page.tsx` e `createMasterProduct`. |
+| RN-04 | **[CORRIGIDO — leitura as-is em v1.1]** O texto até v1.0.1 dizia que "Cadastrar Produto" (UC-12) não passava prefill; isso deixou de ser verdade no commit `262584f` (PR #355): a tela lê `codigo` e `nome` da URL (`useSearchParams`) e pré-preenche os campos (UC-12 RN-01). | Confirmado em `admin/products/new/page.tsx` (l. 101-108) e `pending-products/page.tsx`. |
+| RN-05 | `master_products` é uma coleção **global**, sem `tenant_id`: leitura para qualquer usuário autenticado e ativo (`allow read: if isAuthenticated()`), escrita só para `system_admin`. É a exceção deliberada ao isolamento por tenant. | Confirmado em `firestore.rules`. |
+| RN-06 | **[NOVA em v1.1 — BUGFIX-identidade-e-duplicidade-nfe, STEP 8]** O código é gravado e buscado **sem zeros à esquerda** (`normalizeLeadingZeros` em `createMasterProduct`, `updateMasterProduct` e `getMasterProductByCode`), na mesma forma do `cProd` normalizado da NF-e (UC-10 RN-17). Sem isso, um código de catálogo com zero nunca casaria com a linha da NF. O formulário aceita até 7 dígitos (`formatProductCode` mantém o limite) e `validateProductCode` aceita de 1 a 7 dígitos, desde que não sejam só zeros. | Decisão do usuário (spec Seção 4.1, item 9). O usuário confirmou que produção não tinha códigos com zero à esquerda (spec v1.2, pendência 2). |
+| RN-07 | **[NOVA em v1.1]** Criar um produto (sempre ativo) dispara a Cloud Function `onMasterProductWritten`, que lança no inventário de **todas** as clínicas as linhas de NF-e pendentes com o mesmo código, marca as pendências como `resolvida`, atualiza os registros de importação e notifica cada clínica (`nf_pending_resolved`). O trigger cobre qualquer caminho de escrita no catálogo (esta tela, UC-32 e os scripts `scripts/import-master-products*.js`). | Confirmado em `functions/src/onMasterProductWritten.ts` e `shouldResolvePendingForProduct`. Detalhes em UC-12 RN-07 a RN-10. |
 
 ---
 
@@ -132,38 +140,43 @@ Nenhum sistema externo envolvido. Não há Firebase Auth, e-mail, nem API route 
 
 | ID | Descrição | Categoria |
 |----|-----------|-----------|
-| RNF-01 | **[Mitigado no commit `7c3cbb2`]** A ausência de validação server-side de formato de dados (RN-02) foi parcialmente corrigida — `code` e `name` agora são validados diretamente em `firestore.rules`. Permanece uma lacuna residual: `unidades_por_embalagem` continua validado apenas no client, e o módulo ainda não segue o padrão de API route com Admin SDK adotado em Consultores e Clínicas. | Confiabilidade |
-| RNF-02 | Leitura ampla e sem isolamento por tenant (RN-05) é intencional para este catálogo — deve ser preservada, mas é uma exceção explícita à regra geral de multi-tenant do projeto (CLAUDE.md). | Multi-tenant |
+| RNF-01 | **[Mitigado no commit `7c3cbb2`]** `code` e `name` são validados em `firestore.rules`; `unidades_por_embalagem` continua só no client, e o módulo não usa API route com Admin SDK. | Confiabilidade |
+| RNF-02 | A leitura ampla e sem isolamento por tenant (RN-05) é intencional e deve ser preservada. | Multi-tenant |
+| RNF-03 | **[NOVO em v1.1]** A incorporação de pendências é assíncrona (trigger): a tela não espera por ela nem mostra seu resultado. O efeito aparece em segundos no inventário e nas notificações das clínicas, e na fila de UC-12 ao recarregar. | Usabilidade / Confiabilidade |
 
 ---
 
 ## 11. Frequência de Uso
-Ocasional — cadastro de produtos novos no catálogo ocorre apenas quando a Rennova lança um item novo, ou quando surge uma pendência (UC-12) por um código não encontrado durante a importação de NF-e (UC-10).
+Ocasional: quando a Rennova lança um item novo, ou quando surge uma pendência (UC-12) por um código fora do catálogo na importação de NF-e (UC-10).
 
 ---
 
 ## 12. Casos de Uso Relacionados
-- **UC-12 (Resolver Produtos Pendentes de Cadastro)** — o botão "Cadastrar Produto" daquela fila leva a este UC, sem prefill (RN-04).
-- **UC-10 (Importar NF-e via Upload de XML)** — consome o catálogo master via `getMasterProductByCode`, que, desde o commit `7c3cbb2`, passou a considerar também a flag `active` do produto encontrado (ver UC-32, RN-03, para a análise completa desse comportamento corrigido).
-- **UC-11 (Inserir Nota Fiscal Manualmente)** — consome o catálogo master via `loadMasterProducts`, filtrado por `active: true` (RN-04 daquele UC).
-- **UC-32 (Editar, Ativar e Desativar Produto no Catálogo Master)** — ciclo de vida completo do produto criado por este UC.
+- **UC-12 (Resolver Produtos Pendentes de Cadastro):** "Cadastrar Produto" leva a este UC com prefill (RN-04); o cadastro dispara a incorporação automática das pendências (RN-07).
+- **UC-10 (Importar NF-e via Upload de XML):** consome o catálogo por código normalizado e só aceita produto ativo; linhas sem produto ativo viram pendência.
+- **UC-11 (Inserir Nota Fiscal Manualmente):** consome o catálogo (produtos ativos) no ramo Rennova.
+- **UC-32 (Editar, Ativar e Desativar Produto no Catálogo Master):** ciclo de vida do produto; reativação e troca de código de produto ativo também disparam a incorporação.
+- **UC-44 (Consultar e Gerenciar Notificações Recebidas):** recebe a notificação `nf_pending_resolved` gerada pela incorporação.
 
 ---
 
 ## 13. Referências
-- `src/app/(admin)/admin/products/new/page.tsx`
-- `src/lib/services/masterProductService.ts` (`createMasterProduct`, `getMasterProductByCode`)
-- `src/types/masterProduct.ts` (`MasterProduct`, `CreateMasterProductData`, `MASTER_PRODUCT_CATEGORIES`, `validateProductCode`, `normalizeProductName`)
+- `src/app/(admin)/admin/products/new/page.tsx` (validação "Use até 7 dígitos (não pode ser só zeros)", prefill por `useSearchParams`)
+- `src/lib/services/masterProductService.ts` (`createMasterProduct`, `getMasterProductByCode`, ambos com `normalizeLeadingZeros`)
+- `src/lib/nfIdentity.ts` (`normalizeLeadingZeros`)
+- `src/types/masterProduct.ts` (`validateProductCode` 1–7 dígitos, `formatProductCode`, `normalizeProductName`, `MASTER_PRODUCT_CATEGORIES`)
 - `src/app/(admin)/layout.tsx` (`ProtectedRoute allowedRoles`)
-- `firestore.rules` (`match /master_products/{productId}` — `allow create`/`allow update`/`allow delete`, RN-02)
-- Commit da correção: `7c3cbb2` (`fix: seis itens de media severidade (UC-31, UC-32, UC-33, UC-34)`) — validação de formato (`code`, `name`) em `firestore.rules` para `master_products` (RN-02)
+- `firestore.rules` (`match /master_products/{productId}`, `^[1-9][0-9]{0,6}$`)
+- `functions/src/onMasterProductWritten.ts`, `functions/src/pendingResolution.ts` (incorporação, **[v1.1]**)
+- Commit `7c3cbb2` (validação de formato em `firestore.rules`, RN-02); commit `262584f` (prefill, RN-04); PR #393 / `ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-identidade-e-duplicidade-nfe.md` v1.2 (STEP 8 e STEP 9)
 
 ---
 
 ## 14. Perguntas em Aberto / Decisões Pendentes
 
-1. ~~**[RN-02]** Ausência de validação server-side de formato de dados — decisão de produto pendente sobre se vale a pena introduzir uma rota `/api/products/*` (Admin SDK) para alinhar este módulo ao padrão de Consultores/Clínicas, ou se o risco é aceitável dado que o público-alvo é restrito a `system_admin`.~~ **[RESOLVIDO PARCIALMENTE no commit `7c3cbb2` — UC-31-RN-02]** A regra do Firestore (`master_products`) agora valida `code` (7 dígitos) e `name` (string não vazia) diretamente no servidor, em `create` e `update`. Decisão residual pendente: `unidades_por_embalagem` continua validado apenas no client — avaliar se vale adicionar essa validação também na regra, ou se o risco é aceitável (campo secundário, público restrito a `system_admin`); e se ainda vale a pena introduzir uma rota `/api/products/*` dedicada para alinhar este módulo ao padrão de Consultores/Clínicas.
-2. **[RN-01]** Janela de corrida teórica na checagem de duplicidade de código — risco baixo (cadastro é uma operação ocasional, raramente concorrente), mas existente.
+1. **[RESOLVIDO PARCIALMENTE no commit `7c3cbb2` — UC-31-RN-02]** A rule valida `code` e `name`. Decisão residual pendente: validar também `unidades_por_embalagem` na rule, ou introduzir uma rota `/api/products/*`.
+2. **[RN-01]** Janela de corrida teórica na checagem de duplicidade de código (risco baixo).
+3. **[Observação, verificada em código em v1.1 — a confirmar com o usuário]** O código do catálogo aceita só dígitos (até 7), mas o `cProd` normalizado de uma NF-e pode ter letras (ex.: `00A12` → `A12`) ou mais de 7 dígitos. Uma pendência com um código assim não pode ser casada por nenhum produto do catálogo; o prefill de "Cadastrar Produto" ainda remove as letras e corta em 7 dígitos (`formatCodeInput`), gerando um código diferente do da pendência. Essas pendências ficariam abertas para sempre (cross-ref `UC-12-Decisão-Expiração`). Não está confirmado se esse cenário é possível nas NF-e reais da Rennova.
 
 ---
 
@@ -173,3 +186,4 @@ Ocasional — cadastro de produtos novos no catálogo ocorre apenas quando a Ren
 |--------|------|-------|--------------|
 | 1.0 | 15/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero a partir de `masterProductService.ts`, `admin/products/new/page.tsx` e `firestore.rules`. Confirmado que não há rota `/api/products/*` nem Cloud Function — toda a operação é client SDK direto, com validação de formato exclusivamente no client (RN-02, achado arquitetural). Confirmada a ausência de isolamento por tenant no catálogo master, deliberada (RN-05). Primeiro UC do módulo "Admin — Catálogo de Produtos Master". |
 | 1.0.1 | 26/07/2026 | Guilherme Scandelari (via uml-use-case-writer) | Correção pontual (UC-31-RN-02): a regra de segurança de `master_products` em `firestore.rules` foi dividida em `allow create`/`allow update`/`allow delete` (antes, um único `allow write: if isSystemAdmin()`), com `create`/`update` validando `code.matches('^[0-9]{7}$')` e `name` como string não vazia — em `update`, apenas para os campos efetivamente enviados no payload. Corrigido no commit `7c3cbb2`. Registrada a lacuna residual: `unidades_por_embalagem` continua validado apenas no client. Atualizados resumo do cabeçalho, diagrama (Seção 1), Pós-condição 4.2, Fluxo Principal (novo passo 11), Fluxo de Exceção 8e, RN-02 (marcado `[CORRIGIDO]`), RNF-01, Casos de Uso Relacionados (Seção 12), Referências (Seção 13) e item 1 da Seção 14 (marcado `[RESOLVIDO PARCIALMENTE]`). |
+| 1.1 | 15/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Atualização as-is: código do catálogo sem zeros à esquerda e incorporação automática de pendências (`TASK_COMPLETED/BUGFIX-identidade-e-duplicidade-nfe.md` v1.2, STEPs 8 e 9; PR #393, merge `2bc543f`; validado em `dev-gscandelari.web.app` em 15/10/2026).** Código com 1 a 7 dígitos, não só zeros, gravado e buscado sem zeros à esquerda; rule `^[1-9][0-9]{0,6}$` (antes `^[0-9]{7}$`); criar o produto (sempre ativo) dispara `onMasterProductWritten`, que incorpora as pendências do código em todas as clínicas. RN-01, RN-02 e RN-03 atualizadas; novas RN-06 (normalização do código) e RN-07 (incorporação); novo RNF-03. **Correção as-is fora do bugfix:** RN-04, o gatilho indireto e o Fluxo Alternativo 7a ainda diziam que "Cadastrar Produto" não levava prefill e que era preciso "Marcar Resolvido" depois; o prefill existe desde o commit `262584f` (PR #355) e "Marcar Resolvido" foi removido no PR #393. Diagrama com a Cloud Function; Seções 2, 4, 5, 6 (passos 2, 7, 9-11 e novo 13), 8a, 8d, 12, 13 e 14 (novo item 3, observação a confirmar) atualizadas. |
