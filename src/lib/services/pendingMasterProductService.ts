@@ -4,52 +4,11 @@
  * no catálogo master — visível ao system_admin para cadastro posterior.
  */
 
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  addDoc,
-  deleteDoc,
-  doc,
-  Timestamp,
-} from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, deleteDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type {
-  PendingMasterProduct,
-  PendingMasterProductCreate,
-} from '@/types/pendingMasterProduct';
+import type { PendingMasterProduct } from '@/types/pendingMasterProduct';
 
 const COLLECTION = 'pending_master_products';
-
-/**
- * Registra produtos pendentes de cadastro, evitando duplicar uma pendência
- * já existente para o mesmo (tenant_id, nf_id, codigo).
- */
-export async function registerPendingMasterProducts(
-  items: PendingMasterProductCreate[]
-): Promise<void> {
-  for (const item of items) {
-    const pendingRef = collection(db, COLLECTION);
-    const q = query(
-      pendingRef,
-      where('tenant_id', '==', item.tenant_id),
-      where('nf_id', '==', item.nf_id),
-      where('codigo', '==', item.codigo)
-    );
-    const existing = await getDocs(q);
-
-    if (!existing.empty) {
-      continue;
-    }
-
-    await addDoc(pendingRef, {
-      ...item,
-      created_at: Timestamp.now(),
-    });
-  }
-}
 
 /**
  * Lista todos os produtos pendentes (cross-tenant) — uso exclusivo do system_admin.
