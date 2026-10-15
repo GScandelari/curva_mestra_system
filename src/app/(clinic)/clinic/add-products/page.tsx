@@ -36,7 +36,8 @@ import {
   normalizeNumeroNF,
   validateManualIdentity,
 } from '@/lib/nfIdentity';
-import type { NFIdentity } from '@/types/nf';
+import { buildComplementNotice, evaluateIdentityConflict } from '@/lib/nfImportPlanner';
+import type { NFIdentity, NfIdentityLookupResponse } from '@/types/nf';
 import { getNomeCompletoMasterProduct, isCatalogProductCode } from '@/types/masterProduct';
 import { Badge } from '@/components/ui/badge';
 import { normalizeBrand } from '@/lib/brandUtils';
@@ -107,6 +108,9 @@ export default function ManualNFPage() {
   // Identidade normalizada (CNPJ + série + número) — definida ao avançar do Passo 2
   const [identidade, setIdentidade] = useState<NFIdentity | null>(null);
   const [chaveNormalizada, setChaveNormalizada] = useState<string | undefined>(undefined);
+  // Checagem antecipada (Passo 2): aviso de complemento do mesmo ID
+  const [avisoComplemento, setAvisoComplemento] = useState('');
+  const [verificandoNF, setVerificandoNF] = useState(false);
   const [produtos, setProdutos] = useState<NFProduct[]>([]);
   const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -180,7 +184,13 @@ export default function ManualNFPage() {
     }
   };
 
-  const handleContinueToProducts = () => {
+  /**
+   * Passo 2 → 3: valida a identidade e consulta se a NF já existe (bloqueia o
+   * lançamento sobre NF importada via XML; avisa que um lançamento existente
+   * será complementado). A transação ao salvar continua sendo a checagem que
+   * vale; se a consulta falhar, segue com aviso.
+   */
+  const handleContinueToProducts = async () => {
     const resultado = validateManualIdentity({
       numero: numeroNF,
       cnpj: cnpjEmitente,
@@ -195,6 +205,54 @@ export default function ManualNFPage() {
       });
       return;
     }
+
+    setAvisoComplemento('');
+    if (user) {
+      setVerificandoNF(true);
+      try {
+        const params = new URLSearchParams({
+          cnpj: resultado.identity.cnpj,
+          serie: resultado.identity.serie,
+          numero: resultado.identity.numero,
+        });
+        const idToken = await user.getIdToken();
+        const response = await fetch(`/api/nf-imports/identidade?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const fatos = (await response.json()) as NfIdentityLookupResponse;
+        if (fatos.existe) {
+          const decisao = evaluateIdentityConflict('manual', {
+            nf_import_id: fatos.importId,
+            origem: fatos.origem,
+            hasPending: fatos.hasPending,
+            hasRejected: fatos.hasRejected,
+          });
+          if (decisao.action === 'blocked') {
+            toast({
+              title: 'Nota fiscal já cadastrada',
+              description: decisao.reason,
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (decisao.action === 'complement') {
+            const aviso = buildComplementNotice(fatos.importId, fatos.origem);
+            setAvisoComplemento(aviso);
+            toast({ title: 'NF já cadastrada', description: aviso });
+          }
+        }
+      } catch {
+        toast({
+          title: 'Verificação de duplicidade',
+          description:
+            'Não foi possível verificar agora se a NF já foi cadastrada; a verificação será feita ao salvar.',
+        });
+      } finally {
+        setVerificandoNF(false);
+      }
+    }
+
     setIdentidade(resultado.identity);
     setChaveNormalizada(resultado.chave_acesso);
     setStep('add_products');
@@ -721,7 +779,9 @@ export default function ManualNFPage() {
                 >
                   Voltar
                 </Button>
-                <Button onClick={handleContinueToProducts}>Continuar</Button>
+                <Button onClick={() => void handleContinueToProducts()} disabled={verificandoNF}>
+                  {verificandoNF ? 'Verificando...' : 'Continuar'}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -748,6 +808,13 @@ export default function ManualNFPage() {
                     </p>
                   </div>
                 </div>
+                {avisoComplemento && (
+                  <Alert className="mt-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Complemento de lançamento</AlertTitle>
+                    <AlertDescription>{avisoComplemento}</AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
 
@@ -1147,6 +1214,7 @@ export default function ManualNFPage() {
                     setCnpjEmitente('');
                     setSerieNF('');
                     setChaveAcesso('');
+                    setAvisoComplemento('');
                     setTipoNF(null);
                     setStep('select_type');
                   }}
@@ -1184,6 +1252,13 @@ export default function ManualNFPage() {
                       </p>
                     </div>
                   </div>
+                  {avisoComplemento && (
+                    <Alert className="mt-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Complemento de lançamento</AlertTitle>
+                      <AlertDescription>{avisoComplemento}</AlertDescription>
+                    </Alert>
+                  )}
                 </div>
 
                 {/* Lista de produtos */}
