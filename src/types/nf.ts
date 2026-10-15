@@ -53,7 +53,43 @@ export interface NFIdentity {
 export interface NFProdutoPendente {
   codigo: string;
   nome_produto: string;
+  lote: string;
+  /** Código fora do padrão do catálogo (só XML): nunca é incorporado; sai da fila por recusa. */
+  fora_do_padrao?: boolean;
 }
+
+/** Item recusado pelo system_admin (não cadastrado no catálogo). */
+export interface NFProdutoRecusado {
+  codigo: string;
+  nome_produto: string;
+  lote: string;
+  motivo: string;
+  recusado_em: Date | Timestamp;
+}
+
+/** Produto do lançamento manual, como chega ao servidor (código e lote já normalizados). */
+export interface ManualNfProductInput {
+  codigo: string;
+  nome_produto: string;
+  lote: string;
+  quantidade: number; // como informado (embalagens, se Rennova fragmentável ou pendente)
+  valor_unitario: number; // como informado (por embalagem, se fragmentável ou pendente)
+  dt_validade: string; // 'YYYY-MM-DD'
+  brand?: string;
+  category?: string;
+}
+
+/** Resposta de GET /api/nf-imports/identidade (só fatos; a mensagem é montada no client). */
+export type NfIdentityLookupResponse =
+  | { existe: false }
+  | {
+      existe: true;
+      importId: string;
+      idLabel: string;
+      origem: NFOrigem;
+      hasPending: boolean;
+      hasRejected: boolean;
+    };
 
 export interface NFImport {
   id: string;
@@ -66,6 +102,7 @@ export interface NFImport {
   produtos_importados: number;
   produtos_novos: number;
   produtos_pendentes?: NFProdutoPendente[];
+  produtos_recusados?: NFProdutoRecusado[];
   error_message?: string;
   natureza_operacao?: string;
   forma_pagamento?: string;

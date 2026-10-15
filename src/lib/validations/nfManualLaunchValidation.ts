@@ -5,7 +5,7 @@
 
 import { validateManualIdentity } from '@/lib/nfIdentity';
 import type { NFIdentity } from '@/types/nf';
-import type { ManualNfProductInput } from '@/lib/services/nfImportServer';
+import type { ManualNfProductInput } from '@/types/nf';
 
 export interface ManualLaunchRequestValid {
   identity: NFIdentity;

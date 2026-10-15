@@ -18,7 +18,7 @@ import {
   planXmlLines,
   type MasterLite,
 } from '@/lib/nfImportPlanner';
-import type { NFIdentity, NFOrigem, ParsedNF } from '@/types/nf';
+import type { ManualNfProductInput, NFIdentity, NFOrigem, ParsedNF } from '@/types/nf';
 
 const IN_QUERY_LIMIT = 30;
 
@@ -28,16 +28,7 @@ export interface PendingSummary {
   lote: string;
 }
 
-export interface ManualNfProductInput {
-  codigo: string;
-  nome_produto: string;
-  lote: string;
-  quantidade: number; // como informado (embalagens, se Rennova fragmentável)
-  valor_unitario: number; // como informado (por embalagem, se fragmentável)
-  dt_validade: string; // 'YYYY-MM-DD'
-  brand?: string;
-  category?: string;
-}
+export type { ManualNfProductInput } from '@/types/nf';
 
 /**
  * Data de calendário gravada ao meio-dia UTC: cai no mesmo dia em qualquer fuso
