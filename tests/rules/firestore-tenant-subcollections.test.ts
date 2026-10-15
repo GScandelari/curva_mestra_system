@@ -377,6 +377,59 @@ describe.each([
 // --- pending_master_products: fila do system_admin, gravada e resolvida só
 // pelo servidor (antes, o clinic_admin criava a pendência pelo client). ----
 
+// --- admin_notifications: sino do system_admin, criado só pelo servidor; o
+// system_admin só marca como lido (read/read_at). ---------------------------
+
+describe('admin_notifications', () => {
+  const docPath = 'admin_notifications/nf_pendencias_tenant-a_1000';
+
+  beforeEach(async () => {
+    await seed(docPath, {
+      type: 'nf_pendencias',
+      title: 'Pendências de catálogo em NF-e',
+      message: 'm',
+      read: false,
+      link: '/admin/pending-products',
+      created_at: Timestamp.now(),
+      metadata: { tenant_id: TENANT_A },
+    });
+  });
+
+  it('system_admin lê (get e list, incluindo a query do sino)', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+    await assertSucceeds(getDocs(query(collection(db, 'admin_notifications'))));
+    await assertSucceeds(
+      getDocs(query(collection(db, 'admin_notifications'), orderBy('created_at', 'desc')))
+    );
+  });
+
+  it('system_admin marca como lido, mas não altera outros campos, não cria nem apaga', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(updateDoc(doc(db, docPath), { read: true, read_at: Timestamp.now() }));
+    await assertFails(updateDoc(doc(db, docPath), { message: 'alterado' }));
+    await assertFails(updateDoc(doc(db, docPath), { read: false }));
+    await assertFails(
+      setDoc(doc(db, 'admin_notifications/novo'), { type: 'nf_pendencias', read: false })
+    );
+    await assertFails(deleteDoc(doc(db, docPath)));
+  });
+
+  it('clinic_admin, clinic_user e consultor NÃO leem (get nem list) nem escrevem', async () => {
+    for (const ctx of [
+      clinicAdmin(TENANT_A),
+      clinicUser(TENANT_A),
+      consultantWithAccess(TENANT_A),
+    ]) {
+      const db = ctx.firestore();
+      await assertFails(getDoc(doc(db, docPath)));
+      await assertFails(getDocs(query(collection(db, 'admin_notifications'))));
+      await assertFails(updateDoc(doc(db, docPath), { read: true }));
+      await assertFails(setDoc(doc(db, 'admin_notifications/x'), { read: false }));
+    }
+  });
+});
+
 describe('pending_master_products', () => {
   const docPath = `pending_master_products/${TENANT_A}_1000_1`;
 
