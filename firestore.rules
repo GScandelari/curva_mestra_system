@@ -343,6 +343,16 @@ service cloud.firestore {
       allow read: if isSystemAdmin();
     }
 
+    // Alertas do sino do system_admin (pendências de catálogo em NF-e) —
+    // criados só pelo servidor (Admin SDK). O system_admin só marca como lido;
+    // clínicas e consultores não leem.
+    match /admin_notifications/{notificationId} {
+      allow read: if isSystemAdmin();
+      allow update: if isSystemAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'read_at'])
+        && request.resource.data.read == true;
+    }
+
     // Coleção de fila de e-mails (apenas para uso interno das Cloud Functions)
     match /email_queue/{emailId} {
       // Apenas system_admin pode ler a fila de e-mails
