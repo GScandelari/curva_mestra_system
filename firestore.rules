@@ -48,7 +48,16 @@ service cloud.firestore {
     // do fallback de leitura genérico. Toda subcoleção com dado financeiro
     // interno entra aqui (FEAT-precificacao-hora-clinica).
     function isRestrictedTenantCollection(collectionId) {
-      return collectionId in ['nf_imports', 'financeiro', 'precificacao_procedimentos'];
+      return collectionId in ['nf_imports', 'financeiro', 'precificacao_procedimentos',
+                              'nf_identidades', 'contadores'];
+    }
+
+    // Subcoleções do tenant gravadas apenas pelo servidor (Admin SDK) — o
+    // client não escreve nem como system_admin. A importação de NF-e grava
+    // registro, identidade e contador numa transação só
+    // (BUGFIX-identidade-e-duplicidade-nfe).
+    function isServerManagedTenantCollection(collectionId) {
+      return collectionId in ['nf_imports', 'nf_identidades', 'contadores'];
     }
 
     // Opt-in financeiro ativo PARA ESTE consultor (FEAT-precificacao-hora-clinica,
@@ -114,12 +123,14 @@ service cloud.firestore {
     // qualquer subcoleção sem bloco de escrita próprio fica fail-closed (só
     // system_admin escreve), por design, não por omissão.
     match /tenants/{tenantId}/{collectionId}/{document=**} {
-      // System admins têm acesso total
-      allow read, write: if isSystemAdmin();
+      // System admins leem tudo e escrevem em tudo, exceto nas subcoleções
+      // gravadas só pelo servidor (isServerManagedTenantCollection).
+      allow read: if isSystemAdmin();
+      allow write: if isSystemAdmin() && !isServerManagedTenantCollection(collectionId);
 
       // Usuários do tenant podem ler qualquer subcoleção do próprio tenant,
-      // exceto as restritas (nf_imports, financeiro, precificacao_procedimentos
-      // — regras dedicadas abaixo).
+      // exceto as restritas (nf_imports, financeiro, precificacao_procedimentos,
+      // nf_identidades, contadores — regras dedicadas abaixo ou só system_admin).
       allow read: if belongsToTenant(tenantId) && !isRestrictedTenantCollection(collectionId);
 
       // Consultores: READ-ONLY e apenas na allowlist (UC-48-RN-06). nf_imports,
@@ -181,9 +192,12 @@ service cloud.firestore {
       allow write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
     }
 
-    // nf_imports — leitura E escrita restritas a clinic_admin (defesa em
-    // profundidade; nenhuma tela de clinic_user acessa esta subcoleção hoje,
-    // UC-10/UC-11). Excluída do fallback de leitura genérico acima
+    // nf_imports — leitura restrita a clinic_admin (defesa em profundidade;
+    // nenhuma tela de clinic_user acessa esta subcoleção hoje, UC-10/UC-11).
+    // Nenhuma escrita de client: o registro é gravado só pelo servidor
+    // (/api/nf-imports/*, Admin SDK) junto com nf_identidades e contadores,
+    // numa transação (BUGFIX-identidade-e-duplicidade-nfe). nf_identidades e
+    // contadores não têm bloco próprio: só o system_admin lê (bloco genérico). Excluída do fallback de leitura genérico acima
     // (collectionId != 'nf_imports') propositalmente: diferente das outras
     // subcoleções deste bloco, aqui também restringimos LEITURA, não só
     // escrita, porque não há nenhum caso de uso documentado que exija
@@ -193,7 +207,7 @@ service cloud.firestore {
     // (requisito de produto novo, fora do escopo desta correção; registrado
     // separadamente no mapa de bugs para elicitação de UC dedicado).
     match /tenants/{tenantId}/nf_imports/{nfImportId} {
-      allow read, write: if belongsToTenant(tenantId) && hasRole('clinic_admin');
+      allow read: if belongsToTenant(tenantId) && hasRole('clinic_admin');
     }
 
     // financeiro — dados financeiros internos (custos fixos, Boletos Tec,
@@ -314,13 +328,11 @@ service cloud.firestore {
     }
 
     // Coleção de produtos pendentes de cadastro no catálogo master
-    // (originados de importação de NF-e com código não encontrado em produtos_master)
+    // (linhas de NF-e com código fora do catálogo). Gravada e resolvida só
+    // pelo servidor: a importação (Admin SDK) cria e a Cloud Function
+    // onMasterProductWritten / reprocessPendingMasterProducts resolve.
     match /pending_master_products/{docId} {
-      // System admins têm acesso total (leitura da fila e resolução/exclusão)
-      allow read, update, delete: if isSystemAdmin();
-
-      // Usuários do tenant podem registrar uma pendência do seu próprio tenant
-      allow create: if belongsToTenant(request.resource.data.tenant_id);
+      allow read: if isSystemAdmin();
     }
 
     // Coleção de fila de e-mails (apenas para uso interno das Cloud Functions)
