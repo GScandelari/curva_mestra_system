@@ -1,41 +1,37 @@
 /**
  * Pending Master Product Service
- * Gerencia produtos identificados em imports de NF-e que ainda não existem
- * no catálogo master — visível ao system_admin para cadastro posterior.
+ * Leitura das linhas de NF-e que ficaram pendentes por código fora do
+ * catálogo master — visível ao system_admin. A gravação e a resolução
+ * acontecem só no servidor (importação e Cloud Functions).
  */
 
-import { collection, query, orderBy, getDocs, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { PendingMasterProduct } from '@/types/pendingMasterProduct';
 
 const COLLECTION = 'pending_master_products';
 
+const toDate = (v: unknown) => (v instanceof Timestamp ? v.toDate() : (v as Date));
+
 /**
- * Lista todos os produtos pendentes (cross-tenant) — uso exclusivo do system_admin.
+ * Lista as pendências abertas (cross-tenant) — uso exclusivo do system_admin.
+ * Usa o índice (status, created_at).
  */
 export async function listPendingMasterProducts(): Promise<PendingMasterProduct[]> {
-  const pendingRef = collection(db, COLLECTION);
-  const q = query(pendingRef, orderBy('created_at', 'desc'));
+  const q = query(
+    collection(db, COLLECTION),
+    where('status', '==', 'aberta'),
+    orderBy('created_at', 'desc')
+  );
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((docSnap) => {
     const data = docSnap.data();
     return {
+      ...(data as Omit<PendingMasterProduct, 'id'>),
       id: docSnap.id,
-      tenant_id: data.tenant_id,
-      numero_nf: data.numero_nf,
-      nf_id: data.nf_id,
-      codigo: data.codigo,
-      nome_produto: data.nome_produto,
-      created_at: data.created_at instanceof Timestamp ? data.created_at.toDate() : data.created_at,
+      dt_validade: toDate(data.dt_validade),
+      created_at: toDate(data.created_at),
     };
   });
-}
-
-/**
- * Remove uma pendência da fila (ex: após o system_admin cadastrar o produto
- * e confirmar que não é mais necessário rastreá-la).
- */
-export async function resolvePendingMasterProduct(pendingId: string): Promise<void> {
-  await deleteDoc(doc(db, COLLECTION, pendingId));
 }
