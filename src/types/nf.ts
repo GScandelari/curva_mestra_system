@@ -14,10 +14,12 @@ export interface NFProduct {
 export type TipoNota = 'bonificacao' | 'venda' | 'outro';
 
 export interface ParsedNF {
-  numero: string;
+  numero: string; // normalizado (sem zeros à esquerda)
+  serie: string; // normalizada
+  chave_acesso: string; // 44 posições, sem 'NFe', DV validado
   data_emissao?: string;
   fornecedor?: string;
-  cnpj_fornecedor?: string;
+  cnpj_fornecedor: string; // 14 posições, DV validado
   natureza_operacao?: string; // texto bruto de <ide><natOp>
   forma_pagamento?: string; // rótulo derivado de <pag><detPag>
   tipo_nota: TipoNota; // classificação derivada de natureza_operacao
@@ -28,7 +30,10 @@ export type XmlParseErrorCode =
   | 'INVALID_FORMAT'
   | 'MISSING_NF_NUMBER'
   | 'NO_PRODUCTS_FOUND'
-  | 'MALFORMED_PRODUCT';
+  | 'MALFORMED_PRODUCT'
+  | 'MISSING_ACCESS_KEY'
+  | 'INVALID_ACCESS_KEY' // formato, DV ou divergência com as tags
+  | 'INVALID_ISSUER'; // emitente sem CNPJ, CNPJ inválido ou série inválida
 
 export interface XmlParseError {
   code: XmlParseErrorCode;
