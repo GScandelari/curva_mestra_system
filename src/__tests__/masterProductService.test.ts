@@ -1,4 +1,4 @@
-import { getNomeCompletoMasterProduct } from '@/types/masterProduct';
+import { getNomeCompletoMasterProduct, validateProductCode } from '@/types/masterProduct';
 import type { MasterProduct } from '@/types/masterProduct';
 import { Timestamp } from 'firebase/firestore';
 
@@ -47,5 +47,15 @@ describe('getNomeCompletoMasterProduct', () => {
     };
     const result = getNomeCompletoMasterProduct(product);
     expect(result).toBe('NABOTA 100U 150MG');
+  });
+});
+
+describe('validateProductCode', () => {
+  it.each(['9274598', '123456', '0123456', '1'])('accepts %p', (code) => {
+    expect(validateProductCode(code)).toBe(true);
+  });
+
+  it.each(['', '0', '0000000', '12345678', '12A4567', '123-456'])('rejects %p', (code) => {
+    expect(validateProductCode(code)).toBe(false);
   });
 });

@@ -279,24 +279,27 @@ describe('tenants/{tenantId}/users (subcoleção morta, RN-04)', () => {
   });
 });
 
-// --- nf_imports: leitura E escrita restritas a clinic_admin (defesa em
-// profundidade — diferente das subcoleções acima, nem clinic_user nem
-// consultor leem). Compartilhamento com consultor fica para um UC dedicado
-// futuro (opt-in do clinic_admin), fora do escopo desta correção. ----------
+// --- nf_imports: leitura restrita a clinic_admin (defesa em profundidade —
+// nem clinic_user nem consultor leem) e NENHUMA escrita de client, nem do
+// system_admin: o registro, a identidade da nota e o contador do ID são
+// gravados só pelo servidor (Admin SDK), numa transação
+// (BUGFIX-identidade-e-duplicidade-nfe). ------------------------------------
 
 describe('tenants/{tenantId}/nf_imports', () => {
-  const docPathA = `tenants/${TENANT_A}/nf_imports/nf1`;
+  const docPathA = `tenants/${TENANT_A}/nf_imports/1000`;
   const collectionPathA = `tenants/${TENANT_A}/nf_imports`;
 
   beforeEach(async () => {
-    await seed(docPathA, { numero: '026229', status: 'success' });
+    await seed(docPathA, { id_sequencial: 1000, numero_nf: '26229', status: 'success' });
   });
 
-  it('clinic_admin do tenant correto lê (get e list) e escreve', async () => {
+  it('clinic_admin do tenant correto lê (get e list) mas NÃO escreve', async () => {
     const db = clinicAdmin(TENANT_A).firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
     await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
-    await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+    await assertFails(setDoc(doc(db, `${collectionPathA}/1001`), { numero_nf: '1' }));
+    await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+    await assertFails(deleteDoc(doc(db, docPathA)));
   });
 
   it('clinic_user do tenant correto NÃO lê (get nem list) nem escreve', async () => {
@@ -312,17 +315,145 @@ describe('tenants/{tenantId}/nf_imports', () => {
     await assertFails(getDocs(query(collection(db, collectionPathA))));
   });
 
-  it('usuário de outro tenant NÃO lê nem escreve', async () => {
+  it('usuário de outro tenant NÃO lê (get nem list) nem escreve', async () => {
     const db = clinicAdmin(TENANT_B).firestore();
     await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
     await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
-  it('system_admin lê (get e list) e escreve, cross-tenant', async () => {
+  it('system_admin lê (get e list) cross-tenant mas NÃO escreve', async () => {
     const db = systemAdmin().firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
     await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
-    await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+    await assertFails(setDoc(doc(db, `${collectionPathA}/1001`), { numero_nf: '1' }));
+    await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+    await assertFails(deleteDoc(doc(db, docPathA)));
+  });
+});
+
+// --- nf_identidades e contadores: sem bloco próprio — só o system_admin lê
+// (bloco genérico); ninguém escreve pelo client. ---------------------------
+
+describe.each([
+  ['nf_identidades', '12345678000195_1_26229', { nf_import_id: '1000', origem: 'xml' }],
+  ['contadores', 'nf_imports', { ultimo_id: 1000 }],
+])('tenants/{tenantId}/%s', (nome, docId, data) => {
+  const docPathA = `tenants/${TENANT_A}/${nome}/${docId}`;
+  const collectionPathA = `tenants/${TENANT_A}/${nome}`;
+
+  beforeEach(async () => {
+    await seed(docPathA, data);
+  });
+
+  it('clinic_admin, clinic_user e consultor NÃO leem (get nem list)', async () => {
+    for (const ctx of [
+      clinicAdmin(TENANT_A),
+      clinicUser(TENANT_A),
+      consultantWithAccess(TENANT_A),
+    ]) {
+      const db = ctx.firestore();
+      await assertFails(getDoc(doc(db, docPathA)));
+      await assertFails(getDocs(query(collection(db, collectionPathA))));
+    }
+  });
+
+  it('clinic_admin NÃO escreve', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, `${collectionPathA}/novo`), { x: 1 }));
+    await assertFails(updateDoc(doc(db, docPathA), { x: 1 }));
+  });
+
+  it('system_admin lê (get e list) mas NÃO escreve', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+    await assertFails(setDoc(doc(db, `${collectionPathA}/novo`), { x: 1 }));
+    await assertFails(updateDoc(doc(db, docPathA), { x: 1 }));
+    await assertFails(deleteDoc(doc(db, docPathA)));
+  });
+});
+
+// --- pending_master_products: fila do system_admin, gravada e resolvida só
+// pelo servidor (antes, o clinic_admin criava a pendência pelo client). ----
+
+describe('pending_master_products', () => {
+  const docPath = `pending_master_products/${TENANT_A}_1000_1`;
+
+  beforeEach(async () => {
+    await seed(docPath, { tenant_id: TENANT_A, codigo: '9999999', status: 'aberta' });
+  });
+
+  it('system_admin lê (get e list, incluindo a query da tela) mas NÃO altera', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+    await assertSucceeds(getDocs(query(collection(db, 'pending_master_products'))));
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, 'pending_master_products'),
+          where('status', '==', 'aberta'),
+          orderBy('created_at', 'desc')
+        )
+      )
+    );
+    await assertFails(updateDoc(doc(db, docPath), { status: 'resolvida' }));
+    await assertFails(deleteDoc(doc(db, docPath)));
+  });
+
+  it('clinic_admin do tenant NÃO lê (get nem list) nem cria', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, docPath)));
+    await assertFails(getDocs(query(collection(db, 'pending_master_products'))));
+    await assertFails(
+      setDoc(doc(db, `pending_master_products/${TENANT_A}_1000_2`), {
+        tenant_id: TENANT_A,
+        codigo: '1',
+      })
+    );
+  });
+});
+
+// --- master_products: código com 1 a 7 dígitos, sem zeros à esquerda — a
+// mesma forma do cProd normalizado da NF-e. --------------------------------
+
+describe('master_products — formato do código', () => {
+  it.each(['3076528', '123456'])('system_admin cria code %s', async (code) => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(setDoc(doc(db, `master_products/mp-${code}`), { code, name: 'X' }));
+  });
+
+  it.each(['0123456', '12345678', '0', ''])('system_admin NÃO cria code %p', async (code) => {
+    const db = systemAdmin().firestore();
+    await assertFails(setDoc(doc(db, 'master_products/mp-x'), { code, name: 'X' }));
+  });
+
+  it('update com código fora do formato falha', async () => {
+    await seed('master_products/mp-1', { code: '3076528', name: 'X' });
+    const db = systemAdmin().firestore();
+    await assertSucceeds(updateDoc(doc(db, 'master_products/mp-1'), { code: '123456' }));
+    await assertFails(updateDoc(doc(db, 'master_products/mp-1'), { code: '0123456' }));
+  });
+});
+
+// --- Regressão do bloco genérico: a divisão de read/write do system_admin
+// não pode tirar a escrita das demais subcoleções. -------------------------
+
+describe('bloco genérico — escrita fora das coleções do servidor (regressão)', () => {
+  beforeEach(async () => {
+    await seed(`tenants/${TENANT_A}/inventory/i1`, { quantidade_disponivel: 1 });
+    await seed(`tenants/${TENANT_A}/financeiro/custo_hora`, { aluguel: 1 });
+  });
+
+  it('system_admin escreve em inventory e financeiro', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(updateDoc(doc(db, `tenants/${TENANT_A}/inventory/i1`), { x: 1 }));
+    await assertSucceeds(updateDoc(doc(db, `tenants/${TENANT_A}/financeiro/custo_hora`), { x: 1 }));
+  });
+
+  it('clinic_admin escreve em inventory', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, `tenants/${TENANT_A}/inventory/i1`), { x: 1 }));
   });
 });
 
@@ -700,6 +831,8 @@ describe('Portal do Consultor — allowlist de subcoleções (UC-48-RN-06)', () 
     'notifications',
     'users',
     'nf_imports',
+    'nf_identidades',
+    'contadores',
     'financeiro',
     'precificacao_procedimentos',
     'subcolecao_futura_qa',

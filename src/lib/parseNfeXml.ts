@@ -1,5 +1,13 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { ParsedNF, NFProduct, TipoNota, XmlParseError } from '@/types/nf';
+import {
+  chaveMatchesIdentity,
+  normalizeCnpj,
+  normalizeLeadingZeros,
+  normalizeNumeroNF,
+  normalizeSerie,
+  parseChaveAcesso,
+} from '@/lib/nfIdentity';
 
 const TPAG_LABELS: Record<string, string> = {
   '01': 'Dinheiro',
@@ -67,6 +75,9 @@ export function parseNfeXml(xmlContent: string): { data: ParsedNF; errors: XmlPa
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
     removeNSPrefix: true,
+    // Sem coerção numérica: '01' (tPag), CNPJ e códigos com zeros à esquerda
+    // chegam como texto — antes '01234567000189' virava 1234567000189 (A1/A5).
+    parseTagValue: false,
     isArray: (tagName) => tagName === 'det' || tagName === 'rastro' || tagName === 'detPag',
   });
 
@@ -96,6 +107,8 @@ export function parseNfeXml(xmlContent: string): { data: ParsedNF; errors: XmlPa
     } satisfies XmlParseError;
   }
 
+  const identidade = extractIdentity(nfe as Record<string, unknown>, ide, emit, numeroNF);
+
   const detRaw = (nfe as Record<string, unknown>).det;
   const detArray: unknown[] = Array.isArray(detRaw) ? detRaw : detRaw ? [detRaw] : [];
 
@@ -112,7 +125,7 @@ export function parseNfeXml(xmlContent: string): { data: ParsedNF; errors: XmlPa
   detArray.forEach((det: unknown, index: number) => {
     const detObj = det as Record<string, unknown>;
     const prod = (detObj?.prod ?? {}) as Record<string, unknown>;
-    const cProd = extractText(prod.cProd);
+    const cProd = normalizeLeadingZeros(extractText(prod.cProd));
     const xProd = extractText(prod.xProd);
 
     if (!cProd || !xProd) {
@@ -145,7 +158,7 @@ export function parseNfeXml(xmlContent: string): { data: ParsedNF; errors: XmlPa
 
     rastros.forEach((rastro: unknown) => {
       const rastroObj = rastro as Record<string, unknown>;
-      const nLote = extractText(rastroObj.nLote) || 'NÃO_INFORMADO';
+      const nLote = normalizeLeadingZeros(extractText(rastroObj.nLote)) || 'NÃO_INFORMADO';
       const dVal = convertXmlDate(extractText(rastroObj.dVal));
       const dFab = convertXmlDate(extractText(rastroObj.dFab));
 
@@ -197,10 +210,12 @@ export function parseNfeXml(xmlContent: string): { data: ParsedNF; errors: XmlPa
 
   return {
     data: {
-      numero: extractText((ide as Record<string, unknown>).nNF),
+      numero: identidade.numero,
+      serie: identidade.serie,
+      chave_acesso: identidade.chave_acesso,
       data_emissao: extractText((ide as Record<string, unknown>).dhEmi) || undefined,
       fornecedor: extractText((emit as Record<string, unknown>).xNome) || undefined,
-      cnpj_fornecedor: extractText((emit as Record<string, unknown>).CNPJ) || undefined,
+      cnpj_fornecedor: identidade.cnpj,
       natureza_operacao: naturezaOperacao,
       forma_pagamento: formaPagamento,
       tipo_nota: inferTipoNota(naturezaOperacao),
@@ -208,4 +223,67 @@ export function parseNfeXml(xmlContent: string): { data: ParsedNF; errors: XmlPa
     },
     errors,
   };
+}
+
+/**
+ * Identidade da NF (UC-10-RN-14): CNPJ do emitente + série + número, conferidos
+ * contra a chave de acesso de infNFe@Id.
+ */
+function extractIdentity(
+  nfe: Record<string, unknown>,
+  ide: unknown,
+  emit: unknown,
+  numeroNF: string
+): { cnpj: string; serie: string; numero: string; chave_acesso: string } {
+  const emitObj = emit as Record<string, unknown>;
+  const cnpjRaw = extractText(emitObj.CNPJ);
+  if (!cnpjRaw && emitObj.CPF !== undefined) {
+    throw {
+      code: 'INVALID_ISSUER',
+      message: 'Emitente sem CNPJ não é suportado.',
+    } satisfies XmlParseError;
+  }
+  const cnpj = normalizeCnpj(cnpjRaw);
+  if (!cnpj) {
+    throw {
+      code: 'INVALID_ISSUER',
+      message: 'CNPJ do emitente inválido no XML.',
+    } satisfies XmlParseError;
+  }
+  const serie = normalizeSerie(extractText((ide as Record<string, unknown>).serie));
+  if (!serie) {
+    throw {
+      code: 'INVALID_ISSUER',
+      message: 'Série da NF-e inválida no XML.',
+    } satisfies XmlParseError;
+  }
+  const numero = normalizeNumeroNF(numeroNF);
+  if (!numero) {
+    throw {
+      code: 'MISSING_NF_NUMBER',
+      message: 'Número da NF-e (<nNF>) não encontrado no XML.',
+    } satisfies XmlParseError;
+  }
+
+  const idRaw = extractText(nfe['@_Id']);
+  if (!idRaw) {
+    throw {
+      code: 'MISSING_ACCESS_KEY',
+      message: 'Chave de acesso da NF-e (atributo Id de infNFe) não encontrada no XML.',
+    } satisfies XmlParseError;
+  }
+  const chave = parseChaveAcesso(idRaw);
+  if (!chave) {
+    throw {
+      code: 'INVALID_ACCESS_KEY',
+      message: 'Chave de acesso da NF-e inválida (formato ou dígito verificador).',
+    } satisfies XmlParseError;
+  }
+  if (!chaveMatchesIdentity(chave, { cnpj, serie, numero })) {
+    throw {
+      code: 'INVALID_ACCESS_KEY',
+      message: 'A chave de acesso não confere com CNPJ, série e número do XML.',
+    } satisfies XmlParseError;
+  }
+  return { cnpj, serie, numero, chave_acesso: chave.chave };
 }

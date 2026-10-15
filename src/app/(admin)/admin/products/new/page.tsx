@@ -59,7 +59,7 @@ export default function NewProductPage() {
     }
 
     if (!validateProductCode(code)) {
-      setError('Código inválido. O código deve ter 7 dígitos.');
+      setError('Código inválido. Use até 7 dígitos (não pode ser só zeros).');
       return;
     }
 
@@ -140,7 +140,9 @@ export default function NewProductPage() {
                   maxLength={7}
                   className="font-mono"
                 />
-                <p className="text-xs text-muted-foreground">Código com 7 dígitos</p>
+                <p className="text-xs text-muted-foreground">
+                  Até 7 dígitos; zeros à esquerda são removidos
+                </p>
               </div>
 
               <div className="space-y-2">

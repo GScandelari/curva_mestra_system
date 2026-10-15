@@ -26,19 +26,17 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import {
-  collection,
-  doc,
-  query,
-  where,
-  getDocs,
-  serverTimestamp,
-  writeBatch,
-  Timestamp,
-} from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Plus, Trash2, Save, ArrowLeft, AlertCircle } from 'lucide-react';
 import { calcularQuantidadeInventario } from '@/lib/services/inventoryService';
-import { checkNumeroNFStatus } from '@/lib/services/nfImportService';
+import {
+  formatNFLabel,
+  maskCnpjInput,
+  normalizeLeadingZeros,
+  normalizeNumeroNF,
+  validateManualIdentity,
+} from '@/lib/nfIdentity';
+import type { NFIdentity } from '@/types/nf';
 import { getNomeCompletoMasterProduct } from '@/types/masterProduct';
 import { normalizeBrand } from '@/lib/brandUtils';
 
@@ -71,7 +69,7 @@ interface NFProduct {
 export default function ManualNFPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, tenantId, claims } = useAuth();
+  const { user, claims } = useAuth();
   const isAdmin = claims?.role === 'clinic_admin';
 
   const [step, setStep] = useState<
@@ -79,6 +77,12 @@ export default function ManualNFPage() {
   >('select_type');
   const [tipoNF, setTipoNF] = useState<'rennova' | 'outra_marca' | null>(null);
   const [numeroNF, setNumeroNF] = useState('');
+  const [cnpjEmitente, setCnpjEmitente] = useState('');
+  const [serieNF, setSerieNF] = useState('');
+  const [chaveAcesso, setChaveAcesso] = useState('');
+  // Identidade normalizada (CNPJ + série + número) — definida ao avançar do Passo 2
+  const [identidade, setIdentidade] = useState<NFIdentity | null>(null);
+  const [chaveNormalizada, setChaveNormalizada] = useState<string | undefined>(undefined);
   const [produtos, setProdutos] = useState<NFProduct[]>([]);
   const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -148,14 +152,22 @@ export default function ManualNFPage() {
   };
 
   const handleContinueToProducts = () => {
-    if (!numeroNF) {
+    const resultado = validateManualIdentity({
+      numero: numeroNF,
+      cnpj: cnpjEmitente,
+      serie: serieNF,
+      chave: chaveAcesso.trim() || undefined,
+    });
+    if (!resultado.ok) {
       toast({
-        title: 'Número da NF obrigatório',
-        description: 'Informe o número da nota fiscal antes de continuar',
+        title: 'Dados da nota fiscal',
+        description: resultado.error,
         variant: 'destructive',
       });
       return;
     }
+    setIdentidade(resultado.identity);
+    setChaveNormalizada(resultado.chave_acesso);
     setStep('add_products');
   };
 
@@ -183,19 +195,9 @@ export default function ManualNFPage() {
   };
 
   const handleAddProduct = () => {
-    console.log('handleAddProduct called', {
-      tipoNF,
-      selectedProduct,
-      lote,
-      quantidade,
-      dtValidade,
-      valorUnitario,
-    });
-
     if (tipoNF === 'rennova') {
       // Validar campos Rennova
       if (!selectedProduct || !lote || !quantidade || !dtValidade || !valorUnitario) {
-        console.log('Validation failed - missing fields');
         toast({
           title: 'Campos obrigatórios',
           description: 'Preencha todos os campos para adicionar o produto',
@@ -205,7 +207,6 @@ export default function ManualNFPage() {
       }
 
       const product = masterProducts.find((p) => p.id === selectedProduct);
-      console.log('Found product:', product);
       if (!product) return;
 
       const qtdInformada = parseFloat(quantidade);
@@ -223,7 +224,7 @@ export default function ManualNFPage() {
         nome_produto: getNomeCompletoMasterProduct(product as any),
         category: product.category,
         brand: 'Rennova',
-        lote,
+        lote: normalizeLeadingZeros(lote),
         quantidade: quantidade_inicial,
         dt_validade: dtValidade,
         valor_unitario: valorUnit,
@@ -233,7 +234,6 @@ export default function ManualNFPage() {
         valor_por_embalagem: product.fragmentavel ? valorInformado : undefined,
       };
 
-      console.log('Adding product:', newProduct);
       setProdutos([...produtos, newProduct]);
     } else {
       // Validar campos de outra marca
@@ -255,10 +255,10 @@ export default function ManualNFPage() {
       }
 
       const newProduct: NFProduct = {
-        codigo: codigoOutraMarca,
+        codigo: normalizeLeadingZeros(codigoOutraMarca),
         nome_produto: nomeOutraMarca,
         brand: normalizeBrand(brandOutraMarca),
-        lote,
+        lote: normalizeLeadingZeros(lote),
         quantidade: parseFloat(quantidade),
         dt_validade: dtValidade,
         valor_unitario: parseFloat(valorUnitario),
@@ -307,21 +307,21 @@ export default function ManualNFPage() {
     setStep('review');
   };
 
+  /**
+   * Grava pela rota do servidor (UC-11): a transação verifica a identidade da
+   * nota, cria o registro "ID 100x" ou complementa o da mesma NF manual.
+   */
   const handleSaveNF = async () => {
-    console.log('handleSaveNF called', { numeroNF, produtos, tenantId });
-
-    if (!numeroNF) {
-      console.log('Validation failed - no numeroNF');
+    if (!identidade || !user) {
       toast({
-        title: 'Número da NF obrigatório',
-        description: 'Informe o número da nota fiscal',
+        title: 'Dados da nota fiscal',
+        description: 'Informe número, CNPJ do emitente e série da nota fiscal',
         variant: 'destructive',
       });
       return;
     }
 
     if (produtos.length === 0) {
-      console.log('Validation failed - no products');
       toast({
         title: 'Adicione produtos',
         description: 'Adicione pelo menos um produto à nota fiscal',
@@ -330,114 +330,61 @@ export default function ManualNFPage() {
       return;
     }
 
-    if (!tenantId) {
-      console.log('Validation failed - no tenantId');
-      toast({
-        title: 'Erro',
-        description: 'Tenant ID não encontrado',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    console.log('Starting save process...');
     setIsLoading(true);
 
     try {
-      // Verificar se este numero_nf já foi importado via XML (bloqueado para manual)
-      // ou já está totalmente concluído (bloqueado para qualquer origem)
-      const nfStatus = await checkNumeroNFStatus(tenantId, numeroNF, 'manual');
+      // O servidor recalcula a fragmentação a partir do catálogo: envia o que
+      // foi informado (embalagens e valor por embalagem, se fragmentável).
+      const payload = {
+        numero: identidade.numero,
+        cnpj: identidade.cnpj,
+        serie: identidade.serie,
+        ...(chaveNormalizada ? { chave_acesso: chaveNormalizada } : {}),
+        tipo: tipoNF,
+        produtos: produtos.map((p) => ({
+          codigo: p.codigo,
+          nome_produto: p.nome_produto,
+          lote: p.lote,
+          quantidade: p.fragmentavel ? p.quantidade_embalagens : p.quantidade,
+          valor_unitario: p.fragmentavel ? p.valor_por_embalagem : p.valor_unitario,
+          dt_validade: p.dt_validade,
+          ...(p.brand ? { brand: p.brand } : {}),
+          ...(p.category ? { category: p.category } : {}),
+        })),
+      };
 
-      if (nfStatus.blocked) {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/nf-imports/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json()) as {
+        error?: string;
+        idLabel?: string;
+        complemento?: boolean;
+      };
+
+      if (!response.ok) {
         toast({
-          title: 'Nota fiscal não pode ser adicionada',
-          description: nfStatus.reason ?? 'Esta NF já foi importada anteriormente.',
+          title: 'Nota fiscal não pode ser salva',
+          description: body.error ?? 'Não foi possível salvar a nota fiscal',
           variant: 'destructive',
         });
-        setIsLoading(false);
         return;
       }
 
-      // Remover campos undefined do array de produtos antes de salvar no Firestore
-      // (Firestore rejeita undefined; campos opcionais ausentes devem ser omitidos)
-      const produtosSanitizados = produtos.map((p) =>
-        Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined))
+      toast(
+        body.complemento
+          ? {
+              title: 'Lançamento adicionado',
+              description: `Lançamento adicionado à NF já cadastrada (${body.idLabel})`,
+            }
+          : {
+              title: `Nota fiscal salva — ${body.idLabel}`,
+              description: 'Os produtos foram adicionados ao inventário',
+            }
       );
-
-      // Salvar NF + itens de inventário atomicamente (writeBatch) -- antes, o
-      // documento nf_imports era criado com status "success" e os itens de
-      // inventário eram gravados um a um via addDoc; uma falha no meio do loop
-      // deixava o status "success" mentindo sobre uma gravação parcial, sem
-      // nenhum rollback. Com o batch, ou tudo é gravado ou nada é.
-      const batch = writeBatch(db);
-
-      const nfRef = doc(collection(db, `tenants/${tenantId}/nf_imports`));
-      const nfData = {
-        tenant_id: tenantId,
-        numero_nf: numeroNF,
-        origem: 'manual',
-        tipo: tipoNF,
-        produtos: produtosSanitizados,
-        status: 'success',
-        // uid (nao e-mail) -- alinhado ao padrao ja usado na importacao via XML
-        // (UC-10), que grava created_by como o uid do usuario.
-        created_by: user?.uid || 'unknown',
-        created_at: serverTimestamp(),
-        updated_at: serverTimestamp(),
-      };
-      batch.set(nfRef, nfData);
-
-      for (const produto of produtos) {
-        const inventoryData: Record<string, any> = {
-          tenant_id: tenantId,
-          // nf_id (nao nf_import_id) -- alinhado ao schema gravado pela
-          // importacao via XML (addInventoryItems, inventoryService.ts);
-          // nf_import_id mantido como alias para nao quebrar leitores existentes.
-          nf_id: nfRef.id,
-          nf_import_id: nfRef.id,
-          nf_numero: numeroNF,
-          master_product_id: produto.master_product_id || null,
-          produto_id: produto.master_product_id || null,
-          codigo_produto: produto.codigo,
-          nome_produto: produto.nome_produto,
-          category: produto.category || null,
-          lote: produto.lote,
-          quantidade_inicial: produto.quantidade,
-          quantidade_disponivel: produto.quantidade,
-          // Timestamp (nao string) -- mesmo tipo gravado pela importacao via XML;
-          // produto.dt_validade vem de <input type="date"> no formato YYYY-MM-DD.
-          dt_validade: Timestamp.fromDate(new Date(`${produto.dt_validade}T00:00:00`)),
-          dt_entrada: serverTimestamp(),
-          valor_unitario: produto.valor_unitario,
-          active: true,
-          is_rennova: tipoNF === 'rennova',
-          brand: produto.brand || null,
-          created_at: serverTimestamp(),
-          updated_at: serverTimestamp(),
-        };
-
-        // Campos de auditoria para produtos fragmentáveis
-        if (produto.fragmentavel) {
-          inventoryData.fragmentavel = true;
-          inventoryData.unidades_por_embalagem = produto.unidades_por_embalagem;
-          inventoryData.quantidade_embalagens = produto.quantidade_embalagens;
-          inventoryData.valor_por_embalagem = produto.valor_por_embalagem;
-        }
-
-        const inventoryRef = doc(collection(db, `tenants/${tenantId}/inventory`));
-        batch.set(inventoryRef, inventoryData);
-      }
-
-      console.log('Committing NF + inventory batch...');
-      await batch.commit();
-      console.log('All products added to inventory successfully');
-      toast({
-        title: 'Nota fiscal salva',
-        description: `NF ${numeroNF} foi salva e os produtos adicionados ao inventário`,
-      });
-
-      console.log('Redirecting to inventory page...');
-      // Redirecionar para o inventário
       router.push('/clinic/inventory');
     } catch (error) {
       console.error('Erro ao salvar NF:', error);
@@ -621,21 +568,62 @@ export default function ManualNFPage() {
         {step === 'enter_nf' && (
           <Card>
             <CardHeader>
-              <CardTitle>Número da Nota Fiscal</CardTitle>
+              <CardTitle>Dados da Nota Fiscal</CardTitle>
               <CardDescription>
-                Informe o número da NF para{' '}
-                {tipoNF === 'rennova' ? 'produtos Rennova' : 'outras marcas'}
+                Informe a identificação da NF para{' '}
+                {tipoNF === 'rennova' ? 'produtos Rennova' : 'outras marcas'}. A mesma nota (CNPJ do
+                emitente + série + número) não pode ser cadastrada duas vezes.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="numero-nf">Número da NF *</Label>
+                  <Input
+                    id="numero-nf"
+                    placeholder="Ex: 026229"
+                    value={numeroNF}
+                    onChange={(e) => setNumeroNF(e.target.value)}
+                  />
+                  {numeroNF.trim() !== '' &&
+                    normalizeNumeroNF(numeroNF) !== '' &&
+                    normalizeNumeroNF(numeroNF) !== numeroNF.trim() && (
+                      <p className="text-xs text-muted-foreground">
+                        Será registrada como {normalizeNumeroNF(numeroNF)}
+                      </p>
+                    )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="serie-nf">Série *</Label>
+                  <Input
+                    id="serie-nf"
+                    placeholder="Ex: 1"
+                    inputMode="numeric"
+                    value={serieNF}
+                    onChange={(e) => setSerieNF(e.target.value)}
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="numero-nf">Número da NF</Label>
+                <Label htmlFor="cnpj-emitente">CNPJ do emitente *</Label>
                 <Input
-                  id="numero-nf"
-                  placeholder="Ex: 026229"
-                  value={numeroNF}
-                  onChange={(e) => setNumeroNF(e.target.value)}
+                  id="cnpj-emitente"
+                  placeholder="00.000.000/0000-00"
+                  value={cnpjEmitente}
+                  onChange={(e) => setCnpjEmitente(maskCnpjInput(e.target.value))}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="chave-acesso">Chave de acesso (opcional)</Label>
+                <Input
+                  id="chave-acesso"
+                  placeholder="44 caracteres"
+                  value={chaveAcesso}
+                  onChange={(e) => setChaveAcesso(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Se informada, precisa conferir com CNPJ, série e número acima.
+                </p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button
@@ -661,8 +649,8 @@ export default function ManualNFPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-muted-foreground">Número da NF</Label>
-                    <p className="font-medium">{numeroNF}</p>
+                    <Label className="text-muted-foreground">Nota fiscal</Label>
+                    <p className="font-medium">{identidade && formatNFLabel(identidade)}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Tipo</Label>
@@ -955,8 +943,8 @@ export default function ManualNFPage() {
                   <h3 className="font-semibold mb-3">Informações da Nota Fiscal</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/50 p-4 rounded-lg">
                     <div>
-                      <Label className="text-muted-foreground">Número da NF</Label>
-                      <p className="font-medium">{numeroNF}</p>
+                      <Label className="text-muted-foreground">Nota fiscal</Label>
+                      <p className="font-medium">{identidade && formatNFLabel(identidade)}</p>
                     </div>
                     <div>
                       <Label className="text-muted-foreground">Tipo</Label>
