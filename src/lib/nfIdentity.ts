@@ -74,6 +74,25 @@ export function formatCnpj(cnpj14: string): string {
   return `${cnpj14.slice(0, 2)}.${cnpj14.slice(2, 5)}.${cnpj14.slice(5, 8)}/${cnpj14.slice(8, 12)}-${cnpj14.slice(12)}`;
 }
 
+/**
+ * Máscara de digitação 00.000.000/0000-00: aceita letras nas 12 primeiras
+ * posições (CNPJ alfanumérico) e só dígitos nas 2 últimas (DV).
+ */
+export function maskCnpjInput(raw: string): string {
+  const chars: string[] = [];
+  for (const c of raw.toUpperCase()) {
+    if (chars.length >= 14) break;
+    if (chars.length < 12 ? /[0-9A-Z]/.test(c) : /[0-9]/.test(c)) chars.push(c);
+  }
+  const v = chars.join('');
+  let out = v.slice(0, 2);
+  if (v.length > 2) out += `.${v.slice(2, 5)}`;
+  if (v.length > 5) out += `.${v.slice(5, 8)}`;
+  if (v.length > 8) out += `/${v.slice(8, 12)}`;
+  if (v.length > 12) out += `-${v.slice(12)}`;
+  return out;
+}
+
 /** DV da chave de acesso: módulo 11 com pesos 2..9 da direita para a esquerda. */
 export function computeChaveAcessoDV(first43: string): number {
   let soma = 0;

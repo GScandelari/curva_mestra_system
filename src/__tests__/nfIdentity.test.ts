@@ -6,6 +6,7 @@ import {
   formatImportId,
   formatNFLabel,
   isValidCnpj,
+  maskCnpjInput,
   normalizeCnpj,
   normalizeLeadingZeros,
   normalizeNumeroNF,
@@ -176,5 +177,19 @@ describe('formats', () => {
     expect(formatImportId(1000)).toBe('ID 1000');
     expect(formatImportId('1001')).toBe('ID 1001');
     expect(formatNFLabel(identidade)).toBe('NF 26229 · série 1 · CNPJ 12.345.678/0001-95');
+  });
+});
+
+describe('maskCnpjInput', () => {
+  it.each([
+    ['12345678000195', '12.345.678/0001-95'],
+    ['12.345.678/0001-95', '12.345.678/0001-95'],
+    ['1234', '12.34'],
+    ['12abc34501de35', '12.ABC.345/01DE-35'],
+    ['12ABC34501DEXY35', '12.ABC.345/01DE-35'],
+    ['123456780001959999', '12.345.678/0001-95'],
+    ['', ''],
+  ])('%p → %p', (raw, esperado) => {
+    expect(maskCnpjInput(raw)).toBe(esperado);
   });
 });

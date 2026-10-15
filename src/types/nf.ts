@@ -75,24 +75,3 @@ export interface NFImport {
   updated_at: Date | Timestamp;
   created_by: string;
 }
-
-export interface NFImportCreate {
-  tenant_id: string;
-  numero_nf: string;
-  origem: NFOrigem;
-  arquivo_nome: string;
-  arquivo_url?: string;
-  natureza_operacao?: string;
-  forma_pagamento?: string;
-  tipo_nota?: TipoNota;
-  created_by: string;
-}
-
-/** Resultado da checagem de duplicidade/estado de uma NF por numero_nf. */
-export interface NFNumeroStatus {
-  exists: boolean;
-  blocked: boolean;
-  reason?: string;
-  /** Import de origem xml (travado) mais recente para este numero_nf, se houver. */
-  xmlImport?: NFImport;
-}
