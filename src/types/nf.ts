@@ -38,6 +38,13 @@ export interface XmlParseError {
 
 export type NFOrigem = 'xml' | 'manual';
 
+/** Identidade de uma NF: CNPJ do emitente (14 posições) + série + número, normalizados. */
+export interface NFIdentity {
+  cnpj: string;
+  serie: string;
+  numero: string;
+}
+
 export interface NFProdutoPendente {
   codigo: string;
   nome_produto: string;
