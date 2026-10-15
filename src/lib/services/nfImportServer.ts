@@ -212,6 +212,84 @@ export async function lookupNfIdentity(
   };
 }
 
+type PlannedXmlInventory = ReturnType<typeof planXmlLines>['inventory'][number];
+type PlannedXmlPending = ReturnType<typeof planXmlLines>['pending'][number];
+type ManualPlanOk = Extract<ReturnType<typeof planManualLines>, { ok: true }>;
+
+/** Item de estoque de uma linha XML (mesmos campos de sempre). */
+function xmlInventoryDoc(
+  p: {
+    tenantId: string;
+    importId: string;
+    identity: NFIdentity;
+    parsedNF: ParsedNF;
+    agora: FieldValue;
+  },
+  linha: PlannedXmlInventory
+) {
+  const { produto, master } = linha;
+  return {
+    tenant_id: p.tenantId,
+    produto_id: master.id,
+    codigo_produto: produto.codigo,
+    nome_produto: produto.nome_produto,
+    lote: produto.lote,
+    quantidade_inicial: linha.quantidade,
+    quantidade_disponivel: linha.quantidade,
+    quantidade_reservada: 0,
+    dt_validade: validadeFromNF(produto.dt_validade),
+    dt_entrada: p.agora,
+    valor_unitario: linha.valor_unitario,
+    nf_numero: p.identity.numero,
+    nf_id: p.importId,
+    natureza_operacao: p.parsedNF.natureza_operacao ?? null,
+    tipo_nota: p.parsedNF.tipo_nota ?? null,
+    active: true,
+    category: master.category ?? null,
+    brand: 'Rennova',
+    fragmentavel: master.fragmentavel === true,
+    unidades_por_embalagem: master.unidades_por_embalagem ?? null,
+    quantidade_embalagens: master.fragmentavel ? produto.quantidade : null,
+    valor_por_embalagem: master.fragmentavel ? produto.valor_unitario : null,
+    created_at: p.agora,
+    updated_at: p.agora,
+  };
+}
+
+/** Pendência de catálogo de uma linha XML. */
+function xmlPendingDoc(
+  p: {
+    tenantId: string;
+    importId: string;
+    idSequencial: number;
+    identity: NFIdentity;
+    agora: FieldValue;
+  },
+  { linha, produto, fora_do_padrao }: PlannedXmlPending
+) {
+  return {
+    tenant_id: p.tenantId,
+    nf_import_id: p.importId,
+    id_sequencial: p.idSequencial,
+    numero_nf: p.identity.numero,
+    serie: p.identity.serie,
+    cnpj_emitente: p.identity.cnpj,
+    origem: 'xml',
+    ...(fora_do_padrao ? { fora_do_padrao: true } : {}),
+    linha,
+    codigo: produto.codigo,
+    nome_produto: produto.nome_produto,
+    lote: produto.lote,
+    quantidade: produto.quantidade,
+    valor_unitario: produto.valor_unitario,
+    dt_validade: validadeFromNF(produto.dt_validade),
+    ...(produto.dt_fabricacao ? { dt_fabricacao: validadeFromNF(produto.dt_fabricacao) } : {}),
+    ...(produto.sem_rastro ? { sem_rastro: true } : {}),
+    status: 'aberta',
+    created_at: p.agora,
+  };
+}
+
 export async function confirmXmlImport(p: {
   tenantId: string;
   uid: string;
@@ -281,62 +359,14 @@ export async function confirmXmlImport(p: {
     });
     tx.set(r.identity(identityKey), { nf_import_id: importId, origem: 'xml', created_at: agora });
 
-    for (const linha of plan.inventory) {
-      const { produto, master } = linha;
-      tx.set(r.inventory(), {
-        tenant_id: tenantId,
-        produto_id: master.id,
-        codigo_produto: produto.codigo,
-        nome_produto: produto.nome_produto,
-        lote: produto.lote,
-        quantidade_inicial: linha.quantidade,
-        quantidade_disponivel: linha.quantidade,
-        quantidade_reservada: 0,
-        dt_validade: validadeFromNF(produto.dt_validade),
-        dt_entrada: agora,
-        valor_unitario: linha.valor_unitario,
-        nf_numero: identity.numero,
-        nf_id: importId,
-        natureza_operacao: parsedNF.natureza_operacao ?? null,
-        tipo_nota: parsedNF.tipo_nota ?? null,
-        active: true,
-        category: master.category ?? null,
-        brand: 'Rennova',
-        fragmentavel: master.fragmentavel === true,
-        unidades_por_embalagem: master.unidades_por_embalagem ?? null,
-        quantidade_embalagens: master.fragmentavel ? produto.quantidade : null,
-        valor_por_embalagem: master.fragmentavel ? produto.valor_unitario : null,
-        created_at: agora,
-        updated_at: agora,
-      });
-    }
-
-    for (const { linha, produto, fora_do_padrao } of plan.pending) {
+    const ctx = { tenantId, importId, idSequencial, identity, parsedNF, agora };
+    for (const linha of plan.inventory) tx.set(r.inventory(), xmlInventoryDoc(ctx, linha));
+    for (const pendente of plan.pending) {
       tx.set(
-        adminDb.collection('pending_master_products').doc(`${tenantId}_${importId}_${linha}`),
-        {
-          tenant_id: tenantId,
-          nf_import_id: importId,
-          id_sequencial: idSequencial,
-          numero_nf: identity.numero,
-          serie: identity.serie,
-          cnpj_emitente: identity.cnpj,
-          origem: 'xml',
-          ...(fora_do_padrao ? { fora_do_padrao: true } : {}),
-          linha,
-          codigo: produto.codigo,
-          nome_produto: produto.nome_produto,
-          lote: produto.lote,
-          quantidade: produto.quantidade,
-          valor_unitario: produto.valor_unitario,
-          dt_validade: validadeFromNF(produto.dt_validade),
-          ...(produto.dt_fabricacao
-            ? { dt_fabricacao: validadeFromNF(produto.dt_fabricacao) }
-            : {}),
-          ...(produto.sem_rastro ? { sem_rastro: true } : {}),
-          status: 'aberta',
-          created_at: agora,
-        }
+        adminDb
+          .collection('pending_master_products')
+          .doc(`${tenantId}_${importId}_${pendente.linha}`),
+        xmlPendingDoc(ctx, pendente)
       );
     }
 
@@ -360,6 +390,168 @@ export async function confirmXmlImport(p: {
       pendentes,
     };
   });
+}
+
+/** Item de estoque de um lançamento manual. */
+function manualInventoryDoc(
+  p: {
+    tenantId: string;
+    importId: string;
+    identity: NFIdentity;
+    tipo: 'rennova' | 'outra_marca';
+    agora: FieldValue;
+  },
+  linha: ManualPlanOk['inventory'][number]
+) {
+  const { produto: prod, master } = linha;
+  const rennova = p.tipo === 'rennova';
+  const fragmentavel = rennova && master?.fragmentavel === true;
+  return {
+    tenant_id: p.tenantId,
+    nf_id: p.importId,
+    nf_import_id: p.importId,
+    nf_numero: p.identity.numero,
+    master_product_id: master?.id ?? null,
+    produto_id: master?.id ?? null,
+    codigo_produto: prod.codigo,
+    nome_produto: prod.nome_produto,
+    category: (rennova ? master?.category : prod.category) ?? null,
+    lote: prod.lote,
+    quantidade_inicial: linha.quantidade,
+    quantidade_disponivel: linha.quantidade,
+    quantidade_reservada: 0,
+    dt_validade: validadeFromInput(prod.dt_validade),
+    dt_entrada: p.agora,
+    valor_unitario: linha.valor_unitario,
+    active: true,
+    is_rennova: rennova,
+    brand: rennova ? 'Rennova' : (prod.brand ?? null),
+    ...(fragmentavel
+      ? {
+          fragmentavel: true,
+          unidades_por_embalagem: master?.unidades_por_embalagem ?? null,
+          quantidade_embalagens: prod.quantidade,
+          valor_por_embalagem: prod.valor_unitario,
+        }
+      : {}),
+    created_at: p.agora,
+    updated_at: p.agora,
+  };
+}
+
+/** Pendência de catálogo de um item manual (quantidade e valor como na NF). */
+function manualPendingDoc(
+  p: {
+    tenantId: string;
+    importId: string;
+    idSequencial: number;
+    identity: NFIdentity;
+    lancamento: number;
+    agora: FieldValue;
+  },
+  { linha, produto }: ManualPlanOk['pending'][number]
+) {
+  return {
+    tenant_id: p.tenantId,
+    nf_import_id: p.importId,
+    id_sequencial: p.idSequencial,
+    numero_nf: p.identity.numero,
+    serie: p.identity.serie,
+    cnpj_emitente: p.identity.cnpj,
+    origem: 'manual',
+    lancamento: p.lancamento,
+    linha,
+    codigo: produto.codigo,
+    nome_produto: produto.nome_produto,
+    lote: produto.lote,
+    quantidade: produto.quantidade,
+    valor_unitario: produto.valor_unitario,
+    dt_validade: validadeFromInput(produto.dt_validade),
+    status: 'aberta',
+    created_at: p.agora,
+  };
+}
+
+/**
+ * Grava o registro do lançamento manual: cria (contador + registro +
+ * identidade) ou complementa o mesmo ID. No complemento, produtos_pendentes é
+ * regravado por leitura-modificação-escrita (não arrayUnion, que fundiria
+ * linhas iguais).
+ */
+function writeManualRecord(
+  tx: Transaction,
+  p: {
+    tenantId: string;
+    uid: string;
+    identity: NFIdentity;
+    identityKey: string;
+    chave_acesso?: string;
+    tipo: 'rennova' | 'outra_marca';
+    decision: { action: 'create' } | { action: 'complement'; nfImportId: string };
+    conflict: ConflictInfo | null;
+    ultimoId: number | undefined;
+    importados: number;
+    pendentes: PendingSummary[];
+    agora: FieldValue;
+  }
+): { importId: string; idSequencial: number } {
+  const r = refs(p.tenantId);
+  const temPendente = p.pendentes.length > 0;
+  if (p.decision.action === 'complement') {
+    const importId = p.decision.nfImportId;
+    tx.update(r.nfImport(importId), {
+      produtos_importados: FieldValue.increment(p.importados),
+      lancamentos_manuais: FieldValue.increment(1),
+      ...(temPendente
+        ? {
+            produtos_pendentes: [...(p.conflict?.produtos_pendentes ?? []), ...p.pendentes],
+            status: 'novo_produto_pendente',
+          }
+        : {}),
+      updated_at: p.agora,
+    });
+    return { importId, idSequencial: Number(importId) };
+  }
+
+  const idSequencial = nextImportId(p.ultimoId);
+  const importId = String(idSequencial);
+  tx.set(r.counter, { ultimo_id: idSequencial, updated_at: p.agora });
+  tx.set(r.nfImport(importId), {
+    id_sequencial: idSequencial,
+    tenant_id: p.tenantId,
+    origem: 'manual',
+    identidade: p.identityKey,
+    numero_nf: p.identity.numero,
+    serie: p.identity.serie,
+    cnpj_emitente: p.identity.cnpj,
+    ...(p.chave_acesso ? { chave_acesso: p.chave_acesso } : {}),
+    tipo: p.tipo,
+    status: temPendente ? 'novo_produto_pendente' : 'success',
+    produtos_importados: p.importados,
+    produtos_pendentes: p.pendentes,
+    lancamentos_manuais: 1,
+    created_by: p.uid,
+    created_at: p.agora,
+    updated_at: p.agora,
+  });
+  tx.set(r.identity(p.identityKey), {
+    nf_import_id: importId,
+    origem: 'manual',
+    created_at: p.agora,
+  });
+  return { importId, idSequencial };
+}
+
+async function readManualMasters(
+  tx: Transaction,
+  tipo: 'rennova' | 'outra_marca',
+  produtos: ManualNfProductInput[]
+): Promise<Map<string, MasterLite>> {
+  if (tipo !== 'rennova') return new Map<string, MasterLite>();
+  const codes = Array.from(
+    new Set(produtos.map((prod) => prod.codigo).filter(isCatalogProductCode))
+  );
+  return readMasters(tx, codes);
 }
 
 export async function confirmManualLaunch(p: {
@@ -397,13 +589,7 @@ export async function confirmManualLaunch(p: {
     }
 
     const counterSnap = decision.action === 'create' ? await tx.get(r.counter) : null;
-    const masters =
-      tipo === 'rennova'
-        ? await readMasters(
-            tx,
-            Array.from(new Set(produtos.map((prod) => prod.codigo).filter(isCatalogProductCode)))
-          )
-        : new Map<string, MasterLite>();
+    const masters = await readManualMasters(tx, tipo, produtos);
 
     // O servidor decide pelo catálogo: produto Rennova sem master ativo
     // (ausente ou inativo) vira pendência no mesmo ID.
@@ -421,112 +607,29 @@ export async function confirmManualLaunch(p: {
     const lancamento =
       decision.action === 'complement' ? (conflict?.lancamentos_manuais ?? 0) + 1 : 1;
 
-    let importId: string;
-    let idSequencial: number;
-    if (decision.action === 'complement') {
-      importId = decision.nfImportId;
-      idSequencial = Number(importId);
-      // Leitura-modificação-escrita (não arrayUnion, que fundiria linhas iguais)
-      tx.update(r.nfImport(importId), {
-        produtos_importados: FieldValue.increment(plan.inventory.length),
-        lancamentos_manuais: FieldValue.increment(1),
-        ...(pendentes.length > 0
-          ? {
-              produtos_pendentes: [...(conflict?.produtos_pendentes ?? []), ...pendentes],
-              status: 'novo_produto_pendente',
-            }
-          : {}),
-        updated_at: agora,
-      });
-    } else {
-      idSequencial = nextImportId(counterSnap?.data()?.ultimo_id);
-      importId = String(idSequencial);
-      tx.set(r.counter, { ultimo_id: idSequencial, updated_at: agora });
-      tx.set(r.nfImport(importId), {
-        id_sequencial: idSequencial,
-        tenant_id: tenantId,
-        origem: 'manual',
-        identidade: identityKey,
-        numero_nf: identity.numero,
-        serie: identity.serie,
-        cnpj_emitente: identity.cnpj,
-        ...(p.chave_acesso ? { chave_acesso: p.chave_acesso } : {}),
-        tipo,
-        status: pendentes.length > 0 ? 'novo_produto_pendente' : 'success',
-        produtos_importados: plan.inventory.length,
-        produtos_pendentes: pendentes,
-        lancamentos_manuais: 1,
-        created_by: uid,
-        created_at: agora,
-        updated_at: agora,
-      });
-      tx.set(r.identity(identityKey), {
-        nf_import_id: importId,
-        origem: 'manual',
-        created_at: agora,
-      });
-    }
+    const { importId, idSequencial } = writeManualRecord(tx, {
+      tenantId,
+      uid,
+      identity,
+      identityKey,
+      chave_acesso: p.chave_acesso,
+      tipo,
+      decision,
+      conflict,
+      ultimoId: counterSnap?.data()?.ultimo_id,
+      importados: plan.inventory.length,
+      pendentes,
+      agora,
+    });
 
-    for (const linha of plan.inventory) {
-      const { produto: prod, master } = linha;
-      const fragmentavel = tipo === 'rennova' && master?.fragmentavel === true;
-      tx.set(r.inventory(), {
-        tenant_id: tenantId,
-        nf_id: importId,
-        nf_import_id: importId,
-        nf_numero: identity.numero,
-        master_product_id: master?.id ?? null,
-        produto_id: master?.id ?? null,
-        codigo_produto: prod.codigo,
-        nome_produto: prod.nome_produto,
-        category: (tipo === 'rennova' ? master?.category : prod.category) ?? null,
-        lote: prod.lote,
-        quantidade_inicial: linha.quantidade,
-        quantidade_disponivel: linha.quantidade,
-        quantidade_reservada: 0,
-        dt_validade: validadeFromInput(prod.dt_validade),
-        dt_entrada: agora,
-        valor_unitario: linha.valor_unitario,
-        active: true,
-        is_rennova: tipo === 'rennova',
-        brand: tipo === 'rennova' ? 'Rennova' : (prod.brand ?? null),
-        ...(fragmentavel
-          ? {
-              fragmentavel: true,
-              unidades_por_embalagem: master?.unidades_por_embalagem ?? null,
-              quantidade_embalagens: prod.quantidade,
-              valor_por_embalagem: prod.valor_unitario,
-            }
-          : {}),
-        created_at: agora,
-        updated_at: agora,
-      });
-    }
-
-    for (const { linha, produto } of plan.pending) {
+    const ctx = { tenantId, importId, idSequencial, identity, tipo, lancamento, agora };
+    for (const linha of plan.inventory) tx.set(r.inventory(), manualInventoryDoc(ctx, linha));
+    for (const pendente of plan.pending) {
       tx.set(
         adminDb
           .collection('pending_master_products')
-          .doc(`${tenantId}_${importId}_m${lancamento}_${linha}`),
-        {
-          tenant_id: tenantId,
-          nf_import_id: importId,
-          id_sequencial: idSequencial,
-          numero_nf: identity.numero,
-          serie: identity.serie,
-          cnpj_emitente: identity.cnpj,
-          origem: 'manual',
-          lancamento,
-          linha,
-          codigo: produto.codigo,
-          nome_produto: produto.nome_produto,
-          lote: produto.lote,
-          quantidade: produto.quantidade,
-          valor_unitario: produto.valor_unitario,
-          dt_validade: validadeFromInput(produto.dt_validade),
-          status: 'aberta',
-          created_at: agora,
-        }
+          .doc(`${tenantId}_${importId}_m${lancamento}_${pendente.linha}`),
+        manualPendingDoc(ctx, pendente)
       );
     }
 

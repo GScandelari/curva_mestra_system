@@ -81,7 +81,7 @@ export function getNomeCompletoMasterProduct(product: MasterProduct): string {
  * a 8 dígitos. ESPELHADO na rule de master_products (isCatalogCode em
  * firestore.rules) — mudar nos dois lugares.
  */
-export const CATALOG_CODE_PATTERN = /^[1-9][0-9]{4,7}$/;
+export const CATALOG_CODE_PATTERN = /^[1-9]\d{4,7}$/;
 
 /** Código já normalizado (sem zeros à esquerda) está no padrão do catálogo? */
 export function isCatalogProductCode(codigoNormalizado: string): boolean {

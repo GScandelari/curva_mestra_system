@@ -281,55 +281,62 @@ export default function ManualNFPage() {
     }
   };
 
+  /**
+   * Produto Rennova fora do catálogo informado à mão: valida e monta o item
+   * (sem conversão — quantidade e valor como na NF; o servidor converte na
+   * incorporação, pela regra do catálogo). Devolve null e avisa se inválido.
+   */
+  const montarItemPendenteCadastro = (): NFProduct | null => {
+    const camposVazios = [
+      codigoManual,
+      nomeManual.trim(),
+      lote,
+      quantidade,
+      dtValidade,
+      valorUnitario,
+    ];
+    if (camposVazios.some((v) => !v)) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Preencha todos os campos para adicionar o produto',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    const codigo = normalizeLeadingZeros(codigoManual);
+    if (!isCatalogProductCode(codigo)) {
+      toast({
+        title: 'Código inválido',
+        description: 'Use de 5 a 8 dígitos numéricos.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    if (masterProducts.some((p) => normalizeLeadingZeros(p.code) === codigo)) {
+      toast({
+        title: 'Produto já está no catálogo',
+        description: 'Este código está no catálogo: selecione o produto na busca.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    return {
+      codigo,
+      nome_produto: nomeManual.trim().toUpperCase(),
+      brand: 'Rennova',
+      lote: normalizeLeadingZeros(lote),
+      quantidade: Number.parseFloat(quantidade),
+      dt_validade: dtValidade,
+      valor_unitario: Number.parseFloat(valorUnitario),
+      pendente_cadastro: true,
+    };
+  };
+
   const handleAddProduct = () => {
     if (tipoNF === 'rennova' && modoManual) {
-      if (
-        !codigoManual ||
-        !nomeManual.trim() ||
-        !lote ||
-        !quantidade ||
-        !dtValidade ||
-        !valorUnitario
-      ) {
-        toast({
-          title: 'Campos obrigatórios',
-          description: 'Preencha todos os campos para adicionar o produto',
-          variant: 'destructive',
-        });
-        return;
-      }
-      const codigo = normalizeLeadingZeros(codigoManual);
-      if (!/^\d+$/.test(codigo) || !isCatalogProductCode(codigo)) {
-        toast({
-          title: 'Código inválido',
-          description: 'Use de 5 a 8 dígitos numéricos.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (masterProducts.some((p) => normalizeLeadingZeros(p.code) === codigo)) {
-        toast({
-          title: 'Produto já está no catálogo',
-          description: 'Este código está no catálogo: selecione o produto na busca.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      // Sem conversão: quantidade e valor como na NF (o servidor converte na
-      // incorporação, pela regra do catálogo)
-      setProdutos([
-        ...produtos,
-        {
-          codigo,
-          nome_produto: nomeManual.trim().toUpperCase(),
-          brand: 'Rennova',
-          lote: normalizeLeadingZeros(lote),
-          quantidade: parseFloat(quantidade),
-          dt_validade: dtValidade,
-          valor_unitario: parseFloat(valorUnitario),
-          pendente_cadastro: true,
-        },
-      ]);
+      const item = montarItemPendenteCadastro();
+      if (!item) return;
+      setProdutos([...produtos, item]);
     } else if (tipoNF === 'rennova') {
       // Validar campos Rennova
       if (!selectedProduct || !lote || !quantidade || !dtValidade || !valorUnitario) {

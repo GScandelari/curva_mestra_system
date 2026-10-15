@@ -211,7 +211,7 @@ export function planManualLines(
       };
     }
     const master = mastersByCode.get(produto.codigo);
-    if (!master || !master.active) {
+    if (!master?.active) {
       pending.push({ linha, produto });
       continue;
     }
