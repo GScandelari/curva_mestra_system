@@ -86,3 +86,6 @@ docs_old/
 /playwright-report/
 /test-results/
 /blob-report/
+
+# XMLs reais de NF-e para teste local (contêm dados pessoais do destinatário)
+/ONLY_FOR_DEVS/NFs_teste/
