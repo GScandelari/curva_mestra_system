@@ -54,38 +54,13 @@ export interface InventoryItem {
 // HELPER DE CÁLCULO DE INVENTÁRIO (FRAGMENTAÇÃO)
 // ============================================================================
 
-export interface CalcInventarioParams {
-  quantidadeInformada: number; // embalagens (se fragmentável) ou unidades
-  fragmentavel: boolean;
-  unidadesPorEmbalagem?: number;
-  valorInformado: number; // por embalagem (se fragmentável) ou por unidade
-}
-
-export interface CalcInventarioResult {
-  quantidade_inicial: number; // sempre em unidades
-  valor_unitario: number; // sempre por unidade
-}
-
-/**
- * Calcula quantidade_inicial e valor_unitario para entrada de inventário.
- * Para produtos fragmentáveis, converte embalagens → unidades e distribui o valor.
- * Para não fragmentáveis, retorna os valores informados sem alteração.
- */
-export function calcularQuantidadeInventario(params: CalcInventarioParams): CalcInventarioResult {
-  const { quantidadeInformada, fragmentavel, unidadesPorEmbalagem, valorInformado } = params;
-
-  if (!fragmentavel || !unidadesPorEmbalagem) {
-    return {
-      quantidade_inicial: quantidadeInformada,
-      valor_unitario: valorInformado,
-    };
-  }
-
-  return {
-    quantidade_inicial: quantidadeInformada * unidadesPorEmbalagem,
-    valor_unitario: valorInformado / unidadesPorEmbalagem,
-  };
-}
+// Movido para um módulo puro (importável pela rota de confirmação no servidor);
+// reexportado aqui para não quebrar os chamadores existentes.
+export {
+  calcularQuantidadeInventario,
+  type CalcInventarioParams,
+  type CalcInventarioResult,
+} from '@/lib/inventoryQuantity';
 
 export interface InventoryStats {
   totalProdutos: number;
