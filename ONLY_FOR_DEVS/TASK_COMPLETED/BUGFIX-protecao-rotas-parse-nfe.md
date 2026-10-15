@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 09/10/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Stanke Scandelari
+**Data de Conclusão:** 14/10/2026
 **Tipo:** Bugfix
 **Branch sugerida:** `bugfix/nfe-parse-routes-hardening`
 **Prioridade:** Média
-**Versão:** 1.0
+**Versão:** 1.1
 **Origem:** `UC-10-RN-12` (Média, Achado de segurança / Código morto) + `UC-10-RN-13` (Baixa, Achado de segurança) — `ONLY_FOR_DEVS/PO_BA_Docs/_MAPA-DE-BUGS-E-MELHORIAS.md` (v3.51; também listado na Seção 5, código morto)
 
 > Duas rotas públicas de parse de NF-e: (a) `POST /api/parse-nf` — parser legado de DANFE em PDF (`pdf-parse`), sem nenhum chamador, sem autenticação, sem limite de tamanho, aceitando múltiplos arquivos e com 46 `console.log` de debug (inclusive trechos do texto extraído); (b) `POST /api/parse-nf-xml` — rota em uso pela importação de UC-10, também sem autenticação e com o limite de 10MB só no client. Esta correção **deleta** (a) e a dependência `pdf-parse`, e **endurece** (b): ID token Firebase obrigatório de `clinic_admin` ativo, limite de 10MB no servidor (413), exatamente um arquivo `.xml` por requisição; o cliente `/clinic/upload` passa a enviar o token. Nenhuma mudança de comportamento para o `clinic_admin` legítimo.
@@ -560,3 +562,4 @@ Lógica de segurança: prioridade alta (regra do template). Mock de `../lib/fire
 | Versão | Data | Autor | O que mudou |
 |---|---|---|---|
 | 1.0 | 09/10/2026 | Doc Writer (Claude) | Versão inicial. Sem decisões pendentes. |
+| 1.1 | 14/10/2026 | Guilherme Stanke Scandelari | Task concluída — movida para TASK_COMPLETED. Entregue na branch `bugfix/nfe-parse-routes-hardening`, mergeada em `gscandelari_setup` pelo PR #390; PR #391 (`gscandelari_setup` → `develop`) aberto; validação manual feita em `dev-gscandelari.web.app` em 14/10/2026. Rota legada `POST /api/parse-nf` e dependência `pdf-parse` removidas; `POST /api/parse-nf-xml` exige ID token de `clinic_admin` ativo, limita 10MB no servidor e aceita exatamente um `.xml`. Gate de testes (B.3): 30 testes Jest novos (`nfeUploadValidation.test.ts` e `parseNfXmlRoute.test.ts`) e `npm run test:coverage` verde (26 suítes, 435 testes); smoke contra o app + emulador conferiu 401/403/400/413/404. **Pendências de fechamento:** (1) atualizar UC-10 (em andamento); (2) dar baixa em `UC-10-RN-12` e `UC-10-RN-13` no `_MAPA-DE-BUGS-E-MELHORIAS.md` (em andamento); (3) caderno E2E `tests/e2e/UC-10-importar-nfe-via-upload-de-xml.spec.ts` a gerar pelo `qa-agent` (Seção 8.3) **depois** da entrega do `BUGFIX-identidade-e-duplicidade-nfe.md`, que muda o fluxo de importação, com revisão humana obrigatória antes de virar gate de CI. |
