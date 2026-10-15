@@ -12,8 +12,8 @@ import { TipoNotaBadge } from '@/components/inventory/TipoNotaBadge';
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Package, Loader2 } from 'lucide-react';
 import { getMasterProductByCode } from '@/lib/services/masterProductService';
 import { formatNFLabel } from '@/lib/nfIdentity';
-import { listOutOfPatternCodes } from '@/lib/nfImportPlanner';
-import type { ParsedNF, XmlParseError } from '@/types/nf';
+import { evaluateIdentityConflict, listOutOfPatternCodes } from '@/lib/nfImportPlanner';
+import type { NfIdentityLookupResponse, ParsedNF, XmlParseError } from '@/types/nf';
 
 interface PendenteResultado {
   codigo: string;
@@ -30,10 +30,22 @@ interface ImportResult {
   arquivoSalvo: boolean;
 }
 
+const AVISO_CONSULTA_FALHOU =
+  'Não foi possível verificar agora se a NF já foi cadastrada; a verificação será feita ao salvar.';
+
 const TEXTO_PENDENTES =
   'O Administrador do Sistema foi informado e atuará assim que possível. Quando o cadastro for concluído ou recusado, você será avisado pelo sino de notificações.';
 const TEXTO_FORA_DO_PADRAO =
   'O código destes produtos não segue o padrão do catálogo Rennova. Eles não entrarão no estoque. O Administrador do Sistema foi informado e atuará assim que possível. Se o item for recusado, você será avisado pelo sino de notificações.';
+
+/** "O produto X não foi inserido" / "Os produtos X, Y e Z não foram inseridos". */
+function textoNaoInseridos(itens: PendenteResultado[]): string {
+  const nomes = Array.from(new Set(itens.map((p) => p.nome_produto)));
+  const lista = new Intl.ListFormat('pt-BR').format(nomes);
+  return nomes.length === 1
+    ? `O produto ${lista} não foi inserido no estoque.`
+    : `Os produtos ${lista} não foram inseridos no estoque.`;
+}
 
 function listaPendentes(itens: PendenteResultado[]) {
   return (
@@ -63,6 +75,9 @@ export default function UploadPage() {
   const [codigosSemCatalogo, setCodigosSemCatalogo] = useState<Set<string>>(new Set());
   // Códigos fora do padrão do catálogo (5 a 8 dígitos): pendentes, nunca incorporados
   const [codigosForaDoPadrao, setCodigosForaDoPadrao] = useState<Set<string>>(new Set());
+  // Checagem antecipada de duplicidade: bloqueio (NF já cadastrada) ou aviso de falha
+  const [bloqueioDuplicidade, setBloqueioDuplicidade] = useState('');
+  const [avisoConsulta, setAvisoConsulta] = useState('');
   const [resultado, setResultado] = useState<ImportResult | null>(null);
   const isAdmin = claims?.role === 'clinic_admin';
 
@@ -134,6 +149,35 @@ export default function UploadPage() {
       );
       const consultas = await Promise.all(codigos.map((c) => getMasterProductByCode(c)));
       setCodigosForaDoPadrao(foraDoPadrao);
+
+      // Checagem antecipada: a NF já está cadastrada? (a confirmação no servidor
+      // continua sendo a checagem que vale; se a consulta falhar, segue com aviso)
+      setBloqueioDuplicidade('');
+      setAvisoConsulta('');
+      try {
+        const nf = parseResult.parsedNF;
+        const params = new URLSearchParams({
+          cnpj: nf.cnpj_fornecedor,
+          serie: nf.serie,
+          numero: nf.numero,
+        });
+        const lookup = await fetch(`/api/nf-imports/identidade?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!lookup.ok) throw new Error(`HTTP ${lookup.status}`);
+        const fatos = (await lookup.json()) as NfIdentityLookupResponse;
+        if (fatos.existe) {
+          const decisao = evaluateIdentityConflict('xml', {
+            nf_import_id: fatos.importId,
+            origem: fatos.origem,
+            hasPending: fatos.hasPending,
+            hasRejected: fatos.hasRejected,
+          });
+          if (decisao.action === 'blocked') setBloqueioDuplicidade(decisao.reason);
+        }
+      } catch {
+        setAvisoConsulta(AVISO_CONSULTA_FALHOU);
+      }
       setCodigosSemCatalogo(
         new Set(codigos.filter((_, i) => !consultas[i].product || !consultas[i].product.active))
       );
@@ -193,6 +237,8 @@ export default function UploadPage() {
     setWarnings([]);
     setCodigosSemCatalogo(new Set());
     setCodigosForaDoPadrao(new Set());
+    setBloqueioDuplicidade('');
+    setAvisoConsulta('');
     setResultado(null);
   };
 
@@ -306,6 +352,14 @@ export default function UploadPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {bloqueioDuplicidade && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>NF já cadastrada</AlertTitle>
+                  <AlertDescription>{bloqueioDuplicidade}</AlertDescription>
+                </Alert>
+              )}
+
               {/* Summary */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
@@ -415,6 +469,14 @@ export default function UploadPage() {
                 </AlertDescription>
               </Alert>
 
+              {avisoConsulta && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Verificação de duplicidade</AlertTitle>
+                  <AlertDescription>{avisoConsulta}</AlertDescription>
+                </Alert>
+              )}
+
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -426,6 +488,7 @@ export default function UploadPage() {
               <div className="flex gap-3">
                 <Button
                   onClick={handleConfirmImport}
+                  disabled={!!bloqueioDuplicidade}
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
@@ -515,13 +578,8 @@ export default function UploadPage() {
                   <AlertTitle>Produtos não importados</AlertTitle>
                   <AlertDescription className="space-y-2">
                     <p>
-                      Os produtos{' '}
-                      {new Intl.ListFormat('pt-BR').format(
-                        resultado.pendentes
-                          .filter((p) => !p.fora_do_padrao)
-                          .map((p) => p.nome_produto)
-                      )}{' '}
-                      não foram inseridos no estoque. {TEXTO_PENDENTES}
+                      {textoNaoInseridos(resultado.pendentes.filter((p) => !p.fora_do_padrao))}{' '}
+                      {TEXTO_PENDENTES}
                     </p>
                     {listaPendentes(resultado.pendentes.filter((p) => !p.fora_do_padrao))}
                   </AlertDescription>
