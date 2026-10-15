@@ -211,7 +211,12 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
                         )}
                       </div>
 
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                      {/* Pendências de NF-e: texto completo (o motivo da recusa fica no fim) */}
+                      <p
+                        className={`text-sm text-gray-600 mt-1 ${
+                          notification.type.startsWith('nf_pending') ? '' : 'line-clamp-2'
+                        }`}
+                      >
                         {notification.message}
                       </p>
 
