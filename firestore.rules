@@ -284,16 +284,18 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       // Validação de formato no servidor -- antes, só o client validava o
-      // código de 7 dígitos (validateProductCode em types/masterProduct.ts);
-      // esta regra é a única camada de validação server-side deste fluxo
-      // (não existe API route dedicada, a escrita é direto via client SDK).
+      // código (validateProductCode em types/masterProduct.ts); esta regra é
+      // a única camada de validação server-side deste fluxo (não existe API
+      // route dedicada, a escrita é direto via client SDK). Código com 1 a 7
+      // dígitos, sem zeros à esquerda -- mesma forma do cProd normalizado da
+      // NF-e (BUGFIX-identidade-e-duplicidade-nfe).
       allow create: if isSystemAdmin()
-        && request.resource.data.code.matches('^[0-9]{7}$')
+        && request.resource.data.code.matches('^[1-9][0-9]{0,6}$')
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0;
       allow update: if isSystemAdmin()
         && (!('code' in request.resource.data)
-            || request.resource.data.code.matches('^[0-9]{7}$'))
+            || request.resource.data.code.matches('^[1-9][0-9]{0,6}$'))
         && (!('name' in request.resource.data)
             || (request.resource.data.name is string && request.resource.data.name.size() > 0));
       allow delete: if isSystemAdmin();

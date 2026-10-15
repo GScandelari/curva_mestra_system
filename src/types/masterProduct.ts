@@ -85,11 +85,12 @@ export function formatProductCode(code: string): string {
 }
 
 /**
- * Helper para validar código do produto (7 dígitos)
+ * Helper para validar código do produto: 1 a 7 dígitos, não pode ser só zeros.
+ * Zeros à esquerda são removidos na gravação (mesma forma do cProd da NF-e).
  */
 export function validateProductCode(code: string): boolean {
-  const cleaned = code.replace(/\D/g, '');
-  return cleaned.length === 7;
+  const cleaned = code.trim();
+  return /^\d{1,7}$/.test(cleaned) && !/^0+$/.test(cleaned);
 }
 
 /**
