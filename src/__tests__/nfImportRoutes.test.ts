@@ -93,7 +93,12 @@ beforeEach(() => {
     produtosImportados: 1,
     pendentes: [],
   });
-  mockConfirmManual.mockResolvedValue({ kind: 'created', importId: '1000', produtosImportados: 1 });
+  mockConfirmManual.mockResolvedValue({
+    kind: 'created',
+    importId: '1000',
+    produtosImportados: 1,
+    pendentes: [],
+  });
   mockSaveFile.mockResolvedValue('salvo');
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -161,13 +166,32 @@ describe('POST /api/nf-imports/xml', () => {
   });
 
   it('returns 422 above the write budget without calling the service', async () => {
-    mockParseNfeXml.mockReturnValue({
-      data: { ...parsedNF, produtos: Array.from({ length: 498 }, () => parsedNF.produtos[0]) },
+    const comLinhas = (n: number) => ({
+      data: { ...parsedNF, produtos: Array.from({ length: n }, () => parsedNF.produtos[0]) },
       errors: [],
     });
+    mockParseNfeXml.mockReturnValue(comLinhas(497));
     const res = await postXml(xmlRequest());
     expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe(
+      'Esta NF-e tem 497 itens; o limite por importação é 496.'
+    );
     expect(mockConfirmXml).not.toHaveBeenCalled();
+    mockParseNfeXml.mockReturnValue(comLinhas(496));
+    expect((await postXml(xmlRequest())).status).toBe(201);
+  });
+
+  it('passes the out-of-pattern flag of pending items through', async () => {
+    mockConfirmXml.mockResolvedValue({
+      kind: 'created',
+      importId: '1003',
+      produtosImportados: 0,
+      pendentes: [{ codigo: 'A12', nome_produto: 'X', lote: 'L', fora_do_padrao: true }],
+    });
+    const res = await postXml(xmlRequest());
+    expect((await res.json()).pendentes).toEqual([
+      { codigo: 'A12', nome_produto: 'X', lote: 'L', fora_do_padrao: true },
+    ]);
   });
 
   it('returns 201 with the readable ID and pending products', async () => {
@@ -236,6 +260,7 @@ describe('POST /api/nf-imports/manual', () => {
       idLabel: 'ID 1000',
       complemento: false,
       produtosImportados: 1,
+      pendentes: [],
     });
   });
 
@@ -250,15 +275,51 @@ describe('POST /api/nf-imports/manual', () => {
     expect((await res.json()).complemento).toBe(true);
   });
 
-  it('returns 409 when blocked and 422 for an inactive Rennova product', async () => {
+  it('returns 409 when blocked and the service status for an invalid item', async () => {
     mockConfirmManual.mockResolvedValueOnce({
       kind: 'blocked',
       importId: '1000',
       reason: 'Esta NF já foi importada via XML (ID 1000) e não aceita lançamento manual.',
     });
     expect((await postManual(manualRequest())).status).toBe(409);
-    mockConfirmManual.mockResolvedValueOnce({ kind: 'invalid', error: 'Produto inativo.' });
-    expect((await postManual(manualRequest())).status).toBe(422);
+    mockConfirmManual.mockResolvedValueOnce({
+      kind: 'invalid',
+      status: 400,
+      error: 'Produto 1: código inválido (use de 5 a 8 dígitos numéricos).',
+    });
+    const res = await postManual(manualRequest());
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: 'Produto 1: código inválido (use de 5 a 8 dígitos numéricos).',
+    });
+  });
+
+  it('returns the pending items of a Rennova launch outside the catalog', async () => {
+    mockConfirmManual.mockResolvedValueOnce({
+      kind: 'complemented',
+      importId: '1001',
+      produtosImportados: 1,
+      pendentes: [{ codigo: '88888888', nome_produto: 'NOVO', lote: 'L1' }],
+    });
+    const res = await postManual(manualRequest({ ...manualBody, tipo: 'rennova' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      importId: '1001',
+      idLabel: 'ID 1001',
+      complemento: true,
+      produtosImportados: 1,
+      pendentes: [{ codigo: '88888888', nome_produto: 'NOVO', lote: 'L1' }],
+    });
+  });
+
+  it('allows up to 496 items per launch (4 fixed writes in the worst case)', async () => {
+    const produtos = (n: number) => Array.from({ length: n }, () => manualBody.produtos[0]);
+    expect(
+      (await postManual(manualRequest({ ...manualBody, produtos: produtos(496) }))).status
+    ).toBe(201);
+    const res = await postManual(manualRequest({ ...manualBody, produtos: produtos(497) }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toContain('o limite por importação é 496');
   });
 
   it('ignores a tenant sent in the body', async () => {
