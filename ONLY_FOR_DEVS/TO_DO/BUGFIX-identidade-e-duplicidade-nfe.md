@@ -83,7 +83,7 @@
 - **Coerção numérica, verificada localmente em 14/10/2026 com `fast-xml-parser` 5.7.3 e as mesmas opções:**
   - `<nNF>026229</nNF>` vira `26229`.
   - `<serie>001</serie>` vira `1`.
-  - `<CNPJ>01234567000189</CNPJ>` vira `1234567000189`.
+  - `<CNPJ>01234567000195</CNPJ>` vira `1234567000195`.
   - `<chNFe>` com 44 dígitos vira `3.5250301234567e+43`.
   - `cProd`/`nLote` só com dígitos perdem os zeros à esquerda; os alfanuméricos não. Isso é inconsistente.
   - Com `parseTagValue: false` todos os valores chegam como string (com `trimValues`); o mesmo teste confirmou isso.
@@ -191,7 +191,7 @@ O estoque alimenta todos os relatórios (UC-47, UC-51, UC-52) e o custo por proc
 
 | ID | Descrição | Ator | Prioridade |
 |---|---|---|---|
-| RF-01 | O preview do XML (`/clinic/upload`) só faz parse e exibe os dados. Não grava nada no Firestore nem no Storage. Mostra a identidade ("NF 26229 · série 1 · CNPJ 12.345.678/0001-99") e marca os produtos que **não** estão ativos no catálogo ("Não cadastrado — ficará pendente"). | clinic_admin | Must |
+| RF-01 | O preview do XML (`/clinic/upload`) só faz parse e exibe os dados. Não grava nada no Firestore nem no Storage. Mostra a identidade ("NF 26229 · série 1 · CNPJ 12.345.678/0001-95") e marca os produtos que **não** estão ativos no catálogo ("Não cadastrado — ficará pendente"). | clinic_admin | Must |
 | RF-02 | "Confirmar importação" chama `POST /api/nf-imports/xml` com o arquivo. O servidor refaz o parse e, numa transação, valida a identidade, incrementa o contador, cria o registro, grava o estoque dos produtos do catálogo, cria as pendências dos demais e cria a identidade. | clinic_admin | Must |
 | RF-03 | Em caso de sucesso, a tela mostra "Importação concluída — ID 1000", o total importado e a **lista dos produtos não importados** (código, nome, lote), com o texto "Serão adicionados automaticamente ao estoque quando cadastrados no catálogo; você será notificado." | clinic_admin | Must |
 | RF-04 | Uma NF cuja identidade já existe é recusada com **409** e mensagem detalhada: "Esta NF já foi cadastrada (ID 1000)." Para registro manual existente: "Esta NF já foi cadastrada manualmente (ID 1000) e não pode ser importada via XML." Nada é gravado. | clinic_admin | Must |
@@ -224,7 +224,7 @@ O estoque alimenta todos os relatórios (UC-47, UC-51, UC-52) e o custo por proc
 
 | ID | Regra | Justificativa |
 |---|---|---|
-| RN-01 | **Identidade da NF** = (CNPJ do emitente canônico, série normalizada, número normalizado). Chave de identidade: `${cnpj}_${serie}_${numero}` (ex.: `12345678000199_1_26229`). Não existe fallback "só número". | Decisão do usuário (D2/D3/D4). O nNF só é único por emitente e série. |
+| RN-01 | **Identidade da NF** = (CNPJ do emitente canônico, série normalizada, número normalizado). Chave de identidade: `${cnpj}_${serie}_${numero}` (ex.: `12345678000195_1_26229`). Não existe fallback "só número". | Decisão do usuário (D2/D3/D4). O nNF só é único por emitente e série. |
 | RN-02 | **Matriz de duplicidade (substitui UC-10 RN-02 (a)–(d)):** <br>(1) identidade inexistente → XML **cria**; manual **cria**. <br>(2) identidade existente com origem `manual` → manual **complementa o mesmo registro**; XML é **bloqueado** (409). <br>(3) identidade existente com origem `xml` (qualquer status, inclusive com pendências) → XML **bloqueado** (409, duplicata); manual **bloqueado** (409). | Decisão do usuário: a regra (b) foi revogada e o complemento manual usa o mesmo ID. O reenvio deixou de ser necessário (RN-08). |
 | RN-03 | **ID do registro** = inteiro sequencial por clínica, começando em **1000**. É o ID do documento (`nf_imports/"1000"`) e também o campo `id_sequencial: 1000`. É exibido sempre como **"ID 1000"**, nunca "NF 1000". Complementos manuais não consomem ID. Transações que falham não consomem ID (o contador está na mesma transação), então não há buracos. | Decisão do usuário (D1 revisada). |
 | RN-04 | A chave de acesso é só um campo gravado (`chave_acesso`). No XML é **obrigatória e validada**: o schema SEFAZ exige `infNFe@Id`; o DV precisa bater, e CNPJ, série e número da chave precisam bater com as tags. No manual é opcional, mas, se informada, recebe a mesma validação contra o que foi digitado. | A chave detecta XML adulterado ou montado; a identidade vem das tags e é conferida pela chave. |
@@ -461,7 +461,7 @@ export interface NFImport {
   id_sequencial: number;       // 1000
   tenant_id: string;
   origem: NFOrigem;            // 'xml' | 'manual'
-  identidade: string;          // "12345678000199_1_26229"
+  identidade: string;          // "12345678000195_1_26229"
   numero_nf: string;
   serie: string;
   cnpj_emitente: string;
@@ -521,7 +521,7 @@ export function normalizeSerie(raw: unknown): string;           // '001'→'1'; 
 export function normalizeLeadingZeros(raw: unknown): string;    // trim; '0012345'→'12345'; '00A12'→'A12'; '000'→'0'; ''→''
 export function normalizeCnpj(raw: unknown): string;            // remove . / - espaço; uppercase; exige /^[0-9A-Z]{12}[0-9]{2}$/ e isValidCnpj; senão ''
 export function isValidCnpj(cnpj14: string): boolean;           // mód. 11, pesos 2..9 (dir→esq), valor = charCode-48; rejeita 14 caracteres iguais
-export function formatCnpj(cnpj14: string): string;             // '12.345.678/0001-99'
+export function formatCnpj(cnpj14: string): string;             // '12.345.678/0001-95'
 export function computeChaveAcessoDV(first43: string): number;  // mód. 11; resto<2→0; senão 11-resto; valor = charCode-48
 export interface ChaveAcessoInfo { chave: string; cnpj: string; modelo: string; serie: string; numero: string }
 export function parseChaveAcesso(raw: unknown): ChaveAcessoInfo | null; // aceita 'NFe'+44 ou 44; /^[0-9]{6}[0-9A-Z]{12}[0-9]{26}$/ + DV
@@ -532,7 +532,7 @@ export function validateManualIdentity(input: { numero: string; cnpj: string; se
   | { ok: false; error: string };
 // erros: 'Número da NF inválido…' | 'CNPJ do emitente inválido' | 'Série inválida' | 'Chave de acesso inválida' | 'A chave de acesso não confere com CNPJ, série e número informados'
 export function formatImportId(id: string | number): string;    // 'ID 1000'
-export function formatNFLabel(id: NFIdentity): string;          // 'NF 26229 · série 1 · CNPJ 12.345.678/0001-99'
+export function formatNFLabel(id: NFIdentity): string;          // 'NF 26229 · série 1 · CNPJ 12.345.678/0001-95'
 ```
 
 ```ts
@@ -839,7 +839,7 @@ export async function resolvePendingForCode(db, codigoRaw): Promise<{ incorporad
 **Arquivos afetados:**
 - `src/lib/parseNfeXml.ts`: Seção 6.2.
 - `src/types/nf.ts`: `ParsedNF`, `XmlParseErrorCode`.
-- `src/__tests__/parseNfeXml.test.ts`: `makeXml` com `serie` e `Id` padrão válido (`nNF 27117`, `CNPJ 12345678000199`, série 1); casos novos.
+- `src/__tests__/parseNfeXml.test.ts`: `makeXml` com `serie` e `Id` padrão válido (`nNF 27117`, `CNPJ 12345678000195`, série 1); casos novos.
 
 **Ações:**
 1. Ativar `parseTagValue: false`, ler a identidade e conferir a chave.
@@ -915,7 +915,7 @@ export async function resolvePendingForCode(db, codigoRaw): Promise<{ incorporad
 - `src/lib/services/pendingMasterProductService.ts`: remover `registerPendingMasterProducts`.
 - `src/lib/services/inventoryService.ts`: remover `addInventoryItems` e `getInventoryProdutoLoteKeysByNfId` se não houver outro chamador.
 
-**Validação:** emulador. "Ler XML" não cria documento nem arquivo. "Confirmar" cria `nf_imports/1000`, `nf_identidades/12345678000199_1_26229`, `contadores/nf_imports` (`ultimo_id: 1000`), o inventário e `danfe/test-clinic-a/1000.xml`. `npm run type-check` e `npm run build`.
+**Validação:** emulador. "Ler XML" não cria documento nem arquivo. "Confirmar" cria `nf_imports/1000`, `nf_identidades/12345678000195_1_26229`, `contadores/nf_imports` (`ultimo_id: 1000`), o inventário e `danfe/test-clinic-a/1000.xml`. `npm run type-check` e `npm run build`.
 
 **Commit:** `fix(inventory): confirm XML import through server route`
 
@@ -1028,26 +1028,26 @@ export async function resolvePendingForCode(db, codigoRaw): Promise<{ incorporad
 
 | Arquivo | CNPJ | Série | nNF | `Id` |
 |---|---|---|---|---|
-| `nfA.xml` | 12345678000199 | 1 | 26229 | `NFe35250312345678000199550010000262291000262296` |
-| `nfB.xml` | 98765432000110 | 1 | 26229 | `NFe35250398765432000110550010000262291000262297` |
-| `nfC.xml` | 12345678000199 | 2 | 26229 | `NFe35250312345678000199550020000262291000262292` |
-| `nfD.xml` | 01234567000189 | 1 | 26229 | `NFe35250301234567000189550010000262291000262298` |
+| `nfA.xml` | 12345678000195 | 1 | 26229 | `NFe35250312345678000195550010000262291000262299` |
+| `nfB.xml` | 98765432000198 | 1 | 26229 | `NFe35250398765432000198550010000262291000262297` |
+| `nfC.xml` | 12345678000195 | 2 | 26229 | `NFe35250312345678000195550020000262291000262295` |
+| `nfD.xml` | 01234567000195 | 1 | 26229 | `NFe35250301234567000195550010000262291000262299` |
 
 - `nfA-zeros.xml`: igual a `nfA.xml` com `<nNF>026229</nNF>`, `<serie>001</serie>`, `<cProd>0003076528</cProd>`, `<nLote>00BT2024A</nLote>` e `<tPag>01</tPag>`.
-- `nfE-pendente.xml`: CNPJ 12345678000199, série 3, nNF 26229 (calcular o `Id` com `computeChaveAcessoDV` do STEP 1), dois `<det>`: `3076528` e `9999999` (lote `L9`).
+- `nfE-pendente.xml`: CNPJ 12345678000195, série 3, nNF 26229 (calcular o `Id` com `computeChaveAcessoDV` do STEP 1), dois `<det>`: `3076528` e `9999999` (lote `L9`).
 - `nfSemId.xml` = `nfA.xml` sem `Id`; `nfDvErrado.xml` = `nfA.xml` com o último dígito do `Id` trocado; `nfChaveDivergente.xml` = `nfA.xml` com `<nNF>26230</nNF>`.
 - Logins `qa.clinic-admin-a@curvamestra.test`, `qa.clinic-admin-b@curvamestra.test`, `qa.system-admin@curvamestra.test` / `TEST_PASSWORD` (`tests/e2e/fixtures/seed-data.ts`).
 
 **Roteiro A — Preview sem gravação e ID sequencial (sempre executar):**
-1. Clinic admin A → `/clinic/upload` → `nfA.xml` → "Ler XML". **Esperado:** preview com "NF 26229 · série 1 · CNPJ 12.345.678/0001-99". O Emulator UI **não** mostra `nf_imports`, `nf_identidades` nem `danfe/`.
+1. Clinic admin A → `/clinic/upload` → `nfA.xml` → "Ler XML". **Esperado:** preview com "NF 26229 · série 1 · CNPJ 12.345.678/0001-95". O Emulator UI **não** mostra `nf_imports`, `nf_identidades` nem `danfe/`.
 2. Fechar a aba e repetir o passo 1. **Esperado:** nenhum bloqueio (nada foi gravado).
-3. Confirmar. **Esperado:** "Importação concluída — ID 1000". Existem `nf_imports/1000` (`id_sequencial: 1000`, `identidade: 12345678000199_1_26229`, `chave_acesso`, `status: success`), `nf_identidades/12345678000199_1_26229`, `contadores/nf_imports` com `ultimo_id: 1000`, o inventário com `nf_id: '1000'` e `danfe/test-clinic-a/1000.xml`.
+3. Confirmar. **Esperado:** "Importação concluída — ID 1000". Existem `nf_imports/1000` (`id_sequencial: 1000`, `identidade: 12345678000195_1_26229`, `chave_acesso`, `status: success`), `nf_identidades/12345678000195_1_26229`, `contadores/nf_imports` com `ultimo_id: 1000`, o inventário com `nf_id: '1000'` e `danfe/test-clinic-a/1000.xml`.
 4. `/clinic/inventory` → abrir o item. **Esperado:** "NF-e 26229 · ID 1000". Em nenhuma tela aparece "NF 1000".
 
 **Roteiro B — Duplicidade e identidade (sempre executar):**
 5. `nfA.xml` de novo → Confirmar. **Esperado:** 409 "Esta NF já foi cadastrada (ID 1000)." Sem documento novo e sem arquivo novo.
 6. `nfA-zeros.xml` → preview com "NF 26229 · série 1", código `3076528`, lote `BT2024A` e forma de pagamento "Dinheiro". Confirmar → 409 "(ID 1000)" (mesma identidade).
-7. `nfB.xml` → **ID 1001** (outro CNPJ). `nfC.xml` → **ID 1002** (outra série). `nfD.xml` → preview com "CNPJ 01.234.567/0001-89" → **ID 1003**.
+7. `nfB.xml` → **ID 1001** (outro CNPJ). `nfC.xml` → **ID 1002** (outra série). `nfD.xml` → preview com "CNPJ 01.234.567/0001-95" → **ID 1003**.
 8. `nfSemId.xml` → "Chave de acesso … não encontrada". `nfDvErrado.xml` → "Chave de acesso … inválida". `nfChaveDivergente.xml` → "A chave de acesso não confere…". Nada gravado; o contador continua em 1003.
 9. Clinic admin **B** → `nfA.xml` → **ID 1000** na clínica B (contador e identidade por clínica).
 
@@ -1056,10 +1056,10 @@ export async function resolvePendingForCode(db, codigoRaw): Promise<{ incorporad
 11. Alternativa por terminal: dois `curl` em paralelo para `/api/nf-imports/xml` com o mesmo arquivo (`& wait`). **Esperado:** um 201 e um 409.
 
 **Roteiro D — Inserção manual (sempre executar):**
-12. `/clinic/add-products` → Outras Marcas → número `0055501`, CNPJ `98.765.432/0001-10`, série `001`, sem chave. **Esperado:** dica "Será registrada como 55501". Adicionar um produto (código `0042`, lote `007X`) → salvar → "Nota fiscal salva — ID 1005". No Emulator UI: `numero_nf: '55501'`, `serie: '1'`, `cnpj_emitente: '98765432000110'`, e o item com `codigo_produto: '42'`, `lote: '7X'`.
+12. `/clinic/add-products` → Outras Marcas → número `0055501`, CNPJ `98.765.432/0001-98`, série `001`, sem chave. **Esperado:** dica "Será registrada como 55501". Adicionar um produto (código `0042`, lote `007X`) → salvar → "Nota fiscal salva — ID 1005". No Emulator UI: `numero_nf: '55501'`, `serie: '1'`, `cnpj_emitente: '98765432000198'`, e o item com `codigo_produto: '42'`, `lote: '7X'`.
 13. Repetir com a mesma identidade e outro produto. **Esperado:** "Lançamento adicionado à NF já cadastrada (ID 1005)", com `lancamentos_manuais: 2` e o contador inalterado.
-14. Manual com a identidade de `nfA.xml` (26229 / 1 / 12.345.678/0001-99). **Esperado:** 409 "…importada via XML (ID 1000)…". (A regra (b) revogada é coberta no passo 15.)
-15. Importar via XML uma NF cujo registro manual foi criado no passo 12: montar um XML com CNPJ 98765432000110, série 1, nNF 55501 e o `Id` correspondente. **Esperado:** 409 "Esta NF já foi cadastrada manualmente (ID 1005) e não pode ser importada via XML."
+14. Manual com a identidade de `nfA.xml` (26229 / 1 / 12.345.678/0001-95). **Esperado:** 409 "…importada via XML (ID 1000)…". (A regra (b) revogada é coberta no passo 15.)
+15. Importar via XML uma NF cujo registro manual foi criado no passo 12: montar um XML com CNPJ 98765432000198, série 1, nNF 55501 e o `Id` correspondente. **Esperado:** 409 "Esta NF já foi cadastrada manualmente (ID 1005) e não pode ser importada via XML."
 16. CNPJ `11.111.111/1111-11` → "CNPJ do emitente inválido". Série vazia → "Série inválida". Chave informada que não bate → "A chave de acesso não confere…". Número `000` → "Número da NF inválido".
 17. Rennova manual com produto fragmentável (cadastrar no catálogo `p2 { code: '3000001', fragmentavel: true, unidades_por_embalagem: 10, active: true }`), 2 embalagens a R$ 100. **Esperado:** inventário com `quantidade_inicial: 20`, `valor_unitario: 10`, `quantidade_embalagens: 2`, `valor_por_embalagem: 100`, igual ao comportamento atual.
 
@@ -1108,13 +1108,13 @@ export async function resolvePendingForCode(db, codigoRaw): Promise<{ incorporad
 | `normalizeSerie` | `'001'`→`'1'`; `'000'`→`'0'`; `'1000'`→`''`; `''`→`''`. |
 | `normalizeLeadingZeros` | `'0012345'`→`'12345'`; `'00A12'`→`'A12'`; `'000'`→`'0'`; `' 007X '`→`'7X'`; `'BT2024A'`→`'BT2024A'`; `''`→`''`. |
 | `normalizeCnpj` / `isValidCnpj` | com máscara e válido → 14 posições; DV errado → `''`; 13 dígitos → `''` (sem reparo); `'11111111111111'` → inválido; um CNPJ alfanumérico válido construído com a regra `charCode-48` → aceito. |
-| `computeChaveAcessoDV` | `'5206043300991100250655012000000780026730161'`→`5`; as quatro chaves da tabela do STEP 12 → `6, 7, 2, 8`. |
+| `computeChaveAcessoDV` | `'5206043300991100250655012000000780026730161'`→`5`; as quatro chaves da tabela do STEP 12 → `9, 7, 5, 9`. |
 | `parseChaveAcesso` | com e sem `NFe`; com espaços; 43 posições → null; DV errado → null; letra fora das posições do CNPJ → null. |
 | `chaveMatchesIdentity` | igual → true; série, número ou CNPJ diferente → false. |
 | `validateManualIdentity` | válido sem chave; válido com chave coerente; cada erro da Seção 6.2. |
 | `buildIdentityKey` / `formatImportId` / `formatNFLabel` / `formatCnpj` | formatos exatos; `formatImportId(1000)` = `'ID 1000'`. |
 
-`src/__tests__/parseNfeXml.test.ts` (novos): `Id` válido → `chave_acesso`, `serie`, `cnpj_fornecedor`; `<CNPJ>01234567000189</CNPJ>` preservado (A1); `<nNF>026229</nNF>`, `<serie>001</serie>` normalizados; `cProd 0003076528` → `'3076528'`; `nLote 00BT2024A` → `'BT2024A'`; `tPag 01` → `'Dinheiro'` (A5); sem `Id` → `MISSING_ACCESS_KEY`; DV errado e chave divergente → `INVALID_ACCESS_KEY`; `emit/CPF` → `INVALID_ISSUER`; CNPJ com DV inválido → `INVALID_ISSUER`. Todos os casos existentes continuam verdes.
+`src/__tests__/parseNfeXml.test.ts` (novos): `Id` válido → `chave_acesso`, `serie`, `cnpj_fornecedor`; `<CNPJ>01234567000195</CNPJ>` preservado (A1); `<nNF>026229</nNF>`, `<serie>001</serie>` normalizados; `cProd 0003076528` → `'3076528'`; `nLote 00BT2024A` → `'BT2024A'`; `tPag 01` → `'Dinheiro'` (A5); sem `Id` → `MISSING_ACCESS_KEY`; DV errado e chave divergente → `INVALID_ACCESS_KEY`; `emit/CPF` → `INVALID_ISSUER`; CNPJ com DV inválido → `INVALID_ISSUER`. Todos os casos existentes continuam verdes.
 
 `src/__tests__/nfImportPlanner.test.ts`
 
@@ -1167,7 +1167,7 @@ Toda leitura é testada com **get** (`getDoc`) **e list** (`getDocs(query(collec
 | | system_admin: get e list | sucesso |
 | | clinic_admin A: `setDoc` novo, `updateDoc`, `deleteDoc` | falha (cada um) |
 | | system_admin: `setDoc` novo, `updateDoc`, `deleteDoc` | falha (cada um) |
-| `nf_identidades` (seed `12345678000199_1_26229`) | clinic_admin A, clinic_user A, consultor: get e list | falha |
+| `nf_identidades` (seed `12345678000195_1_26229`) | clinic_admin A, clinic_user A, consultor: get e list | falha |
 | | system_admin: get e list | sucesso; `setDoc`/`deleteDoc` → falha |
 | | clinic_admin A: `setDoc` | falha |
 | `contadores` (seed `nf_imports`) | clinic_admin A, consultor: get e list | falha |
@@ -1275,3 +1275,4 @@ O Storage não é coberto pela suíte de rules (que roda só o emulador de Fires
 |---|---|---|---|
 | 1.0 | 14/10/2026 | Doc Writer (Claude) | Versão inicial. Status Aguardando decisão, com D1–D9 pendentes e achados A1–A4. |
 | 1.1 | 14/10/2026 | Doc Writer (Claude) | **Decisões do usuário de 14/10/2026 (via coordenador) incorporadas; Status → Planejamento.** Reescrita das Seções 0–13. D1 revisada: ID sequencial por clínica a partir de 1000 ("ID 1000"), com a chave de acesso como campo. D2/D3/D4: identidade CNPJ + série + número nos dois caminhos; manual com CNPJ e série obrigatórios e chave opcional; sem legado nem fallback; unicidade por `nf_identidades`. D5/D6 substituídas por confirmação atômica no servidor (API routes com Admin SDK, uma transação, preview sem gravação, limite de 500 escritas, Storage após o commit em modo best-effort). Produtos fora do catálogo: pendência por linha e incorporação automática em todas as clínicas por Cloud Function (trigger + callable "Reprocessar"), com notificação; reenvio do XML removido. D7, D8 e D9 aceitas. Complemento manual no mesmo ID. Regra (b) de UC-10-RN-02 revogada (nova matriz RN-02). Normalização de zeros em número, série, código (inclusive no catálogo master) e lote; CNPJ canônico com justificativa. A3 explicado (some com o Admin SDK). Novo achado A5 (`tPag` 01–09). Commits replanejados (STEPs 1–12). Observação: pela convenção do template, uma mudança de escopo desse porte seria versão major (2.0); usado 1.1 por instrução explícita do coordenador. |
+| 1.1.1 | 15/10/2026 | Claude | STEP 1: dados de teste corrigidos — os CNPJs de exemplo tinham DV inválido (`12345678000199`→`12345678000195`, `98765432000110`→`98765432000198`, `01234567000189`→`01234567000195`) e as chaves do STEP 12 foram recalculadas (DVs 9, 7, 5, 9; `nfE-pendente` = `NFe35250312345678000195550030000262291000262291`). Algoritmo de DV do CNPJ alfanumérico conferido com o exemplo oficial da Receita (`12ABC34501DE35`). |
