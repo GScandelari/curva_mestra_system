@@ -7,25 +7,20 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { TipoNotaBadge } from '@/components/inventory/TipoNotaBadge';
-import {
-  ArrowLeft,
-  Upload,
-  CheckCircle,
-  AlertCircle,
-  FileText,
-  Package,
-  Loader2,
-} from 'lucide-react';
-import {
-  uploadNFFile,
-  createNFImport,
-  processNFAndAddToInventory,
-  checkNumeroNFStatus,
-  updateNFImportStatus,
-} from '@/lib/services/nfImportService';
-import type { ParsedNF, XmlParseError, NFImport } from '@/types/nf';
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, Package, Loader2 } from 'lucide-react';
+import { getMasterProductByCode } from '@/lib/services/masterProductService';
+import { formatNFLabel } from '@/lib/nfIdentity';
+import type { ParsedNF, XmlParseError } from '@/types/nf';
+
+interface ImportResult {
+  importId: string;
+  idLabel: string;
+  produtosImportados: number;
+  pendentes: Array<{ codigo: string; nome_produto: string; lote: string }>;
+  arquivoSalvo: boolean;
+}
 
 export default function UploadPage() {
   const { user, claims } = useAuth();
@@ -33,18 +28,15 @@ export default function UploadPage() {
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<
-    'idle' | 'uploading' | 'processing' | 'preview' | 'confirming' | 'success' | 'error'
+    'idle' | 'processing' | 'preview' | 'confirming' | 'success' | 'error'
   >('idle');
   const [error, setError] = useState('');
-  const [importId, setImportId] = useState('');
   const [parsedData, setParsedData] = useState<ParsedNF | null>(null);
   const [warnings, setWarnings] = useState<XmlParseError[]>([]);
-  const [existingXmlImport, setExistingXmlImport] = useState<NFImport | null>(null);
-
-  const tenantId = claims?.tenant_id;
-  const userId = user?.uid;
+  // Códigos fora do catálogo (ou inativos): ficarão pendentes na confirmação
+  const [codigosSemCatalogo, setCodigosSemCatalogo] = useState<Set<string>>(new Set());
+  const [resultado, setResultado] = useState<ImportResult | null>(null);
   const isAdmin = claims?.role === 'clinic_admin';
 
   if (!isAdmin) {
@@ -65,8 +57,12 @@ export default function UploadPage() {
     setUploadStatus('idle');
   };
 
+  /**
+   * "Importar NF-e" só LÊ o XML e mostra o preview — nada é gravado. A gravação
+   * acontece na confirmação, numa transação no servidor (UC-10-RN-15).
+   */
   const handleUpload = async () => {
-    if (!selectedFile || !tenantId || !userId || !user) {
+    if (!selectedFile || !user) {
       setError('Arquivo não selecionado ou usuário não autenticado');
       return;
     }
@@ -76,121 +72,43 @@ export default function UploadPage() {
       setError('');
       setUploadStatus('processing');
 
-      // 1. Processar XML usando a API NF-e (antes do upload ao Storage, para não
-      //    gravar arquivo de uma NF que será rejeitada por duplicidade)
-      let parsedNF: ParsedNF;
-      let parseWarnings: XmlParseError[] = [];
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      // Sem Content-Type manual: o navegador define o boundary do multipart.
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/parse-nf-xml', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+        body: formData,
+      });
 
-      try {
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-
-        // A rota exige o ID token do clinic_admin (UC-10-RN-13). Sem Content-Type
-        // manual: o navegador define o boundary do multipart.
-        const idToken = await user.getIdToken();
-        const response = await fetch('/api/parse-nf-xml', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${idToken}` },
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const body = (await response.json()) as { error?: string };
-          throw new Error(body.error ?? 'Erro ao processar XML da NF-e');
-        }
-
-        const parseResult = (await response.json()) as {
-          parsedNF: ParsedNF;
-          warnings: XmlParseError[];
-        };
-
-        if (!parseResult.parsedNF || parseResult.parsedNF.produtos.length === 0) {
-          throw new Error(
-            'Nenhum produto foi encontrado no XML. Verifique se o arquivo é uma NF-e SEFAZ válida.'
-          );
-        }
-
-        parsedNF = parseResult.parsedNF;
-        parseWarnings = parseResult.warnings ?? [];
-
-        console.warn('[NF-e Upload] Natureza da operação extraída do XML:', {
-          numero: parsedNF.numero,
-          natureza_operacao: parsedNF.natureza_operacao,
-          forma_pagamento: parsedNF.forma_pagamento,
-          tipo_nota: parsedNF.tipo_nota,
-        });
-      } catch (parseError: unknown) {
-        const msg =
-          parseError instanceof Error ? parseError.message : 'Erro ao processar o XML da NF-e';
-        setError(msg);
-        setUploadStatus('error');
-        return;
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? 'Erro ao processar XML da NF-e');
       }
 
-      // 2. Verificar se este numero_nf já foi importado ou está bloqueado
-      const nfStatus = await checkNumeroNFStatus(tenantId, parsedNF.numero, 'xml');
+      const parseResult = (await response.json()) as {
+        parsedNF: ParsedNF;
+        warnings: XmlParseError[];
+      };
 
-      if (nfStatus.blocked) {
-        setError(nfStatus.reason ?? 'Esta NF-e não pode ser importada.');
-        setUploadStatus('error');
-        return;
+      if (!parseResult.parsedNF || parseResult.parsedNF.produtos.length === 0) {
+        throw new Error(
+          'Nenhum produto foi encontrado no XML. Verifique se o arquivo é uma NF-e SEFAZ válida.'
+        );
       }
 
-      // 3. Upload do arquivo
-      setUploadStatus('uploading');
-      setUploadProgress(0);
+      const codigos = Array.from(new Set(parseResult.parsedNF.produtos.map((p) => p.codigo)));
+      const consultas = await Promise.all(codigos.map((c) => getMasterProductByCode(c)));
+      setCodigosSemCatalogo(
+        new Set(codigos.filter((_, i) => !consultas[i].product || !consultas[i].product.active))
+      );
 
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 300);
-
-      const fileUrl = await uploadNFFile(tenantId, selectedFile);
-      setUploadProgress(100);
-      clearInterval(progressInterval);
-
-      // 4. Criar (ou reaproveitar, se for reenvio de uma NF parcialmente
-      //    importada) o registro de importação
-      let resolvedImportId: string;
-
-      if (nfStatus.xmlImport) {
-        resolvedImportId = nfStatus.xmlImport.id;
-        setExistingXmlImport(nfStatus.xmlImport);
-        await updateNFImportStatus(tenantId, resolvedImportId, 'pending', {
-          arquivo_nome: selectedFile.name,
-          arquivo_url: fileUrl,
-        });
-      } else {
-        setExistingXmlImport(null);
-        resolvedImportId = await createNFImport({
-          tenant_id: tenantId,
-          numero_nf: parsedNF.numero,
-          origem: 'xml',
-          arquivo_nome: selectedFile.name,
-          arquivo_url: fileUrl,
-          natureza_operacao: parsedNF.natureza_operacao,
-          forma_pagamento: parsedNF.forma_pagamento,
-          tipo_nota: parsedNF.tipo_nota,
-          created_by: userId,
-        });
-      }
-
-      setImportId(resolvedImportId);
-      setParsedData(parsedNF);
-
-      if (parseWarnings.length > 0) {
-        setWarnings(parseWarnings);
-      }
-
-      // 5. Mostrar preview para confirmação do usuário
+      setParsedData(parseResult.parsedNF);
+      setWarnings(parseResult.warnings ?? []);
       setUploadStatus('preview');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao fazer upload do arquivo';
+      const msg = err instanceof Error ? err.message : 'Erro ao processar o XML da NF-e';
       setError(msg);
       setUploadStatus('error');
     } finally {
@@ -199,7 +117,7 @@ export default function UploadPage() {
   };
 
   const handleConfirmImport = async () => {
-    if (!parsedData || !tenantId || !importId) {
+    if (!parsedData || !selectedFile || !user) {
       setError('Dados não disponíveis para confirmação');
       return;
     }
@@ -208,19 +126,24 @@ export default function UploadPage() {
       setUploadStatus('confirming');
       setError('');
 
-      const result = await processNFAndAddToInventory(
-        tenantId,
-        importId,
-        parsedData,
-        existingXmlImport ?? undefined
-      );
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/nf-imports/xml', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+        body: formData,
+      });
+      const body = (await response.json()) as ImportResult & { error?: string };
 
-      if (result.success) {
-        setUploadStatus('success');
-      } else {
+      if (!response.ok) {
+        setError(body.error ?? 'Erro ao importar a NF-e');
         setUploadStatus('error');
-        setError(result.message);
+        return;
       }
+
+      setResultado(body);
+      setUploadStatus('success');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao adicionar produtos ao estoque';
       setError(msg);
@@ -232,11 +155,10 @@ export default function UploadPage() {
     setSelectedFile(null);
     setUploadStatus('idle');
     setError('');
-    setImportId('');
     setParsedData(null);
-    setUploadProgress(0);
     setWarnings([]);
-    setExistingXmlImport(null);
+    setCodigosSemCatalogo(new Set());
+    setResultado(null);
   };
 
   return (
@@ -300,32 +222,6 @@ export default function UploadPage() {
           </Card>
         )}
 
-        {/* Uploading Status */}
-        {uploadStatus === 'uploading' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                Fazendo Upload...
-              </CardTitle>
-              <CardDescription>Enviando arquivo para o servidor</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Progresso</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <Progress value={uploadProgress} />
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <FileText className="inline h-4 w-4 mr-1" />
-                {selectedFile?.name}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Processing Status */}
         {uploadStatus === 'processing' && (
           <Card>
@@ -365,8 +261,13 @@ export default function UploadPage() {
                 Confirmar Importação
               </CardTitle>
               <CardDescription>
-                Revise os produtos extraídos da NF-e {parsedData.numero} antes de adicionar ao
-                estoque
+                Revise os produtos extraídos antes de adicionar ao estoque —{' '}
+                {formatNFLabel({
+                  numero: parsedData.numero,
+                  serie: parsedData.serie,
+                  cnpj: parsedData.cnpj_fornecedor,
+                })}
+                {parsedData.fornecedor ? ` · ${parsedData.fornecedor}` : ''}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -420,10 +321,28 @@ export default function UploadPage() {
                           <p className="text-xs text-amber-600 font-medium">Sem rastreamento</p>
                         )}
                       </div>
+                      {codigosSemCatalogo.has(produto.codigo) && (
+                        <Badge variant="outline" className="flex-shrink-0">
+                          Não cadastrado — ficará pendente
+                        </Badge>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
+
+              {codigosSemCatalogo.size > 0 && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Produtos fora do catálogo</AlertTitle>
+                  <AlertDescription>
+                    Os produtos marcados como &quot;Não cadastrado&quot; não entrarão no estoque
+                    agora. O administrador do sistema será avisado e, assim que cadastrar o produto,
+                    ele será adicionado ao seu inventário automaticamente — sem precisar enviar o
+                    XML de novo.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Warnings sobre produtos sem rastreamento */}
               {warnings.length > 0 && (
@@ -505,24 +424,32 @@ export default function UploadPage() {
         )}
 
         {/* Success Status */}
-        {uploadStatus === 'success' && parsedData && (
+        {uploadStatus === 'success' && parsedData && resultado && (
           <Card className="border-green-500">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-green-600">
                 <CheckCircle className="h-5 w-5" />
-                Importação Concluída!
+                Importação concluída — {resultado.idLabel}
               </CardTitle>
-              <CardDescription>NF-e {parsedData.numero} processada com sucesso</CardDescription>
+              <CardDescription>
+                {formatNFLabel({
+                  numero: parsedData.numero,
+                  serie: parsedData.serie,
+                  cnpj: parsedData.cnpj_fornecedor,
+                })}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Produtos Importados</p>
-                  <p className="text-2xl font-bold text-green-600">{parsedData.produtos.length}</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {resultado.produtosImportados}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Número da NF</p>
-                  <p className="text-2xl font-bold">{parsedData.numero}</p>
+                  <p className="text-sm text-muted-foreground">Registro</p>
+                  <p className="text-2xl font-bold">{resultado.idLabel}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Natureza da Operação</p>
@@ -530,32 +457,36 @@ export default function UploadPage() {
                 </div>
               </div>
 
-              {(parsedData.natureza_operacao || parsedData.forma_pagamento) && (
-                <div className="text-sm text-muted-foreground space-y-0.5">
-                  {parsedData.natureza_operacao && <p>NF-e: {parsedData.natureza_operacao}</p>}
-                  {parsedData.forma_pagamento && (
-                    <p>Forma de pagamento: {parsedData.forma_pagamento}</p>
-                  )}
-                </div>
+              <p className="text-sm">
+                {resultado.produtosImportados} produto(s) adicionado(s) ao estoque.
+              </p>
+
+              {resultado.pendentes.length > 0 && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Produtos não importados</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>
+                      Estes produtos ainda não estão no catálogo. O administrador do sistema foi
+                      avisado; quando cadastrar, eles serão adicionados ao seu inventário
+                      automaticamente e você receberá uma notificação.
+                    </p>
+                    <ul className="list-disc pl-5">
+                      {resultado.pendentes.map((p) => (
+                        <li key={`${p.codigo}-${p.lote}`}>
+                          {p.codigo} — {p.nome_produto} (lote {p.lote})
+                        </li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
               )}
 
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Produtos Adicionados ao Estoque:</p>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {parsedData.produtos.map((produto, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
-                      <Package className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{produto.nome_produto}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Lote: {produto.lote} • {produto.quantidade} un. • Val:{' '}
-                          {produto.dt_validade}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {!resultado.arquivoSalvo && (
+                <p className="text-xs text-muted-foreground">
+                  O arquivo XML não pôde ser arquivado; a importação foi concluída normalmente.
+                </p>
+              )}
 
               <div className="flex gap-3">
                 <Button onClick={() => router.push('/clinic/inventory')} className="flex-1">

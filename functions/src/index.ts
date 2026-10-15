@@ -33,6 +33,10 @@ export { checkClaimsIntegrityOnDemand } from './checkClaimsIntegrityOnDemand';
 // Scheduled Function - Lembrete diário de solicitações de acesso pendentes (UC-57)
 export { checkConsultantPendingAccessRequestsScheduled } from './checkConsultantPendingAccessRequestsScheduled';
 
+// Firestore Trigger + Callable - Incorporação automática de produtos pendentes de NF-e
+export { onMasterProductWritten } from './onMasterProductWritten';
+export { reprocessPendingMasterProducts } from './reprocessPendingMasterProducts';
+
 // Function placeholder para evitar erro de "no functions"
 import { onRequest } from 'firebase-functions/v2/https';
 

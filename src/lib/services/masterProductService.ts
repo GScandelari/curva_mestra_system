@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { writeAuditLog } from '@/lib/services/auditLogService';
+import { normalizeLeadingZeros } from '@/lib/nfIdentity';
 import type { AuditAction } from '@/types';
 import {
   MasterProduct,
@@ -147,12 +148,12 @@ export async function getMasterProduct(productId: string) {
   }
 }
 
-// Buscar produto por código
+// Buscar produto por código (normalizado: sem zeros à esquerda, como o cProd da NF-e)
 export async function getMasterProductByCode(code: string) {
   try {
     const q = query(
       collection(db, 'master_products'),
-      where('code', '==', code),
+      where('code', '==', normalizeLeadingZeros(code)),
       firestoreLimit(1)
     );
 
@@ -210,13 +211,14 @@ export async function createMasterProduct(data: CreateMasterProductData) {
     } = data;
 
     // Verificar se já existe produto com este código
-    const existing = await getMasterProductByCode(code);
+    const codigo = normalizeLeadingZeros(code);
+    const existing = await getMasterProductByCode(codigo);
     if (existing.product) {
-      throw new Error(`Já existe um produto com o código ${code}`);
+      throw new Error(`Já existe um produto com o código ${codigo}`);
     }
 
     const productData: Record<string, any> = {
-      code: code.trim(),
+      code: codigo,
       name: name.trim().toUpperCase(),
       active,
       fragmentavel,
@@ -276,11 +278,12 @@ export async function updateMasterProduct(productId: string, data: UpdateMasterP
     };
 
     if (data.code !== undefined) {
-      const existing = await getMasterProductByCode(data.code);
+      const codigo = normalizeLeadingZeros(data.code);
+      const existing = await getMasterProductByCode(codigo);
       if (existing.product && existing.product.id !== productId) {
-        throw new Error(`Já existe um produto com o código ${data.code}`);
+        throw new Error(`Já existe um produto com o código ${codigo}`);
       }
-      firestoreData.code = data.code.trim();
+      firestoreData.code = codigo;
     }
 
     if (data.name !== undefined) firestoreData.name = data.name.trim().toUpperCase();
