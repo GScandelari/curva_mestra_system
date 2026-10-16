@@ -274,8 +274,14 @@ service cloud.firestore {
 
     // Coleção de solicitações de acesso (registro público)
     match /access_requests/{requestId} {
-      // Qualquer pessoa pode criar uma solicitação (público ou autenticado)
-      allow create: if true;
+      // Criação só pelo servidor (POST /api/access-requests, Admin SDK) --
+      // FEAT-ajustes-registro-e-busca-consultor. Antes era `if true`, e
+      // qualquer visitante podia gravar direto, sem a validação da API
+      // (documento obrigatório etc.).
+      // DEPLOY: publicar esta regra em produção SÓ DEPOIS que o hosting com a
+      // API nova (Admin SDK) estiver no ar; a API antiga gravava pelo client
+      // SDK e passaria a receber PERMISSION_DENIED.
+      allow create: if false;
 
       // Apenas system_admin pode ler, atualizar e deletar
       allow read, update, delete: if isSystemAdmin();
