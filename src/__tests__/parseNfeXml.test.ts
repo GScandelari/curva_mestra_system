@@ -6,6 +6,7 @@ import {
   inferTipoNota,
 } from '@/lib/parseNfeXml';
 import type { XmlParseError } from '@/types/nf';
+import { computeChaveAcessoDV } from '@/lib/nfIdentity';
 
 // ─── convertXmlDate ───────────────────────────────────────────────────────────
 
@@ -109,29 +110,50 @@ describe('inferTipoNota', () => {
 
 // ─── parseNfeXml ─────────────────────────────────────────────────────────────
 
+const CNPJ_TESTE = '12345678000195'; // DV válido
+
+/** Chave de acesso coerente com CNPJ, série e número (cUF 35, AAMM 2503, modelo 55). */
+function chaveDe(cnpj: string, serie: string, nNF: string): string {
+  const base = `352503${cnpj}55${serie.padStart(3, '0')}${nNF.padStart(9, '0')}100026229`;
+  return `NFe${base}${computeChaveAcessoDV(base)}`;
+}
+
 const makeXml = (
   detContent: string,
   nNF = '27117',
-  opts: { natOp?: string; pagContent?: string } = {}
-) => `
+  opts: {
+    natOp?: string;
+    pagContent?: string;
+    cnpj?: string;
+    serie?: string;
+    id?: string | null; // null = sem atributo Id
+    emitCpf?: boolean;
+  } = {}
+) => {
+  const cnpj = opts.cnpj ?? CNPJ_TESTE;
+  const serie = opts.serie ?? '1';
+  const id = opts.id === undefined ? chaveDe(cnpj, serie, nNF) : opts.id;
+  return `
 <?xml version="1.0" encoding="UTF-8"?>
 <nfeProc>
   <NFe>
-    <infNFe>
+    <infNFe versao="4.00"${id === null ? '' : ` Id="${id}"`}>
       <ide>
+        <serie>${serie}</serie>
         <nNF>${nNF}</nNF>
         <dhEmi>2025-03-31T17:52:00-03:00</dhEmi>
         ${opts.natOp ? `<natOp>${opts.natOp}</natOp>` : ''}
       </ide>
       <emit>
         <xNome>RENNOVA</xNome>
-        <CNPJ>12345678000199</CNPJ>
+        ${opts.emitCpf ? '<CPF>47899095816</CPF>' : `<CNPJ>${cnpj}</CNPJ>`}
       </emit>
       ${detContent}
       ${opts.pagContent ? `<pag>${opts.pagContent}</pag>` : ''}
     </infNFe>
   </NFe>
 </nfeProc>`;
+};
 
 const detWithRastro = `
 <det nItem="1">
@@ -192,7 +214,7 @@ describe('parseNfeXml', () => {
     expect(errors).toHaveLength(0);
     expect(data.numero).toBe('27117');
     expect(data.fornecedor).toBe('RENNOVA');
-    expect(data.cnpj_fornecedor).toBe('12345678000199');
+    expect(data.cnpj_fornecedor).toBe(CNPJ_TESTE);
     expect(data.produtos).toHaveLength(1);
     expect(data.produtos[0].codigo).toBe('3076528');
     expect(data.produtos[0].lote).toBe('BT2024A');
@@ -295,5 +317,78 @@ describe('parseNfeXml', () => {
     expect(() => parseNfeXml('')).toThrow(
       expect.objectContaining({ code: 'INVALID_FORMAT' } satisfies Partial<XmlParseError>)
     );
+  });
+});
+
+describe('parseNfeXml — identidade e normalização (UC-10-RN-14, A1, A5)', () => {
+  const xmlId = (nNF: string, cnpj: string, serie: string, extra = {}) =>
+    makeXml(detWithRastro, nNF, { cnpj, serie, ...extra });
+
+  it('returns access key, series and issuer CNPJ', () => {
+    const { data } = parseNfeXml(makeXml(detWithRastro));
+    expect(data.chave_acesso).toBe(chaveDe(CNPJ_TESTE, '1', '27117').slice(3));
+    expect(data.serie).toBe('1');
+    expect(data.numero).toBe('27117');
+    expect(data.cnpj_fornecedor).toBe(CNPJ_TESTE);
+  });
+
+  it('keeps the leading zero of the issuer CNPJ (A1)', () => {
+    const { data } = parseNfeXml(xmlId('26229', '01234567000195', '1'));
+    expect(data.cnpj_fornecedor).toBe('01234567000195');
+  });
+
+  it('normalizes number and series with leading zeros', () => {
+    const xml = makeXml(detWithRastro, '026229', {
+      serie: '001',
+      id: chaveDe(CNPJ_TESTE, '1', '26229'),
+    });
+    const { data } = parseNfeXml(xml);
+    expect(data.numero).toBe('26229');
+    expect(data.serie).toBe('1');
+  });
+
+  it('removes leading zeros from product code and lot', () => {
+    const det = detWithRastro
+      .replace('<cProd>3076528</cProd>', '<cProd>0003076528</cProd>')
+      .replace('<nLote>BT2024A</nLote>', '<nLote>00BT2024A</nLote>');
+    const { data } = parseNfeXml(makeXml(det));
+    expect(data.produtos[0].codigo).toBe('3076528');
+    expect(data.produtos[0].lote).toBe('BT2024A');
+  });
+
+  it('maps tPag 01 to Dinheiro (A5)', () => {
+    const { data } = parseNfeXml(
+      makeXml(detWithRastro, '27117', {
+        pagContent: '<detPag><tPag>01</tPag><vPag>10.00</vPag></detPag>',
+      })
+    );
+    expect(data.forma_pagamento).toBe('Dinheiro');
+  });
+
+  const erro = (xml: string): XmlParseError => {
+    try {
+      parseNfeXml(xml);
+    } catch (e) {
+      return e as XmlParseError;
+    }
+    throw new Error('esperava erro');
+  };
+
+  it('rejects an XML without access key', () => {
+    expect(erro(makeXml(detWithRastro, '27117', { id: null })).code).toBe('MISSING_ACCESS_KEY');
+  });
+
+  it('rejects a wrong check digit and a key that does not match the tags', () => {
+    const chave = chaveDe(CNPJ_TESTE, '1', '27117');
+    const dvErrado = `${chave.slice(0, -1)}${(Number(chave.slice(-1)) + 1) % 10}`;
+    expect(erro(makeXml(detWithRastro, '27117', { id: dvErrado })).code).toBe('INVALID_ACCESS_KEY');
+    expect(erro(makeXml(detWithRastro, '27118', { id: chave })).message).toBe(
+      'A chave de acesso não confere com CNPJ, série e número do XML.'
+    );
+  });
+
+  it('rejects an issuer without CNPJ or with an invalid CNPJ', () => {
+    expect(erro(makeXml(detWithRastro, '27117', { emitCpf: true })).code).toBe('INVALID_ISSUER');
+    expect(erro(xmlId('27117', '12345678000199', '1')).code).toBe('INVALID_ISSUER');
   });
 });

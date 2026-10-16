@@ -54,38 +54,13 @@ export interface InventoryItem {
 // HELPER DE CÁLCULO DE INVENTÁRIO (FRAGMENTAÇÃO)
 // ============================================================================
 
-export interface CalcInventarioParams {
-  quantidadeInformada: number; // embalagens (se fragmentável) ou unidades
-  fragmentavel: boolean;
-  unidadesPorEmbalagem?: number;
-  valorInformado: number; // por embalagem (se fragmentável) ou por unidade
-}
-
-export interface CalcInventarioResult {
-  quantidade_inicial: number; // sempre em unidades
-  valor_unitario: number; // sempre por unidade
-}
-
-/**
- * Calcula quantidade_inicial e valor_unitario para entrada de inventário.
- * Para produtos fragmentáveis, converte embalagens → unidades e distribui o valor.
- * Para não fragmentáveis, retorna os valores informados sem alteração.
- */
-export function calcularQuantidadeInventario(params: CalcInventarioParams): CalcInventarioResult {
-  const { quantidadeInformada, fragmentavel, unidadesPorEmbalagem, valorInformado } = params;
-
-  if (!fragmentavel || !unidadesPorEmbalagem) {
-    return {
-      quantidade_inicial: quantidadeInformada,
-      valor_unitario: valorInformado,
-    };
-  }
-
-  return {
-    quantidade_inicial: quantidadeInformada * unidadesPorEmbalagem,
-    valor_unitario: valorInformado / unidadesPorEmbalagem,
-  };
-}
+// Movido para um módulo puro (importável pela rota de confirmação no servidor);
+// reexportado aqui para não quebrar os chamadores existentes.
+export {
+  calcularQuantidadeInventario,
+  type CalcInventarioParams,
+  type CalcInventarioResult,
+} from '@/lib/inventoryQuantity';
 
 export interface InventoryStats {
   totalProdutos: number;
@@ -802,97 +777,4 @@ export async function forceDeactivateInventoryItem(
   await batch.commit();
 
   return { procedimentosAlterados, procedimentosCancelados };
-}
-
-// ============================================================================
-// INSERÇÃO EM LOTE (IMPORTAÇÃO XML NF-e)
-// ============================================================================
-
-export interface AddInventoryItemsParams {
-  tenantId: string;
-  nfNumero: string;
-  nfId: string;
-  naturezaOperacao?: string;
-  tipoNota?: TipoNota;
-  items: Array<{
-    produto_id: string;
-    codigo_produto: string;
-    nome_produto: string;
-    lote: string;
-    quantidade: number;
-    dt_validade: Date;
-    valor_unitario: number;
-    category?: string;
-    brand?: string;
-    fragmentavel?: boolean;
-    unidades_por_embalagem?: number;
-    quantidade_embalagens?: number;
-    valor_por_embalagem?: number;
-  }>;
-}
-
-/**
- * Retorna o conjunto de chaves "codigo_produto::lote" já presentes no inventário
- * para um dado nf_id — usado para reenvio idempotente de XML (completar pendências
- * sem duplicar produtos já importados numa tentativa anterior).
- */
-export async function getInventoryProdutoLoteKeysByNfId(
-  tenantId: string,
-  nfId: string
-): Promise<Set<string>> {
-  const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
-  const q = query(inventoryRef, where('nf_id', '==', nfId));
-  const snapshot = await getDocs(q);
-
-  const keys = new Set<string>();
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    keys.add(`${data.codigo_produto}::${data.lote}`);
-  });
-
-  return keys;
-}
-
-/**
- * Grava um lote de itens no inventário do tenant usando writeBatch para atomicidade.
- */
-export async function addInventoryItems(params: AddInventoryItemsParams): Promise<void> {
-  const { tenantId, nfNumero, nfId, naturezaOperacao, tipoNota, items } = params;
-
-  if (items.length === 0) return;
-
-  const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
-  const batch = writeBatch(db);
-
-  for (const item of items) {
-    const newDocRef = doc(inventoryRef);
-    batch.set(newDocRef, {
-      tenant_id: tenantId,
-      produto_id: item.produto_id,
-      codigo_produto: item.codigo_produto,
-      nome_produto: item.nome_produto,
-      lote: item.lote,
-      quantidade_inicial: item.quantidade,
-      quantidade_disponivel: item.quantidade,
-      quantidade_reservada: 0,
-      dt_validade: Timestamp.fromDate(item.dt_validade),
-      dt_entrada: serverTimestamp(),
-      valor_unitario: item.valor_unitario,
-      nf_numero: nfNumero,
-      nf_id: nfId,
-      natureza_operacao: naturezaOperacao ?? null,
-      tipo_nota: tipoNota ?? null,
-      active: true,
-      category: item.category ?? null,
-      brand: item.brand ?? null,
-      fragmentavel: item.fragmentavel ?? false,
-      unidades_por_embalagem: item.unidades_por_embalagem ?? null,
-      quantidade_embalagens: item.quantidade_embalagens ?? null,
-      valor_por_embalagem: item.valor_por_embalagem ?? null,
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-  }
-
-  await batch.commit();
 }

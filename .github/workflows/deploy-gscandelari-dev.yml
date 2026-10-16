@@ -45,7 +45,7 @@ jobs:
       - name: Deploy to Firebase Hosting (dev-gscandelari)
         run: |
           set -o pipefail
-          firebase deploy --project curva-mestra-dev --only hosting:dev-gscandelari,firestore:rules,firestore:indexes --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
+          firebase deploy --project curva-mestra-dev --only hosting:dev-gscandelari,firestore:rules,firestore:indexes,storage --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-hosting-debug.log || (cat firebase-hosting-debug.log && exit 1)
         env:
           FIREBASE_TOKEN_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
           FIREBASE_ADMIN_CREDENTIALS: ${{ secrets.FIREBASE_ADMIN_CREDENTIALS_DEV }}
@@ -105,12 +105,14 @@ jobs:
             echo "exports.sendAccessRejectionEmail = require('./sendRejectionEmail').sendAccessRejectionEmail;"
             echo "exports.sendTemplateTestEmail = require('./sendTemplateTestEmail').sendTemplateTestEmail;"
             echo "exports.checkConsultantPendingAccessRequestsScheduled = require('./checkConsultantPendingAccessRequestsScheduled').checkConsultantPendingAccessRequestsScheduled;"
+            echo "exports.onMasterProductWritten = require('./onMasterProductWritten').onMasterProductWritten;"
+            echo "exports.reprocessPendingMasterProducts = require('./reprocessPendingMasterProducts').reprocessPendingMasterProducts;"
           } > lib/index.js
 
       - name: Deploy Scheduled Functions (dev-gscandelari)
         run: |
           set -o pipefail
-          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled,functions:onUserCreated,functions:onTenantCreated,functions:onAccessRequestCreated,functions:sendAccessRejectionEmail,functions:sendTemplateTestEmail,functions:checkConsultantPendingAccessRequestsScheduled --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
+          firebase deploy --project curva-mestra-dev --only functions:checkAlertsScheduled,functions:onUserCreated,functions:onTenantCreated,functions:onAccessRequestCreated,functions:sendAccessRejectionEmail,functions:sendTemplateTestEmail,functions:checkConsultantPendingAccessRequestsScheduled,functions:onMasterProductWritten,functions:reprocessPendingMasterProducts --token "$FIREBASE_TOKEN_DEV" --force --debug 2>&1 | tee firebase-functions-debug.log || (cat firebase-functions-debug.log && exit 1)
         env:
           FIREBASE_TOKEN_DEV: ${{ secrets.FIREBASE_TOKEN_DEV }}
 

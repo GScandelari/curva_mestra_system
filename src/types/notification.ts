@@ -15,7 +15,9 @@ export type NotificationType =
   | 'new_user' // Novo usuário adicionado à clínica
   | 'consultant_linked' // Consultor vinculado automaticamente à clínica
   | 'consultant_claim' // Solicitação de vínculo de consultor (legado)
-  | 'consultant_invite_rejected'; // Consultor convidado recusou o convite da clínica
+  | 'consultant_invite_rejected' // Consultor convidado recusou o convite da clínica
+  | 'nf_pending_resolved' // Produtos pendentes de NF-e incorporados após cadastro no catálogo
+  | 'nf_pending_rejected'; // Produto pendente de NF-e recusado pelo system_admin
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -49,6 +51,9 @@ export interface Notification {
     min_quantity?: number;
     request_number?: string;
     user_name?: string;
+    nf_import_id?: string;
+    product_names?: string[];
+    motivo?: string;
   };
 }
 

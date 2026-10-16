@@ -278,6 +278,8 @@ export async function getNotificationStats(tenantId: string): Promise<Notificati
         consultant_linked: 0,
         consultant_claim: 0,
         consultant_invite_rejected: 0,
+        nf_pending_resolved: 0,
+        nf_pending_rejected: 0,
       },
       by_priority: {
         low: 0,

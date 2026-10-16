@@ -38,6 +38,9 @@ import {
   getDoc,
   getDocs,
   query,
+  where,
+  orderBy,
+  Timestamp,
   setDoc,
   deleteDoc,
   updateDoc,
@@ -103,8 +106,19 @@ function consultantWithAccess(tenantId: string) {
   return testEnv.authenticatedContext('consultant-with-access', {
     is_consultant: true,
     is_system_admin: false,
+    consultant_id: 'consultant-with-access',
     authorized_tenants: [tenantId],
     active: true,
+  });
+}
+
+function inactiveConsultantWithAccess(tenantId: string) {
+  return testEnv.authenticatedContext('consultant-inactive', {
+    is_consultant: true,
+    is_system_admin: false,
+    consultant_id: 'consultant-inactive',
+    authorized_tenants: [tenantId],
+    active: false,
   });
 }
 
@@ -139,13 +153,16 @@ async function seed(pathStr: string, data: Record<string, unknown>) {
 // restrita a clinic_admin: inventory, stock_limits, protocolos,
 // solicitacoes, inventory_activity -----------------------------------------
 
+// A terceira coluna diz se o consultor com acesso lê pelo bloco genérico
+// (allowlist de UC-48-RN-06); protocolos só com opt-in financeiro (describe
+// dedicado mais abaixo).
 describe.each([
-  ['inventory', { quantidade_disponivel: 10, active: true }],
-  ['stock_limits', { limite: 5 }],
-  ['protocolos', { nome: 'Protocolo X', active: true }],
-  ['solicitacoes', { status: 'criada' }],
-  ['inventory_activity', { tipo: 'consumo', quantidade: 1 }],
-])('tenants/{tenantId}/%s', (collectionName, sampleData) => {
+  ['inventory', { quantidade_disponivel: 10, active: true }, true],
+  ['stock_limits', { limite: 5 }, true],
+  ['protocolos', { nome: 'Protocolo X', active: true }, false],
+  ['solicitacoes', { status: 'criada' }, true],
+  ['inventory_activity', { tipo: 'consumo', quantidade: 1 }, false],
+])('tenants/{tenantId}/%s', (collectionName, sampleData, consultantReads) => {
   const docPathA = `tenants/${TENANT_A}/${collectionName}/doc1`;
   const docPathB = `tenants/${TENANT_B}/${collectionName}/doc1`;
   const collectionPathA = `tenants/${TENANT_A}/${collectionName}`;
@@ -217,10 +234,11 @@ describe.each([
     await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
-  it('consultor com acesso ao tenant lê (get e list), mas não escreve', async () => {
+  it(`consultor com acesso ao tenant ${consultantReads ? 'lê' : 'NÃO lê'} (get e list) e não escreve`, async () => {
     const db = consultantWithAccess(TENANT_A).firestore();
-    await assertSucceeds(getDoc(doc(db, docPathA)));
-    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+    const assertRead = consultantReads ? assertSucceeds : assertFails;
+    await assertRead(getDoc(doc(db, docPathA)));
+    await assertRead(getDocs(query(collection(db, collectionPathA))));
     await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
@@ -261,24 +279,27 @@ describe('tenants/{tenantId}/users (subcoleção morta, RN-04)', () => {
   });
 });
 
-// --- nf_imports: leitura E escrita restritas a clinic_admin (defesa em
-// profundidade — diferente das subcoleções acima, nem clinic_user nem
-// consultor leem). Compartilhamento com consultor fica para um UC dedicado
-// futuro (opt-in do clinic_admin), fora do escopo desta correção. ----------
+// --- nf_imports: leitura restrita a clinic_admin (defesa em profundidade —
+// nem clinic_user nem consultor leem) e NENHUMA escrita de client, nem do
+// system_admin: o registro, a identidade da nota e o contador do ID são
+// gravados só pelo servidor (Admin SDK), numa transação
+// (BUGFIX-identidade-e-duplicidade-nfe). ------------------------------------
 
 describe('tenants/{tenantId}/nf_imports', () => {
-  const docPathA = `tenants/${TENANT_A}/nf_imports/nf1`;
+  const docPathA = `tenants/${TENANT_A}/nf_imports/1000`;
   const collectionPathA = `tenants/${TENANT_A}/nf_imports`;
 
   beforeEach(async () => {
-    await seed(docPathA, { numero: '026229', status: 'success' });
+    await seed(docPathA, { id_sequencial: 1000, numero_nf: '26229', status: 'success' });
   });
 
-  it('clinic_admin do tenant correto lê (get e list) e escreve', async () => {
+  it('clinic_admin do tenant correto lê (get e list) mas NÃO escreve', async () => {
     const db = clinicAdmin(TENANT_A).firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
     await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
-    await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+    await assertFails(setDoc(doc(db, `${collectionPathA}/1001`), { numero_nf: '1' }));
+    await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+    await assertFails(deleteDoc(doc(db, docPathA)));
   });
 
   it('clinic_user do tenant correto NÃO lê (get nem list) nem escreve', async () => {
@@ -294,17 +315,219 @@ describe('tenants/{tenantId}/nf_imports', () => {
     await assertFails(getDocs(query(collection(db, collectionPathA))));
   });
 
-  it('usuário de outro tenant NÃO lê nem escreve', async () => {
+  it('usuário de outro tenant NÃO lê (get nem list) nem escreve', async () => {
     const db = clinicAdmin(TENANT_B).firestore();
     await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
     await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
   });
 
-  it('system_admin lê (get e list) e escreve, cross-tenant', async () => {
+  it('system_admin lê (get e list) cross-tenant mas NÃO escreve', async () => {
     const db = systemAdmin().firestore();
     await assertSucceeds(getDoc(doc(db, docPathA)));
     await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
-    await assertSucceeds(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+    await assertFails(setDoc(doc(db, `${collectionPathA}/1001`), { numero_nf: '1' }));
+    await assertFails(updateDoc(doc(db, docPathA), { updated_by_test: true }));
+    await assertFails(deleteDoc(doc(db, docPathA)));
+  });
+});
+
+// --- nf_identidades e contadores: sem bloco próprio — só o system_admin lê
+// (bloco genérico); ninguém escreve pelo client. ---------------------------
+
+describe.each([
+  ['nf_identidades', '12345678000195_1_26229', { nf_import_id: '1000', origem: 'xml' }],
+  ['contadores', 'nf_imports', { ultimo_id: 1000 }],
+])('tenants/{tenantId}/%s', (nome, docId, data) => {
+  const docPathA = `tenants/${TENANT_A}/${nome}/${docId}`;
+  const collectionPathA = `tenants/${TENANT_A}/${nome}`;
+
+  beforeEach(async () => {
+    await seed(docPathA, data);
+  });
+
+  it('clinic_admin, clinic_user e consultor NÃO leem (get nem list)', async () => {
+    for (const ctx of [
+      clinicAdmin(TENANT_A),
+      clinicUser(TENANT_A),
+      consultantWithAccess(TENANT_A),
+    ]) {
+      const db = ctx.firestore();
+      await assertFails(getDoc(doc(db, docPathA)));
+      await assertFails(getDocs(query(collection(db, collectionPathA))));
+    }
+  });
+
+  it('clinic_admin NÃO escreve', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, `${collectionPathA}/novo`), { x: 1 }));
+    await assertFails(updateDoc(doc(db, docPathA), { x: 1 }));
+  });
+
+  it('system_admin lê (get e list) mas NÃO escreve', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPathA)));
+    await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
+    await assertFails(setDoc(doc(db, `${collectionPathA}/novo`), { x: 1 }));
+    await assertFails(updateDoc(doc(db, docPathA), { x: 1 }));
+    await assertFails(deleteDoc(doc(db, docPathA)));
+  });
+});
+
+// --- pending_master_products: fila do system_admin, gravada e resolvida só
+// pelo servidor (antes, o clinic_admin criava a pendência pelo client). ----
+
+// --- admin_notifications: sino do system_admin, criado só pelo servidor; o
+// system_admin só marca como lido (read/read_at). ---------------------------
+
+describe('admin_notifications', () => {
+  const docPath = 'admin_notifications/nf_pendencias_tenant-a_1000';
+
+  beforeEach(async () => {
+    await seed(docPath, {
+      type: 'nf_pendencias',
+      title: 'Pendências de catálogo em NF-e',
+      message: 'm',
+      read: false,
+      link: '/admin/pending-products',
+      created_at: Timestamp.now(),
+      metadata: { tenant_id: TENANT_A },
+    });
+  });
+
+  it('system_admin lê (get e list, incluindo a query do sino)', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+    await assertSucceeds(getDocs(query(collection(db, 'admin_notifications'))));
+    await assertSucceeds(
+      getDocs(query(collection(db, 'admin_notifications'), orderBy('created_at', 'desc')))
+    );
+  });
+
+  it('system_admin marca como lido, mas não altera outros campos, não cria nem apaga', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(updateDoc(doc(db, docPath), { read: true, read_at: Timestamp.now() }));
+    await assertFails(updateDoc(doc(db, docPath), { message: 'alterado' }));
+    await assertFails(updateDoc(doc(db, docPath), { read: false }));
+    await assertFails(
+      setDoc(doc(db, 'admin_notifications/novo'), { type: 'nf_pendencias', read: false })
+    );
+    await assertFails(deleteDoc(doc(db, docPath)));
+  });
+
+  it('clinic_admin, clinic_user e consultor NÃO leem (get nem list) nem escrevem', async () => {
+    for (const ctx of [
+      clinicAdmin(TENANT_A),
+      clinicUser(TENANT_A),
+      consultantWithAccess(TENANT_A),
+    ]) {
+      const db = ctx.firestore();
+      await assertFails(getDoc(doc(db, docPath)));
+      await assertFails(getDocs(query(collection(db, 'admin_notifications'))));
+      await assertFails(updateDoc(doc(db, docPath), { read: true }));
+      await assertFails(setDoc(doc(db, 'admin_notifications/x'), { read: false }));
+    }
+  });
+});
+
+describe('pending_master_products', () => {
+  const docPath = `pending_master_products/${TENANT_A}_1000_1`;
+
+  beforeEach(async () => {
+    await seed(docPath, { tenant_id: TENANT_A, codigo: '9999999', status: 'aberta' });
+  });
+
+  it('system_admin lê (get e list, incluindo a query da tela) mas NÃO altera', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+    await assertSucceeds(getDocs(query(collection(db, 'pending_master_products'))));
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, 'pending_master_products'),
+          where('status', '==', 'aberta'),
+          orderBy('created_at', 'desc')
+        )
+      )
+    );
+    await assertFails(updateDoc(doc(db, docPath), { status: 'resolvida' }));
+    await assertFails(deleteDoc(doc(db, docPath)));
+  });
+
+  it('clinic_admin do tenant NÃO lê (get nem list) nem cria', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, docPath)));
+    await assertFails(getDocs(query(collection(db, 'pending_master_products'))));
+    await assertFails(
+      setDoc(doc(db, `pending_master_products/${TENANT_A}_1000_2`), {
+        tenant_id: TENANT_A,
+        codigo: '1',
+      })
+    );
+  });
+});
+
+// --- master_products: código com 1 a 7 dígitos, sem zeros à esquerda — a
+// mesma forma do cProd normalizado da NF-e. --------------------------------
+
+describe('master_products — formato do código (5 a 8 dígitos)', () => {
+  it.each(['3076528', '123456', '12345', '12345678'])('system_admin cria code %s', async (code) => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(setDoc(doc(db, `master_products/mp-${code}`), { code, name: 'X' }));
+  });
+
+  it.each(['0123456', '1234', '123456789', '12A45', '0', ''])(
+    'system_admin NÃO cria code %p',
+    async (code) => {
+      const db = systemAdmin().firestore();
+      await assertFails(setDoc(doc(db, 'master_products/mp-x'), { code, name: 'X' }));
+    }
+  );
+
+  it('update com código fora do formato falha', async () => {
+    await seed('master_products/mp-1', { code: '3076528', name: 'X' });
+    const db = systemAdmin().firestore();
+    await assertSucceeds(updateDoc(doc(db, 'master_products/mp-1'), { code: '12345678' }));
+    await assertFails(updateDoc(doc(db, 'master_products/mp-1'), { code: '0123456' }));
+    await assertFails(updateDoc(doc(db, 'master_products/mp-1'), { code: '1234' }));
+  });
+
+  it('produto legado fora do padrão continua editável e desativável sem trocar o código', async () => {
+    await seed('master_products/mp-legado', { code: '1234', name: 'LEGADO', active: true });
+    const db = systemAdmin().firestore();
+    const ref = doc(db, 'master_products/mp-legado');
+    await assertSucceeds(updateDoc(ref, { active: false }));
+    await assertSucceeds(updateDoc(ref, { name: 'LEGADO 2', code: '1234' }));
+    await assertFails(updateDoc(ref, { code: '4321' }));
+    await assertSucceeds(updateDoc(ref, { code: '43210' }));
+  });
+
+  it('clinic_admin não cria nem altera produto do catálogo', async () => {
+    await seed('master_products/mp-1', { code: '3076528', name: 'X' });
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, 'master_products/mp-y'), { code: '12345', name: 'Y' }));
+    await assertFails(updateDoc(doc(db, 'master_products/mp-1'), { active: false }));
+  });
+});
+
+// --- Regressão do bloco genérico: a divisão de read/write do system_admin
+// não pode tirar a escrita das demais subcoleções. -------------------------
+
+describe('bloco genérico — escrita fora das coleções do servidor (regressão)', () => {
+  beforeEach(async () => {
+    await seed(`tenants/${TENANT_A}/inventory/i1`, { quantidade_disponivel: 1 });
+    await seed(`tenants/${TENANT_A}/financeiro/custo_hora`, { aluguel: 1 });
+  });
+
+  it('system_admin escreve em inventory e financeiro', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(updateDoc(doc(db, `tenants/${TENANT_A}/inventory/i1`), { x: 1 }));
+    await assertSucceeds(updateDoc(doc(db, `tenants/${TENANT_A}/financeiro/custo_hora`), { x: 1 }));
+  });
+
+  it('clinic_admin escreve em inventory', async () => {
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, `tenants/${TENANT_A}/inventory/i1`), { x: 1 }));
   });
 });
 
@@ -534,10 +757,25 @@ describe('protocolos — leitura do consultor com opt-in financeiro (D6)', () =>
     );
   });
 
-  // Ativar quando a allowlist de UC-48-RN-06 estiver em develop.
-  it.todo('consultor com acesso NÃO lê com opt-in desligado (UC-48-RN-06)');
-  it.todo('consultor com acesso NÃO lê com opt-in de outro consultant_id (UC-48-RN-06)');
-  it.todo('consultor com acesso NÃO lê sem documento financeiro (UC-48-RN-06)');
+  it('consultor com acesso NÃO lê com opt-in desligado (UC-48-RN-06)', async () => {
+    await seed(finPathA, { ...optIn, compartilhar_com_consultor: false });
+    const db = consultantWith('cons-x', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('consultor com acesso NÃO lê com opt-in de outro consultant_id (UC-48-RN-06)', async () => {
+    await seed(finPathA, optIn);
+    const db = consultantWith('cons-y', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
+
+  it('consultor com acesso NÃO lê sem documento financeiro (UC-48-RN-06)', async () => {
+    const db = consultantWith('cons-x', [TENANT_A]).firestore();
+    await assertFails(getDoc(doc(db, docPathA)));
+    await assertFails(getDocs(query(collection(db, collectionPathA))));
+  });
 });
 
 // --- precificacao_procedimentos: snapshot da precificação de cada
@@ -651,5 +889,100 @@ describe('tenants/{tenantId}/precificacao_procedimentos', () => {
     await assertSucceeds(getDocs(query(collection(db, collectionPathA))));
     await assertSucceeds(setDoc(doc(db, docPathA), snapshot({ forma_pagamento: 'debito' })));
     await assertSucceeds(deleteDoc(doc(db, docPathA)));
+  });
+});
+
+// --- Portal do Consultor — allowlist de subcoleções (UC-48-RN-06). O
+// consultor só lê inventory, stock_limits e solicitacoes pelo bloco genérico;
+// as queries abaixo são as mesmas das telas (InventoryView, detalhe da
+// clínica e projectionService). ---------------------------------------------
+
+describe('Portal do Consultor — allowlist de subcoleções (UC-48-RN-06)', () => {
+  const PERMITIDAS = ['inventory', 'stock_limits', 'solicitacoes'];
+  const NEGADAS = [
+    'protocolos',
+    'inventory_activity',
+    'notifications',
+    'users',
+    'nf_imports',
+    'nf_identidades',
+    'contadores',
+    'financeiro',
+    'precificacao_procedimentos',
+    'subcolecao_futura_qa',
+  ];
+
+  beforeEach(async () => {
+    for (const nome of [...PERMITIDAS, ...NEGADAS]) {
+      await seed(`tenants/${TENANT_A}/${nome}/doc1`, { tenant_id: TENANT_A, active: true });
+    }
+    await seed(`tenants/${TENANT_A}/settings/notifications`, { email: true });
+    await seed(`tenants/${TENANT_A}`, { name: 'Clínica A', active: true });
+  });
+
+  it.each(PERMITIDAS)('consultor com acesso lê %s (get e list) e não escreve', async (nome) => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    await assertSucceeds(getDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+    await assertSucceeds(getDocs(query(collection(db, `tenants/${TENANT_A}/${nome}`))));
+    await assertFails(updateDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`), { x: 1 }));
+    await assertFails(setDoc(doc(db, `tenants/${TENANT_A}/${nome}/novo`), { x: 1 }));
+    await assertFails(deleteDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+  });
+
+  it('queries reais das telas do consultor são permitidas', async () => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    const inventory = collection(db, `tenants/${TENANT_A}/inventory`);
+    await assertSucceeds(
+      getDocs(query(inventory, where('active', '==', true), orderBy('nome_produto', 'asc')))
+    );
+    await assertSucceeds(getDocs(query(inventory, where('brand', '==', 'Rennova'))));
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, `tenants/${TENANT_A}/solicitacoes`),
+          where('status', '==', 'concluida'),
+          where('dt_procedimento', '>=', Timestamp.fromDate(new Date('2026-01-01')))
+        )
+      )
+    );
+    await assertSucceeds(getDocs(collection(db, `tenants/${TENANT_A}/stock_limits`)));
+  });
+
+  it.each(NEGADAS)('consultor com acesso NÃO lê %s (get e list)', async (nome) => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+    await assertFails(getDocs(query(collection(db, `tenants/${TENANT_A}/${nome}`))));
+  });
+
+  it('consultor com acesso NÃO lê settings/notifications', async () => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, `tenants/${TENANT_A}/settings/notifications`)));
+  });
+
+  it.each(PERMITIDAS)('consultor sem o tenant autorizado NÃO lê %s', async (nome) => {
+    const db = consultantWithoutAccess(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+    await assertFails(getDocs(query(collection(db, `tenants/${TENANT_A}/${nome}`))));
+  });
+
+  it.each(PERMITIDAS)('consultor inativo NÃO lê %s', async (nome) => {
+    const db = inactiveConsultantWithAccess(TENANT_A).firestore();
+    await assertFails(getDoc(doc(db, `tenants/${TENANT_A}/${nome}/doc1`)));
+    await assertFails(getDocs(query(collection(db, `tenants/${TENANT_A}/${nome}`))));
+  });
+
+  it('documento raiz do tenant: consultor com acesso lê, sem acesso não (regressão)', async () => {
+    await assertSucceeds(
+      getDoc(doc(consultantWithAccess(TENANT_A).firestore(), `tenants/${TENANT_A}`))
+    );
+    await assertFails(
+      getDoc(doc(consultantWithoutAccess(TENANT_A).firestore(), `tenants/${TENANT_A}`))
+    );
+  });
+
+  it('clinic_user continua lendo protocolos e inventory_activity (regressão)', async () => {
+    const db = clinicUser(TENANT_A).firestore();
+    await assertSucceeds(getDocs(query(collection(db, `tenants/${TENANT_A}/protocolos`))));
+    await assertSucceeds(getDocs(query(collection(db, `tenants/${TENANT_A}/inventory_activity`))));
   });
 });

@@ -26,7 +26,7 @@ export type MasterProductCategory = (typeof MASTER_PRODUCT_CATEGORIES)[number];
  */
 export interface MasterProduct {
   id: string;
-  code: string; // Código do produto Rennova (7 dígitos)
+  code: string; // Código do produto Rennova (5 a 8 dígitos, sem zeros à esquerda)
   name: string; // Nome base do produto (SEM quantidade/unidade para fragmentáveis)
   category?: MasterProductCategory; // Categoria (alinhado com Firestore — era "grupo")
   active: boolean; // Produto ativo/descontinuado
@@ -77,19 +77,34 @@ export function getNomeCompletoMasterProduct(product: MasterProduct): string {
 }
 
 /**
- * Helper para formatar código do produto (7 dígitos)
+ * Formato do código do catálogo master: só dígitos, sem zeros à esquerda, de 5
+ * a 8 dígitos. ESPELHADO na rule de master_products (isCatalogCode em
+ * firestore.rules) — mudar nos dois lugares.
  */
-export function formatProductCode(code: string): string {
-  const cleaned = code.replace(/\D/g, '');
-  return cleaned.slice(0, 7);
+export const CATALOG_CODE_PATTERN = /^[1-9]\d{4,7}$/;
+
+/** Código já normalizado (sem zeros à esquerda) está no padrão do catálogo? */
+export function isCatalogProductCode(codigoNormalizado: string): boolean {
+  return CATALOG_CODE_PATTERN.test(codigoNormalizado);
 }
 
 /**
- * Helper para validar código do produto (7 dígitos)
+ * Helper para formatar a digitação do código do produto (só dígitos, até 8)
+ */
+export function formatProductCode(code: string): string {
+  const cleaned = code.replace(/\D/g, '');
+  return cleaned.slice(0, 8);
+}
+
+/**
+ * Helper para validar código do produto digitado: só dígitos; sem os zeros à
+ * esquerda (removidos na gravação, mesma forma do cProd da NF-e) precisa ter
+ * de 5 a 8 dígitos.
  */
 export function validateProductCode(code: string): boolean {
-  const cleaned = code.replace(/\D/g, '');
-  return cleaned.length === 7;
+  const cleaned = code.trim();
+  if (!/^\d+$/.test(cleaned)) return false;
+  return isCatalogProductCode(cleaned.replace(/^0+/, ''));
 }
 
 /**

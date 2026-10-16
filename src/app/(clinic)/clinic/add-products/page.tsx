@@ -26,20 +26,20 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import {
-  collection,
-  doc,
-  query,
-  where,
-  getDocs,
-  serverTimestamp,
-  writeBatch,
-  Timestamp,
-} from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Plus, Trash2, Save, ArrowLeft, AlertCircle } from 'lucide-react';
 import { calcularQuantidadeInventario } from '@/lib/services/inventoryService';
-import { checkNumeroNFStatus } from '@/lib/services/nfImportService';
-import { getNomeCompletoMasterProduct } from '@/types/masterProduct';
+import {
+  formatNFLabel,
+  maskCnpjInput,
+  normalizeLeadingZeros,
+  normalizeNumeroNF,
+  validateManualIdentity,
+} from '@/lib/nfIdentity';
+import { buildComplementNotice, evaluateIdentityConflict } from '@/lib/nfImportPlanner';
+import type { NFIdentity, NfIdentityLookupResponse } from '@/types/nf';
+import { getNomeCompletoMasterProduct, isCatalogProductCode } from '@/types/masterProduct';
+import { Badge } from '@/components/ui/badge';
 import { normalizeBrand } from '@/lib/brandUtils';
 
 interface MasterProduct {
@@ -66,19 +66,51 @@ interface NFProduct {
   unidades_por_embalagem?: number;
   quantidade_embalagens?: number;
   valor_por_embalagem?: number;
+  // Produto Rennova fora do catálogo: quantidade e valor como na NF (embalagens);
+  // vira pendência no servidor e não é enviado como flag (o servidor decide)
+  pendente_cadastro?: boolean;
+}
+
+interface ResultadoLancamento {
+  idLabel: string;
+  complemento: boolean;
+  produtosImportados: number;
+  pendentes: Array<{ codigo: string; nome_produto: string; lote: string }>;
+}
+
+const TEXTO_PENDENTES_MANUAL =
+  'O Administrador do Sistema foi informado e atuará assim que possível. Quando o cadastro for concluído ou recusado, você será avisado pelo sino de notificações.';
+
+/** "O produto X não foi inserido" / "Os produtos X, Y e Z não foram inseridos". */
+function textoNaoInseridos(nomesBrutos: string[]): string {
+  const nomes = Array.from(new Set(nomesBrutos));
+  const lista = new Intl.ListFormat('pt-BR').format(nomes);
+  return nomes.length === 1
+    ? `O produto ${lista} não foi inserido no estoque.`
+    : `Os produtos ${lista} não foram inseridos no estoque.`;
 }
 
 export default function ManualNFPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, tenantId, claims } = useAuth();
+  const { user, claims } = useAuth();
   const isAdmin = claims?.role === 'clinic_admin';
 
   const [step, setStep] = useState<
-    'select_type' | 'select_method' | 'enter_nf' | 'add_products' | 'review'
+    'select_type' | 'select_method' | 'enter_nf' | 'add_products' | 'review' | 'resultado'
   >('select_type');
+  const [resultado, setResultado] = useState<ResultadoLancamento | null>(null);
   const [tipoNF, setTipoNF] = useState<'rennova' | 'outra_marca' | null>(null);
   const [numeroNF, setNumeroNF] = useState('');
+  const [cnpjEmitente, setCnpjEmitente] = useState('');
+  const [serieNF, setSerieNF] = useState('');
+  const [chaveAcesso, setChaveAcesso] = useState('');
+  // Identidade normalizada (CNPJ + série + número) — definida ao avançar do Passo 2
+  const [identidade, setIdentidade] = useState<NFIdentity | null>(null);
+  const [chaveNormalizada, setChaveNormalizada] = useState<string | undefined>(undefined);
+  // Checagem antecipada (Passo 2): aviso de complemento do mesmo ID
+  const [avisoComplemento, setAvisoComplemento] = useState('');
+  const [verificandoNF, setVerificandoNF] = useState(false);
   const [produtos, setProdutos] = useState<NFProduct[]>([]);
   const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -94,6 +126,11 @@ export default function ManualNFPage() {
   const [quantidade, setQuantidade] = useState('');
   const [dtValidade, setDtValidade] = useState('');
   const [valorUnitario, setValorUnitario] = useState('');
+
+  // Produto Rennova fora do catálogo, informado à mão (vira pendência de cadastro)
+  const [modoManual, setModoManual] = useState(false);
+  const [codigoManual, setCodigoManual] = useState('');
+  const [nomeManual, setNomeManual] = useState('');
 
   // Form fields para produtos de outra marca
   const [codigoOutraMarca, setCodigoOutraMarca] = useState('');
@@ -147,15 +184,77 @@ export default function ManualNFPage() {
     }
   };
 
-  const handleContinueToProducts = () => {
-    if (!numeroNF) {
+  /**
+   * Passo 2 → 3: valida a identidade e consulta se a NF já existe (bloqueia o
+   * lançamento sobre NF importada via XML; avisa que um lançamento existente
+   * será complementado). A transação ao salvar continua sendo a checagem que
+   * vale; se a consulta falhar, segue com aviso.
+   */
+  const handleContinueToProducts = async () => {
+    const resultado = validateManualIdentity({
+      numero: numeroNF,
+      cnpj: cnpjEmitente,
+      serie: serieNF,
+      chave: chaveAcesso.trim() || undefined,
+    });
+    if (!resultado.ok) {
       toast({
-        title: 'Número da NF obrigatório',
-        description: 'Informe o número da nota fiscal antes de continuar',
+        title: 'Dados da nota fiscal',
+        description: resultado.error,
         variant: 'destructive',
       });
       return;
     }
+
+    setAvisoComplemento('');
+    if (user) {
+      setVerificandoNF(true);
+      try {
+        const params = new URLSearchParams({
+          cnpj: resultado.identity.cnpj,
+          serie: resultado.identity.serie,
+          numero: resultado.identity.numero,
+        });
+        const idToken = await user.getIdToken();
+        const response = await fetch(`/api/nf-imports/identidade?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const fatos = (await response.json()) as NfIdentityLookupResponse;
+        if (fatos.existe) {
+          const decisao = evaluateIdentityConflict('manual', {
+            nf_import_id: fatos.importId,
+            origem: fatos.origem,
+            hasPending: fatos.hasPending,
+            hasRejected: fatos.hasRejected,
+          });
+          if (decisao.action === 'blocked') {
+            toast({
+              title: 'Nota fiscal já cadastrada',
+              description: decisao.reason,
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (decisao.action === 'complement') {
+            const aviso = buildComplementNotice(fatos.importId, fatos.origem);
+            setAvisoComplemento(aviso);
+            toast({ title: 'NF já cadastrada', description: aviso });
+          }
+        }
+      } catch {
+        toast({
+          title: 'Verificação de duplicidade',
+          description:
+            'Não foi possível verificar agora se a NF já foi cadastrada; a verificação será feita ao salvar.',
+        });
+      } finally {
+        setVerificandoNF(false);
+      }
+    }
+
+    setIdentidade(resultado.identity);
+    setChaveNormalizada(resultado.chave_acesso);
     setStep('add_products');
   };
 
@@ -182,20 +281,65 @@ export default function ManualNFPage() {
     }
   };
 
-  const handleAddProduct = () => {
-    console.log('handleAddProduct called', {
-      tipoNF,
-      selectedProduct,
+  /**
+   * Produto Rennova fora do catálogo informado à mão: valida e monta o item
+   * (sem conversão — quantidade e valor como na NF; o servidor converte na
+   * incorporação, pela regra do catálogo). Devolve null e avisa se inválido.
+   */
+  const montarItemPendenteCadastro = (): NFProduct | null => {
+    const camposVazios = [
+      codigoManual,
+      nomeManual.trim(),
       lote,
       quantidade,
       dtValidade,
       valorUnitario,
-    });
+    ];
+    if (camposVazios.some((v) => !v)) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Preencha todos os campos para adicionar o produto',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    const codigo = normalizeLeadingZeros(codigoManual);
+    if (!isCatalogProductCode(codigo)) {
+      toast({
+        title: 'Código inválido',
+        description: 'Use de 5 a 8 dígitos numéricos.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    if (masterProducts.some((p) => normalizeLeadingZeros(p.code) === codigo)) {
+      toast({
+        title: 'Produto já está no catálogo',
+        description: 'Este código está no catálogo: selecione o produto na busca.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    return {
+      codigo,
+      nome_produto: nomeManual.trim().toUpperCase(),
+      brand: 'Rennova',
+      lote: normalizeLeadingZeros(lote),
+      quantidade: Number.parseFloat(quantidade),
+      dt_validade: dtValidade,
+      valor_unitario: Number.parseFloat(valorUnitario),
+      pendente_cadastro: true,
+    };
+  };
 
-    if (tipoNF === 'rennova') {
+  const handleAddProduct = () => {
+    if (tipoNF === 'rennova' && modoManual) {
+      const item = montarItemPendenteCadastro();
+      if (!item) return;
+      setProdutos([...produtos, item]);
+    } else if (tipoNF === 'rennova') {
       // Validar campos Rennova
       if (!selectedProduct || !lote || !quantidade || !dtValidade || !valorUnitario) {
-        console.log('Validation failed - missing fields');
         toast({
           title: 'Campos obrigatórios',
           description: 'Preencha todos os campos para adicionar o produto',
@@ -205,7 +349,6 @@ export default function ManualNFPage() {
       }
 
       const product = masterProducts.find((p) => p.id === selectedProduct);
-      console.log('Found product:', product);
       if (!product) return;
 
       const qtdInformada = parseFloat(quantidade);
@@ -223,7 +366,7 @@ export default function ManualNFPage() {
         nome_produto: getNomeCompletoMasterProduct(product as any),
         category: product.category,
         brand: 'Rennova',
-        lote,
+        lote: normalizeLeadingZeros(lote),
         quantidade: quantidade_inicial,
         dt_validade: dtValidade,
         valor_unitario: valorUnit,
@@ -233,7 +376,6 @@ export default function ManualNFPage() {
         valor_por_embalagem: product.fragmentavel ? valorInformado : undefined,
       };
 
-      console.log('Adding product:', newProduct);
       setProdutos([...produtos, newProduct]);
     } else {
       // Validar campos de outra marca
@@ -255,10 +397,10 @@ export default function ManualNFPage() {
       }
 
       const newProduct: NFProduct = {
-        codigo: codigoOutraMarca,
+        codigo: normalizeLeadingZeros(codigoOutraMarca),
         nome_produto: nomeOutraMarca,
         brand: normalizeBrand(brandOutraMarca),
-        lote,
+        lote: normalizeLeadingZeros(lote),
         quantidade: parseFloat(quantidade),
         dt_validade: dtValidade,
         valor_unitario: parseFloat(valorUnitario),
@@ -268,6 +410,9 @@ export default function ManualNFPage() {
     }
 
     // Limpar campos
+    setModoManual(false);
+    setCodigoManual('');
+    setNomeManual('');
     setSelectedProduct('');
     setSelectedProductObj(null);
     setProductSearch('');
@@ -307,21 +452,21 @@ export default function ManualNFPage() {
     setStep('review');
   };
 
+  /**
+   * Grava pela rota do servidor (UC-11): a transação verifica a identidade da
+   * nota, cria o registro "ID 100x" ou complementa o da mesma NF manual.
+   */
   const handleSaveNF = async () => {
-    console.log('handleSaveNF called', { numeroNF, produtos, tenantId });
-
-    if (!numeroNF) {
-      console.log('Validation failed - no numeroNF');
+    if (!identidade || !user) {
       toast({
-        title: 'Número da NF obrigatório',
-        description: 'Informe o número da nota fiscal',
+        title: 'Dados da nota fiscal',
+        description: 'Informe número, CNPJ do emitente e série da nota fiscal',
         variant: 'destructive',
       });
       return;
     }
 
     if (produtos.length === 0) {
-      console.log('Validation failed - no products');
       toast({
         title: 'Adicione produtos',
         description: 'Adicione pelo menos um produto à nota fiscal',
@@ -330,114 +475,69 @@ export default function ManualNFPage() {
       return;
     }
 
-    if (!tenantId) {
-      console.log('Validation failed - no tenantId');
-      toast({
-        title: 'Erro',
-        description: 'Tenant ID não encontrado',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    console.log('Starting save process...');
     setIsLoading(true);
 
     try {
-      // Verificar se este numero_nf já foi importado via XML (bloqueado para manual)
-      // ou já está totalmente concluído (bloqueado para qualquer origem)
-      const nfStatus = await checkNumeroNFStatus(tenantId, numeroNF, 'manual');
+      // O servidor recalcula a fragmentação a partir do catálogo: envia o que
+      // foi informado (embalagens e valor por embalagem, se fragmentável).
+      const payload = {
+        numero: identidade.numero,
+        cnpj: identidade.cnpj,
+        serie: identidade.serie,
+        ...(chaveNormalizada ? { chave_acesso: chaveNormalizada } : {}),
+        tipo: tipoNF,
+        produtos: produtos.map((p) => ({
+          codigo: p.codigo,
+          nome_produto: p.nome_produto,
+          lote: p.lote,
+          quantidade: p.fragmentavel ? p.quantidade_embalagens : p.quantidade,
+          valor_unitario: p.fragmentavel ? p.valor_por_embalagem : p.valor_unitario,
+          dt_validade: p.dt_validade,
+          ...(p.brand ? { brand: p.brand } : {}),
+          ...(p.category ? { category: p.category } : {}),
+        })),
+      };
 
-      if (nfStatus.blocked) {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/nf-imports/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json()) as Partial<ResultadoLancamento> & { error?: string };
+
+      if (!response.ok) {
         toast({
-          title: 'Nota fiscal não pode ser adicionada',
-          description: nfStatus.reason ?? 'Esta NF já foi importada anteriormente.',
+          title: 'Nota fiscal não pode ser salva',
+          description: body.error ?? 'Não foi possível salvar a nota fiscal',
           variant: 'destructive',
         });
-        setIsLoading(false);
         return;
       }
 
-      // Remover campos undefined do array de produtos antes de salvar no Firestore
-      // (Firestore rejeita undefined; campos opcionais ausentes devem ser omitidos)
-      const produtosSanitizados = produtos.map((p) =>
-        Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined))
-      );
-
-      // Salvar NF + itens de inventário atomicamente (writeBatch) -- antes, o
-      // documento nf_imports era criado com status "success" e os itens de
-      // inventário eram gravados um a um via addDoc; uma falha no meio do loop
-      // deixava o status "success" mentindo sobre uma gravação parcial, sem
-      // nenhum rollback. Com o batch, ou tudo é gravado ou nada é.
-      const batch = writeBatch(db);
-
-      const nfRef = doc(collection(db, `tenants/${tenantId}/nf_imports`));
-      const nfData = {
-        tenant_id: tenantId,
-        numero_nf: numeroNF,
-        origem: 'manual',
-        tipo: tipoNF,
-        produtos: produtosSanitizados,
-        status: 'success',
-        // uid (nao e-mail) -- alinhado ao padrao ja usado na importacao via XML
-        // (UC-10), que grava created_by como o uid do usuario.
-        created_by: user?.uid || 'unknown',
-        created_at: serverTimestamp(),
-        updated_at: serverTimestamp(),
-      };
-      batch.set(nfRef, nfData);
-
-      for (const produto of produtos) {
-        const inventoryData: Record<string, any> = {
-          tenant_id: tenantId,
-          // nf_id (nao nf_import_id) -- alinhado ao schema gravado pela
-          // importacao via XML (addInventoryItems, inventoryService.ts);
-          // nf_import_id mantido como alias para nao quebrar leitores existentes.
-          nf_id: nfRef.id,
-          nf_import_id: nfRef.id,
-          nf_numero: numeroNF,
-          master_product_id: produto.master_product_id || null,
-          produto_id: produto.master_product_id || null,
-          codigo_produto: produto.codigo,
-          nome_produto: produto.nome_produto,
-          category: produto.category || null,
-          lote: produto.lote,
-          quantidade_inicial: produto.quantidade,
-          quantidade_disponivel: produto.quantidade,
-          // Timestamp (nao string) -- mesmo tipo gravado pela importacao via XML;
-          // produto.dt_validade vem de <input type="date"> no formato YYYY-MM-DD.
-          dt_validade: Timestamp.fromDate(new Date(`${produto.dt_validade}T00:00:00`)),
-          dt_entrada: serverTimestamp(),
-          valor_unitario: produto.valor_unitario,
-          active: true,
-          is_rennova: tipoNF === 'rennova',
-          brand: produto.brand || null,
-          created_at: serverTimestamp(),
-          updated_at: serverTimestamp(),
-        };
-
-        // Campos de auditoria para produtos fragmentáveis
-        if (produto.fragmentavel) {
-          inventoryData.fragmentavel = true;
-          inventoryData.unidades_por_embalagem = produto.unidades_por_embalagem;
-          inventoryData.quantidade_embalagens = produto.quantidade_embalagens;
-          inventoryData.valor_por_embalagem = produto.valor_por_embalagem;
-        }
-
-        const inventoryRef = doc(collection(db, `tenants/${tenantId}/inventory`));
-        batch.set(inventoryRef, inventoryData);
+      // Com pendências, a página não redireciona: mostra o resultado com o aviso
+      if ((body.pendentes ?? []).length > 0) {
+        setResultado({
+          idLabel: body.idLabel ?? '',
+          complemento: body.complemento === true,
+          produtosImportados: body.produtosImportados ?? 0,
+          pendentes: body.pendentes ?? [],
+        });
+        setStep('resultado');
+        return;
       }
 
-      console.log('Committing NF + inventory batch...');
-      await batch.commit();
-      console.log('All products added to inventory successfully');
-      toast({
-        title: 'Nota fiscal salva',
-        description: `NF ${numeroNF} foi salva e os produtos adicionados ao inventário`,
-      });
-
-      console.log('Redirecting to inventory page...');
-      // Redirecionar para o inventário
+      toast(
+        body.complemento
+          ? {
+              title: 'Lançamento adicionado',
+              description: `Lançamento adicionado à NF já cadastrada (${body.idLabel})`,
+            }
+          : {
+              title: `Nota fiscal salva — ${body.idLabel}`,
+              description: 'Os produtos foram adicionados ao inventário',
+            }
+      );
       router.push('/clinic/inventory');
     } catch (error) {
       console.error('Erro ao salvar NF:', error);
@@ -461,6 +561,7 @@ export default function ManualNFPage() {
       case 'add_products':
         return 3;
       case 'review':
+      case 'resultado':
         return 4;
       default:
         return 1;
@@ -621,21 +722,62 @@ export default function ManualNFPage() {
         {step === 'enter_nf' && (
           <Card>
             <CardHeader>
-              <CardTitle>Número da Nota Fiscal</CardTitle>
+              <CardTitle>Dados da Nota Fiscal</CardTitle>
               <CardDescription>
-                Informe o número da NF para{' '}
-                {tipoNF === 'rennova' ? 'produtos Rennova' : 'outras marcas'}
+                Informe a identificação da NF para{' '}
+                {tipoNF === 'rennova' ? 'produtos Rennova' : 'outras marcas'}. A mesma nota (CNPJ do
+                emitente + série + número) não pode ser cadastrada duas vezes.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="numero-nf">Número da NF *</Label>
+                  <Input
+                    id="numero-nf"
+                    placeholder="Ex: 026229"
+                    value={numeroNF}
+                    onChange={(e) => setNumeroNF(e.target.value)}
+                  />
+                  {numeroNF.trim() !== '' &&
+                    normalizeNumeroNF(numeroNF) !== '' &&
+                    normalizeNumeroNF(numeroNF) !== numeroNF.trim() && (
+                      <p className="text-xs text-muted-foreground">
+                        Será registrada como {normalizeNumeroNF(numeroNF)}
+                      </p>
+                    )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="serie-nf">Série *</Label>
+                  <Input
+                    id="serie-nf"
+                    placeholder="Ex: 1"
+                    inputMode="numeric"
+                    value={serieNF}
+                    onChange={(e) => setSerieNF(e.target.value)}
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="numero-nf">Número da NF</Label>
+                <Label htmlFor="cnpj-emitente">CNPJ do emitente *</Label>
                 <Input
-                  id="numero-nf"
-                  placeholder="Ex: 026229"
-                  value={numeroNF}
-                  onChange={(e) => setNumeroNF(e.target.value)}
+                  id="cnpj-emitente"
+                  placeholder="00.000.000/0000-00"
+                  value={cnpjEmitente}
+                  onChange={(e) => setCnpjEmitente(maskCnpjInput(e.target.value))}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="chave-acesso">Chave de acesso (opcional)</Label>
+                <Input
+                  id="chave-acesso"
+                  placeholder="44 caracteres"
+                  value={chaveAcesso}
+                  onChange={(e) => setChaveAcesso(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Se informada, precisa conferir com CNPJ, série e número acima.
+                </p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button
@@ -644,7 +786,9 @@ export default function ManualNFPage() {
                 >
                   Voltar
                 </Button>
-                <Button onClick={handleContinueToProducts}>Continuar</Button>
+                <Button onClick={() => void handleContinueToProducts()} disabled={verificandoNF}>
+                  {verificandoNF ? 'Verificando...' : 'Continuar'}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -661,8 +805,8 @@ export default function ManualNFPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-muted-foreground">Número da NF</Label>
-                    <p className="font-medium">{numeroNF}</p>
+                    <Label className="text-muted-foreground">Nota fiscal</Label>
+                    <p className="font-medium">{identidade && formatNFLabel(identidade)}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Tipo</Label>
@@ -671,6 +815,13 @@ export default function ManualNFPage() {
                     </p>
                   </div>
                 </div>
+                {avisoComplemento && (
+                  <Alert className="mt-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Complemento de lançamento</AlertTitle>
+                    <AlertDescription>{avisoComplemento}</AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
 
@@ -681,7 +832,17 @@ export default function ManualNFPage() {
                   <CardTitle>Produtos</CardTitle>
                   <CardDescription>Lista de produtos adicionados à nota fiscal</CardDescription>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog
+                  open={isDialogOpen}
+                  onOpenChange={(open) => {
+                    setIsDialogOpen(open);
+                    if (!open) {
+                      setModoManual(false);
+                      setCodigoManual('');
+                      setNomeManual('');
+                    }
+                  }}
+                >
                   <DialogTrigger asChild>
                     <Button>
                       <Plus className="mr-2 h-4 w-4" />
@@ -743,15 +904,71 @@ export default function ManualNFPage() {
                                   ))}
                                 </div>
                               )}
-                              {showSuggestions &&
+                              {!modoManual &&
+                                showSuggestions &&
                                 productSearch &&
                                 filteredProducts.length === 0 && (
-                                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md p-3 text-sm text-muted-foreground">
-                                    Nenhum produto encontrado
+                                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md p-3 text-sm space-y-2">
+                                    <p className="text-muted-foreground">
+                                      Nenhum produto encontrado
+                                    </p>
+                                    <button
+                                      type="button"
+                                      className="text-primary underline underline-offset-2 hover:no-underline"
+                                      onClick={() => {
+                                        setModoManual(true);
+                                        setShowSuggestions(false);
+                                        if (/^\d+$/.test(productSearch.trim())) {
+                                          setCodigoManual(productSearch.trim());
+                                        }
+                                      }}
+                                    >
+                                      Produto não está no catálogo — informar manualmente
+                                    </button>
                                   </div>
                                 )}
                             </div>
                           </div>
+                          {modoManual && (
+                            <div className="space-y-4 rounded-md border border-amber-300 bg-amber-50 p-3">
+                              <p className="text-sm text-amber-900">
+                                Este produto ficará <strong>pendente de cadastro</strong>: ele não
+                                entra no estoque agora e o Administrador do Sistema será avisado.
+                              </p>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="codigo-manual">Código (como na NF)</Label>
+                                  <Input
+                                    id="codigo-manual"
+                                    inputMode="numeric"
+                                    placeholder="5 a 8 dígitos"
+                                    value={codigoManual}
+                                    onChange={(e) => setCodigoManual(e.target.value)}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="nome-manual">Nome (conforme a NF)</Label>
+                                  <Input
+                                    id="nome-manual"
+                                    placeholder="Ex: PRODUTO NOVO"
+                                    value={nomeManual}
+                                    onChange={(e) => setNomeManual(e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className="text-sm text-primary underline underline-offset-2 hover:no-underline"
+                                onClick={() => {
+                                  setModoManual(false);
+                                  setCodigoManual('');
+                                  setNomeManual('');
+                                }}
+                              >
+                                Voltar à busca do catálogo
+                              </button>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>
@@ -797,7 +1014,8 @@ export default function ManualNFPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="quantidade">
-                            {tipoNF === 'rennova' && selectedProductObj?.fragmentavel
+                            {tipoNF === 'rennova' &&
+                            (selectedProductObj?.fragmentavel || modoManual)
                               ? 'Número de Embalagens'
                               : 'Quantidade'}
                           </Label>
@@ -840,7 +1058,8 @@ export default function ManualNFPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="valor-unitario">
-                            {tipoNF === 'rennova' && selectedProductObj?.fragmentavel
+                            {tipoNF === 'rennova' &&
+                            (selectedProductObj?.fragmentavel || modoManual)
                               ? 'Valor por Embalagem (R$)'
                               : 'Valor Unitário (R$)'}
                           </Label>
@@ -869,6 +1088,12 @@ export default function ManualNFPage() {
                             )}
                         </div>
                       </div>
+
+                      {tipoNF === 'rennova' && modoManual && (
+                        <p className="text-xs text-muted-foreground">
+                          Informe como está na NF (embalagens).
+                        </p>
+                      )}
 
                       <div className="flex justify-end gap-2 pt-4">
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -905,7 +1130,17 @@ export default function ManualNFPage() {
                       {produtos.map((produto, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-mono">{produto.codigo}</TableCell>
-                          <TableCell>{produto.nome_produto}</TableCell>
+                          <TableCell>
+                            {produto.nome_produto}
+                            {produto.pendente_cadastro && (
+                              <Badge
+                                variant="outline"
+                                className="ml-2 border-amber-400 bg-amber-50 text-amber-800"
+                              >
+                                Pendente de cadastro
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell>{produto.lote}</TableCell>
                           <TableCell>{produto.quantidade}</TableCell>
                           <TableCell>{produto.dt_validade}</TableCell>
@@ -939,6 +1174,65 @@ export default function ManualNFPage() {
           </>
         )}
 
+        {/* Resultado com pendências (não redireciona, para o aviso ser lido) */}
+        {step === 'resultado' && resultado && (
+          <Card className="border-green-500">
+            <CardHeader>
+              <CardTitle className="text-green-600">
+                {resultado.complemento
+                  ? `Lançamento adicionado à NF já cadastrada (${resultado.idLabel})`
+                  : `Nota fiscal salva — ${resultado.idLabel}`}
+              </CardTitle>
+              <CardDescription>{identidade && formatNFLabel(identidade)}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <p className="text-sm">
+                {resultado.produtosImportados} produto(s) adicionado(s) ao estoque.
+              </p>
+              <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Produtos pendentes de cadastro</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p>
+                    {textoNaoInseridos(resultado.pendentes.map((p) => p.nome_produto))}{' '}
+                    {TEXTO_PENDENTES_MANUAL}
+                  </p>
+                  <ul className="list-disc pl-5">
+                    {resultado.pendentes.map((p, i) => (
+                      <li key={`${p.codigo}-${p.lote}-${i}`}>
+                        {p.codigo} — {p.nome_produto} (lote {p.lote})
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+              <div className="flex gap-3">
+                <Button onClick={() => router.push('/clinic/inventory')} className="flex-1">
+                  Ver Estoque
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setResultado(null);
+                    setProdutos([]);
+                    setIdentidade(null);
+                    setChaveNormalizada(undefined);
+                    setNumeroNF('');
+                    setCnpjEmitente('');
+                    setSerieNF('');
+                    setChaveAcesso('');
+                    setAvisoComplemento('');
+                    setTipoNF(null);
+                    setStep('select_type');
+                  }}
+                >
+                  Novo lançamento
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Passo 4: Revisão e Confirmação */}
         {step === 'review' && (
           <>
@@ -955,8 +1249,8 @@ export default function ManualNFPage() {
                   <h3 className="font-semibold mb-3">Informações da Nota Fiscal</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/50 p-4 rounded-lg">
                     <div>
-                      <Label className="text-muted-foreground">Número da NF</Label>
-                      <p className="font-medium">{numeroNF}</p>
+                      <Label className="text-muted-foreground">Nota fiscal</Label>
+                      <p className="font-medium">{identidade && formatNFLabel(identidade)}</p>
                     </div>
                     <div>
                       <Label className="text-muted-foreground">Tipo</Label>
@@ -965,6 +1259,13 @@ export default function ManualNFPage() {
                       </p>
                     </div>
                   </div>
+                  {avisoComplemento && (
+                    <Alert className="mt-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Complemento de lançamento</AlertTitle>
+                      <AlertDescription>{avisoComplemento}</AlertDescription>
+                    </Alert>
+                  )}
                 </div>
 
                 {/* Lista de produtos */}
@@ -987,7 +1288,17 @@ export default function ManualNFPage() {
                         {produtos.map((produto, index) => (
                           <TableRow key={index}>
                             <TableCell className="font-mono">{produto.codigo}</TableCell>
-                            <TableCell>{produto.nome_produto}</TableCell>
+                            <TableCell>
+                              {produto.nome_produto}
+                              {produto.pendente_cadastro && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-2 border-amber-400 bg-amber-50 text-amber-800"
+                                >
+                                  Pendente de cadastro
+                                </Badge>
+                              )}
+                            </TableCell>
                             <TableCell>{produto.lote}</TableCell>
                             <TableCell className="text-right">{produto.quantidade}</TableCell>
                             <TableCell>{produto.dt_validade}</TableCell>
@@ -1014,6 +1325,16 @@ export default function ManualNFPage() {
                     </Table>
                   </div>
                 </div>
+
+                {produtos.some((p) => p.pendente_cadastro) && (
+                  <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Itens pendentes de cadastro</AlertTitle>
+                    <AlertDescription>
+                      Itens pendentes de cadastro não entram no estoque agora.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {/* Alerta de confirmação */}
                 <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">

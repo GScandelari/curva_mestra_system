@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TipoNotaBadge } from '@/components/inventory/TipoNotaBadge';
+import { formatImportId } from '@/lib/nfIdentity';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -351,7 +352,12 @@ export default function InventoryItemPage() {
                   <div className="flex-1 space-y-1">
                     <p className="text-sm font-medium">Nota Fiscal</p>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm text-muted-foreground">NF-e {item.nf_numero}</p>
+                      <p className="text-sm text-muted-foreground">
+                        NF-e {item.nf_numero}
+                        {item.nf_id &&
+                          /^\d+$/.test(item.nf_id) &&
+                          ` · ${formatImportId(item.nf_id)}`}
+                      </p>
                       {item.tipo_nota && <TipoNotaBadge tipoNota={item.tipo_nota} />}
                     </div>
                   </div>
