@@ -380,6 +380,74 @@ describe.each([
 // --- admin_notifications: sino do system_admin, criado só pelo servidor; o
 // system_admin só marca como lido (read/read_at). ---------------------------
 
+// --- access_requests: criação só pelo servidor (POST /api/access-requests,
+// Admin SDK) — FEAT-ajustes-registro-e-busca-consultor. Antes era
+// `create: if true` e qualquer visitante gravava sem a validação da API. ---
+
+describe('access_requests', () => {
+  const docPath = 'access_requests/req1';
+  const pedido = {
+    role: 'especialista',
+    full_name: 'Helena Vidal',
+    email: 'helena@clinica.com.br',
+    status: 'pendente',
+  };
+
+  beforeEach(async () => {
+    await seed(docPath, pedido);
+  });
+
+  it('ninguém cria pelo client, nem visitante, nem usuário, nem system_admin', async () => {
+    for (const ctx of [
+      testEnv.unauthenticatedContext(),
+      clinicAdmin(TENANT_A),
+      consultantWithAccess(TENANT_A),
+      systemAdmin(),
+    ]) {
+      await assertFails(setDoc(doc(ctx.firestore(), 'access_requests/novo'), pedido));
+    }
+  });
+
+  it('system_admin lê (get e list) e atualiza', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+    await assertSucceeds(getDocs(query(collection(db, 'access_requests'))));
+    await assertSucceeds(
+      getDocs(query(collection(db, 'access_requests'), where('status', '==', 'pendente')))
+    );
+    await assertSucceeds(updateDoc(doc(db, docPath), { status: 'rejeitada' }));
+  });
+
+  it('visitante, clínica e consultor NÃO leem (get nem list) nem atualizam', async () => {
+    for (const ctx of [
+      testEnv.unauthenticatedContext(),
+      clinicAdmin(TENANT_A),
+      consultantWithAccess(TENANT_A),
+    ]) {
+      const db = ctx.firestore();
+      await assertFails(getDoc(doc(db, docPath)));
+      await assertFails(getDocs(query(collection(db, 'access_requests'))));
+      await assertFails(updateDoc(doc(db, docPath), { status: 'aprovada' }));
+    }
+  });
+});
+
+// --- Regressão da busca de clínicas: roda só no servidor; o consultor não
+// lista tenants nem users pelo client. ---------------------------------------
+
+describe('busca de clínicas — consultor não lista tenants nem users (regressão)', () => {
+  beforeEach(async () => {
+    await seed(`tenants/${TENANT_A}`, { name: 'Clínica A', active: true });
+    await seed('users/u1', { tenant_id: TENANT_A, role: 'clinic_admin', full_name: 'Ana' });
+  });
+
+  it('list de tenants e de users negado ao consultor', async () => {
+    const db = consultantWithAccess(TENANT_A).firestore();
+    await assertFails(getDocs(query(collection(db, 'tenants'))));
+    await assertFails(getDocs(query(collection(db, 'users'))));
+  });
+});
+
 describe('admin_notifications', () => {
   const docPath = 'admin_notifications/nf_pendencias_tenant-a_1000';
 
