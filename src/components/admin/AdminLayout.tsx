@@ -24,6 +24,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -114,13 +115,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       >
         <div className={cn('p-6', collapsed && 'p-4')}>
           {!collapsed ? (
-            <>
-              <h2 className="text-xl font-bold">System Admin</h2>
-              <p className="text-sm text-muted-foreground">Curva Mestra</p>
-            </>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="text-xl font-bold">System Admin</h2>
+                <p className="text-sm text-muted-foreground">Curva Mestra</p>
+              </div>
+              <AdminNotificationBell />
+            </div>
           ) : (
-            <div className="text-center">
+            <div className="flex flex-col items-center gap-2">
               <h2 className="text-xl font-bold">SA</h2>
+              <AdminNotificationBell />
             </div>
           )}
         </div>

@@ -377,6 +377,59 @@ describe.each([
 // --- pending_master_products: fila do system_admin, gravada e resolvida só
 // pelo servidor (antes, o clinic_admin criava a pendência pelo client). ----
 
+// --- admin_notifications: sino do system_admin, criado só pelo servidor; o
+// system_admin só marca como lido (read/read_at). ---------------------------
+
+describe('admin_notifications', () => {
+  const docPath = 'admin_notifications/nf_pendencias_tenant-a_1000';
+
+  beforeEach(async () => {
+    await seed(docPath, {
+      type: 'nf_pendencias',
+      title: 'Pendências de catálogo em NF-e',
+      message: 'm',
+      read: false,
+      link: '/admin/pending-products',
+      created_at: Timestamp.now(),
+      metadata: { tenant_id: TENANT_A },
+    });
+  });
+
+  it('system_admin lê (get e list, incluindo a query do sino)', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+    await assertSucceeds(getDocs(query(collection(db, 'admin_notifications'))));
+    await assertSucceeds(
+      getDocs(query(collection(db, 'admin_notifications'), orderBy('created_at', 'desc')))
+    );
+  });
+
+  it('system_admin marca como lido, mas não altera outros campos, não cria nem apaga', async () => {
+    const db = systemAdmin().firestore();
+    await assertSucceeds(updateDoc(doc(db, docPath), { read: true, read_at: Timestamp.now() }));
+    await assertFails(updateDoc(doc(db, docPath), { message: 'alterado' }));
+    await assertFails(updateDoc(doc(db, docPath), { read: false }));
+    await assertFails(
+      setDoc(doc(db, 'admin_notifications/novo'), { type: 'nf_pendencias', read: false })
+    );
+    await assertFails(deleteDoc(doc(db, docPath)));
+  });
+
+  it('clinic_admin, clinic_user e consultor NÃO leem (get nem list) nem escrevem', async () => {
+    for (const ctx of [
+      clinicAdmin(TENANT_A),
+      clinicUser(TENANT_A),
+      consultantWithAccess(TENANT_A),
+    ]) {
+      const db = ctx.firestore();
+      await assertFails(getDoc(doc(db, docPath)));
+      await assertFails(getDocs(query(collection(db, 'admin_notifications'))));
+      await assertFails(updateDoc(doc(db, docPath), { read: true }));
+      await assertFails(setDoc(doc(db, 'admin_notifications/x'), { read: false }));
+    }
+  });
+});
+
 describe('pending_master_products', () => {
   const docPath = `pending_master_products/${TENANT_A}_1000_1`;
 
@@ -417,22 +470,43 @@ describe('pending_master_products', () => {
 // --- master_products: código com 1 a 7 dígitos, sem zeros à esquerda — a
 // mesma forma do cProd normalizado da NF-e. --------------------------------
 
-describe('master_products — formato do código', () => {
-  it.each(['3076528', '123456'])('system_admin cria code %s', async (code) => {
+describe('master_products — formato do código (5 a 8 dígitos)', () => {
+  it.each(['3076528', '123456', '12345', '12345678'])('system_admin cria code %s', async (code) => {
     const db = systemAdmin().firestore();
     await assertSucceeds(setDoc(doc(db, `master_products/mp-${code}`), { code, name: 'X' }));
   });
 
-  it.each(['0123456', '12345678', '0', ''])('system_admin NÃO cria code %p', async (code) => {
-    const db = systemAdmin().firestore();
-    await assertFails(setDoc(doc(db, 'master_products/mp-x'), { code, name: 'X' }));
-  });
+  it.each(['0123456', '1234', '123456789', '12A45', '0', ''])(
+    'system_admin NÃO cria code %p',
+    async (code) => {
+      const db = systemAdmin().firestore();
+      await assertFails(setDoc(doc(db, 'master_products/mp-x'), { code, name: 'X' }));
+    }
+  );
 
   it('update com código fora do formato falha', async () => {
     await seed('master_products/mp-1', { code: '3076528', name: 'X' });
     const db = systemAdmin().firestore();
-    await assertSucceeds(updateDoc(doc(db, 'master_products/mp-1'), { code: '123456' }));
+    await assertSucceeds(updateDoc(doc(db, 'master_products/mp-1'), { code: '12345678' }));
     await assertFails(updateDoc(doc(db, 'master_products/mp-1'), { code: '0123456' }));
+    await assertFails(updateDoc(doc(db, 'master_products/mp-1'), { code: '1234' }));
+  });
+
+  it('produto legado fora do padrão continua editável e desativável sem trocar o código', async () => {
+    await seed('master_products/mp-legado', { code: '1234', name: 'LEGADO', active: true });
+    const db = systemAdmin().firestore();
+    const ref = doc(db, 'master_products/mp-legado');
+    await assertSucceeds(updateDoc(ref, { active: false }));
+    await assertSucceeds(updateDoc(ref, { name: 'LEGADO 2', code: '1234' }));
+    await assertFails(updateDoc(ref, { code: '4321' }));
+    await assertSucceeds(updateDoc(ref, { code: '43210' }));
+  });
+
+  it('clinic_admin não cria nem altera produto do catálogo', async () => {
+    await seed('master_products/mp-1', { code: '3076528', name: 'X' });
+    const db = clinicAdmin(TENANT_A).firestore();
+    await assertFails(setDoc(doc(db, 'master_products/mp-y'), { code: '12345', name: 'Y' }));
+    await assertFails(updateDoc(doc(db, 'master_products/mp-1'), { active: false }));
   });
 });
 
