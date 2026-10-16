@@ -73,6 +73,8 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
         return <FileText className="h-4 w-4 text-blue-500" />;
       case 'nf_pending_resolved':
         return <Package className="h-4 w-4 text-green-500" />;
+      case 'nf_pending_rejected':
+        return <Package className="h-4 w-4 text-red-500" />;
       default:
         return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
@@ -209,7 +211,12 @@ export function NotificationBell({ playSound = true }: NotificationBellProps) {
                         )}
                       </div>
 
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                      {/* Pendências de NF-e: texto completo (o motivo da recusa fica no fim) */}
+                      <p
+                        className={`text-sm text-gray-600 mt-1 ${
+                          notification.type.startsWith('nf_pending') ? '' : 'line-clamp-2'
+                        }`}
+                      >
                         {notification.message}
                       </p>
 

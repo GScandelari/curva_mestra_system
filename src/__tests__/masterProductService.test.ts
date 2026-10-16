@@ -1,4 +1,9 @@
-import { getNomeCompletoMasterProduct, validateProductCode } from '@/types/masterProduct';
+import {
+  formatProductCode,
+  getNomeCompletoMasterProduct,
+  isCatalogProductCode,
+  validateProductCode,
+} from '@/types/masterProduct';
 import type { MasterProduct } from '@/types/masterProduct';
 import { Timestamp } from 'firebase/firestore';
 
@@ -51,11 +56,38 @@ describe('getNomeCompletoMasterProduct', () => {
 });
 
 describe('validateProductCode', () => {
-  it.each(['9274598', '123456', '0123456', '1'])('accepts %p', (code) => {
-    expect(validateProductCode(code)).toBe(true);
-  });
+  it.each(['9274598', '12345', '12345678', '00012345', '309960', '0123456', ' 3076528 '])(
+    'accepts %p',
+    (code) => {
+      expect(validateProductCode(code)).toBe(true);
+    }
+  );
 
-  it.each(['', '0', '0000000', '12345678', '12A4567', '123-456'])('rejects %p', (code) => {
-    expect(validateProductCode(code)).toBe(false);
+  it.each(['', '0', '0000000', '1', '1234', '00001234', '123456789', '12A4567', '123-456'])(
+    'rejects %p',
+    (code) => {
+      expect(validateProductCode(code)).toBe(false);
+    }
+  );
+});
+
+describe('isCatalogProductCode', () => {
+  it.each([
+    ['12345', true],
+    ['12345678', true],
+    ['309960', true],
+    ['1234', false],
+    ['123456789', false],
+    ['012345', false],
+    ['A1234', false],
+    ['0', false],
+  ])('%p → %p', (code, esperado) => {
+    expect(isCatalogProductCode(code)).toBe(esperado);
+  });
+});
+
+describe('formatProductCode', () => {
+  it('keeps digits only, up to 8', () => {
+    expect(formatProductCode('12a34-5678 99')).toBe('12345678');
   });
 });

@@ -18,6 +18,8 @@ import { Save, Package } from 'lucide-react';
 import { createMasterProduct } from '@/lib/services/masterProductService';
 import {
   validateProductCode,
+  formatProductCode,
+  isCatalogProductCode,
   normalizeProductName,
   MASTER_PRODUCT_CATEGORIES,
   getNomeCompletoMasterProduct,
@@ -59,7 +61,7 @@ export default function NewProductPage() {
     }
 
     if (!validateProductCode(code)) {
-      setError('Código inválido. Use até 7 dígitos (não pode ser só zeros).');
+      setError('Código inválido. Use de 5 a 8 dígitos (zeros à esquerda não contam).');
       return;
     }
 
@@ -93,9 +95,7 @@ export default function NewProductPage() {
     }
   };
 
-  const formatCodeInput = (value: string) => {
-    return value.replace(/\D/g, '').slice(0, 7);
-  };
+  const formatCodeInput = (value: string) => formatProductCode(value);
 
   // Preenche codigo/nome quando chegamos aqui a partir da fila de produtos
   // pendentes (/admin/pending-products) -- antes, o botao 'Cadastrar Produto'
@@ -103,7 +103,12 @@ export default function NewProductPage() {
   useEffect(() => {
     const codigoParam = searchParams.get('codigo');
     const nomeParam = searchParams.get('nome');
-    if (codigoParam) setCode(formatCodeInput(codigoParam));
+    // Só pré-preenche um código no padrão do catálogo -- um código fora do
+    // padrão (alfanumérico, longo ou curto demais) seria truncado e viraria
+    // outro código (RF-07).
+    if (codigoParam && isCatalogProductCode(codigoParam.trim().replace(/^0+/, ''))) {
+      setCode(codigoParam.trim().replace(/^0+/, ''));
+    }
     if (nomeParam) setName(nomeParam);
   }, [searchParams]);
 
@@ -137,11 +142,11 @@ export default function NewProductPage() {
                   placeholder="Ex: 9274598"
                   required
                   disabled={loading}
-                  maxLength={7}
+                  maxLength={8}
                   className="font-mono"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Até 7 dígitos; zeros à esquerda são removidos
+                  5 a 8 dígitos; zeros à esquerda são removidos
                 </p>
               </div>
 
