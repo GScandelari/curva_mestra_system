@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { CheckCircle2, UserPlus, Lock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { getAccessRequestBusinessName } from '@/lib/accessRequestPayload';
 
 interface ConsultantPendingAccessRequest {
   id: string;
@@ -24,8 +25,7 @@ interface ConsultantPendingAccessRequest {
   email: string;
   phone: string;
   council_number: string;
-  business_name: string;
-  volume: string | null;
+  business_name: string | null;
   consultant_code: string | null;
   consultant_id: string | null;
   consultant_name: string | null;
@@ -176,15 +176,18 @@ export default function ConsultantAccessRequestsPage() {
                       <LinkBadge request={request} />
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1">
+                      {/* Consultor novo não informa região; a antiga continua aparecendo (legado) */}
+                      {request.business_name && (
+                        <p>
+                          <span className="font-medium text-foreground">
+                            {request.role === 'especialista' ? 'Clínica:' : 'Região / carteira:'}
+                          </span>{' '}
+                          {request.business_name}
+                        </p>
+                      )}
                       <p>
                         <span className="font-medium text-foreground">
-                          {request.role === 'especialista' ? 'Clínica:' : 'Região / carteira:'}
-                        </span>{' '}
-                        {request.business_name}
-                      </p>
-                      <p>
-                        <span className="font-medium text-foreground">
-                          {request.role === 'especialista' ? 'Conselho:' : 'ID Rennova:'}
+                          {request.role === 'especialista' ? 'Nº do conselho:' : 'ID Rennova:'}
                         </span>{' '}
                         {request.council_number}
                       </p>
@@ -219,7 +222,7 @@ export default function ConsultantAccessRequestsPage() {
           if (!open) setApproveTarget(null);
         }}
         title="Aprovar solicitação?"
-        description={`Será criada a clínica "${approveTarget?.business_name}" e ${approveTarget?.full_name} receberá por e-mail o link para definir a senha. Esta ação é irreversível.`}
+        description={`Será criada a clínica "${approveTarget ? getAccessRequestBusinessName(approveTarget) : ''}" e ${approveTarget?.full_name} receberá por e-mail o link para definir a senha. Esta ação é irreversível.`}
         confirmLabel="Aprovar"
         onConfirm={() => {
           const target = approveTarget;
