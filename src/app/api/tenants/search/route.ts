@@ -1,84 +1,54 @@
 export const dynamic = 'force-dynamic';
 
 /**
- * API Route: Buscar clínicas por documento (CNPJ/CPF)
- * GET - Buscar clínica para o consultor reivindicar
+ * API Route: Buscar clínicas por CNPJ/CPF ou por nome (da clínica ou do
+ * especialista) — tela "Buscar Clínicas" do consultor.
+ * GET ?q= (ou ?document=, mantido por compatibilidade)
+ *
+ * Só consultor ativo (claim + documento consultants/{id}) ou system_admin
+ * ativo. Só clínicas ativas. Não registra o termo buscado em log.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { checkActiveConsultant, verifyBearerToken } from '@/lib/services/accessRequestRouteHelpers';
+import { classifyClinicSearchQuery } from '@/lib/clinicSearch';
+import {
+  searchActiveTenantsByDocument,
+  searchActiveTenantsByName,
+} from '@/lib/services/tenantSearchServer';
 
-/**
- * Limpa documento (remove formatação)
- */
-function cleanDocument(doc: string): string {
-  return doc.replace(/\D/g, '');
-}
+const NO_STORE = { 'Cache-Control': 'no-store' };
+const ACESSO_RESTRITO = 'Acesso restrito a consultores ativos';
 
-/**
- * GET - Buscar clínicas por documento
- */
 export async function GET(req: NextRequest) {
   try {
-    // Verificar autenticação
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
+    const decoded = await verifyBearerToken(req, 'Token não fornecido');
+    if (decoded instanceof NextResponse) return decoded;
+
+    const systemAdminAtivo = decoded.is_system_admin === true && decoded.active === true;
+    if (!systemAdminAtivo) {
+      const consultor = await checkActiveConsultant(decoded, ACESSO_RESTRITO);
+      if (consultor instanceof NextResponse) return consultor;
     }
 
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(token);
-
-    // Apenas consultores e system_admin podem buscar
-    if (!decodedToken.is_consultant && !decodedToken.is_system_admin) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    const params = req.nextUrl.searchParams;
+    const consulta = classifyClinicSearchQuery(params.get('q') ?? params.get('document'));
+    if (consulta.kind === 'invalid') {
+      return NextResponse.json({ error: consulta.error }, { status: 400, headers: NO_STORE });
     }
 
-    const { searchParams } = new URL(req.url);
-    const document = searchParams.get('document');
-
-    if (!document) {
-      return NextResponse.json({ error: "Parâmetro 'document' é obrigatório" }, { status: 400 });
+    if (consulta.kind === 'document') {
+      const data = await searchActiveTenantsByDocument(consulta.document);
+      return NextResponse.json({ success: true, data, truncated: false }, { headers: NO_STORE });
     }
 
-    const cleanDoc = cleanDocument(document);
-
-    if (cleanDoc.length < 11) {
-      return NextResponse.json(
-        { error: 'Documento deve ter pelo menos 11 dígitos (CPF)' },
-        { status: 400 }
-      );
-    }
-
-    // Buscar por documento exato
-    const snapshot = await adminDb
-      .collection('tenants')
-      .where('document_number', '==', cleanDoc)
-      .where('active', '==', true)
-      .get();
-
-    const tenants = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.name,
-        document_type: data.document_type,
-        document_number: data.document_number,
-        email: data.email,
-        consultant_id: data.consultant_id || null,
-        consultant_name: data.consultant_name || null,
-      };
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: tenants,
-    });
-  } catch (error: any) {
+    const { data, truncated } = await searchActiveTenantsByName(consulta.term);
+    return NextResponse.json({ success: true, data, truncated }, { headers: NO_STORE });
+  } catch (error: unknown) {
     console.error('Erro ao buscar clínicas:', error);
     return NextResponse.json(
-      { error: error.message || 'Erro ao buscar clínicas' },
-      { status: 500 }
+      { error: 'Erro ao buscar clínicas' },
+      { status: 500, headers: NO_STORE }
     );
   }
 }

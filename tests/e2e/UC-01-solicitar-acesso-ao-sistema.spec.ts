@@ -14,6 +14,11 @@ import { TEST_PASSWORD, TEST_USERS } from './fixtures/seed-data';
  * de consultor validado contra `consultants`: válido, formato inválido,
  * inexistente e consultor inativo).
  *
+ * FEAT-ajustes-registro-e-busca-consultor (16/10/2026): o especialista informa
+ * CPF/CNPJ (obrigatório, gravado só com dígitos); o volume de procedimentos e a
+ * "Região / carteira" do consultor saíram do formulário e da API; o rótulo do
+ * conselho passou a "Número do conselho *".
+ *
  * NÃO cobertos nesta rodada (limitação da infraestrutura de testes atual,
  * não do UC em si):
  * - 8b (falha de validação no backend): desde o commit `1254abb`, o
@@ -35,6 +40,7 @@ import { TEST_PASSWORD, TEST_USERS } from './fixtures/seed-data';
  */
 
 const API_PATH = '/api/access-requests';
+const CNPJ_VALIDO = '11222333000181';
 
 function uniqueEmail(scenario: string): string {
   return `qa-uc01-${scenario}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
@@ -45,7 +51,10 @@ type SharedFields = {
   councilNumber: string;
   email: string;
   phone: string;
-  businessName: string;
+  /** Só especialista */
+  businessName?: string;
+  /** Só especialista (CNPJ, tipo padrão do formulário) */
+  documentNumber?: string;
 };
 
 async function fillSharedFields(page: Page, fields: SharedFields): Promise<void> {
@@ -53,7 +62,12 @@ async function fillSharedFields(page: Page, fields: SharedFields): Promise<void>
   await page.locator('#councilNumber').fill(fields.councilNumber);
   await page.locator('#email').fill(fields.email);
   await page.locator('#phone').fill(fields.phone);
-  await page.locator('#businessName').fill(fields.businessName);
+  if (fields.businessName !== undefined) {
+    await page.locator('#businessName').fill(fields.businessName);
+  }
+  if (fields.documentNumber !== undefined) {
+    await page.locator('#documentNumber').fill(fields.documentNumber);
+  }
 }
 
 test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
@@ -74,7 +88,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       // Passo 3: perfil "Especialista HOF" já vem pré-selecionado por padrão.
       // Passo 4: campos exclusivos de especialista visíveis.
       await expect(page.locator('#consultantCode')).toBeVisible();
-      await expect(page.getByText('Volume de procedimentos por mês')).toBeVisible();
+      await expect(page.getByText('Número do conselho *')).toBeVisible();
+      await expect(page.getByText('CPF ou CNPJ *')).toBeVisible();
+      await expect(page.getByText('Volume de procedimentos por mês')).toHaveCount(0);
 
       // Passos 5-6.
       await fillSharedFields(page, {
@@ -83,9 +99,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         email,
         phone: '11987654321',
         businessName: 'Clínica Cíngulo',
+        documentNumber: CNPJ_VALIDO,
       });
       await page.locator('#consultantCode').fill(TEST_USERS.consultant.code);
-      // "30–80" já é o volume pré-selecionado por padrão — mantém.
 
       // Passo 9: intercepta o POST para inspecionar o body exatamente como enviado.
       const requestBodyPromise = page
@@ -99,7 +115,8 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(requestBody.role).toBe('especialista');
       expect(requestBody.consultant_code).toBe(TEST_USERS.consultant.code);
       expect(requestBody.consultant_reference).toBeUndefined();
-      expect(requestBody.volume).toBe('30–80');
+      expect(requestBody.volume).toBeUndefined();
+      expect(requestBody.document_type).toBe('cnpj');
 
       // Passo 18: mensagem de sucesso + campos de texto limpos.
       await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
@@ -129,7 +146,10 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(doc.consultant_code).toBe(TEST_USERS.consultant.code);
       expect(doc.consultant_id).toBe(TEST_USERS.consultant.uid);
       expect(doc.consultant_reference).toBeUndefined();
-      expect(doc.volume).toBe('30–80');
+      expect(doc.volume).toBeUndefined();
+      // Documento do especialista gravado só com dígitos.
+      expect(doc.document_type).toBe('cnpj');
+      expect(doc.document_number).toBe(CNPJ_VALIDO);
 
       // Passo 19: após 4s, redireciona para /login. O timeout de expect()
       // (15s, playwright.config.ts) cobre a espera do setTimeout do app.
@@ -148,7 +168,9 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
 
       // Passo 4: rótulos ajustados e campos exclusivos de especialista ocultos.
       await expect(page.getByText('ID Rennova *')).toBeVisible();
-      await expect(page.getByText('Região / carteira *')).toBeVisible();
+      await expect(page.getByText('Região / carteira *')).toHaveCount(0);
+      await expect(page.locator('#businessName')).toHaveCount(0);
+      await expect(page.locator('#documentNumber')).toHaveCount(0);
       await expect(page.locator('#consultantCode')).toHaveCount(0);
       await expect(page.getByText('Volume de procedimentos por mês')).toHaveCount(0);
 
@@ -158,7 +180,6 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         councilNumber: 'RNV-CR-0427',
         email,
         phone: '11912345678',
-        businessName: 'Sudeste 2',
       });
 
       const requestBodyPromise = page
@@ -172,6 +193,8 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       // Campos exclusivos de especialista nunca fazem parte do body do consultor.
       expect(requestBody.consultant_code).toBeUndefined();
       expect(requestBody.volume).toBeUndefined();
+      expect(requestBody.business_name).toBeUndefined();
+      expect(requestBody.document_number).toBeUndefined();
 
       await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
         'Solicitação enviada com sucesso!'
@@ -189,11 +212,13 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(doc.role).toBe('consultor');
       expect(doc.type).toBe('autonomo'); // campo legado derivado de role
       expect(doc.council_number).toBe('RNV-CR-0427');
-      expect(doc.business_name).toBe('Sudeste 2');
-      // API grava `consultant_code`/`consultant_id`/`volume` como null quando ausentes do body.
+      // Consultor não informa região nem documento; volume não é mais gravado.
+      expect(doc.business_name).toBeUndefined();
+      expect(doc.document_number).toBeUndefined();
+      expect(doc.volume).toBeUndefined();
+      // API grava `consultant_code`/`consultant_id` como null quando ausentes do body.
       expect(doc.consultant_code).toBeNull();
       expect(doc.consultant_id).toBeNull();
-      expect(doc.volume).toBeNull();
     });
   });
 
@@ -239,6 +264,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         email,
         phone: '11955557777',
         businessName: 'Clínica Torres',
+        documentNumber: CNPJ_VALIDO,
       });
       await page.locator('#consultantCode').fill(TEST_USERS.consultant.code);
 
@@ -247,14 +273,14 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
 
       // Passo 3: rótulos ajustados, campo exclusivo oculto...
       await expect(page.getByText('ID Rennova *')).toBeVisible();
-      await expect(page.getByText('Região / carteira *')).toBeVisible();
+      await expect(page.locator('#businessName')).toHaveCount(0);
+      await expect(page.locator('#documentNumber')).toHaveCount(0);
       await expect(page.locator('#consultantCode')).toHaveCount(0);
 
       // ...mas os valores dos campos compartilhados permanecem intactos.
       await expect(page.locator('#fullName')).toHaveValue('Marina Torres');
       await expect(page.locator('#councilNumber')).toHaveValue('CRM-SP 55521');
       await expect(page.locator('#email')).toHaveValue(email);
-      await expect(page.locator('#businessName')).toHaveValue('Clínica Torres');
 
       // Envia como consultor: mesmo com `consultantCode` ainda presente
       // no estado interno da tela, ele não deve ser enviado no POST.
@@ -268,6 +294,8 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       expect(requestBody.role).toBe('consultor');
       expect(requestBody.consultant_code).toBeUndefined();
       expect(requestBody.volume).toBeUndefined();
+      expect(requestBody.business_name).toBeUndefined();
+      expect(requestBody.document_number).toBeUndefined();
 
       await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
         'Solicitação enviada com sucesso!'
@@ -300,6 +328,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         email,
         phone: '11987654321',
         businessName: 'Clínica Cíngulo',
+        documentNumber: CNPJ_VALIDO,
       });
 
       await page.getByRole('button', { name: 'Solicitar acesso à Curva Mestra' }).click();
@@ -338,6 +367,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         email,
         phone: '11988887777',
         businessName: 'Clínica Duarte',
+        documentNumber: CNPJ_VALIDO,
       });
       await page.getByRole('button', { name: 'Solicitar acesso à Curva Mestra' }).click();
       await expect(page.getByRole('alert').filter({ hasText: /.+/ })).toContainText(
@@ -354,6 +384,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
         email,
         phone: '11988887777',
         businessName: 'Clínica Duarte',
+        documentNumber: CNPJ_VALIDO,
       });
 
       const responsePromise = page.waitForResponse(
@@ -388,6 +419,7 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
       councilNumber: 'CRM-SP 445566',
       phone: '11944445555',
       businessName: 'Clínica Mendes',
+      documentNumber: CNPJ_VALIDO,
     };
 
     async function expectNoRequestFor(email: string): Promise<void> {
@@ -468,6 +500,8 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
             phone: SHARED.phone,
             council_number: SHARED.councilNumber,
             business_name: SHARED.businessName,
+            document_type: 'cnpj',
+            document_number: SHARED.documentNumber,
             consultant_code: inactiveCode,
           },
         });
@@ -491,6 +525,8 @@ test.describe('UC-01 — Solicitar Acesso ao Sistema', () => {
           phone: SHARED.phone,
           council_number: SHARED.councilNumber,
           business_name: SHARED.businessName,
+          document_type: 'cnpj',
+          document_number: SHARED.documentNumber,
           consultant_code: 'QA0001',
         },
       });

@@ -13,6 +13,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
 import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
+import { getAccessRequestBusinessName } from '@/lib/accessRequestPayload';
 import type { AccessRequest, Tenant, UserRole } from '@/types';
 
 interface LinkedConsultant {
@@ -56,6 +57,31 @@ export interface AccessRequestApprovalResult {
   business_name: string;
 }
 
+/**
+ * Já existe clínica (ativa ou inativa) com o CPF/CNPJ da solicitação
+ * (FEAT-ajustes-registro-e-busca-consultor, D1-A). Checado antes de qualquer
+ * escrita; as duas rotas de aprovação respondem 409.
+ */
+export class DocumentAlreadyInUseError extends Error {
+  constructor() {
+    super(
+      'Já existe uma clínica cadastrada com este CPF/CNPJ. Verifique com o solicitante antes de aprovar.'
+    );
+    this.name = 'DocumentAlreadyInUseError';
+  }
+}
+
+/** Solicitação sem documento (antiga ou de consultor) não é checada. */
+async function assertDocumentAvailable(documentNumber: string | undefined): Promise<void> {
+  if (!documentNumber) return;
+  const tenants = adminDb.collection('tenants');
+  const [porDocumento, porCnpjLegado] = await Promise.all([
+    tenants.where('document_number', '==', documentNumber).limit(1).get(),
+    tenants.where('cnpj', '==', documentNumber).limit(1).get(),
+  ]);
+  if (!porDocumento.empty || !porCnpjLegado.empty) throw new DocumentAlreadyInUseError();
+}
+
 /** `auth/email-already-exists` ao criar o usuário (UC-02 8b / UC-56 8d). */
 export class EmailAlreadyInUseError extends Error {
   constructor() {
@@ -83,6 +109,12 @@ export async function createTenantAndUserFromAccessRequest(
   // max_users baseado no role / type (UC-02 RN-02)
   const max_users = request.type === 'autonomo' || request.role === 'consultor' ? 1 : 5;
 
+  // Antes de qualquer escrita: CPF/CNPJ já usado por outra clínica (D1-A)
+  await assertDocumentAvailable(request.document_number);
+
+  // Consultor (a partir desta feature) não informa nome da clínica: usa o nome completo
+  const businessName = getAccessRequestBusinessName(request);
+
   const linkedConsultant = await resolveLinkedConsultant(request.consultant_id);
 
   const tenantData: Omit<Tenant, 'id'> = {
@@ -91,7 +123,7 @@ export async function createTenantAndUserFromAccessRequest(
       consultant_code: linkedConsultant.code,
       consultant_name: linkedConsultant.name,
     }),
-    name: request.business_name,
+    name: businessName,
     document_type: request.document_type ?? 'cnpj',
     document_number: request.document_number ?? '',
     email: request.email,
@@ -114,7 +146,7 @@ export async function createTenantAndUserFromAccessRequest(
   const tenantRef = await adminDb.collection('tenants').add(tenantData);
   const tenant_id = tenantRef.id;
 
-  console.log(`✅ Tenant criado: ${tenant_id} - ${request.business_name}`);
+  console.log(`✅ Tenant criado: ${tenant_id}`);
 
   let user_id: string;
   try {
@@ -199,7 +231,7 @@ export async function createTenantAndUserFromAccessRequest(
       {
         displayName: request.full_name,
         email: request.email,
-        businessName: request.business_name,
+        businessName,
         passwordResetLink,
       },
       { metadata: { user_id, tenant_id } }
@@ -213,6 +245,6 @@ export async function createTenantAndUserFromAccessRequest(
     tenant_id,
     user_id,
     email: request.email,
-    business_name: request.business_name,
+    business_name: businessName,
   };
 }

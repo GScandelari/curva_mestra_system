@@ -276,18 +276,19 @@ export default function AccessRequestsPage() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{request.business_name}</div>
-                            {request.council_number ? (
+                            <div className="font-medium">{request.business_name || '—'}</div>
+                            {request.council_number && (
                               <div className="text-xs text-muted-foreground font-mono">
-                                {request.role === 'consultor' ? 'ID Rennova' : 'Conselho'}:{' '}
+                                {request.role === 'consultor' ? 'ID Rennova' : 'Nº do conselho'}:{' '}
                                 {request.council_number}
                               </div>
-                            ) : request.document_number ? (
+                            )}
+                            {request.document_number && (
                               <div className="text-xs text-muted-foreground">
                                 {request.document_type === 'cpf' ? 'CPF' : 'CNPJ'}:{' '}
                                 {formatDocumentAuto(request.document_number)}
                               </div>
-                            ) : null}
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>

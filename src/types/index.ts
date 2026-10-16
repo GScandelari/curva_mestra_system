@@ -265,11 +265,17 @@ export interface AccessRequest {
   email: string;
   phone: string;
 
-  // Número de conselho profissional ou ID Rennova
-  council_number: string; // CRM/CRO para especialistas, ID Rennova para consultores
+  // Número do conselho profissional (especialista) ou ID Rennova (consultor)
+  council_number: string;
 
-  // Dados da empresa/pessoa
-  business_name: string; // Nome da clínica (especialista) ou região/carteira (consultor)
+  /**
+   * Nome da clínica — obrigatório e gravado só para especialista. Ausente nas
+   * solicitações de consultor criadas a partir de
+   * FEAT-ajustes-registro-e-busca-consultor; solicitações de consultor antigas
+   * podem ter a "região / carteira" aqui (legado, não alterado). Use
+   * getAccessRequestBusinessName() para exibir/derivar o nome do tenant.
+   */
+  business_name?: string;
 
   // Campos opcionais do formulário
   /** Legado (texto livre, até UC-01 v2.1.1) — não é mais gravado por novas solicitações */
@@ -278,11 +284,16 @@ export interface AccessRequest {
   consultant_code?: string;
   /** Id do documento em `consultants` correspondente a `consultant_code` (UC-01 RN-08, usado por UC-56/UC-57) */
   consultant_id?: string;
-  volume?: string; // Volume de procedimentos por mês (especialista)
+  /** Legado — não é mais gravado (FEAT-ajustes-registro-e-busca-consultor); solicitações antigas podem ter */
+  volume?: string;
 
-  // Documento — opcional desde nova versão do formulário
-  document_type?: DocumentType; // cpf ou cnpj
-  document_number?: string; // CPF ou CNPJ sem formatação
+  /**
+   * Documento do especialista — obrigatório para role 'especialista' desde
+   * FEAT-ajustes-registro-e-busca-consultor (só dígitos: 11 CPF / 14 CNPJ).
+   * Ausente em solicitações antigas e em solicitações de consultor.
+   */
+  document_type?: DocumentType;
+  document_number?: string;
 
   // Endereço
   address?: string;

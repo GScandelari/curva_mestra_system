@@ -6,7 +6,7 @@ function RequestAccess() {
   const [submittedId, setSubmittedId] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [apiError, setApiError] = React.useState(null);
-  const [volume, setVolume] = React.useState("30–80");
+  const [docType, setDocType] = React.useState("cnpj");
   const isMobile = useBreakpoint();
 
   // Campos controlados
@@ -16,7 +16,8 @@ function RequestAccess() {
     email: "",
     phone: "",
     businessName: "",
-    consultantReference: "",
+    documentNumber: "",
+    consultantCode: "",
   });
 
   const setField = (key, value) => setFields((prev) => ({ ...prev, [key]: value }));
@@ -30,11 +31,50 @@ function RequestAccess() {
     setField("phone", formatted);
   };
 
+  // Máscara de CPF/CNPJ (o dígito verificador é validado pela API)
+  const maskDocument = (value, type) => {
+    const d = value.replace(/\D/g, "").slice(0, type === "cpf" ? 11 : 14);
+    if (type === "cpf") {
+      return d
+        .replace(/^(\d{3})(\d)/, "$1.$2")
+        .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+        .replace(/\.(\d{3})(\d{1,2})$/, ".$1-$2");
+    }
+    return d
+      .replace(/^(\d{2})(\d)/, "$1.$2")
+      .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/\.(\d{3})(\d)/, ".$1/$2")
+      .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+  };
+
+  const handleDocTypeChange = (type) => {
+    setDocType(type);
+    setField("documentNumber", "");
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setApiError(null);
-    setLoading(true);
 
+    const especialista = role === "especialista";
+    if (especialista) {
+      const digits = fields.documentNumber.replace(/\D/g, "");
+      if (docType === "cnpj" && digits.length !== 14) {
+        setApiError("CNPJ deve ter 14 dígitos");
+        return;
+      }
+      if (docType === "cpf" && digits.length !== 11) {
+        setApiError("CPF deve ter 11 dígitos");
+        return;
+      }
+      const code = fields.consultantCode.trim();
+      if (code && !/^\d{6}$/.test(code)) {
+        setApiError("Código de consultor inválido ou inativo");
+        return;
+      }
+    }
+
+    setLoading(true);
     try {
       const body = {
         role,
@@ -42,12 +82,13 @@ function RequestAccess() {
         council_number: fields.councilNumber.trim(),
         email: fields.email.trim(),
         phone: fields.phone.trim(),
-        business_name: fields.businessName.trim(),
       };
-      if (role === "especialista") {
-        body.volume = volume;
-        if (fields.consultantReference.trim()) {
-          body.consultant_reference = fields.consultantReference.trim();
+      if (especialista) {
+        body.business_name = fields.businessName.trim();
+        body.document_type = docType;
+        body.document_number = fields.documentNumber;
+        if (fields.consultantCode.trim()) {
+          body.consultant_code = fields.consultantCode.trim();
         }
       }
 
@@ -205,11 +246,11 @@ function RequestAccess() {
                   </div>
                   <div>
                     <label style={{ display: "block", fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.08em", color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 6 }}>
-                      {role === "especialista" ? "CRM / CRO / nº conselho" : "ID Rennova"}
+                      {role === "especialista" ? "Número do conselho" : "ID Rennova"}
                     </label>
                     <input
                       type="text"
-                      placeholder={role === "especialista" ? "Ex.: CRM-SP 142337" : "Ex.: RNV-CR-0427"}
+                      placeholder={role === "especialista" ? "Ex.: CRM-SP 142337 ou CRO-RJ 5678" : "Ex.: RNV-CR-0427"}
                       required
                       value={fields.councilNumber}
                       onChange={(e) => setField("councilNumber", e.target.value)}
@@ -235,8 +276,8 @@ function RequestAccess() {
                   />
                 </div>
 
-                {/* Telefone + Clínica/Região */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                {/* Telefone + Clínica (especialista) / Telefone (consultor) */}
+                <div style={{ display: "grid", gridTemplateColumns: role === "especialista" ? "1fr 1fr" : "1fr", gap: 14, marginBottom: 14 }}>
                   <div>
                     <label style={{ display: "block", fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.08em", color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 6 }}>
                       Telefone / WhatsApp
@@ -252,55 +293,72 @@ function RequestAccess() {
                       onFocus={onFocus} onBlur={onBlur}
                     />
                   </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.08em", color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 6 }}>
-                      {role === "especialista" ? "Nome da clínica" : "Região / carteira"}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={role === "especialista" ? "Ex.: Clínica Cíngulo" : "Ex.: Sudeste 2"}
-                      required
-                      value={fields.businessName}
-                      onChange={(e) => setField("businessName", e.target.value)}
-                      style={inputStyle}
-                      onFocus={onFocus} onBlur={onBlur}
-                    />
-                  </div>
+                  {role === "especialista" && (
+                    <div>
+                      <label style={{ display: "block", fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.08em", color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 6 }}>
+                        Nome da clínica
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex.: Clínica Cíngulo"
+                        required
+                        value={fields.businessName}
+                        onChange={(e) => setField("businessName", e.target.value)}
+                        style={inputStyle}
+                        onFocus={onFocus} onBlur={onBlur}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Campos exclusivos do especialista */}
                 {role === "especialista" && (
                   <>
                     <div style={{ marginBottom: 14 }}>
+                      <label style={{ display: "block", fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.08em", color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 8 }}>
+                        CPF ou CNPJ
+                      </label>
+                      <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                        {["cnpj", "cpf"].map((t) => (
+                          <span key={t} role="button" aria-pressed={docType === t} onClick={() => handleDocTypeChange(t)} style={{
+                            padding: "10px 14px", borderRadius: 99,
+                            fontSize: 12.5,
+                            color: docType === t ? "var(--gold)" : "var(--ink-2)",
+                            background: docType === t ? "rgba(201,162,74,0.10)" : "transparent",
+                            border: docType === t ? "1px solid var(--gold)" : "1px solid var(--line-2)",
+                            cursor: "pointer",
+                            fontFamily: "var(--mono)", letterSpacing: "0.02em",
+                            transition: "all .2s ease", display: "inline-flex", alignItems: "center"
+                          }}>{t.toUpperCase()}</span>
+                        ))}
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
+                          required
+                          value={fields.documentNumber}
+                          onChange={(e) => setField("documentNumber", maskDocument(e.target.value, docType))}
+                          style={{ ...inputStyleMono, flex: 1 }}
+                          onFocus={onFocus} onBlur={onBlur}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 22 }}>
                       <label style={{ display: "block", fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.08em", color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 6 }}>
-                        Consultor Rennova de referência <span style={{ fontWeight: 400, opacity: 0.6 }}>(opcional)</span>
+                        Código do consultor Rennova <span style={{ fontWeight: 400, opacity: 0.6 }}>(opcional)</span>
                       </label>
                       <input
                         type="text"
-                        placeholder="Nome do seu consultor"
-                        value={fields.consultantReference}
-                        onChange={(e) => setField("consultantReference", e.target.value)}
-                        style={inputStyle}
+                        inputMode="numeric"
+                        placeholder="Ex.: 847291"
+                        maxLength={6}
+                        value={fields.consultantCode}
+                        onChange={(e) => setField("consultantCode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        style={inputStyleMono}
                         onFocus={onFocus} onBlur={onBlur}
                       />
-                    </div>
-                    <div style={{ marginBottom: 22 }}>
-                      <label style={{ display: "block", fontSize: 11, fontFamily: "var(--mono)", letterSpacing: "0.08em", color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 8 }}>
-                        Volume aproximado de procedimentos por mês
-                      </label>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {["Até 30", "30–80", "80–150", "150+"].map((v, i) => (
-                          <span key={i} onClick={() => setVolume(v)} style={{
-                            padding: "8px 14px", borderRadius: 99,
-                            fontSize: 12.5,
-                            color: volume === v ? "var(--gold)" : "var(--ink-2)",
-                            background: volume === v ? "rgba(201,162,74,0.10)" : "transparent",
-                            border: volume === v ? "1px solid var(--gold)" : "1px solid var(--line-2)",
-                            cursor: "pointer",
-                            fontFamily: "var(--mono)", letterSpacing: "0.02em",
-                            transition: "all .2s ease"
-                          }}>{v}</span>
-                        ))}
+                      <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--ink-3)" }}>
+                        Código de 6 dígitos informado pelo seu consultor Rennova.
                       </div>
                     </div>
                   </>
