@@ -5,6 +5,42 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.15.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.14.0...v1.15.0) (2026-10-16)
+
+
+### Features
+
+* **admin:** accept 5 to 8 digit master product codes ([5b8cae2](https://github.com/GScandelari/curva_mestra_system/commit/5b8cae2e83eed26dc8bc1800684ef532c7ba6a69))
+* **admin:** list out-of-pattern codes, reject pendings and notify in admin bell ([d85f599](https://github.com/GScandelari/curva_mestra_system/commit/d85f599e6e330d6a45b4d4f60377f4345bf3f7d5))
+* **admin:** show import ID and reprocess action on pending products ([ea8073d](https://github.com/GScandelari/curva_mestra_system/commit/ea8073d8bf922375f5122b2849b9bf078d75cc4e))
+* **api:** add NF identity lookup route ([da1ce24](https://github.com/GScandelari/curva_mestra_system/commit/da1ce24061c706923d18f8dd9f85487af5995346))
+* **api:** flag out-of-pattern codes, register manual pending items and alert system admin ([841a407](https://github.com/GScandelari/curva_mestra_system/commit/841a407c13e224c30c6b7e1979644b0a66b24f56))
+* **api:** let system admin reject pending NF products ([f0986f1](https://github.com/GScandelari/curva_mestra_system/commit/f0986f13fe47826b670f4df197cdfe34e5065d1a))
+* **firebase:** add admin notifications collection rules ([8a4e888](https://github.com/GScandelari/curva_mestra_system/commit/8a4e888a952a4b46e416156ac040242ef3534422))
+* **inventory:** add pure rules for out-of-pattern, manual pending and rejection ([7221f62](https://github.com/GScandelari/curva_mestra_system/commit/7221f62a9e4b47aead86ff8dbe1ce5d91478d3a8))
+* **inventory:** allow manual Rennova items outside the catalog ([1705757](https://github.com/GScandelari/curva_mestra_system/commit/170575791b90dfcb4b9f1ef43b3c7735432a8c00))
+* **inventory:** auto-import pending NF items on catalog activation ([2ac7bf2](https://github.com/GScandelari/curva_mestra_system/commit/2ac7bf2b449e645746d77ffdb824d4fcd9732966))
+* **inventory:** check NF duplicity before confirming XML import ([69f805d](https://github.com/GScandelari/curva_mestra_system/commit/69f805d38675a84f5d686ea874e4021ed85f522e))
+* **inventory:** check NF duplicity on manual entry step 2 ([ae1df9d](https://github.com/GScandelari/curva_mestra_system/commit/ae1df9d3c0223794063c836936b8a46d962db942))
+* **inventory:** mark out-of-pattern codes in XML preview and result ([86d1ca1](https://github.com/GScandelari/curva_mestra_system/commit/86d1ca1e585089b7d642dd0d2d0ccb18515b768e))
+
+
+### Bug Fixes
+
+* **admin:** make admin bell alerts keyboard accessible ([8a15532](https://github.com/GScandelari/curva_mestra_system/commit/8a155321778794a8121a8eb239ee5d16e4ef9bfc))
+* **admin:** store master product codes without leading zeros ([da1ba1c](https://github.com/GScandelari/curva_mestra_system/commit/da1ba1c9f949b83aa6fb1f32c21e242f0d219f03))
+* **api:** add pure guards for NF-e XML upload validation ([7142c5b](https://github.com/GScandelari/curva_mestra_system/commit/7142c5b511b24ad6d8e718b5c55c4ba91f09c872))
+* **api:** confirm NF-e imports atomically with Admin SDK ([af1b212](https://github.com/GScandelari/curva_mestra_system/commit/af1b21261ec093fafdb6775ae625f3d49e310208))
+* **api:** require clinic_admin token and size limit on parse-nf-xml ([40fafd5](https://github.com/GScandelari/curva_mestra_system/commit/40fafd5ac1beaf7db20de71210d48a9a779802f6))
+* **firebase:** block client writes to server-managed NF collections ([81fa2a7](https://github.com/GScandelari/curva_mestra_system/commit/81fa2a7e8d8090b8011ea386c5f04985ec56ebcb))
+* **firebase:** restrict consultant reads to subcollection allowlist ([76f5af9](https://github.com/GScandelari/curva_mestra_system/commit/76f5af9352d8eb25ff9a2b13e041ce582f92b7f9))
+* **inventory:** add NF-e identity and normalization helpers ([93a5994](https://github.com/GScandelari/curva_mestra_system/commit/93a5994d72ffce1b7ba0b7e83af14ca5f81e85d2))
+* **inventory:** add pure NF import planner and identity conflict rules ([a619157](https://github.com/GScandelari/curva_mestra_system/commit/a6191579b9fda17f8bdfd7fcf2b7ee8e039b2695))
+* **inventory:** confirm XML import through server route ([25bbca7](https://github.com/GScandelari/curva_mestra_system/commit/25bbca77ae6d1ec6b27adfae185ef93378adfc3a))
+* **inventory:** require issuer identity on manual NF entry ([c3d8832](https://github.com/GScandelari/curva_mestra_system/commit/c3d883209b77e08a99cafe44883cbc2aea2d9889))
+* **inventory:** send ID token when parsing NF-e XML on upload ([561bc6a](https://github.com/GScandelari/curva_mestra_system/commit/561bc6ae7553a48d8eb10ed91ae308878e090ba1))
+* **inventory:** stop numeric coercion and normalize NF-e XML fields ([f589b7d](https://github.com/GScandelari/curva_mestra_system/commit/f589b7d0ca187d702c3942ae433dcd83b3570001))
+
 ## [1.14.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.13.1...v1.14.0) (2026-10-10)
 
 
