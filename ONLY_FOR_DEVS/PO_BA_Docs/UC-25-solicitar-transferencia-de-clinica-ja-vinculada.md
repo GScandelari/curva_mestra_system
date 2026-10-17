@@ -5,9 +5,9 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Portal do Consultor (Vínculo com Clínicas)
-**Versão:** 2.0
+**Versão:** 2.1
 
-> Um consultor, buscando por clínicas via CNPJ/CPF em `/consultant/clinics/search`, encontra uma clínica que já possui outro consultor vinculado e clica em "Solicitar Transferência". O pedido fica pendente até que o consultor atual (ou um System Admin) o aprove (UC-26) ou rejeite (UC-27), e expira automaticamente em 15 dias se ninguém agir. **Atualização (v2.0):** este UC descrevia, até a v1.0, um "achado crítico" — o backend estava pronto, mas nenhuma tela expunha um botão para disparar este fluxo. A implementação de `feature/consultor-vinculo-convite-transferencia` adicionou esse gatilho e um prazo de expiração de 15 dias; este documento foi reescrito para descrever o comportamento **implementado**, não mais hipotético. Ver Seção 15 para o detalhamento completo da mudança.
+> Um consultor, buscando por clínicas via CNPJ, CPF ou nome (da clínica ou do especialista) em `/consultant/clinics/search`, encontra uma clínica que já possui outro consultor vinculado e clica em "Solicitar Transferência". O pedido fica pendente até que o consultor atual (ou um System Admin) o aprove (UC-26) ou rejeite (UC-27), e expira automaticamente em 15 dias se ninguém agir. **Atualização (v2.0):** este UC descrevia, até a v1.0, um "achado crítico" — o backend estava pronto, mas nenhuma tela expunha um botão para disparar este fluxo. A implementação de `feature/consultor-vinculo-convite-transferencia` adicionou esse gatilho e um prazo de expiração de 15 dias; este documento foi reescrito para descrever o comportamento **implementado**, não mais hipotético. Ver Seção 15 para o detalhamento completo da mudança. **Atualização (v2.1 — FEAT-ajustes-registro-e-busca-consultor):** a busca que leva a este fluxo passou a aceitar CNPJ, CPF ou nome, só responde a consultor ativo ou system_admin ativo e só devolve clínicas ativas (regras em UC-24/RN-03 e RN-07); e uma clínica que já é do próprio consultor aparece com "Você já é o consultor desta clínica", sem o botão "Solicitar Transferência" (UC-24/RN-08).
 
 ---
 
@@ -46,8 +46,8 @@ flowchart LR
 ---
 
 ## 3. Pré-condições
-- Consultor solicitante autenticado, `is_consultant === true`, `consultant_id` presente no token.
-- A clínica buscada (via `/consultant/clinics/search`, por CNPJ/CPF) existe e **já possui** `consultant_id` preenchido, diferente do consultor solicitante.
+- Consultor solicitante autenticado, `is_consultant === true`, `consultant_id` presente no token. **[v2.1]** Para buscar a clínica, ele precisa estar ativo: claim `active === true` e `consultants/{consultant_id}.status === "active"` (UC-24/RN-07).
+- A clínica buscada (via `/consultant/clinics/search`, por CNPJ, CPF ou nome — UC-24/RN-03) existe, está ativa e **já possui** `consultant_id` preenchido, diferente do consultor solicitante.
 - Não existe, hoje ou no passado, nenhum documento `pending` em `consultant_transfer_requests` para o mesmo par consultor solicitante + clínica — **mesmo que esse documento já esteja expirado** (ver RN-05, achado de assimetria com o fluxo de convite).
 
 ---
@@ -63,21 +63,21 @@ flowchart LR
 
 ### 4.2 Falha
 - Se já existir um pedido `pending` (expirado ou não) do mesmo consultor solicitante para a mesma clínica: nenhuma alteração é feita, API retorna 400 (RN-05).
-- Se o consultor solicitante já for o vinculado à clínica: erro 400 antes mesmo de entrar neste ramo (checagem comum aos dois casos da API).
+- Se o consultor solicitante já for o vinculado à clínica: erro 400 antes mesmo de entrar neste ramo (checagem comum aos dois casos da API). **[v2.1]** Pela tela, o botão nem aparece nesse caso (UC-24/RN-08).
 
 ---
 
 ## 5. Gatilho (Trigger)
-Consultor solicitante, autenticado no Portal do Consultor, acessa `/consultant/clinics/search`, busca uma clínica por CNPJ/CPF cujo resultado **já possui** `consultant_id` preenchido (diferente do próprio consultor), e clica no botão **"Solicitar Transferência"** exibido no card de resultado dessa clínica.
+Consultor solicitante, autenticado no Portal do Consultor, acessa `/consultant/clinics/search`, busca uma clínica por CNPJ, CPF ou nome cujo resultado **já possui** `consultant_id` preenchido (diferente do próprio consultor), e clica no botão **"Solicitar Transferência"** exibido no card de resultado dessa clínica.
 
 ---
 
 ## 6. Fluxo Principal (Basic Flow)
 
 1. Consultor solicitante acessa `/consultant/clinics/search`.
-2. Informa o CNPJ ou CPF da clínica e clica no botão de busca (ou pressiona Enter).
-3. Sistema chama `GET /api/tenants/search?document={documento}` com o Bearer token; exibe os resultados encontrados.
-4. Para uma clínica cujo `consultant_id` já está preenchido, sistema exibe o texto informativo "Clínica já possui o consultor **{nome}** vinculado" e, logo abaixo, o botão **"Solicitar Transferência"** (ícone `ArrowRightLeft`).
+2. **[Atualizado em v2.1]** Informa, no campo único "CNPJ, CPF ou nome", o documento ou parte do nome da clínica ou do especialista, e clica no botão de busca (ou pressiona Enter).
+3. **[Atualizado em v2.1]** Sistema chama `GET /api/tenants/search?q={texto}` com o Bearer token; a API só responde a consultor ativo ou system_admin ativo e só devolve clínicas ativas (UC-24/RN-03, RN-07; erros de busca em UC-24, 8e a 8g). Sistema exibe os resultados encontrados (até 20 na busca por nome, com aviso quando há mais).
+4. Para uma clínica cujo `consultant_id` já está preenchido com **outro** consultor, sistema exibe o texto informativo "Clínica já possui o consultor **{nome}** vinculado" e, logo abaixo, o botão **"Solicitar Transferência"** (ícone `ArrowRightLeft`). **[v2.1]** Se o `consultant_id` é o do próprio consultor, o card mostra "Você já é o consultor desta clínica", sem botão, e este UC não começa (UC-24/RN-08).
 5. Consultor solicitante clica em "Solicitar Transferência" (`handleLink`).
 6. Sistema chama `POST /api/consultants/claims` com `{ tenant_id }` e o Bearer token.
 7. API valida token e permissão (`is_consultant` + `consultant_id`); busca dados do consultor solicitante e da clínica; retorna erro se o solicitante já for o consultor vinculado.
@@ -105,6 +105,7 @@ Nenhum identificado além do fluxo principal.
 ### 8b. Consultor solicitante já é o vinculado
 1. Checagem comum aos dois ramos da API (compartilhada com UC-24).
 2. API retorna 400 ("Você já é o consultor vinculado a esta clínica").
+3. **[v2.1]** Pela tela, esse caso deixou de ser alcançável: o card de uma clínica do próprio consultor não tem botão (UC-24/RN-08). A checagem da API continua como defesa para chamadas diretas.
 
 ### 8c. Falha ao enfileirar e-mail
 1. `adminDb.collection('email_queue').add(...)` falha.
@@ -145,7 +146,7 @@ Recém-implementado (gatilho de UI adicionado em `feature/consultor-vinculo-conv
 ---
 
 ## 12. Casos de Uso Relacionados
-- **UC-24 (Vincular-se Automaticamente a uma Clínica Sem Consultor)** — mesma tela, mesma API (`POST /api/consultants/claims`), ramo "CASO 1" (auto-link, quando a clínica não tem consultor).
+- **UC-24 (Vincular-se Automaticamente a uma Clínica Sem Consultor)** — mesma tela, mesma API (`POST /api/consultants/claims`), ramo "CASO 1" (auto-link, quando a clínica não tem consultor). **[v2.1]** As regras da busca (CNPJ, CPF ou nome; só clínicas ativas; só consultor ativo ou system_admin ativo; card "Você já é o consultor desta clínica") estão em UC-24/RN-03, RN-07 e RN-08.
 - **UC-54 (Convidar Consultor para a Clínica)** — fluxo irmão, também usando a coleção `consultant_transfer_requests` e as mesmas rotas de aprovação/rejeição, mas com iniciador (Clinic Admin) e gatilho (`type: 'invite'`) diferentes; mutuamente exclusivo em relação a este UC, pois um só existe quando a clínica não tem consultor (UC-54) e o outro apenas quando ela já tem (este UC).
 - **UC-26 (Aprovar Pedido de Transferência de Clínica)** e **UC-27 (Rejeitar Pedido de Transferência de Clínica)** — consomem o documento `consultant_transfer_requests` criado por este UC; ambos passaram a ser efetivamente exercitáveis a partir desta implementação.
 - **UC-23 (Vincular/Alterar/Remover Consultor via Painel Admin)** — mecanismo paralelo e totalmente funcional para o `system_admin` trocar o consultor de qualquer clínica a qualquer momento, sem depender deste fluxo de solicitação.
@@ -153,7 +154,9 @@ Recém-implementado (gatilho de UI adicionado em `feature/consultor-vinculo-conv
 ---
 
 ## 13. Referências
-- `src/app/(consultant)/consultant/clinics/search/page.tsx` (botão "Solicitar Transferência", `handleLink`)
+- `src/app/(consultant)/consultant/clinics/search/page.tsx` (botão "Solicitar Transferência", `handleLink`; desde a v2.1, campo único "CNPJ, CPF ou nome" e card "Você já é o consultor desta clínica")
+- `src/app/api/tenants/search/route.ts`, `src/lib/clinicSearch.ts` e `src/lib/services/tenantSearchServer.ts` (busca, ver UC-24/RN-03)
+- `ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-ajustes-registro-e-busca-consultor.md` (v1.2)
 - `src/app/api/consultants/claims/route.ts` (ramo "CASO 2")
 - `src/lib/consultantRequests.ts` (`computeExpiresAt`, `isRequestExpired`, `normalizeLegacyType`)
 - `src/types/index.ts` (`ConsultantTransferRequest`, `ConsultantTransferRequestStatus`, `ConsultantPendencyType`)
@@ -168,6 +171,7 @@ Recém-implementado (gatilho de UI adicionado em `feature/consultor-vinculo-conv
 2. ~~**[RN-00, decisão de produto necessária]** O backend deste caso de uso está pronto, mas sem gatilho de UI.~~ **[RESOLVIDO em v2.0]** Gatilho implementado.
 3. ~~**[RN-02]** Ausência de prazo de expiração.~~ **[RESOLVIDO em v2.0]** Expira em 15 dias.
 4. ~~**[RN-03]** Ausência de notificação in-app para o consultor atual.~~ **[Reclassificado em v2.0]** Documentado como débito técnico consciente na spec de implementação — não é mais uma lacuna não avaliada, mas continua sendo uma limitação real do produto.
+5. **[v2.1 — divergência encontrada, fora do escopo desta revisão, a confirmar]** O código atual de `POST /api/consultants/claims` (CASO 2) já **ignora pedidos expirados** na checagem de duplicidade (commit `3fe9348`, "exclude expired transfer requests from the duplicate-pending check"), o que contradiz a RN-05, o item 1 desta seção, a Pré-condição 3, a Pós-condição 4.2 e o Fluxo de Exceção 8a. Além disso, o e-mail ao consultor atual passou a usar `email_templates` (`enqueueTemplatedEmail('consultant_transfer_request', ...)`, commit `55c68e1`), o que afeta o texto do passo 11 e da RN-04. Esses pontos não vêm da FEAT-ajustes-registro-e-busca-consultor e não foram corrigidos aqui; precisam de uma revisão própria deste UC.
 
 ---
 
@@ -177,3 +181,4 @@ Recém-implementado (gatilho de UI adicionado em `feature/consultor-vinculo-conv
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero. Confirmado o achado crítico de que este ramo da API (`POST /api/consultants/claims`, "CASO 2") não possui nenhum gatilho de UI em nenhuma tela do sistema (RN-00) — documentado com o mesmo rigor do UC-05/UC-22. Confirmadas as duas perguntas específicas do coordenador: o vínculo atual não muda durante a pendência (RN-01) e não há prazo de expiração (RN-02). Segundo de 4 UCs do módulo "Consultor — vínculo com clínicas" (UC-24 a UC-27). |
 | 2.0 | 13/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Reescrita completa pós-implementação de `feature/consultor-vinculo-convite-transferencia`: RN-00 resolvida (botão "Solicitar Transferência" implementado em `/consultant/clinics/search`); RN-02 resolvida (expiração de 15 dias via `expires_at`/`isRequestExpired`, sem Cloud Function agendada); RN-03 reclassificada de "achado" para decisão consciente documentada na spec. Pré-condições, gatilho, fluxo principal e pós-condições reescritos como comportamento **implementado**, não mais hipotético. Adicionados dois achados novos por leitura de código: a checagem de duplicidade deste fluxo não exclui pedidos expirados, diferente do convite (RN-05); o documento criado por este fluxo não grava `type` explícito, sendo tratado implicitamente como `'transfer'` (RN-06). Frequência de uso atualizada de "nula" para "recém-implementada, ainda não mensurada". Adicionada relação com o novo UC-54 (convite, fluxo irmão). Bump de versão major por mudança de escopo/status do documento (de "achado crítico, inatingível" para "implementado, aprovado"). |
+| 2.1 | 17/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Atualização as-is — FEAT-ajustes-registro-e-busca-consultor** (`ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-ajustes-registro-e-busca-consultor.md`, v1.2; PR #402, feature → `gscandelari_setup`, merge `3da2b79`; PR #403, `gscandelari_setup` → `develop`). A busca que dá origem a este fluxo passou a aceitar CNPJ, CPF ou nome num campo único, só para consultor ativo ou system_admin ativo e só com clínicas ativas (regras detalhadas em UC-24 v1.1); a clínica do próprio consultor aparece com "Você já é o consultor desta clínica", sem botão, e o Fluxo de Exceção 8b ficou inalcançável pela tela. Resumo, Pré-condições, Pós-condição 4.2, Gatilho, Fluxo Principal (passos 2-4), 8b, seções 12 e 13 atualizados. Registrada na seção 14 (item 5) uma divergência de código anterior e fora do escopo desta FEAT (RN-05 e e-mail por template), sem correção. Diagrama sem mudança. |
