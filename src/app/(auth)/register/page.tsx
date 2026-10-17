@@ -18,31 +18,29 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  validateFullName,
-  validateEmail,
-  validatePhone,
-  validateConsultantCode,
-} from '@/lib/validations/serverValidations';
+import { maskCNPJ, maskCPF } from '@/lib/utils/documentValidation';
+import { validateAccessRequestInput } from '@/lib/accessRequestPayload';
+import type { DocumentType } from '@/types';
 
 type Role = 'especialista' | 'consultor';
 
-const VOLUME_OPTIONS = ['Até 30', '30–80', '80–150', '150+'] as const;
+const EMPTY_FORM = {
+  fullName: '',
+  councilNumber: '', // número do conselho (especialista) ou ID Rennova (consultor)
+  email: '',
+  phone: '',
+  businessName: '', // nome da clínica (só especialista)
+  documentNumber: '', // CPF/CNPJ com máscara (só especialista)
+  consultantCode: '', // opcional, especialista — código de 6 dígitos (UC-01 RN-08)
+};
 
 export default function RegisterPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [role, setRole] = useState<Role>('especialista');
-  const [volume, setVolume] = useState<string>('30–80');
-  const [formData, setFormData] = useState({
-    fullName: '',
-    councilNumber: '', // CRM/CRO ou ID Rennova
-    email: '',
-    phone: '',
-    businessName: '', // clínica (especialista) ou região/carteira (consultor)
-    consultantCode: '', // opcional, especialista — código de 6 dígitos (UC-01 RN-08)
-  });
+  const [documentType, setDocumentType] = useState<DocumentType>('cnpj');
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,6 +62,11 @@ export default function RegisterPage() {
       }
     }
 
+    // CPF/CNPJ com máscara do tipo escolhido
+    if (e.target.id === 'documentNumber') {
+      value = documentType === 'cpf' ? maskCPF(value) : maskCNPJ(value);
+    }
+
     // Código do consultor: só dígitos, no máximo 6
     if (e.target.id === 'consultantCode') {
       value = value.replace(/\D/g, '').slice(0, 6);
@@ -72,67 +75,41 @@ export default function RegisterPage() {
     setFormData({ ...formData, [e.target.id]: value });
   };
 
+  const handleDocumentTypeChange = (type: DocumentType) => {
+    setDocumentType(type);
+    setFormData({ ...formData, documentNumber: '' });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    const nameValidation = validateFullName(formData.fullName);
-    if (!nameValidation.valid) {
-      setError(nameValidation.error!);
-      return;
-    }
-    if (!formData.councilNumber || formData.councilNumber.trim().length < 3) {
-      setError(
-        role === 'especialista'
-          ? 'Número de conselho (CRM/CRO) é obrigatório'
-          : 'ID Rennova é obrigatório'
-      );
-      return;
-    }
-    const emailValidation = validateEmail(formData.email);
-    if (!emailValidation.valid) {
-      setError(emailValidation.error!);
-      return;
-    }
-    const phoneValidation = validatePhone(formData.phone);
-    if (!phoneValidation.valid) {
-      setError(phoneValidation.error!);
-      return;
-    }
-    if (!formData.businessName || formData.businessName.trim().length < 3) {
-      setError(
-        role === 'especialista'
-          ? 'Nome da clínica é obrigatório'
-          : 'Região / carteira é obrigatória'
-      );
-      return;
-    }
-    if (role === 'especialista' && formData.consultantCode.trim()) {
-      const codeValidation = validateConsultantCode(formData.consultantCode);
-      if (!codeValidation.valid) {
-        setError(codeValidation.error!);
-        return;
+    const body: Record<string, string> = {
+      role,
+      full_name: formData.fullName,
+      council_number: formData.councilNumber,
+      email: formData.email,
+      phone: formData.phone,
+    };
+    if (role === 'especialista') {
+      body.business_name = formData.businessName;
+      body.document_type = documentType;
+      body.document_number = formData.documentNumber;
+      if (formData.consultantCode.trim()) {
+        body.consultant_code = formData.consultantCode.trim();
       }
+    }
+
+    // Mesma validação da API (mesmas mensagens)
+    const validation = validateAccessRequestInput(body);
+    if (!validation.ok) {
+      setError(validation.error);
+      return;
     }
 
     setLoading(true);
     try {
-      const body: Record<string, string | undefined> = {
-        role,
-        full_name: formData.fullName,
-        council_number: formData.councilNumber,
-        email: formData.email,
-        phone: formData.phone,
-        business_name: formData.businessName,
-      };
-      if (role === 'especialista') {
-        body.volume = volume;
-        if (formData.consultantCode.trim()) {
-          body.consultant_code = formData.consultantCode.trim();
-        }
-      }
-
       const response = await fetch('/api/access-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,20 +123,14 @@ export default function RegisterPage() {
           data.message ||
             'Solicitação enviada com sucesso! Nossa equipe responderá em até 2 dias úteis.'
         );
-        setFormData({
-          fullName: '',
-          councilNumber: '',
-          email: '',
-          phone: '',
-          businessName: '',
-          consultantCode: '',
-        });
+        setFormData(EMPTY_FORM);
+        setDocumentType('cnpj');
         setTimeout(() => router.push('/login'), 4000);
       } else {
         setError(data.error || 'Erro ao enviar solicitação');
       }
-    } catch (err: any) {
-      setError(err.message || 'Erro ao enviar solicitação');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao enviar solicitação');
     } finally {
       setLoading(false);
     }
@@ -174,10 +145,11 @@ export default function RegisterPage() {
   }
 
   const disabled = loading || !!success;
+  const especialista = role === 'especialista';
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-lg">
+      <Card className="w-full max-w-2xl" data-auth-wide>
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Solicitar Acesso</CardTitle>
           <CardDescription className="text-center">
@@ -228,7 +200,7 @@ export default function RegisterPage() {
             </div>
 
             {/* Nome + Conselho */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nome completo *</Label>
                 <Input
@@ -243,11 +215,13 @@ export default function RegisterPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="councilNumber">
-                  {role === 'especialista' ? 'CRM / CRO / nº conselho *' : 'ID Rennova *'}
+                  {especialista ? 'Número do conselho *' : 'ID Rennova *'}
                 </Label>
                 <Input
                   id="councilNumber"
-                  placeholder={role === 'especialista' ? 'Ex.: CRM-SP 142337' : 'Ex.: RNV-CR-0427'}
+                  placeholder={
+                    especialista ? 'Ex.: CRM-SP 142337 ou CRO-RJ 5678' : 'Ex.: RNV-CR-0427'
+                  }
                   value={formData.councilNumber}
                   onChange={handleChange}
                   className="font-mono text-sm"
@@ -272,8 +246,8 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* Telefone + Clínica/Região */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Telefone + Clínica (especialista) / Telefone (consultor) */}
+            <div className={cn('grid gap-3', especialista && 'grid-cols-1 sm:grid-cols-2')}>
               <div className="space-y-2">
                 <Label htmlFor="phone">Telefone / WhatsApp *</Label>
                 <Input
@@ -288,24 +262,59 @@ export default function RegisterPage() {
                   disabled={disabled}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="businessName">
-                  {role === 'especialista' ? 'Nome da clínica *' : 'Região / carteira *'}
-                </Label>
-                <Input
-                  id="businessName"
-                  placeholder={role === 'especialista' ? 'Ex.: Clínica Cíngulo' : 'Ex.: Sudeste 2'}
-                  value={formData.businessName}
-                  onChange={handleChange}
-                  required
-                  disabled={disabled}
-                />
-              </div>
+              {especialista && (
+                <div className="space-y-2">
+                  <Label htmlFor="businessName">Nome da clínica *</Label>
+                  <Input
+                    id="businessName"
+                    placeholder="Ex.: Clínica Cíngulo"
+                    value={formData.businessName}
+                    onChange={handleChange}
+                    required
+                    disabled={disabled}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Campos exclusivos do especialista */}
-            {role === 'especialista' && (
+            {especialista && (
               <>
+                <div className="space-y-2">
+                  <Label htmlFor="documentNumber">CPF ou CNPJ *</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-3">
+                    <div className="flex gap-2" role="group" aria-label="Tipo de documento">
+                      {(['cnpj', 'cpf'] as DocumentType[]).map((tipo) => (
+                        <button
+                          key={tipo}
+                          type="button"
+                          onClick={() => handleDocumentTypeChange(tipo)}
+                          disabled={disabled}
+                          aria-pressed={documentType === tipo}
+                          className={cn(
+                            'rounded-md border px-4 py-2 text-sm font-medium transition-colors',
+                            documentType === tipo
+                              ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                              : 'border-border hover:bg-accent'
+                          )}
+                        >
+                          {tipo.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                    <Input
+                      id="documentNumber"
+                      placeholder={documentType === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'}
+                      value={formData.documentNumber}
+                      onChange={handleChange}
+                      inputMode="numeric"
+                      className="font-mono text-sm"
+                      required
+                      disabled={disabled}
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="consultantCode">
                     Código do consultor Rennova de referência{' '}
@@ -324,28 +333,6 @@ export default function RegisterPage() {
                   <p className="text-xs text-muted-foreground">
                     Código de 6 dígitos informado pelo seu consultor Rennova.
                   </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Volume de procedimentos por mês</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {VOLUME_OPTIONS.map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setVolume(v)}
-                        disabled={disabled}
-                        className={cn(
-                          'rounded-full border px-4 py-1.5 text-sm font-mono transition-colors',
-                          volume === v
-                            ? 'border-primary bg-primary/5 text-primary'
-                            : 'border-border text-muted-foreground hover:bg-accent'
-                        )}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </>
             )}

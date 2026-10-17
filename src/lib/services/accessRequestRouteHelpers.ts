@@ -11,6 +11,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import type { AccessRequest } from '@/types';
 import {
   createTenantAndUserFromAccessRequest,
+  DocumentAlreadyInUseError,
   EmailAlreadyInUseError,
   type AccessRequestApprover,
 } from '@/lib/services/accessRequestApproval';
@@ -47,7 +48,17 @@ export async function verifyActiveConsultant(
 ): Promise<ActiveConsultant | NextResponse> {
   const decodedToken = await verifyBearerToken(req, missingTokenMessage);
   if (decodedToken instanceof NextResponse) return decodedToken;
+  return checkActiveConsultant(decodedToken, deniedMessage);
+}
 
+/**
+ * Mesma checagem de verifyActiveConsultant para um token já decodificado:
+ * claim de consultor ativo + documento `consultants/{id}` com status active.
+ */
+export async function checkActiveConsultant(
+  decodedToken: DecodedIdToken,
+  deniedMessage: string
+): Promise<ActiveConsultant | NextResponse> {
   const denied = NextResponse.json({ error: deniedMessage }, { status: 403 });
   const consultantId = decodedToken.consultant_id as string | undefined;
   if (!decodedToken.is_consultant || !consultantId || decodedToken.active !== true) {
@@ -97,6 +108,9 @@ export async function approveAccessRequestResponse(
   } catch (approvalError) {
     if (approvalError instanceof EmailAlreadyInUseError) {
       return NextResponse.json({ error: approvalError.message }, { status: 400 });
+    }
+    if (approvalError instanceof DocumentAlreadyInUseError) {
+      return NextResponse.json({ error: approvalError.message }, { status: 409 });
     }
     throw approvalError;
   }
