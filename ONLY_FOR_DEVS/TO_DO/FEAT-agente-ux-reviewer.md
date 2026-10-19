@@ -7,7 +7,7 @@
 **Tipo:** Feature (tooling — agente de IA + infraestrutura de teste E2E de acessibilidade; não altera código da aplicação em `src/`)
 **Branch sugerida:** chore/agente-ux-reviewer
 **Prioridade:** Média
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Cria o subagente `.claude/agents/ux-reviewer.md`, responsável por revisar a experiência de uso (estados de tela, acessibilidade WCAG 2.1 AA, heurísticas de usabilidade, textos em pt-BR, desktop e mobile) das 72 telas do sistema, organizado por Caso de Uso e por tela, mantendo o documento vivo `ONLY_FOR_DEVS/PO_BA_Docs/_PADRAO-UX.md`. Na mesma task, adiciona a infraestrutura que permite ao agente **confirmar ou descartar em runtime** o que a análise estática não comprova: `@axe-core/playwright` (versão fixa, devDependency), um projeto Playwright mobile (`Pixel 7`, Chromium), um helper reutilizável de varredura WCAG 2.1 AA com baseline por regra, e o caderno de teste `_infra-a11y-axe-mobile.spec.ts` (regra 8). Tudo roda só contra o Firebase Emulator Suite. O agente nunca corrige código.
 
@@ -27,7 +27,7 @@ git checkout -b chore/agente-ux-reviewer
 
 | Step | Tipo | Escopo | Mensagem |
 |------|------|--------|----------|
-| STEP 1 | `chore` | `deps` | `chore(deps): add @axe-core/playwright 4.14.0 as pinned devDependency` |
+| STEP 1 | `chore` | `deps` | `chore(deps): add @axe-core/playwright 4.13.0 as pinned devDependency` |
 | STEP 2 | `test` | `e2e` | `test(e2e): add mobile-chromium project restricted to @mobile tests` |
 | STEP 3 | `test` | `e2e` | `test(e2e): add axe WCAG 2.1 AA helper with rule-level baseline` |
 | STEP 3 | `chore` | `config` | `chore(config): add test:e2e:a11y script for report-mode accessibility runs` |
@@ -107,7 +107,7 @@ Vários desses pontos (contraste real, nome acessível efetivo após renderizaç
 ## 2. Objetivos
 
 1. **Adicionar** o subagente `.claude/agents/ux-reviewer.md`, no formato dos agentes existentes, somente leitura do código da app e sem auto-delegação.
-2. **Adicionar** `@axe-core/playwright` **4.14.0** (versão exata) como devDependency, sem impacto no bundle de produção.
+2. **Adicionar** `@axe-core/playwright` **4.13.0** (versão exata) como devDependency, sem impacto no bundle de produção.
 3. **Adicionar** o projeto Playwright `mobile-chromium` (`devices['Pixel 7']`), restrito no gate de CI a testes marcados `@mobile`.
 4. **Criar** o helper reutilizável `tests/e2e/helpers/a11y.ts` (varredura WCAG 2.1 AA, baseline por regra, modos `enforce`/`report`) e o fixture de rotas `tests/e2e/fixtures/a11y-routes.ts`.
 5. **Gerar** via `qa-agent` o caderno `tests/e2e/_infra-a11y-axe-mobile.spec.ts` (regra 8), com revisão humana obrigatória no PR.
@@ -154,7 +154,7 @@ Ator: **desenvolvedor/PO** (usuário do Claude Code) ou **orquestrador** (assist
 | RNF-05 | Todo texto em pt-BR | Usabilidade |
 | RNF-06 | Nenhum texto copiado literalmente das fontes de inspiração | Licenciamento |
 | RNF-07 | Nenhum achado sem `arquivo:linha` ou evidência axe (`ruleId` + `target`) | Rastreabilidade |
-| RNF-08 | `@axe-core/playwright` com versão **exata** (`"4.14.0"`, sem `^`/`~`) em `devDependencies`; `axe-core` transitivo fixado pelo `package-lock.json` (`npm ci`) | Reprodutibilidade |
+| RNF-08 | `@axe-core/playwright` com versão **exata** (`"4.13.0"`, sem `^`/`~`) em `devDependencies`; `axe-core` transitivo fixado pelo `package-lock.json` (`npm ci`) | Reprodutibilidade |
 | RNF-09 | Nenhum import de `@axe-core/*` fora de `tests/e2e/` — não entra no bundle do Next | Segurança / Performance |
 | RNF-10 | Acréscimo no tempo do job E2E ≤ **3 min** em relação à última execução verde em `develop` (medido no PR) | Performance de CI |
 | RNF-11 | Varreduras axe são somente leitura: nenhum teste do caderno escreve no Firestore/Auth emulados | Isolamento de testes |
@@ -233,8 +233,8 @@ Ator: **desenvolvedor/PO** (usuário do Claude Code) ou **orquestrador** (assist
 
 | Arquivo | Natureza da mudança |
 |---------|---------------------|
-| `package.json` | `devDependencies`: `"@axe-core/playwright": "4.14.0"` (exato). `scripts`: novo `test:e2e:a11y` (§6.6). `test:e2e` **inalterado** |
-| `package-lock.json` | Gerado pelo `npm install`; diff esperado: só `@axe-core/playwright@4.14.0` e `axe-core@4.14.x` |
+| `package.json` | `devDependencies`: `"@axe-core/playwright": "4.13.0"` (exato). `scripts`: novo `test:e2e:a11y` (§6.6). `test:e2e` **inalterado** |
+| `package-lock.json` | Gerado pelo `npm install`; diff esperado: só `@axe-core/playwright@4.13.0` e `axe-core@4.13.x` |
 | `playwright.config.ts` | Novo projeto `mobile-chromium` com `grep: /@mobile/`; projeto `chromium` mantém nome e config (§6.5) |
 | `.github/workflows/e2e.yml` | Novo step de upload de artefato `a11y-results` (`test-results/a11y/`, `if: always()`). **Não** renomear o job (nome é status check obrigatório); **não** instalar browser adicional |
 | `.claude/agents/ui-consistency-auditor.md` | Fronteira com o `ux-reviewer` na `description` e em "Regras de qualidade" (D2) |
@@ -288,7 +288,7 @@ export const A11Y_ROUTES: A11yRoute[]; // conteúdo inicial na §6.4
 // tests/e2e/fixtures/a11y-baseline.json (a criar; sem comentários no arquivo real)
 {
   "version": 1,
-  "axeCore": "4.14.0",
+  "axeCore": "4.13.0",
   "entries": {
     "chromium|login": ["<ruleId>", "..."],
     "mobile-chromium|clinic-dashboard": ["<ruleId>"]
@@ -352,7 +352,7 @@ Restrições: sem "Use PROACTIVELY"/"MUST BE USED"/"automaticamente" (RNF-01); s
 
 #### 6.2.2 Cabeçalho e papel
 
-- Título `# UX Reviewer — Curva Mestra`; repositório; stack de UI (Next.js 15, Tailwind, shadcn/ui `new-york` + Radix, `lucide-react`, PWA + Capacitor); infra runtime (`@axe-core/playwright` 4.14.0, projetos `chromium` e `mobile-chromium`); saída `_PADRAO-UX.md`; pt-BR.
+- Título `# UX Reviewer — Curva Mestra`; repositório; stack de UI (Next.js 15, Tailwind, shadcn/ui `new-york` + Radix, `lucide-react`, PWA + Capacitor); infra runtime (`@axe-core/playwright` 4.13.0, projetos `chromium` e `mobile-chromium`); saída `_PADRAO-UX.md`; pt-BR.
 - Bloco "Papel deste agente no fluxo de trabalho":
 
 ```
@@ -427,7 +427,7 @@ Pedido genérico com `_PADRAO-UX.md` existente → auditoria completa sem redefi
 3. **Leitura:** `test-results/a11y/<projeto>/<routeKey>.json` (formato do `AxeResults`, campos `violations[].id`, `.impact`, `.nodes[].target`, `.nodes[].html`) e `test-results/a11y/<projeto>/<routeKey>.overflow.json` (reflow, §6.4).
 4. **Cruzamento:** para cada "Suspeita (runtime)" cuja tela está em `A11Y_ROUTES` e cujo critério tem regra axe (tabela §6.2.4):
    - violação presente → `Aberto`, evidência `axe <ruleId> (<projeto>|<routeKey>)` + `target`;
-   - violação ausente → `Descartado (runtime)`, evidência "axe 4.14.0 sem `<ruleId>` em `<projeto>|<routeKey>` em <data>";
+   - violação ausente → `Descartado (runtime)`, evidência "axe 4.13.0 sem `<ruleId>` em `<projeto>|<routeKey>` em <data>";
    - critério sem regra axe → permanece `Suspeita (runtime)` (RN-07).
 5. **Violações novas** encontradas pelo axe sem achado correspondente viram achados `UX-NNN` novos (localizar `arquivo:linha` via `Grep` pelo texto/atributo do `html` do nó).
 6. **Telas fora de `A11Y_ROUTES`:** sinalizar ao `qa-agent`/dev a inclusão (com usuário semeado necessário). Se exigir usuário com termos aceitos que o seed não tem (consultor, `clinic_user`), sinalizar que a mudança é no seed.
@@ -442,7 +442,7 @@ Pedido genérico com `_PADRAO-UX.md` existente → auditoria completa sem redefi
 **Data de Criação:** [nunca alterar]
 **Última Atualização:** [...]
 **Autor:** ux-reviewer (via Claude)
-**Base:** WCAG 2.1 AA + heurísticas de usabilidade; primitivos shadcn/ui (Radix); axe-core 4.14.0
+**Base:** WCAG 2.1 AA + heurísticas de usabilidade; primitivos shadcn/ui (Radix); axe-core 4.13.0
 **Escopo complementar:** consistência visual em `_PADRAO-VISUAL-UI.md` (ui-consistency-auditor)
 **Versão:** 1.0
 
@@ -539,7 +539,7 @@ Regras de implementação:
 | `clinic-dashboard` | `/clinic/dashboard` | `clinicAdminA` | `/clinic/dashboard` | heading do dashboard da clínica (`src/app/(clinic)/clinic/dashboard/page.tsx:285`) |
 | `clinic-inventory` | `/clinic/inventory` | `clinicAdminA` | `/clinic/dashboard` | heading de `InventoryView` (confirmar em `src/components/inventory/InventoryView.tsx`) |
 
-**`tests/e2e/fixtures/a11y-baseline.json`:** começa `{"version":1,"axeCore":"4.14.0","entries":{}}` no STEP 3 e é preenchido no STEP 5 por execução local com `A11Y_UPDATE_BASELINE=1`.
+**`tests/e2e/fixtures/a11y-baseline.json`:** começa `{"version":1,"axeCore":"4.13.0","entries":{}}` no STEP 3 e é preenchido no STEP 5 por execução local com `A11Y_UPDATE_BASELINE=1`.
 
 ### 6.5 Projeto mobile no `playwright.config.ts`
 
@@ -594,10 +594,10 @@ projects: [
 ### 6.7 Dependência
 
 ```bash
-npm install --save-dev --save-exact @axe-core/playwright@4.14.0
+npm install --save-dev --save-exact @axe-core/playwright@4.13.0
 ```
 
-- `@axe-core/playwright@4.14.0`: dependência `axe-core ~4.14.0`, peer `playwright-core >= 1.0.0` (satisfeito por `@playwright/test` 1.56.1). Licença **MPL-2.0** (ambos).
+- `@axe-core/playwright@4.13.0`: dependência `axe-core ~4.13.0`, peer `playwright-core >= 1.0.0` (satisfeito por `@playwright/test` 1.56.1). Licença **MPL-2.0** (ambos).
 - Verificações: `npm ls @axe-core/playwright axe-core`; diff do `package-lock.json` restrito a esses pacotes; `npm audit` sem novos avisos altos/críticos; após `npm run build`, `grep -rl "axe-core" .next/static` sem resultados (RNF-09).
 - Atualizações futuras de axe (manuais ou PR do Dependabot, que tem auto-merge) podem introduzir regras novas → o gate falha e o PR fica bloqueado até o baseline ser revisto. Isso é desejado; registrar no PR.
 
@@ -624,13 +624,13 @@ npm install --save-dev --save-exact @axe-core/playwright@4.14.0
 **Arquivos afetados:** `package.json`, `package-lock.json`.
 
 **Ações:**
-1. `npm install --save-dev --save-exact @axe-core/playwright@4.14.0`.
-2. Conferir que o `package.json` mostra `"@axe-core/playwright": "4.14.0"` (sem `^`).
+1. `npm install --save-dev --save-exact @axe-core/playwright@4.13.0`.
+2. Conferir que o `package.json` mostra `"@axe-core/playwright": "4.13.0"` (sem `^`).
 3. Revisar o diff do lockfile (§6.7).
 
-**Validação:** `npm ls @axe-core/playwright axe-core` mostra 4.14.0/4.14.x; `npm run type-check` e `npm run build` verdes; `grep -rl "axe-core" .next/static` vazio.
+**Validação:** `npm ls @axe-core/playwright axe-core` mostra 4.13.0/4.13.x; `npm run type-check` e `npm run build` verdes; `grep -rl "axe-core" .next/static` vazio.
 
-**Commit:** `chore(deps): add @axe-core/playwright 4.14.0 as pinned devDependency`
+**Commit:** `chore(deps): add @axe-core/playwright 4.13.0 as pinned devDependency`
 
 ### STEP 2 — Projeto `mobile-chromium`
 
@@ -704,7 +704,7 @@ npm install --save-dev --save-exact @axe-core/playwright@4.14.0
 **Ações:**
 1. Acionar o `qa-agent` em **Modo A**, informando explicitamente o caminho deste spec (`ONLY_FOR_DEVS/TO_DO/FEAT-agente-ux-reviewer.md` — o spec ainda não está em `TASK_COMPLETED/`, porque o caderno precisa entrar no mesmo PR) e o nome de saída `tests/e2e/_infra-a11y-axe-mobile.spec.ts` (prefixo `_infra-`, previsto na description do `qa-agent`).
 2. O `qa-agent` valida sintaticamente (`npx tsc --noEmit`, `npx playwright test --list tests/e2e/_infra-a11y-axe-mobile.spec.ts`) — conferir que os cenários 1–3 aparecem nos dois projetos e o 4 só no mobile.
-3. Gerar o baseline: `A11Y_UPDATE_BASELINE=1 npm run test:e2e:a11y`. Revisar cada entrada (são dívidas conhecidas, RN-10) e conferir `axeCore: "4.14.0"`.
+3. Gerar o baseline: `A11Y_UPDATE_BASELINE=1 npm run test:e2e:a11y`. Revisar cada entrada (são dívidas conhecidas, RN-10) e conferir `axeCore: "4.13.0"`.
 4. Rodar `npm run test:e2e` completo localmente (modo `enforce`) — verde.
 5. **Revisão humana obrigatória** do spec gerado (bloco "⚠️ Revisão humana obrigatória" do `qa-agent`): asserções correspondem ao STEP 4; nenhum usuário inventado; nenhuma escrita no emulador.
 
@@ -795,7 +795,7 @@ npm install --save-dev --save-exact @axe-core/playwright@4.14.0
 [ ] npm run test:e2e    — suíte E2E completa verde local (modo enforce), chromium + mobile-chromium
 [ ] Multi-tenant: nenhuma query nova no app; caderno só lê, com clinicAdminA restrito ao tenant test-clinic-a
 [ ] Segurança: nenhum secret; execução só em demo-curva-mestra-e2e; Bash do agente conforme RNF-03
-[ ] Dependência: @axe-core/playwright "4.14.0" exato em devDependencies; lockfile só com axe-related; licença MPL-2.0 registrada no PR
+[ ] Dependência: @axe-core/playwright "4.13.0" exato em devDependencies; lockfile só com axe-related; licença MPL-2.0 registrada no PR
 [ ] playwright.config.ts: projeto chromium inalterado; mobile-chromium com Pixel 7 e grep /@mobile/
 [ ] e2e.yml: job com o mesmo nome (status check); step a11y-results adicionado; nenhum browser novo
 [ ] Tempo do job E2E no PR ≤ +3 min vs. última execução verde em develop (RNF-10)
@@ -884,7 +884,7 @@ Definições de detalhe tomadas por este documento a partir das decisões (conte
 **Externas:**
 - `github.com/davepoon/buildwithclaude` (MIT) — `anti-ui-slop`, `accessibility-specialist`, `oiloil-ui-ux-guide` (inspiração, sem cópia de texto)
 - W3C — WCAG 2.1
-- `@axe-core/playwright` 4.14.0 e `axe-core` 4.14.0 (npm, MPL-2.0) — documentação de `AxeBuilder` e tags de regras
+- `@axe-core/playwright` 4.13.0 e `axe-core` 4.13.0 (npm, MPL-2.0) — documentação de `AxeBuilder` e tags de regras
 - Playwright — `devices` (`Pixel 7`), projetos, tags de teste
 
 ---
@@ -894,4 +894,5 @@ Definições de detalhe tomadas por este documento a partir das decisões (conte
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|-------------|
 | 1.0 | 19/10/2026 | Doc Writer (Claude) | Versão inicial. Status "Aguardando decisão" por 4 decisões pendentes (D1 renderização, D2 ajuste do ui-consistency-auditor, D3 regra 8, D4 primeira execução). |
-| 1.1 | 19/10/2026 | Doc Writer (Claude) | Decisões D1–D4 resolvidas **pelo usuário** (resposta explícita, 19/10/2026): D1 = (C), contrariando a recomendação (A); D2 = sim; D3 = sim; D4 = não. Escopo ampliado com infraestrutura de acessibilidade: `@axe-core/playwright` 4.14.0 fixo, projeto `mobile-chromium` (Pixel 7) restrito a `@mobile`, helper `tests/e2e/helpers/a11y.ts` com baseline por regra e modos enforce/report, fixture de rotas, script `test:e2e:a11y`, artefato no `e2e.yml`, caderno `_infra-a11y-axe-mobile.spec.ts` via `qa-agent` (STEP 4/5) e Modo E (verificação em runtime) no agente. Commits, mapa de impacto, riscos e DoD atualizados. Status → Planejamento. |
+| 1.1 | 19/10/2026 | Doc Writer (Claude) | Decisões D1–D4 resolvidas **pelo usuário** (resposta explícita, 19/10/2026): D1 = (C), contrariando a recomendação (A); D2 = sim; D3 = sim; D4 = não. Escopo ampliado com infraestrutura de acessibilidade: `@axe-core/playwright` 4.13.0 fixo, projeto `mobile-chromium` (Pixel 7) restrito a `@mobile`, helper `tests/e2e/helpers/a11y.ts` com baseline por regra e modos enforce/report, fixture de rotas, script `test:e2e:a11y`, artefato no `e2e.yml`, caderno `_infra-a11y-axe-mobile.spec.ts` via `qa-agent` (STEP 4/5) e Modo E (verificação em runtime) no agente. Commits, mapa de impacto, riscos e DoD atualizados. Status → Planejamento. |
+| 1.2 | 19/10/2026 | Claude (implementação) | Versão da dependência corrigida de `@axe-core/playwright` 4.14.0 para **4.13.0** (`axe-core` 4.13.0): a 4.14.0 declara `engines.node >=22.12.0`, incompatível com o Node 20 do projeto (`package.json` `engines`, `.nvmrc` e todos os workflows), e havia sido publicada só 4 dias antes (15/10/2026). A 4.13.0 (11/08/2026) não restringe a versão do Node. Efeito colateral aceito no lockfile: o `axe-core` usado pelo `eslint-plugin-jsx-a11y` (range `^4.10.0`) é deduplicado de 4.11.0 para 4.13.0. |
