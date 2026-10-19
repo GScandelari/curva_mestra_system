@@ -77,6 +77,13 @@ interface ProdutoSelecionado {
   valor_unitario: number;
 }
 
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+
 export default function NovaSolicitacaoPage() {
   const { user, claims } = useAuth();
   const router = useRouter();
@@ -1074,7 +1081,7 @@ export default function NovaSolicitacaoPage() {
                           .map((item) => (
                             <SelectItem key={item.id} value={item.id}>
                               Lote {item.lote} — {item.quantidade_disponivel} un. disponíveis (val.{' '}
-                              {String(item.dt_validade)})
+                              {formatDate(item.dt_validade)})
                             </SelectItem>
                           ))}
                       </SelectContent>
