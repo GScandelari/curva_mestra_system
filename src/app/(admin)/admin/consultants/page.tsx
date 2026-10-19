@@ -18,6 +18,8 @@ import { Plus, Search, Users, Edit, Ban, CheckCircle, Building2, Copy } from 'lu
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatTimestamp } from '@/lib/utils';
+import { formatLastAccessLabel } from '@/lib/lastAccess';
+import { useLastAccess } from '@/hooks/useLastAccess';
 import type { Consultant } from '@/types';
 
 export default function ConsultantsListPage() {
@@ -28,6 +30,8 @@ export default function ConsultantsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  // Vínculo com o Auth pelo user_id: em produção o id do documento não é o UID.
+  const { lastAccess } = useLastAccess(consultants.map((c) => c.user_id ?? ''));
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -258,6 +262,7 @@ export default function ConsultantsListPage() {
                       <TableHead>Clínicas</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Criado em</TableHead>
+                      <TableHead>Último acesso</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -296,6 +301,14 @@ export default function ConsultantsListPage() {
                         <TableCell>{getStatusBadge(consultant.status)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatTimestamp(consultant.created_at)}
+                        </TableCell>
+                        <TableCell
+                          className="text-sm text-muted-foreground"
+                          data-testid="last-access"
+                        >
+                          {formatLastAccessLabel(
+                            consultant.user_id ? lastAccess[consultant.user_id] : undefined
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
