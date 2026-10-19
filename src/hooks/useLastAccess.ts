@@ -12,7 +12,7 @@ import { chunkUids, type LastAccessMap } from '@/lib/lastAccess';
 export function useLastAccess(uids: string[]): { lastAccess: LastAccessMap; loading: boolean } {
   const [lastAccess, setLastAccess] = useState<LastAccessMap>({});
   const [loading, setLoading] = useState(false);
-  const key = [...new Set(uids.filter(Boolean))].sort().join(',');
+  const key = [...new Set(uids.filter(Boolean))].sort((a, b) => a.localeCompare(b)).join(',');
 
   useEffect(() => {
     let cancelled = false;
