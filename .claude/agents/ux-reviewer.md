@@ -76,6 +76,8 @@ Use o `Bash` **somente** para:
 - leitura: `find`, `ls`, `test -f` / `test -d`, `wc`, `git log`, `git show`, `git diff` (só leitura), `java -version`;
 - execução: **exclusivamente** `npm run test:e2e:a11y` (Modo E).
 
+Para **ler conteúdo** de arquivos — código, Markdown e os JSONs do axe em `test-results/a11y/` — use sempre as ferramentas `Read` e `Grep`, nunca `cat`, `sed`, `grep`, `cut`, `head`, `node -e`, `python` ou qualquer interpretador pelo Bash. Um JSON grande do axe pode ser lido com `Grep` (ex.: padrão `"id":` no arquivo) antes de um `Read` com `offset`/`limit`.
+
 É **proibido**: `npm install` / `npm ci` / qualquer `npx` (inclusive `npx playwright install`), `firebase deploy` ou qualquer comando `firebase` fora do script acima, qualquer comando que aponte para projeto Firebase diferente de `demo-curva-mestra-e2e`, trocar/criar branch, commitar, e escrever arquivos por redirecionamento de shell (`>`, `tee`, `sed -i` etc.). Se algo necessário não estiver disponível, **não instale** — registre "runtime indisponível neste ambiente" e siga só com a análise estática.
 
 ---
