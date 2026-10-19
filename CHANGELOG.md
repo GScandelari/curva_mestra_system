@@ -5,6 +5,32 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.16.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.15.0...v1.16.0) (2026-10-19)
+
+
+### Features
+
+* **admin:** show document and council number in access request lists ([b97a504](https://github.com/GScandelari/curva_mestra_system/commit/b97a5044100619df0ef334b899b490c30d97fa19))
+* **admin:** show last access column in users and consultants lists ([1dd590e](https://github.com/GScandelari/curva_mestra_system/commit/1dd590e5a3e179cb311df1c8c6b02be010e384b8))
+* **api:** add last access endpoint for system admin ([bf1dca3](https://github.com/GScandelari/curva_mestra_system/commit/bf1dca3b9c4b27f6f32b813faa50b067133f294a))
+* **api:** add pure clinic search query and name matching rules ([a59e7ab](https://github.com/GScandelari/curva_mestra_system/commit/a59e7ab0a301bbf23fb9c7e24833cd1053840567))
+* **api:** block duplicate document and name consultant tenants on approval ([7172d8c](https://github.com/GScandelari/curva_mestra_system/commit/7172d8cc6f1317544bd5520a0fef40da26a29cf8))
+* **api:** require specialist document and drop volume in access requests ([293e507](https://github.com/GScandelari/curva_mestra_system/commit/293e507af6a3da98ebea04eb16604c7a51adfadb))
+* **api:** search clinics by clinic or specialist name ([437ebfe](https://github.com/GScandelari/curva_mestra_system/commit/437ebfef32abd981014c486acfba473777e4ac0b))
+* **auth:** add pure access request payload validation with CPF/CNPJ ([61872da](https://github.com/GScandelari/curva_mestra_system/commit/61872da7aeb8c63540df9bde7b586a138ad4068b))
+* **auth:** collect CPF/CNPJ and widen register form ([0c96f93](https://github.com/GScandelari/curva_mestra_system/commit/0c96f93ce09df29ce6e2c761c78f8bb92ee778b2))
+* **firebase:** deny client-side creation of access requests ([2042395](https://github.com/GScandelari/curva_mestra_system/commit/2042395860d49dd006d99da366b9e9e6cc7031b6))
+* **ui:** align landing access form with register form ([88f0c79](https://github.com/GScandelari/curva_mestra_system/commit/88f0c799a8b6d97272d7254e2da9d1081ce666ff))
+* **ui:** search clinics by document or name in consultant portal ([10805bf](https://github.com/GScandelari/curva_mestra_system/commit/10805bf16bc50e3fea5c71b9a737879ae91544b3))
+* **users:** add pure last access helpers ([cddb175](https://github.com/GScandelari/curva_mestra_system/commit/cddb175cdb3fc6d061c2945d88d5123451cec54b))
+
+
+### Bug Fixes
+
+* **admin:** use localeCompare when sorting last access uids ([1ed97f1](https://github.com/GScandelari/curva_mestra_system/commit/1ed97f14b729fc45444a2999f6c89a8556898502))
+* **requests:** format lot expiration date in pt-BR ([97b6aa2](https://github.com/GScandelari/curva_mestra_system/commit/97b6aa2fdd74566d0f7febda74ffc90efa05c066))
+* **requests:** use textarea for procedure notes ([9303214](https://github.com/GScandelari/curva_mestra_system/commit/9303214fa33bfc1606cfae211612fdb281db9388))
+
 ## [1.15.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.14.0...v1.15.0) (2026-10-16)
 
 
