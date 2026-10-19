@@ -32,6 +32,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { formatTimestamp } from '@/lib/utils';
+import { formatLastAccessLabel } from '@/lib/lastAccess';
+import { useLastAccess } from '@/hooks/useLastAccess';
 import {
   Dialog,
   DialogContent,
@@ -77,6 +79,7 @@ export default function UsersManagementPage() {
   const [filteredUsers, setFilteredUsers] = useState<UserWithTenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const { lastAccess } = useLastAccess(users.map((u) => u.uid));
 
   // Edit dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -518,6 +521,7 @@ export default function UsersManagementPage() {
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Cadastro</TableHead>
+                      <TableHead>Último acesso</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -545,6 +549,12 @@ export default function UsersManagementPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatTimestamp(user.created_at)}
+                        </TableCell>
+                        <TableCell
+                          className="text-sm text-muted-foreground"
+                          data-testid="last-access"
+                        >
+                          {formatLastAccessLabel(lastAccess[user.uid])}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
