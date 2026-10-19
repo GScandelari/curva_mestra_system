@@ -1199,7 +1199,35 @@ test.describe
   });
 
   // ------------------------------------------------------------------------------------------
-  test('Roteiro H — snapshot congelado após mudar os custos; edição recalcula e sobrescreve (origem "edicao"); legados sem snapshot mostram "Estimativa atual" sem gravar nada (RN-25)', async ({
+  test('Formulário — Observações é multilinha e a validade do lote aparece em pt-BR (dd/mm/aaaa)', async ({
+    page,
+  }) => {
+    await loginClinicAdminA(page);
+    await page.goto('/clinic/requests/new');
+    await esperarInventarioCarregado(page);
+
+    const observacoes = page.locator('#observacoes');
+    await expect(observacoes).toHaveJSProperty('tagName', 'TEXTAREA');
+    await observacoes.fill('linha 1\nlinha 2');
+    await expect(observacoes).toHaveValue('linha 1\nlinha 2');
+
+    await page.getByRole('button', { name: 'Procedimento Efetuado' }).click();
+    await page.locator('#produto').click();
+    await page.getByRole('option').filter({ hasText: 'Produto Teste Rennova' }).first().click();
+    await page.locator('#lote').click();
+    const opcoesLote = page.getByRole('option');
+    await expect(opcoesLote.first()).toBeVisible();
+    // O seed grava a validade em T00:00:00Z: o dia exibido depende do fuso, então só o formato é fixado.
+    for (const texto of await opcoesLote.allInnerTexts()) {
+      expect(texto).toMatch(/\(val\. \d{2}\/\d{2}\/\d{4}\)/);
+      expect(texto).not.toContain('GMT');
+    }
+    await page.keyboard.press('Escape');
+    // Sai sem confirmar — nada gravado.
+  });
+
+  // ------------------------------------------------------------------------------------------
+  test('Roteiro H —snapshot congelado após mudar os custos; edição recalcula e sobrescreve (origem "edicao"); legados sem snapshot mostram "Estimativa atual" sem gravar nada (RN-25)', async ({
     page,
   }) => {
     const idG = ctx.idRoteiroG!;

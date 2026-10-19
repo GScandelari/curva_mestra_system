@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -75,6 +76,13 @@ interface ProdutoSelecionado {
   quantidade_disponivel: number;
   valor_unitario: number;
 }
+
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
 
 export default function NovaSolicitacaoPage() {
   const { user, claims } = useAuth();
@@ -998,8 +1006,9 @@ export default function NovaSolicitacaoPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="observacoes">Observações (opcional)</Label>
-                  <Input
+                  <Textarea
                     id="observacoes"
+                    rows={3}
                     placeholder="Informações adicionais sobre o procedimento"
                     value={observacoes}
                     onChange={(e) => setObservacoes(e.target.value)}
@@ -1072,7 +1081,7 @@ export default function NovaSolicitacaoPage() {
                           .map((item) => (
                             <SelectItem key={item.id} value={item.id}>
                               Lote {item.lote} — {item.quantidade_disponivel} un. disponíveis (val.{' '}
-                              {String(item.dt_validade)})
+                              {formatDate(item.dt_validade)})
                             </SelectItem>
                           ))}
                       </SelectContent>
