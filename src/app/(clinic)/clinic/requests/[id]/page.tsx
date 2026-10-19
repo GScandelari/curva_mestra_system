@@ -334,7 +334,7 @@ export default function SolicitacaoDetalhesPage() {
               {solicitacao.observacoes && (
                 <div>
                   <Label className="text-muted-foreground">Observações</Label>
-                  <p className="font-medium">{solicitacao.observacoes}</p>
+                  <p className="font-medium whitespace-pre-wrap">{solicitacao.observacoes}</p>
                 </div>
               )}
             </div>
