@@ -78,7 +78,16 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    // Gate completo: todas as specs (UC-*, _infra-*).
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Gate mobile: só testes com tag @mobile, que precisam ser somente
+    // leitura -- o seed roda uma única vez e as specs UC-* mutam o estado do
+    // emulador, então rodar a suíte inteira de novo aqui quebraria (além de
+    // dobrar o tempo do job). Pixel 7 = Chromium, já instalado no CI.
+    // Ver ONLY_FOR_DEVS/TO_DO/FEAT-agente-ux-reviewer.md §4.2.
+    { name: 'mobile-chromium', use: { ...devices['Pixel 7'] }, grep: /@mobile/ },
+  ],
   webServer: {
     command: `npm run dev -- --port ${PORT}`,
     // Aponta para /login (não a raiz) de propósito: todo spec desta suíte

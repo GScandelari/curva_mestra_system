@@ -48,6 +48,15 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+      - name: Upload accessibility scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-results
+          path: test-results/a11y/
+          retention-days: 7
+          if-no-files-found: ignore
+
   rules:
     runs-on: ubuntu-latest
     name: Firestore Rules (rules-unit-testing + Firebase Emulator Suite)
