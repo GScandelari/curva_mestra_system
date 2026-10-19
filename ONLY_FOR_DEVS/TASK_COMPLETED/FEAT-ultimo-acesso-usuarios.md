@@ -3,7 +3,9 @@
 **Projeto:** Curva Mestra
 **Data:** 19/10/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Stanke Scandelari
+**Data de Conclusão:** 19/10/2026
 **Tipo:** Feature
 **Branch sugerida:** feature/ultimo-acesso-usuarios
 **Prioridade:** Média
