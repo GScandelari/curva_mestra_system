@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Procedimentos
-**Versão:** 1.1
+**Versão:** 1.1.1
 
 > Um Clinic Admin registra um procedimento que já foi realizado, debitando imediatamente os produtos do inventário (sem reserva) e exigindo que o próprio usuário escolha manualmente o lote de cada produto utilizado (sem alocação automática). A solicitação já nasce com o status final (`"concluida"`), com uma entrada de histórico `"efetuada"` registrando que foi um lançamento retroativo. É a variante irmã de **UC-16 (Registrar Procedimento Programado)**, compartilhando a mesma tela/wizard (`/clinic/requests/new`). **[Novo em v1.1 — UC-58]** Como em UC-16, o wizard registra a **duração** e a **forma de pagamento** (informativa) do procedimento, mostra o **preço sugerido** pela hora clínica e, ao confirmar, grava um snapshot da precificação (só `clinic_admin` lê) — usando a data passada do procedimento como mês de referência dos custos.
 
@@ -73,9 +73,9 @@ Clinic Admin acessa `/clinic/requests/new`, seleciona "Procedimento Efetuado", e
 ## 6. Fluxo Principal (Basic Flow)
 
 1. Clinic Admin acessa `/clinic/requests/new` e seleciona "Procedimento Efetuado" no toggle do Passo 1 ("Programado" é o padrão pré-selecionado; "Efetuado" precisa ser escolhido explicitamente).
-2. Sistema ajusta o texto de ajuda: "Procedimento já realizado. Os produtos serão consumidos imediatamente do inventário." e passa a exigir seleção manual de lote (aparece um segundo Select "Lote Utilizado", habilitado assim que um produto é escolhido).
-3. Clinic Admin preenche descrição (opcional), data do procedimento (obrigatória, **não pode ser no futuro** — RN-04), **[novo em v1.1]** "Duração (min)" (opcional, inteiro 1..1440) e "Forma de pagamento" (Pix/Dinheiro pré-selecionado, Débito, Crédito — informativa), e observações (opcional) — mesmos campos de UC-16, passo 4.
-4. Clinic Admin seleciona um produto (por código) — sistema então exibe a lista de lotes especificamente daquele código, cada um mostrando quantidade disponível e data de validade.
+2. Sistema ajusta o texto de ajuda: "Procedimento já realizado. Os produtos serão consumidos imediatamente do inventário." e passa a exigir seleção manual de lote (aparece um segundo Select "Lote Utilizado *", habilitado assim que um produto é escolhido).
+3. Clinic Admin preenche descrição (opcional), data do procedimento (obrigatória, **não pode ser no futuro** — RN-04), **[novo em v1.1]** "Duração (min)" (opcional, inteiro 1..1440) e "Forma de pagamento" (Pix/Dinheiro pré-selecionado, Débito, Crédito — informativa), e observações (opcional; **[v1.1.1]** campo multilinha de 3 linhas, que aceita quebras de linha — UC-16 RN-14) — mesmos campos de UC-16, passo 4.
+4. Clinic Admin seleciona um produto (por código) — sistema então exibe a lista de lotes especificamente daquele código, cada um mostrando quantidade disponível e data de validade. **[v1.1.1]** Cada opção do Select "Lote Utilizado *" tem o texto `Lote {lote} — {n} un. disponíveis (val. dd/mm/aaaa)`, ex.: "Lote QAG3 — 3 un. disponíveis (val. 31/01/2028)" (RN-09).
 5. Clinic Admin seleciona manualmente o lote utilizado e informa a quantidade.
 6. Sistema valida: produto e lote selecionados, quantidade válida, quantidade ≤ disponível **naquele lote específico** (não a soma de todos os lotes, diferente de UC-16 — RN-01), e que aquele lote específico ainda não foi adicionado.
 7. Sistema adiciona a linha à lista de produtos selecionados (um item por lote escolhido, sem nenhuma alocação automática entre lotes).
@@ -88,7 +88,7 @@ Clinic Admin acessa `/clinic/requests/new`, seleciona "Procedimento Efetuado", e
 14. Service monta os detalhes de cada produto a partir de uma nova leitura.
 15. Dentro de uma transação atômica: relê cada item; cria o documento da solicitação com `tipo: "efetuado"`, `status_history` com duas entradas simultâneas (`"efetuada"` → "Procedimento registrado como já realizado"; `"concluida"` → "Conclusão automática — procedimento efetuado revisado") e `status: "concluida"` já persistido diretamente; para cada produto, decrementa `quantidade_disponivel` diretamente (sem tocar `quantidade_reservada`, já que nunca houve reserva); registra um log de auditoria por produto (`inventory_activity`, tipo `"consumo_imediato"`).
 16. **[Novo em v1.1 — UC-58]** Se a transação teve sucesso e a configuração de custos foi lida e existe, sistema grava o snapshot da precificação (`origem: 'criacao'`) com os produtos devolvidos pelo service; falha aqui não desfaz nada (Fluxo de Exceção 8e).
-17. Sistema exibe toast "Procedimento criado com sucesso! Os produtos foram consumidos do inventário." e navega para `/clinic/requests/{id}`.
+17. Sistema exibe toast "Procedimento criado com sucesso! Os produtos foram consumidos do inventário." e navega para `/clinic/requests/{id}` (que **[v1.1.1]** preserva as quebras de linha das observações — UC-16 RN-14).
 18. Caso de uso é concluído com sucesso.
 
 ---
@@ -143,6 +143,7 @@ Clinic Admin acessa `/clinic/requests/new`, seleciona "Procedimento Efetuado", e
 | RN-06 | Mesma regra de bloqueio total por estoque insuficiente de UC-16 (RN-03) — sem parcial, sem negativo, em três camadas (frontend, pré-validação, transação). | Confirmado — `validateInventoryAvailability` e a checagem dentro de `readInventoryInTransaction` são as **mesmas** funções reutilizadas por ambos os fluxos (UC-16 e UC-17). |
 | RN-07 | O protocolo aplicado (`protocolo_id`/`protocolo_nome`) também é gravado neste modo, com a mesma ressalva de UC-16 RN-07 (não há verificação de que a lista final ainda corresponde ao protocolo original após edições manuais). | Confirmado — mesmo padrão de payload em `createSolicitacaoEfetuada`. |
 | RN-08 | **[Novo em v1.1 — UC-58]** Duração, forma de pagamento, snapshot e data seguem exatamente UC-16 RN-11, RN-12 e RN-13 (mesma tela, mesmas funções). Particularidade: como o procedimento efetuado nasce `concluida` e não é editável, o snapshot gravado na criação é **definitivo** — se ele não for gravado (falha best-effort ou ausência de configuração de custos), o detalhe mostrará sempre a "Estimativa atual" com a configuração vigente no momento da consulta. | Decisões D10/D12 da spec `FEAT-precificacao-hora-clinica.md`. Confirmado por leitura de `submitCreateMode` (`requests/new/page.tsx`) e de `createSolicitacaoEfetuada` (campos `duracao_minutos`/`forma_pagamento` com `removeUndefined`). |
+| RN-09 | **[Novo em v1.1.1 — BUGFIX `formulario-procedimento-observacoes-validade`, PR #406]** A validade exibida em cada opção do Select "Lote Utilizado *" é formatada em pt-BR, `dd/mm/aaaa` (`Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })`, helper local `formatDate`), no texto `Lote {lote} — {n} un. disponíveis (val. dd/mm/aaaa)`. Antes era `String(item.dt_validade)`, que exibia o `Date.toString()` em inglês (ex.: "val. Mon Jan 31 2028 09:00:00 GMT-0300 (Horário Padrão de Brasília)"). A formatação usa o fuso do navegador, igual a `/clinic/inventory/{id}` (trade-off aceito na spec, ver Seção 14, item 5). | Confirmado por leitura de `requests/new/page.tsx` (`formatDate(item.dt_validade)` no `SelectItem` do lote). Spec `ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-formulario-procedimento-observacoes-validade.md` (RF-03, seção 4.3). |
 
 ---
 
@@ -176,6 +177,7 @@ Alta — usado sempre que um procedimento é lançado retroativamente (ex.: aten
 - `src/lib/services/inventoryService.ts` (`listInventory`)
 - `src/types/index.ts` (`Solicitacao`, `ProdutoSolicitado`; **[v1.1]** `duracao_minutos`, `forma_pagamento`, `PrecificacaoProcedimento`)
 - **[v1.1]** `src/lib/precificacao.ts`, `src/lib/services/precificacaoProcedimentoService.ts`, `src/components/pricing/ProcedimentoPrecificacao.tsx`; spec `ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-precificacao-hora-clinica.md` (v1.7)
+- **[v1.1.1]** Spec `ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-formulario-procedimento-observacoes-validade.md` (PR #406) — validade do lote em `dd/mm/aaaa` (RN-09) e observações multilinha (UC-16 RN-14); cobertura E2E em `tests/e2e/UC-58-precificacao-hora-clinica.spec.ts`
 
 ---
 
@@ -185,6 +187,8 @@ Alta — usado sempre que um procedimento é lançado retroativamente (ex.: aten
 2. ~~**[Herdado de UC-16]** As mesmas pendências RN-08/RN-09 de UC-16 (substituição da lista ao aplicar protocolo; ausência de aviso de estoque insuficiente na aplicação de protocolo) também se aplicam aqui, já que é exatamente o mesmo código (`handleAplicarProtocolo`).~~ **[RESOLVIDO — commit `6dea748`, ver UC-16 v1.1]** Como o código é o mesmo, as correções de UC-16 RN-08/RN-09 valem também aqui.
 3. ~~**[Nota de rastreabilidade]** "Gerenciar Protocolos" ainda não foi mapeado como UC formal.~~ **[RESOLVIDO — mapeado como UC-20]**
 4. **[v1.1, observação herdada de UC-58]** As questões em aberto sobre a precificação estão em UC-58, Seção 14. Em especial, para procedimentos efetuados sem snapshot, a "Estimativa atual" muda sempre que a configuração de custos muda (não há edição que regrave o snapshot).
+5. **[v1.1.1, observação — trade-off aceito na spec do BUGFIX, não é pendência]** RN-09 — a validade do lote é formatada no fuso do navegador. Validades gravadas às 09:00 BRT (caso dos dados reais de produção) aparecem no dia certo; validades gravadas à meia-noite UTC (ex.: seed do caderno UC-58) podem aparecer com um dia a menos em BRT. É a mesma limitação de `/clinic/inventory/{id}` e não foi tratada no bugfix.
+6. **[v1.1.1, herdado de UC-16 Seção 14, item 7]** O Passo 2 ("Revisão") não preserva as quebras de linha das observações (o detalhe preserva).
 
 ---
 
@@ -194,3 +198,4 @@ Alta — usado sempre que um procedimento é lançado retroativamente (ex.: aten
 |--------|------|-------|--------------|
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial. Documentado como a variante irmã de UC-16, a partir da mesma investigação de código (mesma página/wizard, mesmo arquivo de service). Divergências centrais confirmadas: seleção de lote manual e por lote específico (RN-01), consumo imediato de `quantidade_disponivel` sem nunca usar `quantidade_reservada` (RN-02), status `"concluida"` persistido diretamente desde a criação (RN-03), e validação de data invertida (não pode ser futura, RN-04). Confirmado que a aplicação de protocolo (Fluxo Alternativo 7a) usa o mesmo mecanismo de UC-16, inclusive as mesmas pendências (RN-08/RN-09 de UC-16), mesmo estando em modo "Efetuado". |
 | 1.1 | 10/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Feature "Precificação pela Hora Clínica" (spec `FEAT-precificacao-hora-clinica.md` v1.7, PRs #383/#384) — as-is.** Campos "Duração (min)" e "Forma de pagamento" (informativa), card "Preço sugerido" no passo 1 e na revisão (material pelos lotes escolhidos; mês de referência = mês da data passada do procedimento, com a configuração vigente no cadastro) e snapshot best-effort após a transação. Nova RN-08 (remete a UC-16 RN-11/RN-12/RN-13; snapshot do efetuado é definitivo, pois não há edição); novo Fluxo Alternativo 7c e passo 3 em 7a; novo Fluxo de Exceção 8e; resumo, diagrama (`<<include>>` UC-58), pós-condições, Fluxo Principal (passos 3, 8, 10, 12, 16 novo, renumeração até 18), seções 12 e 13 atualizados. Seção 14: itens 2 e 3 marcados como resolvidos (correções de `6dea748` já documentadas em UC-16 v1.1; "Gerenciar Protocolos" mapeado como UC-20) e novo item 4. |
+| 1.1.1 | 19/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **BUGFIX `formulario-procedimento-observacoes-validade` (PR #406) — as-is.** Nova RN-09: a opção do Select "Lote Utilizado *" mostra a validade em `dd/mm/aaaa` pt-BR ("Lote X — N un. disponíveis (val. 31/01/2028)"); antes era o `String(Date)` em inglês. Observações passam a ser multilinha (3 linhas) e o detalhe preserva as quebras de linha (UC-16 RN-14). Passos 2, 3, 4 e 17 do Fluxo Principal, Seção 13 e Seção 14 (itens 5 e 6) atualizados. |

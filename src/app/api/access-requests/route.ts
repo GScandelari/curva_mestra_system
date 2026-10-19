@@ -3,71 +3,44 @@ export const dynamic = 'force-dynamic';
 /**
  * API Route: Gerenciar Solicitações de Acesso Antecipado
  *
- * Campos obrigatórios (novo formato):
+ * Campos obrigatórios:
  *   role            — 'especialista' | 'consultor'
  *   full_name       — Nome completo
  *   email           — E-mail profissional
  *   phone           — Telefone / WhatsApp
- *   council_number  — CRM/CRO (especialista) ou ID Rennova (consultor)
- *   business_name   — Nome da clínica (especialista) ou região/carteira (consultor)
+ *   council_number  — Número do conselho (especialista) ou ID Rennova (consultor)
  *
- * Campos opcionais (apenas role === 'especialista'):
- *   consultant_code — Código de 6 dígitos do consultor Rennova (UC-01 RN-08),
- *                     validado contra um consultor ATIVO em `consultants`
- *   volume          — Volume mensal de procedimentos
+ * Só para role === 'especialista':
+ *   business_name   — Nome da clínica (obrigatório)
+ *   document_type   — 'cpf' | 'cnpj' (obrigatório)
+ *   document_number — CPF/CNPJ, aceita máscara; gravado só com dígitos (obrigatório)
+ *   consultant_code — Código de 6 dígitos do consultor Rennova (UC-01 RN-08,
+ *                     opcional), validado contra um consultor ATIVO em `consultants`
+ *
+ * Campos fora dessa lista (volume, consultant_reference e, para o consultor,
+ * nome da clínica e documento) são ignorados: o registro é montado só a partir
+ * do valor normalizado por validateAccessRequestInput
+ * (FEAT-ajustes-registro-e-busca-consultor). A gravação é feita pelo Admin SDK;
+ * a rule de access_requests não permite criação pelo client.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  serverTimestamp,
-  connectFirestoreEmulator,
-} from 'firebase/firestore';
-import { initializeApp, getApps } from 'firebase/app';
+import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-import {
-  validateEmail,
-  validatePhone,
-  validateFullName,
-  validateConsultantCode,
-  INVALID_CONSULTANT_CODE_ERROR,
-} from '@/lib/validations/serverValidations';
-
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
-
-// src/lib/firebase.ts só conecta ao emulador quando `typeof window !==
-// 'undefined'` (client-side) -- esta rota roda no servidor e mantém sua
-// própria instância local do client SDK (linhas acima), que nunca passava
-// por esse gate. Sem isso, addDoc() abaixo tentava escrever no Firestore
-// REAL (projeto "demo-*" inexistente), travando indefinidamente com
-// PERMISSION_DENIED em vez de falhar rápido -- só ativa em e2e local/CI
-// (NEXT_PUBLIC_USE_FIREBASE_EMULATORS), sem efeito em produção.
-if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
-  try {
-    connectFirestoreEmulator(db, 'localhost', 8080);
-  } catch {
-    // já conectado (hot-reload do Next dev reexecuta este módulo) -- idempotente.
-  }
-}
+import { validateAccessRequestInput } from '@/lib/accessRequestPayload';
+import { INVALID_CONSULTANT_CODE_ERROR } from '@/lib/validations/serverValidations';
 
 /**
  * POST — Criar nova solicitação de acesso
  */
 export async function POST(req: NextRequest) {
   try {
-    const data = await req.json();
+    let data: unknown;
+    try {
+      data = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Corpo da requisição inválido' }, { status: 400 });
+    }
 
     // Bloquear novas solicitações quando o System Admin desativou registros
     // (system_settings/global.registration_enabled) -- antes, esse campo era
@@ -82,56 +55,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificar campos obrigatórios
-    const requiredFields: Record<string, string> = {
-      role: 'Perfil (especialista / consultor)',
-      full_name: 'Nome completo',
-      email: 'E-mail',
-      phone: 'Telefone',
-      council_number: 'Número de conselho / ID Rennova',
-      business_name: 'Nome da clínica / região',
-    };
-
-    for (const [field, label] of Object.entries(requiredFields)) {
-      if (!data[field]) {
-        return NextResponse.json({ error: `${label} é obrigatório` }, { status: 400 });
-      }
+    const validation = validateAccessRequestInput(data);
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-
-    // Validar role
-    if (!['especialista', 'consultor'].includes(data.role)) {
-      return NextResponse.json(
-        { error: "Perfil deve ser 'especialista' ou 'consultor'" },
-        { status: 400 }
-      );
-    }
-
-    // Validar nome completo
-    const nameValidation = validateFullName(data.full_name);
-    if (!nameValidation.valid) {
-      return NextResponse.json({ error: nameValidation.error }, { status: 400 });
-    }
-
-    // Validar email
-    const emailValidation = validateEmail(data.email);
-    if (!emailValidation.valid) {
-      return NextResponse.json({ error: emailValidation.error }, { status: 400 });
-    }
-
-    // Validar telefone
-    const phoneValidation = validatePhone(data.phone);
-    if (!phoneValidation.valid) {
-      return NextResponse.json({ error: phoneValidation.error }, { status: 400 });
-    }
-
-    const normalizedEmail = data.email.toLowerCase().trim();
+    const input = validation.value;
 
     // Bloquear duplicidade de solicitação pendente para o mesmo e-mail --
     // usa o Admin SDK (bypassa as regras de segurança) porque a leitura de
     // access_requests é restrita a system_admin para o client SDK.
     const duplicateSnap = await adminDb
       .collection('access_requests')
-      .where('email', '==', normalizedEmail)
+      .where('email', '==', input.email)
       .where('status', '==', 'pendente')
       .limit(1)
       .get();
@@ -142,24 +77,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Código de consultor (UC-01 RN-08) -- opcional, só para especialista.
-    // Valida formato (função pura compartilhada com o frontend) e, via Admin
-    // SDK (mesmo motivo das leituras acima: rota pública), que existe um
-    // consultor com status "active" para esse código. Grava o vínculo
-    // (consultant_code + consultant_id) usado por UC-56/UC-57.
+    // Código de consultor (UC-01 RN-08) -- opcional, só para especialista. O
+    // formato já foi validado; aqui confirma (Admin SDK, rota pública) que existe
+    // um consultor com status "active". Grava o vínculo (consultant_code +
+    // consultant_id) usado por UC-56/UC-57.
     let consultantLink: { consultant_code: string; consultant_id: string } | null = null;
-    const rawConsultantCode =
-      data.role === 'especialista' && typeof data.consultant_code === 'string'
-        ? data.consultant_code.trim()
-        : '';
-    if (rawConsultantCode) {
-      const codeValidation = validateConsultantCode(rawConsultantCode);
-      if (!codeValidation.valid) {
-        return NextResponse.json({ error: codeValidation.error }, { status: 400 });
-      }
+    if (input.consultant_code) {
       const consultantSnap = await adminDb
         .collection('consultants')
-        .where('code', '==', rawConsultantCode)
+        .where('code', '==', input.consultant_code)
         .where('status', '==', 'active')
         .limit(1)
         .get();
@@ -167,32 +93,35 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: INVALID_CONSULTANT_CODE_ERROR }, { status: 400 });
       }
       consultantLink = {
-        consultant_code: rawConsultantCode,
+        consultant_code: input.consultant_code,
         consultant_id: consultantSnap.docs[0].id,
       };
     }
 
-    // Derivar type legado a partir do role
-    const type = data.role === 'especialista' ? 'clinica' : 'autonomo';
-
-    // Criar solicitação no Firestore
+    const especialista = input.role === 'especialista';
+    const agora = FieldValue.serverTimestamp();
     const accessRequestData: Record<string, unknown> = {
-      role: data.role,
-      type, // campo legado
-      full_name: data.full_name,
-      email: normalizedEmail,
-      phone: data.phone,
-      council_number: data.council_number,
-      business_name: data.business_name,
+      role: input.role,
+      type: especialista ? 'clinica' : 'autonomo', // campo legado
+      full_name: input.full_name,
+      email: input.email,
+      phone: input.phone,
+      council_number: input.council_number,
       consultant_code: consultantLink?.consultant_code ?? null,
       consultant_id: consultantLink?.consultant_id ?? null,
-      volume: data.volume || null,
+      ...(especialista
+        ? {
+            business_name: input.business_name,
+            document_type: input.document_type,
+            document_number: input.document_number,
+          }
+        : {}),
       status: 'pendente',
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
+      created_at: agora,
+      updated_at: agora,
     };
 
-    const docRef = await addDoc(collection(db, 'access_requests'), accessRequestData);
+    const docRef = await adminDb.collection('access_requests').add(accessRequestData);
 
     console.log('✅ Solicitação de acesso criada:', docRef.id);
 
@@ -201,11 +130,9 @@ export async function POST(req: NextRequest) {
       message: 'Solicitação enviada com sucesso!',
       id: docRef.id,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // Sem logar dados pessoais da solicitação
     console.error('❌ Erro ao criar solicitação:', error);
-    return NextResponse.json(
-      { error: error.message || 'Erro ao processar solicitação' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Erro ao processar solicitação' }, { status: 500 });
   }
 }

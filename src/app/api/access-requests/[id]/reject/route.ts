@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import type { AccessRequest } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getAccessRequestBusinessName } from '@/lib/accessRequestPayload';
 
 /**
  * POST - Rejeitar solicitação
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           data: {
             email: request.email,
             displayName: request.full_name,
-            businessName: request.business_name,
+            businessName: getAccessRequestBusinessName(request),
             rejectionReason: rejection_reason,
           },
         }),
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       message: 'Solicitação rejeitada com sucesso.',
       data: {
         email: request.email,
-        business_name: request.business_name,
+        business_name: getAccessRequestBusinessName(request),
         rejection_reason: rejection_reason || null,
       },
     });

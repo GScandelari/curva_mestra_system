@@ -141,12 +141,13 @@ test.describe('UC-02 — Aprovar Solicitação de Acesso', () => {
       await page.goto('/admin/access-requests');
 
       // Passos 2-3: cards de contagem e a linha da solicitação criada, com o
-      // rótulo "Conselho" (especialista) e o tipo legado "Clínica".
+      // rótulo "Nº do conselho" (especialista; FEAT-ajustes-registro-e-busca-consultor)
+      // e o tipo legado "Clínica".
       await expect(page.getByText('Total Pendentes')).toBeVisible();
       const row = page.getByRole('row').filter({ hasText: email });
       await expect(row).toBeVisible();
       await expect(row.getByText('Clínica', { exact: true })).toBeVisible();
-      await expect(row.getByText(/Conselho:\s*CRM-SP 887744/)).toBeVisible();
+      await expect(row.getByText(/Nº do conselho:\s*CRM-SP 887744/)).toBeVisible();
 
       // Passos 4-5: clique em "Aprovar" dispara POST .../approve com Bearer token.
       const responsePromise = page.waitForResponse(
