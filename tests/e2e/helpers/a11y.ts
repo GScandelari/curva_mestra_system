@@ -158,12 +158,16 @@ export async function measureHorizontalOverflow(
   page: Page,
   testInfo: TestInfo,
   routeKey: string
-): Promise<{ scrollWidth: number; innerWidth: number; overflow: boolean }> {
+): Promise<{ scrollWidth: number; innerWidth: number; deviceWidth: number; overflow: boolean }> {
   const { scrollWidth, innerWidth } = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     innerWidth: window.innerWidth,
   }));
-  const result = { scrollWidth, innerWidth, overflow: scrollWidth > innerWidth };
+  // Em perfil mobile (isMobile), o Chrome alarga o layout viewport até caber o
+  // conteúdo — innerWidth acompanha o scrollWidth e esconderia o overflow.
+  // Compara-se então com a largura do dispositivo configurada no projeto.
+  const deviceWidth = page.viewportSize()?.width ?? innerWidth;
+  const result = { scrollWidth, innerWidth, deviceWidth, overflow: scrollWidth > deviceWidth };
   fs.writeFileSync(
     path.join(resultsDir(testInfo), `${routeKey}.overflow.json`),
     JSON.stringify(result, null, 2),
