@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "axeCore": "4.13.0",
+  "entries": {
+    "chromium|admin-dashboard": ["color-contrast", "meta-viewport"],
+    "chromium|clinic-dashboard": ["button-name", "meta-viewport"],
+    "chromium|clinic-inventory": ["button-name", "meta-viewport"],
+    "chromium|login": ["meta-viewport"],
+    "mobile-chromium|admin-dashboard": ["color-contrast", "meta-viewport"],
+    "mobile-chromium|clinic-dashboard": ["button-name", "meta-viewport"],
+    "mobile-chromium|clinic-inventory": ["button-name", "meta-viewport"],
+    "mobile-chromium|login": ["meta-viewport"]
+  }
+}
