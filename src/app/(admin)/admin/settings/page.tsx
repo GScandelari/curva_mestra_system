@@ -9,14 +9,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { doc, getDocFromServer, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDocFromServer, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, auth, functions } from '@/lib/firebase';
 import { writeAdminAuditLog } from '@/lib/services/auditLogService';
 import { translateFirestoreError } from '@/lib/firestoreErrors';
 import {
   DEFAULT_SYSTEM_SETTINGS_FORM,
+  buildSystemSettingsPayload,
   canSaveSystemSettings,
+  hasConcurrentChange,
   normalizeSystemSettingsForm,
   validateSystemSettingsForm,
   type SettingsBaseline,
@@ -37,6 +39,9 @@ interface ClaimsIntegrityCheckResult {
   checked: number;
   mismatches: ClaimsMismatch[];
 }
+
+/** O documento mudou em outra sessão desde a leitura (UC-35-RN-01). */
+class SettingsConflictError extends Error {}
 
 export default function SystemSettingsPage() {
   const router = useRouter();
@@ -101,13 +106,22 @@ export default function SystemSettingsPage() {
       return;
     }
 
+    const uid = auth.currentUser.uid;
     setSaving(true);
     try {
       const docRef = doc(db, 'system_settings', 'global');
-      await setDoc(docRef, {
-        ...form,
-        updated_by: auth.currentUser.uid,
-        updated_at: serverTimestamp(),
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(docRef);
+        const current: SettingsBaseline = {
+          exists: snap.exists(),
+          updatedAt: snap.exists() ? (snap.data().updated_at ?? null) : null,
+        };
+        if (hasConcurrentChange(baseline, current)) throw new SettingsConflictError();
+        tx.set(
+          docRef,
+          { ...buildSystemSettingsPayload(form, uid), updated_at: serverTimestamp() },
+          { merge: true }
+        );
       });
       await writeAdminAuditLog({
         tenant_id: null,
@@ -121,7 +135,13 @@ export default function SystemSettingsPage() {
         title: 'Sucesso',
         description: 'Configurações salvas com sucesso',
       });
+      // Atualiza a base de updated_at (o valor do serverTimestamp só existe após gravar).
+      await loadSettings({ silent: true });
     } catch (error: any) {
+      if (error instanceof SettingsConflictError) {
+        setLoadStatus('stale');
+        return;
+      }
       toast({
         title: 'Erro ao salvar',
         description: error.message,
@@ -197,6 +217,22 @@ export default function SystemSettingsPage() {
             <Button variant="outline" onClick={() => loadSettings()}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Tentar novamente
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {loadStatus === 'stale' && (
+        <Alert variant="destructive">
+          <AlertTitle>As configurações foram alteradas em outra sessão</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>
+              Outra alteração foi salva enquanto esta tela estava aberta. Recarregue para ver os
+              valores atuais; o que você digitou aqui será descartado.
+            </p>
+            <Button variant="outline" onClick={() => loadSettings()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Recarregar configurações
             </Button>
           </AlertDescription>
         </Alert>
