@@ -2,11 +2,11 @@
 
 **Projeto:** Curva Mestra
 **Data de Criação:** 19/10/2026
-**Última Atualização:** 19/10/2026
+**Última Atualização:** 21/10/2026
 **Autor:** ux-reviewer (via Claude)
 **Base:** WCAG 2.1 AA + heurísticas de usabilidade; primitivos shadcn/ui (Radix); axe-core 4.13.0
 **Escopo complementar:** consistência visual em `_PADRAO-VISUAL-UI.md` (ui-consistency-auditor)
-**Versão:** 1.0
+**Versão:** 1.1
 
 > **Como ler este documento.** As Seções 1–6 são o padrão (o que toda tela deve fazer, com exemplos do próprio código). A Seção 7 é o resultado da última auditoria completa (substituída a cada auditoria completa). A Seção 8 lista o que precisa ser feito por outros agentes. A Seção 9 guarda o histórico.
 >
@@ -58,6 +58,10 @@
   - Botão que abre ou fecha um painel expõe `aria-expanded` e `aria-controls`. O `DropdownMenuTrigger` do Radix já faz isso.
   - Botão de filtro que fica "ligado" expõe `aria-pressed`. Exemplos a seguir: `src/app/(auth)/register/page.tsx:286-293` (`role="group"` + `aria-pressed`) e `src/components/pricing/FormaPagamentoSelector.tsx:25`.
   - Desvios: UX-003, UX-020.
+- **Campos de senha (3.3.2, boa prática de usabilidade).**
+  - Todo campo de senha oferece um botão de mostrar/ocultar (ícone `Eye`/`EyeOff`) com `type="button"`, `aria-label` dinâmico ("Mostrar senha"/"Ocultar senha"), **sem** `aria-pressed` (rótulo que alterna junto com `aria-pressed` fica ambíguo no leitor de tela; decisão D1 de `FEAT-toggle-visibilidade-senha.md`). O campo continua com `<Label htmlFor>` e o `autoComplete` correto (`current-password` / `new-password`).
+  - Padrão recomendado: um único componente `PasswordInput` (`src/components/ui/password-input.tsx`, a criar) sobre o primitivo `Input`, em vez de repetir o toggle em cada tela.
+  - Hoje há 14 campos sem toggle em 7 arquivos e 2 toggles feitos à mão, sem nome acessível (UX-060, UX-017).
 - **Rótulos (1.3.1/3.3.2).**
   - `<Label htmlFor>` ligado ao `id` do campo. Exemplo: `login/page.tsx:263-273`.
   - `Select` do Radix: o `id` vai no `SelectTrigger`. Se não houver rótulo visível, o `SelectTrigger` recebe `aria-label`.
@@ -97,6 +101,7 @@
   - contraste de componentes (1.4.11);
   - movimento reduzido;
   - erros ligados ao campo (`aria-invalid`/`aria-describedby`);
+  - ausência de controle de mostrar/ocultar senha;
   - carga cognitiva e qualidade do texto.
 - **Limite de dados:** o axe só avalia o que **está renderizado** na varredura. No seed atual, `clinicAdminA` não tem estoque nem procedimentos. Por isso, linhas de tabela, badges coloridos e contagens maiores que zero não foram exercitados em runtime.
 - **Limite de cobertura:** `A11Y_ROUTES` cobre 4 das 72 telas (`login`, `admin-dashboard`, `clinic-dashboard`, `clinic-inventory`). O portal do Consultor não é varrido (o seed leva o consultor para `/accept-terms`).
@@ -107,6 +112,7 @@
 - **Prevenção de erros:**
   - Ação destrutiva ou irreversível pede confirmação com o `ConfirmDialog` (`src/components/ui/confirm-dialog.tsx`), nunca com `confirm()`/`alert()` do navegador. Exemplo a seguir: `transfer-requests/page.tsx:322-336`.
   - Um formulário de configuração não pode ser salvo quando os dados reais não foram carregados (desvio: UX-046).
+  - Quem digita uma senha (principalmente no celular) pode conferir o que digitou antes de enviar (desvio: UX-060).
 - **Recuperação de erros:** a mensagem diz o que fazer, e o bloco oferece "Tentar novamente" (`ProjectionsView.tsx:105-111`).
 - **Consistência entre o resumo e o destino:** um número clicável leva a uma lista filtrada pelo **mesmo critério**, logo com a mesma contagem (desvio: UX-031).
 - **Rótulo fiel ao conteúdo:** o título e a descrição de um bloco descrevem exatamente o que a consulta retorna (desvio: UX-030).
@@ -138,7 +144,8 @@
 - **Cabeçalhos de tela com vários botões:** usar `flex-wrap` (exemplo a seguir: `clinic/requests/page.tsx:188`). O desvio `InventoryView.tsx:321` causou rolagem horizontal medida em runtime: `scrollWidth` 506 px para 412 px de largura (UX-037).
 - **Grades:** `md:grid-cols-*` vira uma coluna abaixo de 768 px (padrão correto; sem overflow medido em `clinic-dashboard`, `admin-dashboard` e `login`).
 - **Zoom liberado** é requisito em mobile (UX-001).
-- **Alvos de toque:** pelo menos 24×24 px. Exemplos abaixo disso: o botão de copiar `h-6 w-6` (`admin/consultants/page.tsx:279-282`, `tenants/[id]/page.tsx:561-563`) e a lixeira `h-6 w-6` do sino (`NotificationBell.tsx:229-236`). Eles ficam no limite (24 px) e não têm nome (UX-005, UX-017).
+- **Alvos de toque:** pelo menos 24×24 px. Exemplos abaixo disso: o botão de copiar `h-6 w-6` (`admin/consultants/page.tsx:279-282`, `tenants/[id]/page.tsx:561-563`) e a lixeira `h-6 w-6` do sino (`NotificationBell.tsx:229-236`). Eles ficam no limite (24 px) e não têm nome (UX-005, UX-017). O botão de mostrar/ocultar senha do `PasswordInput` (UX-060) também precisa de ao menos 24×24 px de área clicável.
+- **Senha no teclado virtual:** no celular, erro de digitação em senha é frequente e o usuário não vê o que digitou. O toggle de visibilidade é o padrão esperado em apps móveis (UX-060).
 
 ---
 
@@ -152,6 +159,8 @@
 - engine: axe-core 4.13.0, projetos `chromium` e `mobile-chromium`;
 - rotas: `login` (público), `admin-dashboard` (`systemAdmin`), `clinic-dashboard` e `clinic-inventory` (`clinicAdminA`).
 
+**Atualização escopada de 21/10/2026 (v1.1, Modo B, só análise estática, sem runtime):** registro de UX-060 (campos de senha sem mostrar/ocultar), a pedido do usuário. Varredura por `Grep` de `type="password"` e `EyeOff` em `src/`; leitura dos trechos `admin/users/page.tsx:760-799`, `admin/consultants/[id]/page.tsx:492-526`, `admin/tenants/[id]/page.tsx:790-814` e `UsersTab.tsx:265-289`. As demais linhas desta seção continuam valendo a auditoria de 19/10/2026.
+
 > **Nota sobre o smoke test:** o documento produzido no smoke test (Modo B só em `/clinic/dashboard`) nunca foi gravado no repositório. Esta é, portanto, a versão 1.0 real. Os 15 achados daquele rascunho foram **reconfirmados no código atual** (as mesmas linhas continuam válidas) e renumerados nesta auditoria. Equivalência: rascunho UX-001→UX-025, 002→026, 003→027, 004→028, 005→002, 006→003, 007→004, 008→001, 009→030, 010→031, 011→032, 012→033, 013→034, 014→014, 015→008.
 
 ### 7.1 Resumo
@@ -161,20 +170,20 @@
 | Telas existentes (`src/app/**/page.tsx`) | 72 (23 Admin, 7 Auth, 26 Clínica, 11 Consultor, 5 fora de grupo) |
 | Telas avaliadas na análise estática | 72 (todas, ao menos por varredura `Grep`) |
 | Leitura completa (`Read`) | 16: `clinic/dashboard`, `clinic/inventory` (+ `InventoryView.tsx`), `clinic/requests`, `consultant/dashboard`, `consultant/clinics`, `consultant/clinics/[tenantId]`, `consultant/transfer-requests`, `consultant/reports`, `admin/dashboard`, `admin/tenants`, `login` (l. 100-328), `dashboard` (raiz), `admin/users` (l. 120-800), `admin/settings` (l. 40-160), `clinic/protocolos` (l. 40-210), `consultant/access-requests` (l. 75-175) |
-| Leitura parcial (trecho do achado) | `clinic/requests/new`, `clinic/access-requests`, `clinic/add-products`, `clinic/inventory/[id]`, `consultant/clinics/[tenantId]/pricing`, `admin/consultants`, `admin/products`, `admin/legal-documents`, `debug` |
-| Componentes compartilhados lidos | `ClinicLayout.tsx`, `AdminLayout.tsx`, `ConsultantLayout.tsx`, `ProtectedRoute.tsx`, `NotificationBell.tsx`, `FileUpload.tsx`, `ProjectionsView.tsx` (trecho), `confirm-dialog.tsx`, `badge.tsx`, `table.tsx`, `dialog.tsx` (trecho), `error.tsx`, `src/app/layout.tsx`, `(auth)/layout.tsx`, `globals.css` (tokens) |
-| Só varredura por `Grep` | as demais 47 telas: `catch`/`console.error`, estados vazios, `confirm(`/`alert(`, `size="icon"`, `cursor-pointer`/`onClick`, `error.message`, `aria-*`, `Dialog*Title`, `animate-*`, `outline-none` |
+| Leitura parcial (trecho do achado) | `clinic/requests/new`, `clinic/access-requests`, `clinic/add-products`, `clinic/inventory/[id]`, `consultant/clinics/[tenantId]/pricing`, `admin/consultants`, `admin/consultants/[id]` (l. 492-526, em 21/10), `admin/tenants/[id]` (l. 790-814, em 21/10), `admin/products`, `admin/legal-documents`, `debug` |
+| Componentes compartilhados lidos | `ClinicLayout.tsx`, `AdminLayout.tsx`, `ConsultantLayout.tsx`, `ProtectedRoute.tsx`, `NotificationBell.tsx`, `FileUpload.tsx`, `ProjectionsView.tsx` (trecho), `confirm-dialog.tsx`, `badge.tsx`, `table.tsx`, `dialog.tsx` (trecho), `error.tsx`, `src/app/layout.tsx`, `(auth)/layout.tsx`, `globals.css` (tokens), `UsersTab.tsx` (trecho, em 21/10) |
+| Só varredura por `Grep` | as demais 47 telas: `catch`/`console.error`, estados vazios, `confirm(`/`alert(`, `size="icon"`, `cursor-pointer`/`onClick`, `error.message`, `aria-*`, `Dialog*Title`, `animate-*`, `outline-none`; em 21/10, `type="password"` e `EyeOff` |
 | Rotas avaliadas em runtime | `chromium`: `login`, `admin-dashboard`, `clinic-dashboard`, `clinic-inventory`; `mobile-chromium`: as mesmas 4 (+ medição de reflow) |
-| Total de achados | 59 (UX-001 a UX-059) |
+| Total de achados | 60 (UX-001 a UX-060) |
 | P0 abertos | 8 |
 | P1 abertos | 32 (2 em `Suspeita (runtime)`: UX-009, UX-012) |
-| P2 abertos | 19 |
+| P2 abertos | 20 |
 
 **Por grupo de rota:**
 
 | Grupo | P0 | P1 | P2 |
 |-------|----|----|----|
-| Transversal (layouts, tokens, padrões que se repetem em vários portais) | 0 | 16 | 8 |
+| Transversal (layouts, tokens, padrões que se repetem em vários portais) | 0 | 16 | 9 |
 | Clínica | 3 | 10 | 7 |
 | Admin | 2 | 3 | 0 |
 | Consultor | 3 | 2 | 2 |
@@ -184,7 +193,7 @@
 
 | Categoria | Qtde |
 |-----------|------|
-| Acessibilidade | 24 |
+| Acessibilidade | 25 |
 | Estado de erro | 16 |
 | Texto pt-BR | 8 |
 | Mobile/PWA | 2 |
@@ -218,7 +227,7 @@
 | UX-014 | P2 | Texto pt-BR | Todas (Toaster e Dialog) | `src/components/ui/toaster.tsx:30`; `src/components/ui/dialog.tsx:48` | — | axe (lista `passes`): em `chromium`\|`clinic-dashboard` a região `div[role="region"]` tem `aria-label="Notifications (F8)"` (rótulo padrão do Radix). Estática: o botão de fechar de todo `Dialog` é anunciado como "Close" (`sr-only`) | `<ToastViewport label="Notificações ({hotkey})" />` em `toaster.tsx`; trocar o `sr-only` para "Fechar" em `dialog.tsx` (texto do projeto, não do Radix) | Aberto |
 | UX-015 | P2 | Acessibilidade | ~25 telas (spinners) | ex.: `consultant/clinics/page.tsx:106-108`, `consultant/dashboard/page.tsx:119-122`, `consultant/clinics/[tenantId]/page.tsx:134-136`, `clinic/protocolos/page.tsx:141-143`; 70 ocorrências de `animate-*` em 40 arquivos | — | Estática: carregamento mostrado só como um círculo girando (`<div className="animate-spin …">`), sem texto nem `role="status"`, então o leitor de tela não anuncia nada. Nenhuma animação tem a variante `motion-reduce:` (WCAG 2.3.3, boa prática) | Spinner com texto visível ou `sr-only` ("Carregando…") em `role="status"`, ou `Skeleton` (padrão da Seção 2); `motion-reduce:animate-none` | Aberto |
 | UX-016 | P1 | Acessibilidade | Auth + listas Admin + upload | `login/page.tsx:288-290`; `forgot-password/page.tsx:121-122`; `change-password/page.tsx:211-212`; `reset-password/[token]/page.tsx:253-254`; `admin/tenants/page.tsx:124-126`; `admin/consultants/page.tsx:231-233`; `admin/products/page.tsx:218-220`; `src/components/upload/FileUpload.tsx:162-167` | UC-04, UC-07, UC-06 | Estática: o erro aparece numa `<div className="text-destructive …">` sem `role="alert"` nem `aria-live`. O usuário de leitor de tela envia o formulário e não ouve que o login falhou (WCAG 4.1.3/3.3.1). Bom exemplo no próprio projeto: `register/page.tsx:161-165` (`Alert variant="destructive"`, que tem `role="alert"`) | Usar `<Alert variant="destructive">` do projeto (ou `role="alert"` na `div`) | Aberto |
-| UX-017 | P1 | Acessibilidade | Várias telas (botões só com ícone) | `admin/tenants/page.tsx:199-205` (Editar), `:208-210` (Suspender), `:214-216` (Reativar); `admin/legal-documents/page.tsx:183-206` (Ver/Editar/Excluir); `admin/email-templates/[tipo]/page.tsx:253-255` (Voltar); `admin/users/page.tsx:774-784` e `admin/consultants/[id]/page.tsx:~505-512` (mostrar/ocultar senha); `clinic/protocolos/page.tsx:175-188` (Editar/Excluir); `src/components/protocolos/ProtocoloForm.tsx:163-170`, `:193-199`; `clinic/add-products/page.tsx:574-576`, `:1150-1155`; `clinic/requests/new/page.tsx:1064-1066`, `:1134-1139`; `clinic/consultant/page.tsx:73-75` e `src/components/clinic/ConsultantTab.tsx:61-63` (Copiar); `consultant/dashboard/page.tsx:152-159` (Copiar); `FileUpload.tsx:182-190` (Remover arquivo) | UC-20, UC-21, UC-22, UC-33, UC-34, UC-36, UC-30, UC-10, UC-11, UC-16, UC-46 | Estática: `Button` com só um ícone `lucide-react`, sem texto, `aria-label`, `sr-only` nem `title`. O leitor de tela anuncia só "botão". Ações destrutivas (Excluir, Suspender) ficam indistinguíveis. Telas fora de `A11Y_ROUTES`, então o runtime não confirma, mas o critério é inequívoco (mesma causa de UX-002, que o axe confirmou). Bom exemplo: `FixedCostsTab.tsx:265-266` | `aria-label` descritivo em cada um ("Editar clínica", "Suspender clínica", "Excluir documento", "Mostrar senha"/"Ocultar senha" com `aria-pressed`, "Copiar código", "Voltar", "Remover produto") | Aberto |
+| UX-017 | P1 | Acessibilidade | Várias telas (botões só com ícone) | `admin/tenants/page.tsx:199-205` (Editar), `:208-210` (Suspender), `:214-216` (Reativar); `admin/legal-documents/page.tsx:183-206` (Ver/Editar/Excluir); `admin/email-templates/[tipo]/page.tsx:253-255` (Voltar); `admin/users/page.tsx:774-784` e `admin/consultants/[id]/page.tsx:503-513` (mostrar/ocultar senha); `clinic/protocolos/page.tsx:175-188` (Editar/Excluir); `src/components/protocolos/ProtocoloForm.tsx:163-170`, `:193-199`; `clinic/add-products/page.tsx:574-576`, `:1150-1155`; `clinic/requests/new/page.tsx:1064-1066`, `:1134-1139`; `clinic/consultant/page.tsx:73-75` e `src/components/clinic/ConsultantTab.tsx:61-63` (Copiar); `consultant/dashboard/page.tsx:152-159` (Copiar); `FileUpload.tsx:182-190` (Remover arquivo) | UC-20, UC-21, UC-22, UC-33, UC-34, UC-36, UC-30, UC-10, UC-11, UC-16, UC-46 | Estática: `Button` com só um ícone `lucide-react`, sem texto, `aria-label`, `sr-only` nem `title`. O leitor de tela anuncia só "botão". Ações destrutivas (Excluir, Suspender) ficam indistinguíveis. Telas fora de `A11Y_ROUTES`, então o runtime não confirma, mas o critério é inequívoco (mesma causa de UX-002, que o axe confirmou). Bom exemplo: `FixedCostsTab.tsx:265-266`. **Cross-link:** a parte de mostrar/ocultar senha (`admin/users`, `admin/consultants/[id]`) é resolvida pela migração para o `PasswordInput` de UX-060 | `aria-label` descritivo em cada um ("Editar clínica", "Suspender clínica", "Excluir documento", "Copiar código", "Voltar", "Remover produto"). Os dois toggles de senha migram para o `PasswordInput` de UX-060 ("Mostrar senha"/"Ocultar senha" alternando, sem `aria-pressed`); quando essa migração entrar, a parte de senha deste achado fecha junto | Aberto |
 | UX-018 | P2 | Acessibilidade | Campos de busca das listas | `InventoryView.tsx:411-416`; `clinic/requests/page.tsx:284-289`; `consultant/clinics/page.tsx:94-99`; `admin/tenants/page.tsx:105-110`; `admin/users/page.tsx:~497-501` | UC-50, UC-48 | axe `label` em **passes** em `mobile-chromium`\|`clinic-inventory`: o input de busca só tem `placeholder`, que o axe aceita como nome. Estática: o placeholder some ao digitar e não é rótulo visível (WCAG 3.3.2) | `aria-label="Buscar produtos"` (mínimo) ou `<Label className="sr-only">` | Aberto |
 | UX-019 | P1 | Acessibilidade | Clínica › Estoque; Admin › Usuários | `InventoryView.tsx:418-422`; `admin/users/page.tsx:649-661`, `:676-688` | UC-50, UC-36 | axe `button-name` em `chromium`\|`clinic-inventory` e `mobile-chromium`\|`clinic-inventory`, target `.bg-transparent` (`button role="combobox"`, filtro de categoria). Estática: em `admin/users`, `<Label htmlFor="role">` e `<Label htmlFor="active">` apontam para `id`s que não existem, porque o `SelectTrigger` não recebe `id` | `aria-label="Categoria"` no `SelectTrigger` do estoque; `id="role"`/`id="active"` nos `SelectTrigger` de `admin/users` | Aberto |
 | UX-020 | P2 | Acessibilidade | Filtros em botão | `InventoryView.tsx:433-454`; `admin/tenants/page.tsx:113-118` | UC-50, UC-22 | Estática: o filtro ativo é indicado só pela variante visual (`default` × `outline`), sem `aria-pressed`. "Mostrar Ativos"/"Mostrando Ativos" troca o rótulo, o que confunde ação e estado | `aria-pressed={filterBy === f}` e `role="group" aria-label="Filtrar por situação"` (mesmo padrão de `register/page.tsx:286-293`) | Aberto |
@@ -226,6 +235,7 @@
 | UX-022 | P2 | Acessibilidade | Clínica (várias), Admin › Dashboard, Login | `clinic/dashboard/page.tsx:285`; `InventoryView.tsx:311`; `clinic/requests/page.tsx:190`; `admin/dashboard/page.tsx:143`; `ClinicLayout.tsx:52`; `login/page.tsx:247` | UC-04 | Estática: no portal Clínica, o único `<h1>` é o logotipo "Curva Mestra" e o título da tela é `<h2>`. No login não há `h1` (o `CardTitle` vira `h3`). **Já registrado (parcial):** `_MAPA-DE-BUGS-E-MELHORIAS.md` §8.2, divergência 2 (só os dois dashboards, como consistência visual). Estoque, Procedimentos e Login são novos | `<h1>` no título de cada tela; o logotipo do `ClinicLayout` deixa de ser `h1` | Aberto |
 | UX-023 | P1 | Texto pt-BR | Admin › Configurações, Documentos Legais, Suspender Clínica; Clínica › Termos e Alertas | `admin/settings/page.tsx:64`, `:114`, `:146`; `admin/legal-documents/page.tsx:59`, `:104`; `admin/legal-documents/[id]/page.tsx:47`; `src/components/admin/LegalDocumentForm.tsx:101`, `:263`; `src/components/admin/SuspendTenantDialog.tsx:131`, `:310`; `clinic/setup/terms/page.tsx:115`, `:170`; `src/components/clinic/AlertsTab.tsx:50`, `:90` | UC-35, UC-33, UC-34, UC-22, UC-09, UC-42 | Estática: o toast mostra `description: error.message` de chamadas diretas ao SDK do Firestore/Functions (`getDoc`, `setDoc`, `httpsCallable`). A mensagem sai em inglês e é técnica (ex.: "Missing or insufficient permissions."). Diferente de `UC-37-RN-06` (500 de rota de API, já corrigido) | Mensagem fixa e acionável em pt-BR ("Não foi possível salvar as configurações. Tente novamente."); manter o `error` só no `console.error` | Aberto |
 | UX-024 | P2 | Prevenção de erro | Admin › Consultores e Clínica (detalhe); Clínica › Convidar consultor; sino | `admin/consultants/page.tsx:77`, `:108`; `admin/tenants/[id]/page.tsx:303`, `:341`; `clinic/consultant/invite/page.tsx:149`, `:198`; `NotificationBell.tsx:119`, `:126` | UC-29, UC-23, UC-54, UC-44 | Estática: confirmação de ações irreversíveis (suspender consultor, vincular/remover consultor, enviar/cancelar convite, excluir notificações) por `confirm()` do navegador: sem marca, sem botão destrutivo e com aparência diferente por navegador/Capacitor. Comportamento descrito nos UCs (UC-23 passo 9, UC-29, UC-54 passo 8, UC-44 §fluxo), sem item no mapa. O `ConfirmDialog` do projeto já existe | Trocar por `ConfirmDialog` (`destructive` nas ações destrutivas), como já foi feito em UC-08-RNF-02 e UC-19-RN-06 | Aberto |
+| UX-060 | P2 | Acessibilidade | Auth › Login, Troca obrigatória de senha, Redefinir senha; Admin › Meu Perfil, Detalhe da clínica (novo usuário); Clínica › Meu Perfil, aba Usuários | `src/app/(auth)/login/page.tsx:279`; `src/app/(auth)/change-password/page.tsx:170`, `:184`, `:199`; `src/app/(auth)/reset-password/[token]/page.tsx:227`, `:243`; `src/app/(admin)/admin/profile/page.tsx:195`, `:208`, `:225`; `src/app/(admin)/admin/tenants/[id]/page.tsx:804`; `src/app/(clinic)/clinic/profile/page.tsx:309`, `:322`, `:337`; `src/components/clinic/UsersTab.tsx:277`. Toggles existentes: `src/app/(admin)/admin/users/page.tsx:766-784` (+ `:792`) e `src/app/(admin)/admin/consultants/[id]/page.tsx:495-513` (+ `:521`) | UC-04, UC-06, UC-08, UC-30, UC-37, UC-38, UC-39, UC-40, UC-41 | Estática: 14 campos `type="password"` fixos em 7 arquivos, sem opção de mostrar/ocultar a senha. O usuário não consegue conferir o que digitou, o que pesa no celular (teclado virtual, PWA/Capacitor) e para quem tem dificuldade motora ou cognitiva, e gera tentativas de login falhas e senhas novas digitadas errado em "Nova senha"/"Confirmar". Não é falha WCAG 2.1 AA estrita: é boa prática de usabilidade ligada a 3.3.2 e à autenticação acessível. Bom exemplo parcial: `admin/users` e `admin/consultants/[id]` já têm toggle `Eye`/`EyeOff` (um botão controla "Nova senha" e "Confirmar"), mas o botão não tem nome acessível (UX-017), e o campo é um `<input>` cru que recria as classes do `Input` (`_MAPA-DE-BUGS-E-MELHORIAS.md` §8.2, divergência 4). Critério sem regra axe; `login` está em `A11Y_ROUTES`, mas o axe não acusa a ausência do controle | Criar um componente reutilizável `PasswordInput` (`src/components/ui/password-input.tsx`) sobre o primitivo `Input`: botão `type="button"` com ícone `Eye`/`EyeOff`, `aria-label` dinâmico "Mostrar senha"/"Ocultar senha" (sem `aria-pressed`), área de toque de ao menos 24×24 px e repasse de `id`, `autoComplete` e `disabled`. Aplicar nos 14 campos e migrar os 2 toggles existentes, o que fecha a parte de senha de UX-017 e a §8.2 divergência 4. Spec de implementação: `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md` | Aberto |
 
 #### Clínica (`clinic_admin`, `clinic_user`)
 
@@ -294,6 +304,8 @@
 | UX-058 | P1 | Texto pt-BR | Fora de grupo › `/dashboard` | `src/app/dashboard/page.tsx:54-58`, `:90-125`; destino de `ProtectedRoute.tsx:155-156` e `login/page.tsx:107-108` | UC-04 | Estática: usuário autenticado sem papel reconhecido é mandado para `/dashboard`, que mostra "Dashboard de Debug", "⚠️ Esta página só deve ser acessada para debug", "Custom Claims", "Tenant ID", "UID" e "Conectado ao Firebase (produção)" (jargão e informação interna) | Para esse caso, mostrar uma tela de "Acesso não configurado" com orientação ("Seu acesso ainda não foi liberado. Fale com o administrador da clínica.") e botão "Sair". Restringir a tela de debug a `system_admin` (como `src/app/debug/page.tsx` já faz) | Aberto |
 | UX-059 | P2 | Sem permissão | Todas as rotas protegidas; Consultor › detalhe da clínica | `src/components/auth/ProtectedRoute.tsx:75-80`, `:129-134`; `consultant/clinics/[tenantId]/page.tsx:57-59`; `consultant/clinics/[tenantId]/pricing/page.tsx:48-50` | UC-04, UC-48 | Estática: quem abre uma rota de outro papel, ou uma clínica que não está em `authorized_tenants` (link antigo, vínculo removido), é redirecionado em silêncio para o próprio dashboard ou lista. Ninguém explica por que a página pedida não abriu | Toast no destino ("Você não tem acesso a essa página" / "Você não está mais vinculado a essa clínica") | Aberto |
 
+> Os campos de senha das telas de Auth (`login`, `change-password`, `reset-password/[token]`) estão no achado transversal UX-060, porque o mesmo defeito se repete nos portais Admin e Clínica.
+
 **Pontos positivos (referência para o padrão):**
 - Skeletons por bloco, sem salto de layout: `clinic/dashboard/page.tsx:269-278`, `:503-511`, `:567-578`; `InventoryView.tsx:467-472`.
 - Erro distinto do vazio, com "Tentar novamente": `ProjectionsView.tsx:105-111`; `clinic/inventory/[id]/page.tsx:621-625`; hook `useAsyncState`.
@@ -306,6 +318,7 @@
 - Tabelas com rolagem embutida no primitivo: `table.tsx:7`.
 - `lang="pt-BR"` no `<html>`: `src/app/layout.tsx:37`.
 - Login com `autoComplete` e `type` corretos: `login/page.tsx:264-286`.
+- Toggle de mostrar/ocultar senha (comportamento a generalizar, faltando o nome acessível): `admin/users/page.tsx:766-784`; `admin/consultants/[id]/page.tsx:495-513`.
 
 ### 7.3 Por Caso de Uso (matriz UC × IDs)
 
@@ -313,10 +326,10 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 
 | UC | Tela(s) | IDs |
 |----|---------|-----|
-| UC-04 (login com redirecionamento por papel) | `/login`, `/dashboard`, `ProtectedRoute` | UX-001, UX-016, UX-022, UX-057, UX-058, UX-059 |
+| UC-04 (login com redirecionamento por papel) | `/login`, `/dashboard`, `ProtectedRoute` | UX-001, UX-016, UX-022, UX-057, UX-058, UX-059, UX-060 |
 | UC-05 (aprovar solicitação pela própria clínica) | `/clinic/access-requests` | UX-041 |
-| UC-06 / UC-07 (troca e recuperação de senha) | `/change-password`, `/forgot-password`, `/reset-password/[token]` | UX-016 |
-| UC-08 / UC-36 / UC-37 (usuários no Admin) | `/admin/users` | UX-017, UX-019, UX-047, UX-048 |
+| UC-06 / UC-07 (troca e recuperação de senha) | `/change-password`, `/forgot-password`, `/reset-password/[token]` | UX-016, UX-060 (UC-06, `/change-password`) |
+| UC-08 / UC-36 / UC-37 (usuários no Admin) | `/admin/users`; `/reset-password/[token]` (destino do link do UC-08) | UX-017, UX-019, UX-047, UX-048, UX-060 (UC-08 no `/reset-password/[token]`; UC-37 no toggle de `/admin/users`) |
 | UC-09 (aceitar termos) | `/clinic/setup/terms` | UX-023 |
 | UC-10 (importar NF-e XML) | `/clinic/upload` (`FileUpload`) | UX-016, UX-017, UX-043 |
 | UC-11 (inserir NF manual) | `/clinic/add-products` | UX-017, UX-044 |
@@ -326,10 +339,14 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 | UC-21 / UC-22 (clínicas no Admin) | `/admin/tenants`, `/admin/tenants/new`, `SuspendTenantDialog` | UX-017, UX-020, UX-021, UX-023, UX-049 |
 | UC-23 (vincular/remover consultor) | `/admin/tenants/[id]` | UX-024 |
 | UC-26 / UC-27 (transferência) | `/consultant/transfer-requests` | UX-053, UX-055 |
-| UC-28 / UC-29 / UC-30 (consultores no Admin) | `/admin/consultants`, `/admin/consultants/[id]` | UX-017, UX-024, UX-049 |
+| UC-28 / UC-29 / UC-30 (consultores no Admin) | `/admin/consultants`, `/admin/consultants/[id]` | UX-017, UX-024, UX-049, UX-060 (UC-30, toggle de senha) |
 | UC-31 / UC-32 (catálogo master) | `/admin/products`, `/admin/products/new` | UX-021, UX-049 |
 | UC-33 / UC-34 (documentos legais) | `/admin/legal-documents*`, `LegalDocumentForm` | UX-017, UX-023 |
 | UC-35 (configurações globais) | `/admin/settings` | UX-023, UX-046 |
+| UC-38 (perfil e senha do system admin) | `/admin/profile` | UX-060 |
+| UC-39 (criar usuário para a clínica via Admin) | `/admin/tenants/[id]` (diálogo de novo usuário) | UX-060 |
+| UC-40 (criar usuário na própria clínica) | `UsersTab` (`/clinic/my-clinic`, `/clinic/users`) | UX-060 |
+| UC-41 (perfil e senha do usuário de clínica) | `/clinic/profile` | UX-060 (estados de carregamento conformes, usam `useAsyncState`) |
 | UC-42 (alertas manuais) | `AlertsTab` (`/clinic/my-clinic`) | UX-023 |
 | UC-44 (notificações) | `NotificationBell` | UX-004, UX-005, UX-024 |
 | UC-46 (consultor vinculado) | `/clinic/consultant`, `ConsultantTab` | UX-017 |
@@ -338,7 +355,7 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 | UC-53 (trilha de auditoria) | widget "Atividade Recente" do Dashboard | UX-025 |
 | UC-54 (convidar consultor) | `/clinic/consultant/invite`, `/consultant/transfer-requests` | UX-024, UX-053, UX-055 |
 | UC-56 (consultor aprova solicitação) | `/consultant/access-requests` | UX-041 |
-| UC-49, UC-41 (perfis) | `/consultant/profile`, `/clinic/profile` | Conforme (usam `useAsyncState`) |
+| UC-49 (perfil do consultor) | `/consultant/profile` | Conforme (usa `useAsyncState`; não há campo de senha) |
 | UC-59 (último acesso) | coluna "Último acesso" em `/admin/users` | Exceção justificada (7.6) |
 | Sem UC | Layouts, tokens, Dashboard da clínica (cabeçalho, alertas, próximos procedimentos), Dashboard do Admin | UX-002, UX-003, UX-006, UX-007, UX-009 a UX-015, UX-026, UX-028, UX-030, UX-033, UX-034, UX-045, UX-056 |
 
@@ -349,8 +366,8 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 | UX-009 | O critério tem regra axe (`color-contrast`), mas o portal do Consultor não está em `A11Y_ROUTES`: o consultor semeado cai em `/accept-terms`. O cálculo estático já indica falha (4.10:1 e 2.77:1) |
 | UX-012 | Regra axe `link-name`/`button-name`, mas a rota está fora de `A11Y_ROUTES` e o defeito só aparece com a sidebar recolhida (estado em `localStorage`) |
 | UX-008 (parte) | `text-yellow-600` foi medido (2.93:1, `incomplete`). Os casos `text-orange-600`/`text-green-600` em texto pequeno e o `Badge` warning não foram renderizados, porque o seed de `clinicAdminA` não tem estoque nem procedimentos |
-| Critérios sem regra axe (valem pela análise estática, já `Aberto`) | UX-005, UX-010, UX-015, UX-021, UX-028, UX-035, UX-054 (teclado, contraste de componente, movimento, erro ligado ao campo) |
-| Telas fora de `A11Y_ROUTES` com achados axe-verificáveis (`Aberto` pela estática) | UX-016, UX-017, UX-019 (parte de `admin/users`), UX-022 |
+| Critérios sem regra axe (valem pela análise estática, já `Aberto`) | UX-005, UX-010, UX-015, UX-021, UX-028, UX-035, UX-054, UX-060 (teclado, contraste de componente, movimento, erro ligado ao campo, ausência de mostrar/ocultar senha) |
+| Telas fora de `A11Y_ROUTES` com achados axe-verificáveis (`Aberto` pela estática) | UX-016, UX-017, UX-019 (parte de `admin/users`), UX-022. Depois da implementação de UX-060, o axe passa a poder verificar o `button-name` do novo botão de senha em `login` (já em `A11Y_ROUTES`) |
 
 ### 7.5 Baseline axe × achados
 
@@ -380,6 +397,7 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
   - `login`, `admin-dashboard` e `clinic-dashboard`: sem overflow (412/412);
   - `clinic-inventory`: overflow (506/412), ligado a UX-037.
 - **Efeito da correção:** corrigir UX-001 zera `meta-viewport` em todas as 8 entradas; UX-002 + UX-003 + UX-004 + UX-019 zeram `button-name`; UX-006 + UX-007 zeram `color-contrast`. Depois de cada correção, as entradas correspondentes do baseline devem ser removidas.
+- **UX-060 e o baseline:** UX-060 não tem entrada no baseline (o axe não acusa a falta do controle). Na implementação, o novo botão de senha em `login` não pode criar violação `button-name` nova: se o `aria-label` faltar, o gate de a11y acusa a regressão em `chromium|login` e `mobile-chromium|login`.
 
 ### 7.6 Exceções justificadas
 
@@ -396,6 +414,7 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 
 **(a) `uc-issues-tracker`**
 - Registrar UX-001 a UX-059 numa nova subseção da Seção 8 do mapa ("8.6 — Achados de UX e Acessibilidade (`ux-reviewer`)"), no formato da 8.2.
+- **Novo em 21/10/2026 (v1.1):** registrar **UX-060** (P2, Acessibilidade, "Campos de senha sem opção de mostrar/ocultar") na §8.6 do mapa, com UCs UC-04, UC-06, UC-08, UC-30, UC-37, UC-38, UC-39, UC-40, UC-41. Ligar a **UX-017** (os dois toggles existentes, sem nome acessível) e à **§8.2 divergência 4** (`<input>` cru que recria o `Input` por causa do toggle): a implementação de UX-060 fecha a parte de senha de UX-017 e a divergência 4. Spec: `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md`.
 - Equivalência sugerida, não vinculante: P0→Alta, P1→Média, P2→Baixa.
 - Itens que já têm registro e devem ser **ligados**, não duplicados:
   - UX-007 ↔ §8.2 divergência 1;
@@ -403,7 +422,8 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
   - UX-031 ↔ `UC-48-RN-03`;
   - UX-048 ↔ UC-36 RNF-03 (só no UC);
   - UX-050 e UX-052 ↔ UC-48 RNF-01 (só no UC);
-  - UX-024 ↔ comportamento descrito em UC-23/UC-29/UC-44/UC-54.
+  - UX-024 ↔ comportamento descrito em UC-23/UC-29/UC-44/UC-54;
+  - UX-060 ↔ UX-017 (parte de senha) e §8.2 divergência 4.
 - Também vale registrar que `/clinic/inventory/audit` continua no código apesar de `UC-14-RN-05` (Descartado — remover funcionalidade).
 
 **(b) `uml-use-case-writer`**
@@ -411,6 +431,7 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 - **UX-030 e UX-031:** regras de "Próximos Procedimentos" (inclui `efetuada` passado?) e de limiar e janela de vencimento entre o card e o filtro (UC-50/UC-15) precisam ser documentadas.
 - **UX-046:** confirmar se o UC-35 descreve o comportamento quando a leitura de `system_settings/global` falha (hoje o formulário segue editável com valores padrão).
 - **UX-041 / UX-053:** confirmar se UC-26/27/54/56 descrevem a falha de carregamento das listas.
+- **UX-060:** depois da implementação, os UCs com campo de senha (UC-04, UC-06, UC-08, UC-30, UC-37, UC-38, UC-39, UC-40, UC-41) podem citar o controle de mostrar/ocultar no passo em que o usuário digita a senha. Não é divergência atual entre tela e UC.
 
 **(c) `doc-writer`** — specs de correção sugeridas, em lotes:
 1. **P0 "erro como vazio"** (um padrão, várias telas): UX-025, UX-038, UX-047, UX-050, UX-051, UX-053, reaproveitando `useAsyncState`.
@@ -419,24 +440,29 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 4. **P1 de estado:** UX-026, UX-027, UX-036, UX-040, UX-041, UX-045, UX-049, UX-052.
 5. **P1 de mobile:** UX-011 e UX-037.
 6. **P1 de comportamento e regra:** UX-029, UX-030, UX-031, UX-023, UX-048, UX-058, UX-028, UX-054, UX-005, UX-008, UX-009, UX-010, UX-012.
+7. **P2 UX-060 (`PasswordInput`):** spec já em elaboração em `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md`. Pontos a cobrir: os 14 campos e os 2 toggles listados no achado; `aria-label` dinâmico, sem `aria-pressed` (decisão D1); `type="button"`; repasse de `autoComplete`; área de toque ≥ 24×24 px; decidir se "Nova senha" e "Confirmar" têm um toggle cada ou um toggle compartilhado (os dois toggles existentes usam um compartilhado).
 
 **(d) `qa-agent` / dev**
 - **Incluir em `A11Y_ROUTES`:**
   - `/consultant/dashboard`, `/consultant/clinics` e `/consultant/transfer-requests`. Exigem um consultor semeado **com termos aceitos**: hoje o consultor cai em `/accept-terms`, então é preciso mudar o seed;
   - `/admin/users`, `/admin/tenants`, `/admin/settings` e `/admin/legal-documents` (`systemAdmin` já serve; somente leitura);
-  - `/clinic/requests` e `/clinic/protocolos` (`clinicAdminA`).
+  - `/clinic/requests` e `/clinic/protocolos` (`clinicAdminA`);
+  - para UX-060: `/admin/profile` (`systemAdmin`) e `/clinic/profile` (`clinicAdminA`), que concentram 6 dos 14 campos de senha.
 - **Seed:** para `test-clinic-a`, criar estoque vencido, vencendo em ≤ 7 dias e entre 8 e 30 dias, estoque baixo, solicitações `agendada`/`efetuada` e um protocolo. Isso exercita UX-008, UX-028, UX-035 e a tabela do estoque.
 - **Espera da varredura:** em `chromium|clinic-dashboard`, o `readyHeading` fica pronto antes dos dados. Sugestão: aguardar o fim dos skeletons.
+- **Caderno de UX-060:** no caderno da feature, verificar que o botão alterna o `type` do campo entre `password` e `text`, que o `aria-label` alterna com o estado (sem `aria-pressed`) e que o clique não envia o formulário.
 - **Baseline:** nada a remover nesta rodada; remover as entradas listadas na 7.5 conforme as correções forem entrando.
 
 **(e) Fora do escopo deste agente**
-- **`ui-consistency-auditor`:** os tokens `--destructive`, `--input`/`--border` e o fundo `#f5f3ef` (UX-006, UX-007, UX-010) precisam mudar por contraste. Coordenar com §8.2 divergência 1. O `Badge` warning (UX-008) e o tom `sky` do portal do Consultor (UX-009) são decisão de cor com impacto de acessibilidade.
+- **`ui-consistency-auditor`:** os tokens `--destructive`, `--input`/`--border` e o fundo `#f5f3ef` (UX-006, UX-007, UX-010) precisam mudar por contraste. Coordenar com §8.2 divergência 1. O `Badge` warning (UX-008) e o tom `sky` do portal do Consultor (UX-009) são decisão de cor com impacto de acessibilidade. O `PasswordInput` de UX-060 resolve a §8.2 divergência 4 (`<input>` cru em `admin/users` e `admin/consultants/[id]`); a posição e o estilo do ícone no campo são decisão visual dele.
 - **`security-auditor`:**
   - UX-058: `/dashboard` mostra UID, `tenant_id`, papel e ambiente ("produção") para qualquer usuário autenticado sem papel reconhecido. É exposição de informação interna de baixo risco, mas vale avaliar;
-  - UX-046: o salvamento de padrões sobre `system_settings/global` em caso de falha de leitura tem efeito de segurança (pode reabrir o cadastro ou desligar a manutenção).
+  - UX-046: o salvamento de padrões sobre `system_settings/global` em caso de falha de leitura tem efeito de segurança (pode reabrir o cadastro ou desligar a manutenção);
+  - UX-060: mostrar a senha em texto claro é ação do próprio usuário e o padrão é começar oculto. Vale só confirmar que o campo volta a `password` depois do envio e que o valor não vai para log nem para a trilha de auditoria.
 
 ## 9. Histórico de Versões
 
 | Versão | Data | Autor | Descrição |
 |--------|------|-------|-----------|
 | 1.0 | 19/10/2026 | ux-reviewer (via Claude) | Criação, em Modo A + Modo E. Seções 1–6 escritas a partir dos primitivos e das boas práticas do código. Auditoria das 72 telas (16 com leitura completa, as demais por varredura) e runtime com axe-core 4.13.0 em `chromium` e `mobile-chromium` nas 4 rotas de `A11Y_ROUTES` (16 passed, 4 skipped). 59 achados: 8 P0, 32 P1 (2 em `Suspeita (runtime)`) e 19 P2. Baseline: 14 regras-entrada, todas ligadas a achados, nenhuma removível. Os achados do smoke test só de `/clinic/dashboard` foram reconfirmados e renumerados (ver nota na Seção 7) |
+| 1.1 | 21/10/2026 | ux-reviewer (via Claude) | Modo B (registro de achado a pedido do usuário), só análise estática, sem runtime. Novo achado **UX-060** (P2, Acessibilidade): 14 campos `type="password"` em 7 arquivos sem opção de mostrar/ocultar e 2 toggles feitos à mão sem nome acessível; recomendação de um `PasswordInput` reutilizável (spec `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md`). Cross-link com UX-017 (parte de senha) e com o mapa §8.2 divergência 4. Seção 3.1 ganha a regra "Campos de senha"; Seções 3.2, 4 e 6 citam o caso. Seção 7: linha nova na tabela Transversal, resumo atualizado (60 achados; 20 P2; Acessibilidade 25), matriz UC × IDs com UC-38, UC-39, UC-40 e UC-41 em linhas próprias (UC-49 separado), 7.4 e 7.5 atualizadas. Seção 8: sinalizações de UX-060 para `uc-issues-tracker`, `uml-use-case-writer`, `doc-writer`, `qa-agent`, `ui-consistency-auditor` e `security-auditor` |
