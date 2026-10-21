@@ -137,14 +137,15 @@ export default function SystemSettingsPage() {
       });
       // Atualiza a base de updated_at (o valor do serverTimestamp só existe após gravar).
       await loadSettings({ silent: true });
-    } catch (error: any) {
+    } catch (error) {
       if (error instanceof SettingsConflictError) {
         setLoadStatus('stale');
         return;
       }
+      console.error('Erro ao salvar system_settings/global', error);
       toast({
         title: 'Erro ao salvar',
-        description: error.message,
+        description: translateFirestoreError((error as { code?: string })?.code),
         variant: 'destructive',
       });
     } finally {
@@ -173,10 +174,13 @@ export default function SystemSettingsPage() {
           variant: 'destructive',
         });
       }
-    } catch (error: any) {
+    } catch (error) {
+      // Erros de httpsCallable têm prefixo functions/, fora do translateFirestoreError.
+      console.error('Erro ao verificar integridade de claims', error);
       toast({
         title: 'Erro ao verificar integridade de claims',
-        description: error.message,
+        description:
+          'Não foi possível verificar a integridade agora. Tente novamente em instantes.',
         variant: 'destructive',
       });
     } finally {
