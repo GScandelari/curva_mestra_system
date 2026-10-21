@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 21/10/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Stanke Scandelari
+**Data de Conclusão:** 21/10/2026
 **Tipo:** Bugfix
 **Branch sugerida:** `bugfix/admin-settings-sobrescrita-falha-leitura`
 **Prioridade:** Alta
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Em `/admin/settings` (UC-35), se `getDoc(system_settings/global)` falha, a tela mostra só um toast com `error.message` cru e libera o formulário com os valores padrão do `useState` (timeout 15, manutenção desligada, cadastro liberado). Um clique em "Salvar Configurações" grava esses padrões por cima da configuração real (`setDoc` sem `merge`). Com isso, um system_admin pode desligar sem querer um modo de manutenção ativo ou reabrir o cadastro em produção, onde há cliente real desde 16/10/2026. A correção cria um estado de erro distinto, com "Tentar novamente", e bloqueia o salvamento até a leitura dar certo. Também separa "documento não existe" de "falha de leitura", grava só os campos editáveis com `merge`, compara `updated_at` em transação para não sobrescrever uma alteração concorrente (fecha também o `UC-35-RN-01`) e troca o `error.message` cru por mensagens em pt-BR (UX-023, nesta tela).
 
@@ -589,3 +591,4 @@ O `afterEach` apaga `system_settings/global` em todos os casos, inclusive em fal
 |--------|------|-------|-------------|
 | 1.0 | 21/10/2026 | Doc Writer (Claude) | Versão inicial. Status "Aguardando decisão" por causa de D1 (checagem otimista de concorrência neste escopo) e D2 (aceitar abortar requisições de rede ao emulador como simulação de falha no caderno Playwright). |
 | 1.1 | 21/10/2026 | Doc Writer (Claude) | D1 e D2 resolvidas pelo usuário em 21/10/2026 (resposta explícita via pergunta estruturada). D1 = sim: a transação com checagem de `updated_at` entra no escopo e fecha o `UC-35-RN-01`. D2 = sim: a falha de leitura é simulada com `page.route(...).abort()` no emulador. Status passa de "Aguardando decisão" para "Planejamento". Removidos o caminho alternativo `merge` sem transação (STEP 3 alt.) e o plano B de troca de rules do emulador. O cenário 5 do caderno (conflito) passa a ser obrigatório. A atualização esperada do mapa fica fixada com `UC-35-RN-01` em "Corrigido e Documentado". Se o `route.abort()` não funcionar tecnicamente, a orientação passa a ser parar e consultar o usuário. |
+| 1.2 | 21/10/2026 | Claude (implementação) | Task concluída e movida para `TASK_COMPLETED`. Commits: `9368743` (lib pura `src/lib/systemSettings.ts` + 34 testes Jest), `8c6de84` (estados de leitura com `getDocFromServer`, Alert de erro com "Tentar novamente", formulário e "Salvar" não renderizados em erro, guarda em `handleSave`), `7c68db8` (transação com `hasConcurrentChange`, estado `stale`, payload só com campos editáveis e `merge: true`, releitura silenciosa após salvar), `6e48abf` (mensagens pt-BR nos três `catch`; nenhum `error.message` restante), `7944f01` (caderno `UC-35-editar-configuracoes-globais-do-sistema.spec.ts`, 4 testes cobrindo os 5 cenários). D2 confirmada na prática: `page.route('**/google.firestore.v1.Firestore/**', abort)` intercepta o transporte do SDK (o teste exige um `requestfailed` nessa URL antes das asserções). Validação: Jest 42 suítes/771 testes; type-check ok; lint 0 erros; build ok; sem alteração em rules/índices; caderno UC-35 4/4 em 1,1 min. Suíte E2E local completa: 177 passed, 2 failed — UC-09 Variante B (falha local pré-existente, já vista com a config da develop) e UC-53 cenário 4 (instável local; passou 2× rodando junto com o UC-35, descartando interferência). STEP 6 (validação manual em `dev-gscandelari.web.app`) fica para depois do PR. Pendências pós-correção (§12.1): `uml-use-case-writer` (UC-35), `uc-issues-tracker` (UX-046 e `UC-35-RN-01` corrigidos, UX-023 parcial) e `ux-reviewer` Modo C. |
