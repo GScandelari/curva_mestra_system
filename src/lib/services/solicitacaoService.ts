@@ -1162,7 +1162,7 @@ export async function getUpcomingProcedures(
       firestoreLimit(limitCount)
     );
 
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocsFromServer(q);
 
     const solicitacoes: Solicitacao[] = snapshot.docs.map((doc) => ({
       id: doc.id,

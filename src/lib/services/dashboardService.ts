@@ -3,14 +3,7 @@
  * Funções de agregação de dados para o Dashboard da Clínica
  */
 
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  getDocsFromServer,
-  Timestamp,
-} from 'firebase/firestore';
+import { collection, query, where, getDocsFromServer, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // ============================================================================
@@ -33,7 +26,7 @@ export interface DashboardEstoqueStats {
 export async function getDashboardEstoqueStats(tenantId: string): Promise<DashboardEstoqueStats> {
   const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
   const q = query(inventoryRef, where('active', '==', true));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocsFromServer(q);
 
   // Agrupar itens por categoria usando o campo denormalizado `category`
   // (gravado em cada doc de inventário no momento da entrada pelo add-products)
