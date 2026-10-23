@@ -10,6 +10,7 @@ import {
   orderBy,
   limit,
   getDocs,
+  getDocsFromServer,
   Timestamp,
   doc,
   getDoc,
@@ -220,7 +221,7 @@ export async function getRecentActivity(
 
     const q = query(activityRef, orderBy('timestamp', 'desc'), limit(limitResults));
 
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocsFromServer(q);
     const activities: RecentActivity[] = [];
 
     snapshot.forEach((doc) => {
@@ -240,8 +241,8 @@ export async function getRecentActivity(
     return activities;
   } catch (error) {
     console.error('Erro ao buscar atividades recentes:', error);
-    // Retornar array vazio se a coleção não existir ainda
-    return [];
+    // Propaga: falha de leitura não pode virar "Nenhuma movimentação recente" (UX-025).
+    throw error;
   }
 }
 

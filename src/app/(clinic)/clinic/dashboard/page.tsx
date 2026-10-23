@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { resolveLoadView } from '@/lib/loadErrors';
+import { LoadErrorAlert } from '@/components/ui/load-error-alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -65,8 +68,13 @@ export default function ClinicDashboard() {
   const [projectionsCount, setProjectionsCount] = useState<number | null>(null);
   const [loadingProjections, setLoadingProjections] = useState(true);
 
-  const [loadingBlocks, setLoadingBlocks] = useState(true);
-  const [loadingDetails, setLoadingDetails] = useState(true);
+  // UX-025/UX-026: cada bloco carrega sozinho, com erro próprio — a falha de um
+  // nunca aparece como vazio nem derruba os outros. `error` (topo) fica só com o
+  // listener de alertas (UX-027, fora deste escopo).
+  const estoque = useAsyncState();
+  const procedimentos = useAsyncState();
+  const upcoming = useAsyncState();
+  const activity = useAsyncState();
   const [error, setError] = useState('');
 
   const tenantId = claims?.tenant_id;
@@ -135,30 +143,88 @@ export default function ClinicDashboard() {
     return () => unsubscribe();
   }, [tenantId]);
 
-  // Carregar blocos de resumo e seções de detalhe
-  useEffect(() => {
+  // Blocos de resumo e seções de detalhe — leituras independentes.
+  // `run` de cada hook é estável (useCallback sem deps), por isso só ele entra nas deps.
+  const runEstoque = estoque.run;
+  const runProcedimentos = procedimentos.run;
+  const runUpcoming = upcoming.run;
+  const runActivity = activity.run;
+
+  const loadEstoque = useCallback(() => {
     if (!tenantId) return;
+    void runEstoque(
+      async ({ isCurrent }) => {
+        const data = await getDashboardEstoqueStats(tenantId);
+        if (isCurrent()) setEstoqueStats(data);
+      },
+      'Erro ao carregar resumo do estoque:',
+      'Não foi possível carregar o resumo do estoque'
+    );
+  }, [tenantId, runEstoque]);
 
-    setLoadingBlocks(true);
-    setLoadingDetails(true);
-    setError('');
+  const loadProcedimentos = useCallback(() => {
+    if (!tenantId) return;
+    void runProcedimentos(
+      async ({ isCurrent }) => {
+        const data = await getDashboardProcedimentosStats(tenantId);
+        if (isCurrent()) setProcedimentosStats(data);
+      },
+      'Erro ao carregar procedimentos do mês:',
+      'Não foi possível carregar os procedimentos do mês'
+    );
+  }, [tenantId, runProcedimentos]);
 
-    Promise.all([getDashboardEstoqueStats(tenantId), getDashboardProcedimentosStats(tenantId)])
-      .then(([estoque, procedimentos]) => {
-        setEstoqueStats(estoque);
-        setProcedimentosStats(procedimentos);
-      })
-      .catch(() => setError('Erro ao carregar dados do dashboard'))
-      .finally(() => setLoadingBlocks(false));
+  const loadUpcoming = useCallback(() => {
+    if (!tenantId) return;
+    void runUpcoming(
+      async ({ isCurrent }) => {
+        const data = await getUpcomingProcedures(tenantId, 5);
+        if (isCurrent()) setUpcomingProcedures(data);
+      },
+      'Erro ao carregar próximos procedimentos:',
+      'Não foi possível carregar os próximos procedimentos'
+    );
+  }, [tenantId, runUpcoming]);
 
-    Promise.all([getRecentActivity(tenantId, 5), getUpcomingProcedures(tenantId, 5)])
-      .then(([activity, upcoming]) => {
-        setRecentActivity(activity);
-        setUpcomingProcedures(upcoming);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingDetails(false));
-  }, [tenantId]);
+  const loadActivity = useCallback(() => {
+    if (!tenantId) return;
+    void runActivity(
+      async ({ isCurrent }) => {
+        const data = await getRecentActivity(tenantId, 5);
+        if (isCurrent()) setRecentActivity(data);
+      },
+      'Erro ao carregar atividade recente:',
+      'Não foi possível carregar a atividade recente'
+    );
+  }, [tenantId, runActivity]);
+
+  useEffect(() => {
+    loadEstoque();
+    loadProcedimentos();
+    loadUpcoming();
+    loadActivity();
+  }, [loadEstoque, loadProcedimentos, loadUpcoming, loadActivity]);
+
+  const estoqueView = resolveLoadView({
+    loading: estoque.loading,
+    error: !!estoque.error,
+    isEmpty: !estoqueStats || estoqueStats.categorias.length === 0,
+  });
+  const procedimentosView = resolveLoadView({
+    loading: procedimentos.loading,
+    error: !!procedimentos.error,
+    isEmpty: !procedimentosStats,
+  });
+  const upcomingView = resolveLoadView({
+    loading: upcoming.loading,
+    error: !!upcoming.error,
+    isEmpty: upcomingProcedures.length === 0,
+  });
+  const activityView = resolveLoadView({
+    loading: activity.loading,
+    error: !!activity.error,
+    isEmpty: recentActivity.length === 0,
+  });
 
   // Projeção de reposição (UC-52) — carregada separada do Promise.all acima
   // para não acoplar a falha desta feature nova às demais seções do Dashboard.
@@ -308,9 +374,15 @@ export default function ClinicDashboard() {
               <CardDescription>Unidades e valor por categoria</CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingBlocks ? (
+              {estoqueView === 'loading' ? (
                 <BlockSkeleton />
-              ) : !estoqueStats || estoqueStats.categorias.length === 0 ? (
+              ) : estoqueView === 'error' ? (
+                <LoadErrorAlert
+                  title="Não foi possível carregar o resumo do estoque"
+                  detail={estoque.errorDetail}
+                  onRetry={loadEstoque}
+                />
+              ) : estoqueView === 'empty' || !estoqueStats ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Nenhum produto em estoque
                 </p>
@@ -352,8 +424,14 @@ export default function ClinicDashboard() {
               <CardDescription className="capitalize">{mesAtual}</CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingBlocks ? (
+              {procedimentosView === 'loading' ? (
                 <BlockSkeleton />
+              ) : procedimentosView === 'error' ? (
+                <LoadErrorAlert
+                  title="Não foi possível carregar os procedimentos do mês"
+                  detail={procedimentos.errorDetail}
+                  onRetry={loadProcedimentos}
+                />
               ) : !procedimentosStats ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Sem dados de procedimentos
@@ -500,7 +578,7 @@ export default function ClinicDashboard() {
               <CardDescription>Procedimentos agendados nas próximas 2 semanas</CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingDetails ? (
+              {upcomingView === 'loading' ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="space-y-2">
@@ -509,7 +587,13 @@ export default function ClinicDashboard() {
                     </div>
                   ))}
                 </div>
-              ) : upcomingProcedures.length === 0 ? (
+              ) : upcomingView === 'error' ? (
+                <LoadErrorAlert
+                  title="Não foi possível carregar os próximos procedimentos"
+                  detail={upcoming.errorDetail}
+                  onRetry={loadUpcoming}
+                />
+              ) : upcomingView === 'empty' ? (
                 <div className="text-center py-8">
                   <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
                   <p className="text-sm text-muted-foreground">
@@ -564,7 +648,7 @@ export default function ClinicDashboard() {
               <CardDescription>Últimas movimentações do estoque</CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingDetails ? (
+              {activityView === 'loading' ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-center gap-3">
@@ -576,7 +660,13 @@ export default function ClinicDashboard() {
                     </div>
                   ))}
                 </div>
-              ) : recentActivity.length === 0 ? (
+              ) : activityView === 'error' ? (
+                <LoadErrorAlert
+                  title="Não foi possível carregar a atividade recente"
+                  detail={activity.errorDetail}
+                  onRetry={loadActivity}
+                />
+              ) : activityView === 'empty' ? (
                 <div className="text-center py-8">
                   <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
                   <p className="text-sm text-muted-foreground">Nenhuma movimentação recente</p>
