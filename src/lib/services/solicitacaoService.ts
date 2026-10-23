@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   addDoc,
   updateDoc,
   query,
@@ -1024,7 +1025,7 @@ export async function listSolicitacoes(
       q = query(q, firestoreLimit(options.limit));
     }
 
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocsFromServer(q);
 
     const solicitacoes: SolicitacaoWithDetails[] = snapshot.docs.map((doc) => {
       const data = doc.data() as Omit<Solicitacao, 'id'>;

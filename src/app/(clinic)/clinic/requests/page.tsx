@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { resolveLoadView } from '@/lib/loadErrors';
+import { LoadErrorAlert, UnavailableValue } from '@/components/ui/load-error-alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,9 +89,15 @@ export default function SolicitacoesPage() {
   const isAdmin = claims?.role === 'clinic_admin';
 
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
   const [mesStats, setMesStats] = useState<DashboardProcedimentosStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(true);
+  // UX-038: falha de leitura vira estado de erro, nunca "Crie seu primeiro procedimento".
+  const { loading, error: listError, errorDetail: listErrorDetail, run: runList } = useAsyncState();
+  const {
+    loading: loadingStats,
+    error: statsError,
+    errorDetail: statsErrorDetail,
+    run: runStats,
+  } = useAsyncState();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [snapshots, setSnapshots] = useState<Map<string, PrecificacaoProcedimento>>(new Map());
@@ -105,41 +114,40 @@ export default function SolicitacoesPage() {
       .catch((error) => console.error('Erro ao carregar precificação dos procedimentos:', error));
   }, [tenantId, isAdmin]);
 
-  useEffect(() => {
-    async function loadSolicitacoes() {
-      if (!tenantId) return;
-
-      try {
-        setLoading(true);
+  const loadSolicitacoes = useCallback(() => {
+    if (!tenantId) return;
+    runList(
+      async ({ isCurrent }) => {
         const data = await listSolicitacoes(tenantId, {
           status: statusFilter === 'all' ? undefined : statusFilter,
         });
-        setSolicitacoes(data);
-      } catch (error) {
-        console.error('Erro ao carregar procedimentos:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
+        // Troca de filtro: resposta antiga nunca sobrescreve a mais recente.
+        if (isCurrent()) setSolicitacoes(data);
+      },
+      'Erro ao carregar procedimentos:',
+      'Não foi possível carregar os procedimentos'
+    );
+  }, [tenantId, statusFilter, runList]);
 
-    loadSolicitacoes();
-  }, [tenantId, statusFilter]);
+  const loadStats = useCallback(() => {
+    if (!tenantId) return;
+    runStats(
+      async ({ isCurrent }) => {
+        const stats = await getDashboardProcedimentosStats(tenantId);
+        if (isCurrent()) setMesStats(stats);
+      },
+      'Erro ao carregar stats do mês:',
+      'Não foi possível carregar os números do mês'
+    );
+  }, [tenantId, runStats]);
 
   useEffect(() => {
-    async function loadStats() {
-      if (!tenantId) return;
-      try {
-        setLoadingStats(true);
-        const stats = await getDashboardProcedimentosStats(tenantId);
-        setMesStats(stats);
-      } catch (error) {
-        console.error('Erro ao carregar stats do mês:', error);
-      } finally {
-        setLoadingStats(false);
-      }
-    }
+    loadSolicitacoes();
+  }, [loadSolicitacoes]);
+
+  useEffect(() => {
     loadStats();
-  }, [tenantId]);
+  }, [loadStats]);
 
   const mesLabel = (() => {
     const s = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -151,6 +159,13 @@ export default function SolicitacoesPage() {
       !searchTerm || (sol.descricao ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
+
+  const listView = resolveLoadView({
+    loading,
+    error: !!listError,
+    isEmpty: filteredSolicitacoes.length === 0,
+  });
+  const statsUnavailable = !loadingStats && !!statsError;
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
@@ -210,6 +225,8 @@ export default function SolicitacoesPage() {
             <CardContent>
               {loadingStats ? (
                 <Skeleton className="h-8 w-16" />
+              ) : statsUnavailable ? (
+                <UnavailableValue />
               ) : (
                 <>
                   <div className="text-2xl font-bold">{mesStats?.total ?? '—'}</div>
@@ -250,6 +267,8 @@ export default function SolicitacoesPage() {
             <CardContent>
               {loadingStats ? (
                 <Skeleton className="h-8 w-16" />
+              ) : statsUnavailable ? (
+                <UnavailableValue />
               ) : (
                 <div className="text-2xl font-bold">{mesStats?.agendadasMes ?? '—'}</div>
               )}
@@ -264,12 +283,22 @@ export default function SolicitacoesPage() {
             <CardContent>
               {loadingStats ? (
                 <Skeleton className="h-8 w-16" />
+              ) : statsUnavailable ? (
+                <UnavailableValue />
               ) : (
                 <div className="text-2xl font-bold">{mesStats?.concluidasMes ?? '—'}</div>
               )}
             </CardContent>
           </Card>
         </div>
+
+        {statsUnavailable && (
+          <LoadErrorAlert
+            title="Não foi possível carregar os números do mês"
+            detail={statsErrorDetail}
+            onRetry={loadStats}
+          />
+        )}
 
         {/* Filters */}
         <Card>
@@ -308,17 +337,28 @@ export default function SolicitacoesPage() {
         {/* Lista de Procedimentos */}
         <Card>
           <CardHeader>
-            <CardTitle>Procedimentos ({filteredSolicitacoes.length})</CardTitle>
+            <CardTitle>
+              {listView === 'error'
+                ? 'Procedimentos'
+                : `Procedimentos (${filteredSolicitacoes.length})`}
+            </CardTitle>
             <CardDescription>Lista de todos os procedimentos realizados</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {listView === 'loading' ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <Skeleton key={i} className="h-16 w-full" />
                 ))}
               </div>
-            ) : filteredSolicitacoes.length === 0 ? (
+            ) : listView === 'error' ? (
+              <LoadErrorAlert
+                title="Não foi possível carregar os procedimentos"
+                description="Seus procedimentos registrados não foram afetados; a lista só não pôde ser lida agora. Antes de registrar um novo, tente carregar de novo para evitar duplicidade."
+                detail={listErrorDetail}
+                onRetry={loadSolicitacoes}
+              />
+            ) : listView === 'empty' ? (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-semibold mb-2">Nenhum procedimento encontrado</h3>

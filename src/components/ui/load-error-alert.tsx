@@ -13,6 +13,11 @@ interface LoadErrorAlertProps {
   className?: string;
 }
 
+/** Contador cuja leitura falhou: nunca exibir 0 nem "—" no lugar (RN-03). */
+export function UnavailableValue() {
+  return <div className="text-sm font-medium text-muted-foreground">Indisponível</div>;
+}
+
 /**
  * Estado de erro de um bloco de leitura: distinto do estado vazio, no próprio
  * bloco e com "Tentar novamente" (_PADRAO-UX.md §2; padrão do UX-046).

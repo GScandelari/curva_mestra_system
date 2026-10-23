@@ -3,7 +3,14 @@
  * Funções de agregação de dados para o Dashboard da Clínica
  */
 
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  getDocsFromServer,
+  Timestamp,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // ============================================================================
@@ -96,14 +103,14 @@ export async function getDashboardProcedimentosStats(
 
   // Buscar mês atual e anterior em paralelo (filtrar status em memória para evitar índice composto)
   const [snapAtual, snapAnterior] = await Promise.all([
-    getDocs(
+    getDocsFromServer(
       query(
         solicitacoesRef,
         where('dt_procedimento', '>=', Timestamp.fromDate(inicioMesAtual)),
         where('dt_procedimento', '<=', Timestamp.fromDate(fimMesAtual))
       )
     ),
-    getDocs(
+    getDocsFromServer(
       query(
         solicitacoesRef,
         where('dt_procedimento', '>=', Timestamp.fromDate(inicioMesAnterior)),
