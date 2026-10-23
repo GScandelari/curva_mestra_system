@@ -28,7 +28,7 @@ export function LoadErrorAlert({
   detail,
   onRetry,
   className,
-}: LoadErrorAlertProps) {
+}: Readonly<LoadErrorAlertProps>) {
   return (
     <Alert variant="destructive" className={className}>
       <AlertTriangle className="h-4 w-4" />

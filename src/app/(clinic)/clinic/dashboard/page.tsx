@@ -152,7 +152,7 @@ export default function ClinicDashboard() {
 
   const loadEstoque = useCallback(() => {
     if (!tenantId) return;
-    runEstoque(
+    void runEstoque(
       async ({ isCurrent }) => {
         const data = await getDashboardEstoqueStats(tenantId);
         if (isCurrent()) setEstoqueStats(data);
@@ -164,7 +164,7 @@ export default function ClinicDashboard() {
 
   const loadProcedimentos = useCallback(() => {
     if (!tenantId) return;
-    runProcedimentos(
+    void runProcedimentos(
       async ({ isCurrent }) => {
         const data = await getDashboardProcedimentosStats(tenantId);
         if (isCurrent()) setProcedimentosStats(data);
@@ -176,7 +176,7 @@ export default function ClinicDashboard() {
 
   const loadUpcoming = useCallback(() => {
     if (!tenantId) return;
-    runUpcoming(
+    void runUpcoming(
       async ({ isCurrent }) => {
         const data = await getUpcomingProcedures(tenantId, 5);
         if (isCurrent()) setUpcomingProcedures(data);
@@ -188,7 +188,7 @@ export default function ClinicDashboard() {
 
   const loadActivity = useCallback(() => {
     if (!tenantId) return;
-    runActivity(
+    void runActivity(
       async ({ isCurrent }) => {
         const data = await getRecentActivity(tenantId, 5);
         if (isCurrent()) setRecentActivity(data);

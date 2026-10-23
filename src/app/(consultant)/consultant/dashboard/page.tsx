@@ -45,7 +45,7 @@ export default function ConsultantDashboardPage() {
 
   const loadProfile = useCallback(() => {
     if (!user || !consultantId) return;
-    runProfile(
+    void runProfile(
       async ({ isCurrent }) => {
         const token = await user.getIdToken();
         const res = await fetch(`/api/consultants/${consultantId}`, {
@@ -87,7 +87,7 @@ export default function ConsultantDashboardPage() {
   }, [loadProfile]);
 
   useEffect(() => {
-    loadClinics();
+    void loadClinics();
   }, [loadClinics]);
 
   const clinicsView = resolveLoadView({

@@ -41,7 +41,7 @@ export default function TransferRequestsPage() {
 
   const loadRequests = useCallback(() => {
     if (!user) return;
-    run(
+    void run(
       async ({ isCurrent }) => {
         const token = await user.getIdToken();
         const res = await fetch('/api/consultants/transfer-requests', {

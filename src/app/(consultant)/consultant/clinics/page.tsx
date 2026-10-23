@@ -58,7 +58,7 @@ export default function ConsultantClinicsPage() {
   }, [user, run]);
 
   useEffect(() => {
-    loadClinics();
+    void loadClinics();
   }, [loadClinics]);
 
   const filteredClinics = clinics.filter((clinic) => {

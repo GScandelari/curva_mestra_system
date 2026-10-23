@@ -120,7 +120,7 @@ export default function UsersManagementPage() {
   const [setPasswordSuccessMessage, setSetPasswordSuccessMessage] = useState('');
 
   const loadAllUsers = useCallback(() => {
-    run(
+    void run(
       async ({ isCurrent }) => {
         const allUsers: UserWithTenant[] = [];
 

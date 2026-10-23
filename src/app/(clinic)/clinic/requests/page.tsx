@@ -116,7 +116,7 @@ export default function SolicitacoesPage() {
 
   const loadSolicitacoes = useCallback(() => {
     if (!tenantId) return;
-    runList(
+    void runList(
       async ({ isCurrent }) => {
         const data = await listSolicitacoes(tenantId, {
           status: statusFilter === 'all' ? undefined : statusFilter,
@@ -131,7 +131,7 @@ export default function SolicitacoesPage() {
 
   const loadStats = useCallback(() => {
     if (!tenantId) return;
-    runStats(
+    void runStats(
       async ({ isCurrent }) => {
         const stats = await getDashboardProcedimentosStats(tenantId);
         if (isCurrent()) setMesStats(stats);
