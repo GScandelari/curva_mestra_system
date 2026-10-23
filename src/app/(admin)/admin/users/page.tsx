@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,8 +29,20 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  getDocsFromServer,
+  query,
+  orderBy,
+  doc,
+  getDocFromServer,
+  updateDoc,
+} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { resolveLoadView } from '@/lib/loadErrors';
+import { LoadErrorAlert, UnavailableValue } from '@/components/ui/load-error-alert';
 import { formatTimestamp } from '@/lib/utils';
 import { formatLastAccessLabel } from '@/lib/lastAccess';
 import { useLastAccess } from '@/hooks/useLastAccess';
@@ -77,7 +89,8 @@ export default function UsersManagementPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserWithTenant[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserWithTenant[]>([]);
-  const [loading, setLoading] = useState(true);
+  // UX-047: falha de leitura vira estado de erro, nunca "Nenhum usuário cadastrado".
+  const { loading, error: loadError, errorDetail, run } = useAsyncState();
   const [searchTerm, setSearchTerm] = useState('');
   const { lastAccess } = useLastAccess(users.map((u) => u.uid));
 
@@ -106,67 +119,78 @@ export default function UsersManagementPage() {
   const [setPasswordSuccess, setSetPasswordSuccess] = useState(false);
   const [setPasswordSuccessMessage, setSetPasswordSuccessMessage] = useState('');
 
+  const loadAllUsers = useCallback(() => {
+    run(
+      async ({ isCurrent }) => {
+        const allUsers: UserWithTenant[] = [];
+
+        // Buscar todos os usuários e filtrar consultores em memória
+        // (evita índice composto para role != clinic_consultant)
+        const usersRef = collection(db, 'users');
+        const usersQuery = query(usersRef, orderBy('created_at', 'desc'));
+        // Do servidor: resultado só do cache nunca vale como lista vazia.
+        const usersSnapshot = await getDocsFromServer(usersQuery);
+
+        // Para cada usuário, buscar o nome do tenant
+        for (const userDoc of usersSnapshot.docs) {
+          const userData = userDoc.data();
+
+          // Consultores são gerenciados exclusivamente em /admin/consultants
+          if (userData.role === 'clinic_consultant') continue;
+
+          const tenantId = userData.tenant_id;
+          let tenantName = 'Sem clínica';
+
+          if (tenantId) {
+            try {
+              const tenantDoc = await getDocFromServer(doc(db, 'tenants', tenantId));
+              if (tenantDoc.exists()) {
+                tenantName = tenantDoc.data().name || 'Sem nome';
+              }
+            } catch (err) {
+              console.error(`Erro ao buscar tenant ${tenantId}:`, err);
+              // Falha da leitura da clínica não é "sem clínica" (RF-09).
+              tenantName = 'Clínica indisponível';
+            }
+          }
+
+          allUsers.push({
+            uid: userDoc.id,
+            email: userData.email || '',
+            displayName: userData.displayName || userData.full_name || '',
+            phone: userData.phone || '',
+            role: userData.role || 'clinic_user',
+            active: userData.active ?? true,
+            tenantId: tenantId || '',
+            tenantName: userData.role === 'clinic_consultant' ? 'Consultor' : tenantName,
+            created_at: userData.created_at,
+          });
+        }
+
+        if (isCurrent()) {
+          setUsers(allUsers);
+          setFilteredUsers(allUsers);
+        }
+      },
+      'Erro ao carregar usuários:',
+      'Não foi possível carregar os usuários'
+    );
+  }, [run]);
+
   useEffect(() => {
     loadAllUsers();
-  }, []);
+  }, [loadAllUsers]);
 
   useEffect(() => {
     filterUsers();
   }, [searchTerm, users]);
 
-  const loadAllUsers = async () => {
-    try {
-      setLoading(true);
-      const allUsers: UserWithTenant[] = [];
-
-      // Buscar todos os usuários e filtrar consultores em memória
-      // (evita índice composto para role != clinic_consultant)
-      const usersRef = collection(db, 'users');
-      const usersQuery = query(usersRef, orderBy('created_at', 'desc'));
-      const usersSnapshot = await getDocs(usersQuery);
-
-      // Para cada usuário, buscar o nome do tenant
-      for (const userDoc of usersSnapshot.docs) {
-        const userData = userDoc.data();
-
-        // Consultores são gerenciados exclusivamente em /admin/consultants
-        if (userData.role === 'clinic_consultant') continue;
-
-        const tenantId = userData.tenant_id;
-        let tenantName = 'Sem clínica';
-
-        if (tenantId) {
-          try {
-            const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
-            if (tenantDoc.exists()) {
-              tenantName = tenantDoc.data().name || 'Sem nome';
-            }
-          } catch (err) {
-            console.error(`Erro ao buscar tenant ${tenantId}:`, err);
-          }
-        }
-
-        allUsers.push({
-          uid: userDoc.id,
-          email: userData.email || '',
-          displayName: userData.displayName || userData.full_name || '',
-          phone: userData.phone || '',
-          role: userData.role || 'clinic_user',
-          active: userData.active ?? true,
-          tenantId: tenantId || '',
-          tenantName: userData.role === 'clinic_consultant' ? 'Consultor' : tenantName,
-          created_at: userData.created_at,
-        });
-      }
-
-      setUsers(allUsers);
-      setFilteredUsers(allUsers);
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const usersUnavailable = !loading && !!loadError;
+  const listView = resolveLoadView({
+    loading,
+    error: !!loadError,
+    isEmpty: filteredUsers.length === 0,
+  });
 
   const filterUsers = () => {
     if (!searchTerm.trim()) {
@@ -443,7 +467,11 @@ export default function UsersManagementPage() {
               <UserCog className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
+              {usersUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <div className="text-2xl font-bold">{users.length}</div>
+              )}
               <p className="text-xs text-muted-foreground">Usuários de clínica</p>
             </CardContent>
           </Card>
@@ -454,7 +482,11 @@ export default function UsersManagementPage() {
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.filter((u) => u.active).length}</div>
+              {usersUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <div className="text-2xl font-bold">{users.filter((u) => u.active).length}</div>
+              )}
               <p className="text-xs text-muted-foreground">Com acesso</p>
             </CardContent>
           </Card>
@@ -465,9 +497,16 @@ export default function UsersManagementPage() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {users.filter((u) => u.role === 'clinic_admin' || u.role === 'system_admin').length}
-              </div>
+              {usersUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {
+                    users.filter((u) => u.role === 'clinic_admin' || u.role === 'system_admin')
+                      .length
+                  }
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Clinic + System</p>
             </CardContent>
           </Card>
@@ -478,7 +517,13 @@ export default function UsersManagementPage() {
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{new Set(users.map((u) => u.tenantId)).size}</div>
+              {usersUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {new Set(users.map((u) => u.tenantId)).size}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Com usuários</p>
             </CardContent>
           </Card>
@@ -504,9 +549,15 @@ export default function UsersManagementPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {listView === 'loading' ? (
               <div className="text-center py-8 text-muted-foreground">Carregando usuários...</div>
-            ) : filteredUsers.length === 0 ? (
+            ) : listView === 'error' ? (
+              <LoadErrorAlert
+                title="Não foi possível carregar os usuários"
+                detail={errorDetail}
+                onRetry={loadAllUsers}
+              />
+            ) : listView === 'empty' ? (
               <div className="text-center py-8 text-muted-foreground">
                 {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
               </div>
