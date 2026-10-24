@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Building2, Search, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { readApiData, resolveLoadView } from '@/lib/loadErrors';
+import { LoadErrorAlert } from '@/components/ui/load-error-alert';
 import { ClinicCard } from '@/components/consultant/ClinicCard';
 
 interface Clinic {
@@ -23,38 +26,40 @@ export default function ConsultantClinicsPage() {
   const router = useRouter();
   const { user, refreshClaims } = useAuth();
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [loading, setLoading] = useState(true);
+  // UX-050: falha (rede ou !ok) vira estado de erro, nunca "Nenhuma clínica vinculada".
+  const { loading, error: loadError, errorDetail, run } = useAsyncState();
   const [searchTerm, setSearchTerm] = useState('');
+  // refreshClaims muda de identidade a cada render; via ref não reinicia a leitura.
+  const refreshClaimsRef = useRef(refreshClaims);
+  refreshClaimsRef.current = refreshClaims;
+
+  const loadClinics = useCallback(async () => {
+    if (!user) return;
+    let loaded = false;
+    await run(
+      async ({ isCurrent }) => {
+        const token = await user.getIdToken();
+        const response = await fetch('/api/consultants/me/clinics', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await readApiData<Clinic[]>(response);
+        if (!isCurrent()) return;
+        setClinics(data ?? []);
+        loaded = true;
+      },
+      'Erro ao carregar clínicas:',
+      'Não foi possível carregar suas clínicas'
+    );
+    // Sincroniza authorized_tenants só após leitura bem-sucedida; a falha deste
+    // passo não é erro de carregamento — as clínicas já foram lidas.
+    if (loaded) {
+      refreshClaimsRef.current().catch((e) => console.error('Erro ao sincronizar vínculos:', e));
+    }
+  }, [user, run]);
 
   useEffect(() => {
-    if (user) {
-      loadClinics();
-    }
-  }, [user]);
-
-  const loadClinics = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      const token = await user.getIdToken();
-
-      const response = await fetch('/api/consultants/me/clinics', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setClinics(data.data || []);
-        // Refresh claims to sync authorized_tenants from server
-        await refreshClaims();
-      }
-    } catch (error) {
-      console.error('Erro ao carregar clínicas:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    void loadClinics();
+  }, [loadClinics]);
 
   const filteredClinics = clinics.filter((clinic) => {
     const search = searchTerm.toLowerCase();
@@ -63,6 +68,12 @@ export default function ConsultantClinicsPage() {
       clinic.document_number?.includes(search) ||
       clinic.email?.toLowerCase().includes(search)
     );
+  });
+
+  const clinicsView = resolveLoadView({
+    loading,
+    error: !!loadError,
+    isEmpty: filteredClinics.length === 0,
   });
 
   return (
@@ -102,11 +113,18 @@ export default function ConsultantClinicsPage() {
         </Card>
 
         {/* Clinics Grid */}
-        {loading ? (
+        {clinicsView === 'loading' ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600"></div>
           </div>
-        ) : filteredClinics.length === 0 ? (
+        ) : clinicsView === 'error' ? (
+          <LoadErrorAlert
+            title="Não foi possível carregar suas clínicas"
+            description="Seus vínculos não foram alterados. Tente novamente antes de buscar ou pedir vínculo com uma clínica."
+            detail={errorDetail}
+            onRetry={loadClinics}
+          />
+        ) : clinicsView === 'empty' ? (
           <Card>
             <CardContent className="py-12">
               <div className="text-center">

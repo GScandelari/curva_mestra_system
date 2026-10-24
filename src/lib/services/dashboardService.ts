@@ -3,7 +3,7 @@
  * Funções de agregação de dados para o Dashboard da Clínica
  */
 
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocsFromServer, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // ============================================================================
@@ -26,7 +26,7 @@ export interface DashboardEstoqueStats {
 export async function getDashboardEstoqueStats(tenantId: string): Promise<DashboardEstoqueStats> {
   const inventoryRef = collection(db, 'tenants', tenantId, 'inventory');
   const q = query(inventoryRef, where('active', '==', true));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocsFromServer(q);
 
   // Agrupar itens por categoria usando o campo denormalizado `category`
   // (gravado em cada doc de inventário no momento da entrada pelo add-products)
@@ -96,14 +96,14 @@ export async function getDashboardProcedimentosStats(
 
   // Buscar mês atual e anterior em paralelo (filtrar status em memória para evitar índice composto)
   const [snapAtual, snapAnterior] = await Promise.all([
-    getDocs(
+    getDocsFromServer(
       query(
         solicitacoesRef,
         where('dt_procedimento', '>=', Timestamp.fromDate(inicioMesAtual)),
         where('dt_procedimento', '<=', Timestamp.fromDate(fimMesAtual))
       )
     ),
-    getDocs(
+    getDocsFromServer(
       query(
         solicitacoesRef,
         where('dt_procedimento', '>=', Timestamp.fromDate(inicioMesAnterior)),
