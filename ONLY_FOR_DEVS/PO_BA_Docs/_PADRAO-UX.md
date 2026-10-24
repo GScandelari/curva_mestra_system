@@ -2,7 +2,7 @@
 
 **Projeto:** Curva Mestra
 **Data de Criação:** 19/10/2026
-**Última Atualização:** 21/10/2026
+**Última Atualização:** 24/10/2026
 **Autor:** ux-reviewer (via Claude)
 **Base:** WCAG 2.1 AA + heurísticas de usabilidade; primitivos shadcn/ui (Radix); axe-core 4.13.0
 **Escopo complementar:** consistência visual em `_PADRAO-VISUAL-UI.md` (ui-consistency-auditor)
@@ -33,7 +33,7 @@
 |--------|--------------------|----------------------------|---------------|
 | Carregando | `Skeleton` com a forma do conteúdo final, um por bloco, para o layout não "pular". Spinner só com texto ("Carregando clínicas...") ou `role="status"` | `src/app/(clinic)/clinic/dashboard/page.tsx:269-278` (`BlockSkeleton`) e `:503-511`; `src/components/inventory/InventoryView.tsx:467-472` | Spinner só visual, sem texto nem `role="status"` (`src/app/(consultant)/consultant/clinics/page.tsx:106-108`, UX-015) |
 | Vazio | Texto que explica a ausência e indica a próxima ação; diferencia "não há dados" de "nenhum resultado para o filtro" | `src/app/(consultant)/consultant/clinics/page.tsx:114-131` (vazio com CTA "Buscar Clínicas" × "Nenhuma clínica encontrada com os filtros aplicados"); `InventoryView.tsx:478-485` | Mensagem de vazio que considera só a busca e ignora o filtro de status (`src/app/(clinic)/clinic/requests/page.tsx:326-328`, UX-039) |
-| Erro | Estado **distinto** do vazio, no próprio bloco, com mensagem acionável e botão "Tentar novamente" | `src/components/inventory/ProjectionsView.tsx:105-111` ("Não foi possível carregar as projeções." + "Tentar novamente"); hook `src/hooks/useAsyncState.ts` (usado em `consultant/profile`, `clinic/profile`, `useLinkedConsultant`) | `catch` que só faz `console.error` e deixa a tela no estado vazio: o usuário conclui que não há dados quando o sistema falhou (UX-025, UX-038, UX-047, UX-050, UX-051, UX-053) |
+| Erro | Estado **distinto** do vazio, no próprio bloco, com mensagem acionável e botão "Tentar novamente" | `src/components/inventory/ProjectionsView.tsx:105-111` ("Não foi possível carregar as projeções." + "Tentar novamente"); hook `src/hooks/useAsyncState.ts` (usado em `consultant/profile`, `clinic/profile`, `useLinkedConsultant`); formulário de configuração: `src/app/(admin)/admin/settings/page.tsx:212-227` (`Alert` destrutivo + "Tentar novamente", formulário oculto) e `:245-253` ("Nenhuma configuração salva ainda", estado distinto do erro) | `catch` que só faz `console.error` e deixa a tela no estado vazio: o usuário conclui que não há dados quando o sistema falhou (UX-025, UX-038, UX-047, UX-050, UX-051, UX-053) |
 | Sucesso | Toast (`useToast`) ou redirecionamento com a lista atualizada | `src/app/(consultant)/consultant/transfer-requests/page.tsx:70-71` (toast + `loadRequests()`) | `alert('Usuário atualizado com sucesso!')` (`src/app/(admin)/admin/users/page.tsx:368`, UX-048) |
 | Processando | Botão de envio `disabled` durante a operação, com rótulo de progresso | `src/app/(auth)/login/page.tsx:291-293` (`disabled={loading}`, "Entrando..."); `src/app/(clinic)/clinic/inventory/[id]/page.tsx:627-635` (`Loader2` + "Desativando...") | — |
 | Sem permissão | `ProtectedRoute allowedRoles` no `layout.tsx` do grupo; quando a tela redireciona, o usuário deve entender o motivo | `src/app/(auth)/login/page.tsx:198-241` (card "Sistema Indisponível" explica a clínica inativa) | Redirecionamento silencioso, sem mensagem (`ProtectedRoute.tsx:75-80`, UX-059); tela de debug como destino padrão (`src/app/dashboard/page.tsx`, UX-058) |
@@ -111,7 +111,7 @@
 - **Feedback e status do sistema:** toda ação termina com toast, mudança visível na lista ou redirecionamento. Exemplo a seguir: `transfer-requests/page.tsx:70-71`.
 - **Prevenção de erros:**
   - Ação destrutiva ou irreversível pede confirmação com o `ConfirmDialog` (`src/components/ui/confirm-dialog.tsx`), nunca com `confirm()`/`alert()` do navegador. Exemplo a seguir: `transfer-requests/page.tsx:322-336`.
-  - Um formulário de configuração não pode ser salvo quando os dados reais não foram carregados (desvio: UX-046).
+  - Um formulário de configuração não pode ser salvo quando os dados reais não foram carregados. Exemplo a seguir (UX-046, corrigido): `src/app/(admin)/admin/settings/page.tsx:199` e `:255` (o formulário só existe com leitura confirmada pelo servidor), `:417-418` (botão "Salvar" condicionado a `canSaveSystemSettings`, `src/lib/systemSettings.ts:102-104`) e `:113-125` (gravação em transação, com detecção de alteração concorrente e `merge`).
   - Quem digita uma senha (principalmente no celular) pode conferir o que digitou antes de enviar (desvio: UX-060).
 - **Recuperação de erros:** a mensagem diz o que fazer, e o bloco oferece "Tentar novamente" (`ProjectionsView.tsx:105-111`).
 - **Consistência entre o resumo e o destino:** um número clicável leva a uma lista filtrada pelo **mesmo critério**, logo com a mesma contagem (desvio: UX-031).
@@ -126,6 +126,7 @@
 - **Mensagens acionáveis.** Prefira "Não foi possível carregar X. Tente novamente." a "Erro" + "Erro ao carregar dados do dashboard" (`clinic/dashboard/page.tsx:294-295`).
 - **Nada de mensagem técnica crua.**
   - O `error.message` do SDK do Firebase (em inglês, ex.: "Missing or insufficient permissions.") nunca vai para toast, `alert` ou tela. Use uma mensagem fixa em pt-BR e deixe o detalhe no `console.error` (UX-023).
+  - Exemplo a seguir: `src/app/(admin)/admin/settings/page.tsx:81-82` e `:145-149` (`console.error` + `translateFirestoreError(code)` de `src/lib/firestoreErrors.ts`) e `:178-184` (texto fixo para erro de `httpsCallable`, cujo prefixo `functions/` não é coberto pelo tradutor).
   - Mensagens vindas das rotas `/api/*` (`data.error`, já em pt-BR) podem ser exibidas.
   - Exemplo a seguir: `login/page.tsx:167-186` traduz os códigos do Firebase (o fallback ainda devolve o texto cru, UX-057).
 - **Sem jargão para o usuário final:** "Custom Claims", "Tenant ID", "UID" e "Firestore" não aparecem em telas de usuário (UX-058).
@@ -153,6 +154,9 @@
 
 **Auditoria:** 19/10/2026, Modo A (padrão + auditoria completa) + Modo E.
 
+**Re-verificações posteriores (Modo C):**
+- 21/10/2026 — UX-046 (`Corrigido`) e UX-023 (parte de `/admin/settings`, corrigida; demais telas `Aberto`). Só análise estática: `/admin/settings` não está em `A11Y_ROUTES`, então o Modo E não se aplica. Detalhes nas linhas dos achados e na Seção 9.
+
 **Runtime:**
 - comando: `npm run test:e2e:a11y` (emuladores Auth/Firestore/Storage no projeto `demo-curva-mestra-e2e`);
 - resultado: 16 passed, 4 skipped, exit 0, em 1,4 min;
@@ -169,27 +173,28 @@
 |------|-------|
 | Telas existentes (`src/app/**/page.tsx`) | 72 (23 Admin, 7 Auth, 26 Clínica, 11 Consultor, 5 fora de grupo) |
 | Telas avaliadas na análise estática | 72 (todas, ao menos por varredura `Grep`) |
-| Leitura completa (`Read`) | 16: `clinic/dashboard`, `clinic/inventory` (+ `InventoryView.tsx`), `clinic/requests`, `consultant/dashboard`, `consultant/clinics`, `consultant/clinics/[tenantId]`, `consultant/transfer-requests`, `consultant/reports`, `admin/dashboard`, `admin/tenants`, `login` (l. 100-328), `dashboard` (raiz), `admin/users` (l. 120-800), `admin/settings` (l. 40-160), `clinic/protocolos` (l. 40-210), `consultant/access-requests` (l. 75-175) |
+| Leitura completa (`Read`) | 16: `clinic/dashboard`, `clinic/inventory` (+ `InventoryView.tsx`), `clinic/requests`, `consultant/dashboard`, `consultant/clinics`, `consultant/clinics/[tenantId]`, `consultant/transfer-requests`, `consultant/reports`, `admin/dashboard`, `admin/tenants`, `login` (l. 100-328), `dashboard` (raiz), `admin/users` (l. 120-800), `admin/settings` (l. 40-160; relida por inteiro em 21/10/2026, Modo C), `clinic/protocolos` (l. 40-210), `consultant/access-requests` (l. 75-175) |
 | Leitura parcial (trecho do achado) | `clinic/requests/new`, `clinic/access-requests`, `clinic/add-products`, `clinic/inventory/[id]`, `consultant/clinics/[tenantId]/pricing`, `admin/consultants`, `admin/consultants/[id]` (l. 492-526, em 21/10), `admin/tenants/[id]` (l. 790-814, em 21/10), `admin/products`, `admin/legal-documents`, `debug` |
-| Componentes compartilhados lidos | `ClinicLayout.tsx`, `AdminLayout.tsx`, `ConsultantLayout.tsx`, `ProtectedRoute.tsx`, `NotificationBell.tsx`, `FileUpload.tsx`, `ProjectionsView.tsx` (trecho), `confirm-dialog.tsx`, `badge.tsx`, `table.tsx`, `dialog.tsx` (trecho), `error.tsx`, `src/app/layout.tsx`, `(auth)/layout.tsx`, `globals.css` (tokens), `UsersTab.tsx` (trecho, em 21/10) |
+| Componentes compartilhados lidos | `ClinicLayout.tsx`, `AdminLayout.tsx`, `ConsultantLayout.tsx`, `ProtectedRoute.tsx`, `NotificationBell.tsx`, `FileUpload.tsx`, `ProjectionsView.tsx` (trecho), `confirm-dialog.tsx`, `badge.tsx`, `table.tsx`, `dialog.tsx` (trecho), `error.tsx`, `src/app/layout.tsx`, `(auth)/layout.tsx`, `globals.css` (tokens); em 21/10/2026: `src/lib/systemSettings.ts`, `src/lib/firestoreErrors.ts`, `UsersTab.tsx` (trecho) |
 | Só varredura por `Grep` | as demais 47 telas: `catch`/`console.error`, estados vazios, `confirm(`/`alert(`, `size="icon"`, `cursor-pointer`/`onClick`, `error.message`, `aria-*`, `Dialog*Title`, `animate-*`, `outline-none`; em 21/10, `type="password"` e `EyeOff` |
 | Rotas avaliadas em runtime | `chromium`: `login`, `admin-dashboard`, `clinic-dashboard`, `clinic-inventory`; `mobile-chromium`: as mesmas 4 (+ medição de reflow) |
 | Total de achados | 60 (UX-001 a UX-060) |
-| P0 abertos | 8 |
-| P1 abertos | 32 (2 em `Suspeita (runtime)`: UX-009, UX-012) |
+| P0 abertos | 7 (UX-046 corrigido em 21/10/2026) |
+| P1 abertos | 32 (2 em `Suspeita (runtime)`: UX-009, UX-012; UX-023 parcialmente corrigido, segue aberto) |
 | P2 abertos | 20 |
+| Corrigidos | 1 (UX-046) |
 
-**Por grupo de rota:**
+**Por grupo de rota (abertos):**
 
 | Grupo | P0 | P1 | P2 |
 |-------|----|----|----|
 | Transversal (layouts, tokens, padrões que se repetem em vários portais) | 0 | 16 | 9 |
 | Clínica | 3 | 10 | 7 |
-| Admin | 2 | 3 | 0 |
+| Admin | 1 | 3 | 0 |
 | Consultor | 3 | 2 | 2 |
 | Auth / Outros | 0 | 1 | 2 |
 
-**Por categoria:**
+**Por categoria (todos os achados, inclusive corrigidos):**
 
 | Categoria | Qtde |
 |-----------|------|
@@ -233,7 +238,7 @@
 | UX-020 | P2 | Acessibilidade | Filtros em botão | `InventoryView.tsx:433-454`; `admin/tenants/page.tsx:113-118` | UC-50, UC-22 | Estática: o filtro ativo é indicado só pela variante visual (`default` × `outline`), sem `aria-pressed`. "Mostrar Ativos"/"Mostrando Ativos" troca o rótulo, o que confunde ação e estado | `aria-pressed={filterBy === f}` e `role="group" aria-label="Filtrar por situação"` (mesmo padrão de `register/page.tsx:286-293`) | Aberto |
 | UX-021 | P2 | Acessibilidade | Formulários (sistema todo) | ex.: `admin/tenants/new/page.tsx:111-136` + `:581`; `admin/products/new/page.tsx:56-74` + `:241` | UC-21, UC-31 | Estática: nenhuma ocorrência de `aria-invalid` ou `aria-describedby` em `src/`. Os erros de validação aparecem num banner único no fim do formulário, sem ligação com o campo e sem foco no primeiro campo inválido. Critério sem regra axe | Erro ao lado do campo (`<p id="campo-erro">`), `aria-invalid` + `aria-describedby` no `Input` e foco no primeiro campo inválido | Aberto |
 | UX-022 | P2 | Acessibilidade | Clínica (várias), Admin › Dashboard, Login | `clinic/dashboard/page.tsx:285`; `InventoryView.tsx:311`; `clinic/requests/page.tsx:190`; `admin/dashboard/page.tsx:143`; `ClinicLayout.tsx:52`; `login/page.tsx:247` | UC-04 | Estática: no portal Clínica, o único `<h1>` é o logotipo "Curva Mestra" e o título da tela é `<h2>`. No login não há `h1` (o `CardTitle` vira `h3`). **Já registrado (parcial):** `_MAPA-DE-BUGS-E-MELHORIAS.md` §8.2, divergência 2 (só os dois dashboards, como consistência visual). Estoque, Procedimentos e Login são novos | `<h1>` no título de cada tela; o logotipo do `ClinicLayout` deixa de ser `h1` | Aberto |
-| UX-023 | P1 | Texto pt-BR | Admin › Configurações, Documentos Legais, Suspender Clínica; Clínica › Termos e Alertas | `admin/settings/page.tsx:64`, `:114`, `:146`; `admin/legal-documents/page.tsx:59`, `:104`; `admin/legal-documents/[id]/page.tsx:47`; `src/components/admin/LegalDocumentForm.tsx:101`, `:263`; `src/components/admin/SuspendTenantDialog.tsx:131`, `:310`; `clinic/setup/terms/page.tsx:115`, `:170`; `src/components/clinic/AlertsTab.tsx:50`, `:90` | UC-35, UC-33, UC-34, UC-22, UC-09, UC-42 | Estática: o toast mostra `description: error.message` de chamadas diretas ao SDK do Firestore/Functions (`getDoc`, `setDoc`, `httpsCallable`). A mensagem sai em inglês e é técnica (ex.: "Missing or insufficient permissions."). Diferente de `UC-37-RN-06` (500 de rota de API, já corrigido) | Mensagem fixa e acionável em pt-BR ("Não foi possível salvar as configurações. Tente novamente."); manter o `error` só no `console.error` | Aberto |
+| UX-023 | P1 | Texto pt-BR | ~~Admin › Configurações~~ (corrigido em 21/10/2026), Documentos Legais, Suspender Clínica; Clínica › Termos e Alertas | ~~`admin/settings/page.tsx:64`, `:114`, `:146`~~ (corrigido); `admin/legal-documents/page.tsx:59`, `:104`; `admin/legal-documents/[id]/page.tsx:47`; `src/components/admin/LegalDocumentForm.tsx:101`, `:263`; `src/components/admin/SuspendTenantDialog.tsx:131`, `:310`; `clinic/setup/terms/page.tsx:115`, `:170`; `src/components/clinic/AlertsTab.tsx:50`, `:90` | UC-35, UC-33, UC-34, UC-22, UC-09, UC-42 | Estática: o toast mostra `description: error.message` de chamadas diretas ao SDK do Firestore/Functions (`getDoc`, `setDoc`, `httpsCallable`). A mensagem sai em inglês e é técnica (ex.: "Missing or insufficient permissions."). Diferente de `UC-37-RN-06` (500 de rota de API, já corrigido). **Re-verificação 21/10/2026 (Modo C), parcialmente corrigido:** `/admin/settings` não exibe mais `error.message` em nenhum dos três pontos: leitura em `admin/settings/page.tsx:81-82` (`console.error` + `translateFirestoreError(code)` no `Alert` de `:220`), salvamento em `:145-149` (idem, no toast "Erro ao salvar") e verificação de claims em `:178-184` (texto fixo em pt-BR, porque erros `functions/` ficam fora do tradutor). Commit `6e48abf`, PR #417 (→ `gscandelari_setup`) e #418 (→ `develop`, `b9cd6eb`). As demais telas listadas continuam com `error.message` cru (não reabertas nesta rodada) | Mensagem fixa e acionável em pt-BR ("Não foi possível salvar as configurações. Tente novamente."); manter o `error` só no `console.error`. Para as telas restantes, seguir o exemplo de `/admin/settings` (`translateFirestoreError`) | Aberto (parcialmente corrigido: `/admin/settings`) |
 | UX-024 | P2 | Prevenção de erro | Admin › Consultores e Clínica (detalhe); Clínica › Convidar consultor; sino | `admin/consultants/page.tsx:77`, `:108`; `admin/tenants/[id]/page.tsx:303`, `:341`; `clinic/consultant/invite/page.tsx:149`, `:198`; `NotificationBell.tsx:119`, `:126` | UC-29, UC-23, UC-54, UC-44 | Estática: confirmação de ações irreversíveis (suspender consultor, vincular/remover consultor, enviar/cancelar convite, excluir notificações) por `confirm()` do navegador: sem marca, sem botão destrutivo e com aparência diferente por navegador/Capacitor. Comportamento descrito nos UCs (UC-23 passo 9, UC-29, UC-54 passo 8, UC-44 §fluxo), sem item no mapa. O `ConfirmDialog` do projeto já existe | Trocar por `ConfirmDialog` (`destructive` nas ações destrutivas), como já foi feito em UC-08-RNF-02 e UC-19-RN-06 | Aberto |
 | UX-060 | P2 | Acessibilidade | Auth › Login, Troca obrigatória de senha, Redefinir senha; Admin › Meu Perfil, Detalhe da clínica (novo usuário); Clínica › Meu Perfil, aba Usuários | `src/app/(auth)/login/page.tsx:279`; `src/app/(auth)/change-password/page.tsx:170`, `:184`, `:199`; `src/app/(auth)/reset-password/[token]/page.tsx:227`, `:243`; `src/app/(admin)/admin/profile/page.tsx:195`, `:208`, `:225`; `src/app/(admin)/admin/tenants/[id]/page.tsx:804`; `src/app/(clinic)/clinic/profile/page.tsx:309`, `:322`, `:337`; `src/components/clinic/UsersTab.tsx:277`. Toggles existentes: `src/app/(admin)/admin/users/page.tsx:766-784` (+ `:792`) e `src/app/(admin)/admin/consultants/[id]/page.tsx:495-513` (+ `:521`) | UC-04, UC-06, UC-08, UC-30, UC-37, UC-38, UC-39, UC-40, UC-41 | Estática: 14 campos `type="password"` fixos em 7 arquivos, sem opção de mostrar/ocultar a senha. O usuário não consegue conferir o que digitou, o que pesa no celular (teclado virtual, PWA/Capacitor) e para quem tem dificuldade motora ou cognitiva, e gera tentativas de login falhas e senhas novas digitadas errado em "Nova senha"/"Confirmar". Não é falha WCAG 2.1 AA estrita: é boa prática de usabilidade ligada a 3.3.2 e à autenticação acessível. Bom exemplo parcial: `admin/users` e `admin/consultants/[id]` já têm toggle `Eye`/`EyeOff` (um botão controla "Nova senha" e "Confirmar"), mas o botão não tem nome acessível (UX-017), e o campo é um `<input>` cru que recria as classes do `Input` (`_MAPA-DE-BUGS-E-MELHORIAS.md` §8.2, divergência 4). Critério sem regra axe; `login` está em `A11Y_ROUTES`, mas o axe não acusa a ausência do controle | Criar um componente reutilizável `PasswordInput` (`src/components/ui/password-input.tsx`) sobre o primitivo `Input`: botão `type="button"` com ícone `Eye`/`EyeOff`, `aria-label` dinâmico "Mostrar senha"/"Ocultar senha" (sem `aria-pressed`), área de toque de ao menos 24×24 px e repasse de `id`, `autoComplete` e `disabled`. Aplicar nos 14 campos e migrar os 2 toggles existentes, o que fecha a parte de senha de UX-017 e a §8.2 divergência 4. Spec de implementação: `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md` | Aberto |
 
@@ -279,7 +284,7 @@
 | ID | Prioridade | Categoria | Tela | Local | UC | Evidência | Recomendação | Status |
 |----|-----------|-----------|------|-------|----|-----------|--------------|--------|
 | UX-045 | P1 | Estado de erro | Admin › Dashboard | `src/app/(admin)/admin/dashboard/page.tsx:45-66`, `:133-135`, `:155-198`, `:245-248` | — | Estática: falha nas estatísticas só faz `console.error`; os cards mostram `0` clínicas e `0` usuários. Falha nas atividades mostra "Nenhuma atividade recente". O bloco de atividade usa o `loading` das estatísticas, e não o próprio. Runtime: tela varrida com dados (sem falha), sem evidência axe deste critério | Estado de erro nos cards ("Indisponível") e no bloco de atividade, com "Tentar novamente"; `loading` próprio para atividades | Aberto |
-| UX-046 | P0 | Estado de erro | Admin › Configurações | `src/app/(admin)/admin/settings/page.tsx:39-47`, `:53-70`, `:92-98` | UC-35 | Estática: se `getDoc(system_settings/global)` falha, há só um toast e o formulário segue **editável com os valores padrão** (timeout 15 min, manutenção desligada, cadastro liberado). Se o admin clicar "Salvar", o `setDoc` sobrescreve a configuração real com esses padrões e pode desligar um modo de manutenção ativo ou reabrir o cadastro. Dado em risco | Em falha de carga, mostrar `Alert` com "Tentar novamente" e **não** renderizar o formulário (ou desabilitar "Salvar") até a leitura dar certo | Aberto |
+| UX-046 | P0 | Estado de erro | Admin › Configurações | Original (19/10): `src/app/(admin)/admin/settings/page.tsx:39-47`, `:53-70`, `:92-98`. Correção (21/10): `admin/settings/page.tsx:53-85`, `:87-154`, `:199-255`, `:417-418`; `src/lib/systemSettings.ts:36`, `:73-104` | UC-35 | Estática (19/10): se `getDoc(system_settings/global)` falha, há só um toast e o formulário segue **editável com os valores padrão** (timeout 15 min, manutenção desligada, cadastro liberado). Se o admin clicar "Salvar", o `setDoc` sobrescreve a configuração real com esses padrões e pode desligar um modo de manutenção ativo ou reabrir o cadastro. Dado em risco. **Re-verificação 21/10/2026 (Modo C), corrigido**, conferido no código: (1) a leitura usa `getDocFromServer` (`page.tsx:68`), então um resultado só de cache não vale como leitura; (2) falha → `loadStatus='error'` (`:80-84`), formulário **não renderizado** (`showForm`, `:199`, `:255`) e botão "Salvar" ausente (`:417`), com `Alert` destrutivo "Não foi possível carregar as configurações", motivo em pt-BR e "Tentar novamente" (`:212-227`); (3) documento inexistente é estado próprio, `missing` (`:75-79`), com `Alert` informativo "Nenhuma configuração salva ainda" (`:245-253`); (4) `handleSave` sai cedo se `canSaveSystemSettings` for falso (`:88`; regra em `systemSettings.ts:102-104`: só `loaded`/`missing` e fora de `saving`); (5) gravação em `runTransaction` que relê o documento, compara `exists`/`updated_at` com a base lida (`hasConcurrentChange`, `systemSettings.ts:74-82`) e grava com `{ merge: true }` só os campos editáveis + `updated_by` + `updated_at` (`page.tsx:113-125`; `buildSystemSettingsPayload`, `systemSettings.ts:88-99`); (6) conflito → estado `stale` com `Alert` "As configurações foram alteradas em outra sessão" e "Recarregar configurações", formulário oculto (`:141-143`, `:229-243`). Entrega: commits `9368743`, `8c6de84`, `7c68db8`, `6e48abf`, `7944f01`; PR #417 (`bugfix/admin-settings-sobrescrita-falha-leitura` → `gscandelari_setup`) e PR #418 (→ `develop`, merge `b9cd6eb`); spec `ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-admin-settings-sobrescrita-falha-leitura.md`. Caderno `tests/e2e/UC-35-editar-configuracoes-globais-do-sistema.spec.ts` (5 cenários: falha de leitura bloqueia formulário e salvamento e "Tentar novamente" recupera; documento inexistente; `merge` preserva campo desconhecido; alteração concorrente bloqueia o salvamento), verde no CI. Validação manual do usuário em dev-gscandelari.web.app nos 5 itens do STEP 6 da spec. UC-35 atualizado para v2.1 (§8c). Sem evidência axe: `/admin/settings` fora de `A11Y_ROUTES` | Mantida como referência do padrão (Seções 2 e 4). Nada a fazer | Corrigido |
 | UX-047 | P0 | Estado de erro | Admin › Usuários | `src/app/(admin)/admin/users/page.tsx:164-166`, `:507-512` | UC-36, UC-37, UC-08 | Estática: falha ao listar usuários só faz `console.error`; a tela mostra "Nenhum usuário cadastrado" e o card "Total de Usuários: 0" | Estado de erro distinto, com "Tentar novamente" | Aberto |
 | UX-048 | P1 | Prevenção de erro | Admin › Usuários (diálogo Editar) | `admin/users/page.tsx:245-286`, `:337`, `:359-373`, `:396-420` | UC-36, UC-37, UC-08 | Estática: validação, sucesso e erro por `alert()`; a confirmação de "último admin da clínica" (ação que pode deixar a clínica sem administrador) por `confirm(data.error)`; erros como `` `Erro ao …: ${error.message}` ``. **Já registrado:** UC-36 RNF-03 (documentado no UC, sem item no mapa) | Toast para sucesso e erro; `ConfirmDialog destructive` para o caso de último admin; erros de validação ao lado dos campos de senha | Aberto |
 | UX-049 | P1 | Estado de erro | Admin › Clínicas, Consultores, Produtos Rennova | `admin/tenants/page.tsx:57-59`, `:124-144`; `admin/consultants/page.tsx:65-66`, `:231-253`; `admin/products/page.tsx:84-85`, `:218-227` | UC-21, UC-22, UC-28, UC-29, UC-31, UC-32 | Estática: em falha, o banner de erro aparece **e**, logo abaixo, "Nenhuma clínica cadastrada" / "Nenhum consultor cadastrado" / "Nenhum produto encontrado", ao mesmo tempo. Mensagens contraditórias e sem "Tentar novamente" (o erro não é anunciado, ver UX-016) | Com erro, não renderizar o ramo vazio; mostrar o erro no lugar da lista, com "Tentar novamente" | Aberto |
@@ -308,7 +313,7 @@
 
 **Pontos positivos (referência para o padrão):**
 - Skeletons por bloco, sem salto de layout: `clinic/dashboard/page.tsx:269-278`, `:503-511`, `:567-578`; `InventoryView.tsx:467-472`.
-- Erro distinto do vazio, com "Tentar novamente": `ProjectionsView.tsx:105-111`; `clinic/inventory/[id]/page.tsx:621-625`; hook `useAsyncState`.
+- Erro distinto do vazio, com "Tentar novamente": `ProjectionsView.tsx:105-111`; `clinic/inventory/[id]/page.tsx:621-625`; hook `useAsyncState`; `admin/settings/page.tsx:212-253` (erro, conflito e inexistente como três estados distintos, desde 21/10/2026).
 - Vazio que diferencia "sem dados" de "sem resultado no filtro": `consultant/clinics/page.tsx:114-131`; `InventoryView.tsx:480-484`.
 - `ConfirmDialog` compartilhado: `transfer-requests/page.tsx:322-336`.
 - Todos os `Dialog`/`AlertDialog` têm título.
@@ -342,7 +347,7 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 | UC-28 / UC-29 / UC-30 (consultores no Admin) | `/admin/consultants`, `/admin/consultants/[id]` | UX-017, UX-024, UX-049, UX-060 (UC-30, toggle de senha) |
 | UC-31 / UC-32 (catálogo master) | `/admin/products`, `/admin/products/new` | UX-021, UX-049 |
 | UC-33 / UC-34 (documentos legais) | `/admin/legal-documents*`, `LegalDocumentForm` | UX-017, UX-023 |
-| UC-35 (configurações globais) | `/admin/settings` | UX-023, UX-046 |
+| UC-35 (configurações globais) | `/admin/settings` | UX-023 (corrigido nesta tela em 21/10/2026), UX-046 (Corrigido em 21/10/2026). Nenhum achado aberto nesta tela |
 | UC-38 (perfil e senha do system admin) | `/admin/profile` | UX-060 |
 | UC-39 (criar usuário para a clínica via Admin) | `/admin/tenants/[id]` (diálogo de novo usuário) | UX-060 |
 | UC-40 (criar usuário na própria clínica) | `UsersTab` (`/clinic/my-clinic`, `/clinic/users`) | UX-060 |
@@ -388,7 +393,7 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 | `mobile-chromium\|clinic-inventory` | `meta-viewport` | UX-001 | Ainda ocorre. Manter |
 | `mobile-chromium\|login` | `meta-viewport` | UX-001 | Ainda ocorre. Manter |
 
-- **Entradas removíveis:** nenhuma.
+- **Entradas removíveis:** nenhuma. A re-verificação de 21/10/2026 (UX-046, UX-023) não tem entrada no baseline: `/admin/settings` não está em `A11Y_ROUTES`.
 - **Violações sem entrada no baseline:** nenhuma.
 - **Itens `incomplete` (fora do baseline, por natureza):**
   - `color-contrast` em `.text-yellow-600` (`clinic-inventory`, 2.93:1), ligado a UX-008;
@@ -407,13 +412,14 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 | Projeções de reposição no Dashboard da clínica: toast + texto inline em vez de bloco de erro com "Tentar novamente" | `clinic/dashboard/page.tsx:173-176`, `:461-464` | Erro distinto do vazio, conforme a recomendação UC-52 RNF-04. Falta só o "Tentar novamente" (melhoria, não achado) |
 | `/clinic/inventory/audit` (`alert()`/`confirm()` em `:135`, `:144`, `:177`) | `src/app/(clinic)/clinic/inventory/audit/page.tsx` | A ferramenta inteira foi descartada para remoção (`UC-14-RN-05`, mapa §6). Não auditada. A tela ainda existe no código: remoção pendente |
 | Rotas órfãs `/clinic/users`, `/clinic/alerts`, `/clinic/settings` | — | Já no mapa §5. Auditadas só por varredura |
+| `/admin/settings` fica inteira em estado de erro quando offline (sem edição) | `admin/settings/page.tsx:68` (`getDocFromServer`) | Comportamento intencional da correção do UX-046, documentado em UC-35 RNF-05 (v2.1): editar configuração global sem os dados reais é o risco eliminado. Não vira achado |
 
 ---
 
 ## 8. Sinalizações para outros agentes
 
 **(a) `uc-issues-tracker`**
-- Registrar UX-001 a UX-059 numa nova subseção da Seção 8 do mapa ("8.6 — Achados de UX e Acessibilidade (`ux-reviewer`)"), no formato da 8.2.
+- Registrar UX-001 a UX-059 numa nova subseção da Seção 8 do mapa ("8.6 — Achados de UX e Acessibilidade (`ux-reviewer`)"), no formato da 8.2. *(Feito no mapa v3.60/v3.61.)*
 - **Novo em 21/10/2026 (v1.1):** registrar **UX-060** (P2, Acessibilidade, "Campos de senha sem opção de mostrar/ocultar") na §8.6 do mapa, com UCs UC-04, UC-06, UC-08, UC-30, UC-37, UC-38, UC-39, UC-40, UC-41. Ligar a **UX-017** (os dois toggles existentes, sem nome acessível) e à **§8.2 divergência 4** (`<input>` cru que recria o `Input` por causa do toggle): a implementação de UX-060 fecha a parte de senha de UX-017 e a divergência 4. Spec: `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md`.
 - Equivalência sugerida, não vinculante: P0→Alta, P1→Média, P2→Baixa.
 - Itens que já têm registro e devem ser **ligados**, não duplicados:
@@ -425,27 +431,32 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
   - UX-024 ↔ comportamento descrito em UC-23/UC-29/UC-44/UC-54;
   - UX-060 ↔ UX-017 (parte de senha) e §8.2 divergência 4.
 - Também vale registrar que `/clinic/inventory/audit` continua no código apesar de `UC-14-RN-05` (Descartado — remover funcionalidade).
+- **Re-verificação de 21/10/2026 (v1.0.1):**
+  - **UX-046 → `Corrigido`** (§8.6 do mapa, hoje `Aberto`). Evidência: `admin/settings/page.tsx:68`, `:80-84`, `:88`, `:113-125`, `:199`, `:212-227`, `:255`, `:417`; `src/lib/systemSettings.ts:74-104`; PRs #417/#418 (`b9cd6eb`); caderno `tests/e2e/UC-35-editar-configuracoes-globais-do-sistema.spec.ts`; validação manual em dev-gscandelari.web.app.
+  - **`UC-35-RN-01`** (mapa, `Aberto`: `setDoc` sem `merge`, sem detecção de conflito) também está resolvido no código (`page.tsx:113-125`, `runTransaction` + `hasConcurrentChange` + `{ merge: true }`). O UC-35 v2.1 já o dá como corrigido. Atualizar o status no mapa.
+  - **`UC-35-RN-07`** continua `Aberto` (regras do Firestore não foram tocadas).
+  - **UX-023** continua `Aberto`, com a parte de `/admin/settings` corrigida. Retirar UC-35 / "Admin › Configurações" da lista de telas afetadas no §8.6; o vínculo com `UC-09-RNF-03b` segue válido.
 
 **(b) `uml-use-case-writer`**
 - **UX-029:** o Dashboard da clínica leva a `/clinic/requests?id=`, que a lista ignora. Não há UC do Dashboard que defina o destino.
 - **UX-030 e UX-031:** regras de "Próximos Procedimentos" (inclui `efetuada` passado?) e de limiar e janela de vencimento entre o card e o filtro (UC-50/UC-15) precisam ser documentadas.
-- **UX-046:** confirmar se o UC-35 descreve o comportamento quando a leitura de `system_settings/global` falha (hoje o formulário segue editável com valores padrão).
+- ~~**UX-046:** confirmar se o UC-35 descreve o comportamento quando a leitura de `system_settings/global` falha.~~ Resolvido: UC-35 v2.1, §8c e RNF-05, coerentes com o código re-verificado em 21/10/2026.
 - **UX-041 / UX-053:** confirmar se UC-26/27/54/56 descrevem a falha de carregamento das listas.
 - **UX-060:** depois da implementação, os UCs com campo de senha (UC-04, UC-06, UC-08, UC-30, UC-37, UC-38, UC-39, UC-40, UC-41) podem citar o controle de mostrar/ocultar no passo em que o usuário digita a senha. Não é divergência atual entre tela e UC.
 
 **(c) `doc-writer`** — specs de correção sugeridas, em lotes:
 1. **P0 "erro como vazio"** (um padrão, várias telas): UX-025, UX-038, UX-047, UX-050, UX-051, UX-053, reaproveitando `useAsyncState`.
-2. **P0 isolados:** UX-046 (Configurações: bloquear o salvamento sem leitura) e UX-035 (link para o detalhe do item no estoque).
+2. **P0 isolados:** UX-035 (link para o detalhe do item no estoque). ~~UX-046~~ entregue (PRs #417/#418).
 3. **P1 de acessibilidade com efeito no baseline:** UX-001, UX-002, UX-003, UX-004, UX-019, UX-006, UX-007; e UX-017 + UX-016.
 4. **P1 de estado:** UX-026, UX-027, UX-036, UX-040, UX-041, UX-045, UX-049, UX-052.
 5. **P1 de mobile:** UX-011 e UX-037.
-6. **P1 de comportamento e regra:** UX-029, UX-030, UX-031, UX-023, UX-048, UX-058, UX-028, UX-054, UX-005, UX-008, UX-009, UX-010, UX-012.
+6. **P1 de comportamento e regra:** UX-029, UX-030, UX-031, UX-023 (restam Documentos Legais, Suspender Clínica, Termos e Alertas; seguir `translateFirestoreError` como em `/admin/settings`), UX-048, UX-058, UX-028, UX-054, UX-005, UX-008, UX-009, UX-010, UX-012.
 7. **P2 UX-060 (`PasswordInput`):** spec já em elaboração em `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md`. Pontos a cobrir: os 14 campos e os 2 toggles listados no achado; `aria-label` dinâmico, sem `aria-pressed` (decisão D1); `type="button"`; repasse de `autoComplete`; área de toque ≥ 24×24 px; decidir se "Nova senha" e "Confirmar" têm um toggle cada ou um toggle compartilhado (os dois toggles existentes usam um compartilhado).
 
 **(d) `qa-agent` / dev**
 - **Incluir em `A11Y_ROUTES`:**
   - `/consultant/dashboard`, `/consultant/clinics` e `/consultant/transfer-requests`. Exigem um consultor semeado **com termos aceitos**: hoje o consultor cai em `/accept-terms`, então é preciso mudar o seed;
-  - `/admin/users`, `/admin/tenants`, `/admin/settings` e `/admin/legal-documents` (`systemAdmin` já serve; somente leitura);
+  - `/admin/users`, `/admin/tenants`, `/admin/settings` e `/admin/legal-documents` (`systemAdmin` já serve; somente leitura). Para `/admin/settings`, a varredura cobriria o `Alert`/formulário novos do UX-046;
   - `/clinic/requests` e `/clinic/protocolos` (`clinicAdminA`);
   - para UX-060: `/admin/profile` (`systemAdmin`) e `/clinic/profile` (`clinicAdminA`), que concentram 6 dos 14 campos de senha.
 - **Seed:** para `test-clinic-a`, criar estoque vencido, vencendo em ≤ 7 dias e entre 8 e 30 dias, estoque baixo, solicitações `agendada`/`efetuada` e um protocolo. Isso exercita UX-008, UX-028, UX-035 e a tabela do estoque.
@@ -457,7 +468,7 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 - **`ui-consistency-auditor`:** os tokens `--destructive`, `--input`/`--border` e o fundo `#f5f3ef` (UX-006, UX-007, UX-010) precisam mudar por contraste. Coordenar com §8.2 divergência 1. O `Badge` warning (UX-008) e o tom `sky` do portal do Consultor (UX-009) são decisão de cor com impacto de acessibilidade. O `PasswordInput` de UX-060 resolve a §8.2 divergência 4 (`<input>` cru em `admin/users` e `admin/consultants/[id]`); a posição e o estilo do ícone no campo são decisão visual dele.
 - **`security-auditor`:**
   - UX-058: `/dashboard` mostra UID, `tenant_id`, papel e ambiente ("produção") para qualquer usuário autenticado sem papel reconhecido. É exposição de informação interna de baixo risco, mas vale avaliar;
-  - UX-046: o salvamento de padrões sobre `system_settings/global` em caso de falha de leitura tem efeito de segurança (pode reabrir o cadastro ou desligar a manutenção);
+  - ~~UX-046: o salvamento de padrões sobre `system_settings/global` em caso de falha de leitura tem efeito de segurança.~~ Corrigido em 21/10/2026 (salvamento bloqueado sem leitura do servidor). O que resta no mesmo documento é `UC-35-RN-07` (leitura de `system_settings/global` aberta a qualquer autenticado), já no mapa.
   - UX-060: mostrar a senha em texto claro é ação do próprio usuário e o padrão é começar oculto. Vale só confirmar que o campo volta a `password` depois do envio e que o valor não vai para log nem para a trilha de auditoria.
 
 ## 9. Histórico de Versões
@@ -465,4 +476,5 @@ O mapeamento é heurístico: a rota é citada no UC. Os layouts e o Dashboard da
 | Versão | Data | Autor | Descrição |
 |--------|------|-------|-----------|
 | 1.0 | 19/10/2026 | ux-reviewer (via Claude) | Criação, em Modo A + Modo E. Seções 1–6 escritas a partir dos primitivos e das boas práticas do código. Auditoria das 72 telas (16 com leitura completa, as demais por varredura) e runtime com axe-core 4.13.0 em `chromium` e `mobile-chromium` nas 4 rotas de `A11Y_ROUTES` (16 passed, 4 skipped). 59 achados: 8 P0, 32 P1 (2 em `Suspeita (runtime)`) e 19 P2. Baseline: 14 regras-entrada, todas ligadas a achados, nenhuma removível. Os achados do smoke test só de `/clinic/dashboard` foram reconfirmados e renumerados (ver nota na Seção 7) |
-| 1.1 | 21/10/2026 | ux-reviewer (via Claude) | Modo B (registro de achado a pedido do usuário), só análise estática, sem runtime. Novo achado **UX-060** (P2, Acessibilidade): 14 campos `type="password"` em 7 arquivos sem opção de mostrar/ocultar e 2 toggles feitos à mão sem nome acessível; recomendação de um `PasswordInput` reutilizável (spec `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md`). Cross-link com UX-017 (parte de senha) e com o mapa §8.2 divergência 4. Seção 3.1 ganha a regra "Campos de senha"; Seções 3.2, 4 e 6 citam o caso. Seção 7: linha nova na tabela Transversal, resumo atualizado (60 achados; 20 P2; Acessibilidade 25), matriz UC × IDs com UC-38, UC-39, UC-40 e UC-41 em linhas próprias (UC-49 separado), 7.4 e 7.5 atualizadas. Seção 8: sinalizações de UX-060 para `uc-issues-tracker`, `uml-use-case-writer`, `doc-writer`, `qa-agent`, `ui-consistency-auditor` e `security-auditor` |
+| 1.0.1 | 21/10/2026 | ux-reviewer (via Claude) | Modo C, só estático (`/admin/settings` fora de `A11Y_ROUTES`; Modo E não aplicável). Releitura completa de `admin/settings/page.tsx`, `src/lib/systemSettings.ts` e `src/lib/firestoreErrors.ts` no `develop` `b9cd6eb` (PRs #417/#418, spec `TASK_COMPLETED/BUGFIX-admin-settings-sobrescrita-falha-leitura.md`, caderno `UC-35-editar-configuracoes-globais-do-sistema.spec.ts` verde no CI, validação manual do usuário em dev-gscandelari.web.app nos 5 itens do STEP 6). **UX-046: `Aberto` → `Corrigido`.** **UX-023: segue `Aberto`, parcialmente corrigido** (a parte de `/admin/settings` não exibe mais `error.message`; demais telas não reabertas). Resumo: P0 abertos 8 → 7. `/admin/settings` passa a exemplo do padrão nas Seções 2, 4 e 5 e nos pontos positivos; nova exceção justificada (edição bloqueada offline, UC-35 RNF-05). Sinalizações da Seção 8 atualizadas (inclui `UC-35-RN-01` resolvido no código, para o `uc-issues-tracker`) |
+| 1.1 | 21/10/2026 (rebase 24/10/2026) | ux-reviewer (via Claude) | Modo B (registro de achado a pedido do usuário), só análise estática, sem runtime. Novo achado **UX-060** (P2, Acessibilidade): 14 campos `type="password"` em 7 arquivos sem opção de mostrar/ocultar e 2 toggles feitos à mão sem nome acessível; recomendação de um `PasswordInput` reutilizável (spec `ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md`). Cross-link com UX-017 (parte de senha) e com o mapa §8.2 divergência 4. Seção 3.1 ganha a regra "Campos de senha"; Seções 3.2, 4 e 6 citam o caso. Seção 7: linha nova na tabela Transversal, resumo atualizado (60 achados; 20 P2 abertos; Acessibilidade 25), matriz UC × IDs com UC-38, UC-39, UC-40 e UC-41 em linhas próprias (UC-49 separado), 7.4 e 7.5 atualizadas. Seção 8: sinalizações de UX-060 para `uc-issues-tracker`, `uml-use-case-writer`, `doc-writer`, `qa-agent`, `ui-consistency-auditor` e `security-auditor` |
