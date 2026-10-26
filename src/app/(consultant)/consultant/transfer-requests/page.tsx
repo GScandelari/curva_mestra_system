@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,9 @@ import { Label } from '@/components/ui/label';
 import { ArrowRightLeft, CheckCircle2, XCircle, Building2, Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { readApiData } from '@/lib/loadErrors';
+import { LoadErrorAlert } from '@/components/ui/load-error-alert';
 import { formatTimestamp } from '@/lib/utils';
 import { getPendencyTypeLabel, isInviteRequest, isRequestExpired } from '@/lib/consultantRequests';
 import type { ConsultantTransferRequest } from '@/types';
@@ -28,33 +31,33 @@ export default function TransferRequestsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [requests, setRequests] = useState<ConsultantTransferRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  // UX-053: falha (rede ou !ok) vira estado de erro, nunca "Nenhum pedido pendente".
+  const { loading, error: loadError, errorDetail, run } = useAsyncState();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<ConsultantTransferRequest | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [processing, setProcessing] = useState(false);
   const [approveTarget, setApproveTarget] = useState<ConsultantTransferRequest | null>(null);
 
-  useEffect(() => {
-    if (user) loadRequests();
-  }, [user]);
-
-  const loadRequests = async () => {
+  const loadRequests = useCallback(() => {
     if (!user) return;
-    try {
-      setLoading(true);
-      const token = await user.getIdToken();
-      const res = await fetch('/api/consultants/transfer-requests', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (res.ok) setRequests(data.data || []);
-    } catch (error) {
-      console.error('Erro ao carregar pedidos de transferência:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    void run(
+      async ({ isCurrent }) => {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/consultants/transfer-requests', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await readApiData<ConsultantTransferRequest[]>(res);
+        if (isCurrent()) setRequests(data ?? []);
+      },
+      'Erro ao carregar pedidos de transferência:',
+      'Não foi possível carregar os pedidos de transferência'
+    );
+  }, [user, run]);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
 
   const handleApprove = async (request: ConsultantTransferRequest) => {
     if (!user) return;
@@ -212,6 +215,14 @@ export default function TransferRequestsPage() {
               <Skeleton key={i} className="h-32 w-full" />
             ))}
           </div>
+        ) : loadError ? (
+          // As duas abas dependem da mesma leitura: o erro substitui as abas (RF-06).
+          <LoadErrorAlert
+            title="Não foi possível carregar os pedidos de transferência"
+            description="Os pedidos pendentes continuam valendo e têm prazo de resposta. Tente novamente para vê-los."
+            detail={errorDetail}
+            onRetry={loadRequests}
+          />
         ) : (
           <Tabs defaultValue="pending">
             <TabsList className="grid w-full grid-cols-2 mb-4">
