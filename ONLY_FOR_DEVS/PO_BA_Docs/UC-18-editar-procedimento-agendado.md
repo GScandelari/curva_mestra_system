@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Procedimentos
-**Versão:** 1.2.2
+**Versão:** 1.2.3
 
 > Um Clinic Admin edita um procedimento ainda no status `"agendada"` (descrição, data, observações e/ou lista de produtos), reajustando as reservas de estoque automaticamente. A edição reutiliza a mesma tela de criação (UC-16), pré-carregada via redirecionamento a partir de um wrapper dedicado (`/clinic/requests/{id}/edit`). O ajuste de reservas usa um algoritmo diferente do FEFO de criação: libera **todas** as reservas antigas e recria **todas** as reservas novas do zero, mesmo para produtos que não mudaram. **[Novo em v1.2 — UC-58]** A edição também permite alterar a **duração** e a **forma de pagamento** (pré-preenchidas a partir da solicitação), recalcula o **preço sugerido** com a configuração de custos atual e, ao confirmar, **sobrescreve** o snapshot da precificação (`origem: 'edicao'`).
 
@@ -161,6 +161,7 @@ Ocasional — usado quando os detalhes de um procedimento já agendado precisam 
 - **UC-19 (Concluir ou Cancelar Procedimento Agendado)** é onde o botão "Editar Procedimento" está disponível, e é a ação concorrente que pode tornar uma edição em andamento inválida (Fluxo de Exceção 8b).
 - **UC-13 (Desativar Item de Estoque com Verificação de Reservas Ativas)** pode alterar `produtos_solicitados` de uma solicitação "agendada" por fora deste UC (redistribuição forçada) — a interação entre uma edição concorrente e uma desativação forçada não foi especificamente investigada nesta rodada.
 - **UC-58 (Precificar Protocolos pela Hora Clínica)** — **[Novo em v1.2]** `<<include>>`: recálculo do preço sugerido e regravação do snapshot (RN-06, Fluxo Alternativo 7b).
+- **[Novo em v1.2.3] Lista `/clinic/requests` (ponto de entrada; o procedimento a editar é aberto a partir dela)** — a falha de carregamento da lista e dos números do mês aparece como erro distinto do vazio, com "Tentar novamente", título sem contagem, sem o CTA de criação do estado vazio e com a orientação para evitar duplicidade; cards do mês em "Indisponível". Descrito em **UC-16, Fluxo de Exceção 8g** (UX-038 corrigido, PRs #421/#422). As colunas de custo da lista seguem silenciosas em caso de falha (UX-063, `Aberto`; UC-16, Seção 14, item 8).
 
 ---
 
@@ -170,6 +171,7 @@ Ocasional — usado quando os detalhes de um procedimento já agendado precisam 
 - `src/lib/services/solicitacaoService.ts` (`updateSolicitacaoAgendada`, `getSolicitacao`, `writeActivityLogs` — reutilizado desde o commit `6dea748` também dentro de `updateSolicitacaoAgendada`, RN-04; **[v1.2]** `aplicarCamposPrecificacao`, retorno `produtosSolicitados`)
 - **[v1.2.2]** Spec `ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-formulario-procedimento-observacoes-validade.md` (PR #406) — observações multilinha (UC-16 RN-14)
 - **[v1.2]** `src/lib/services/precificacaoProcedimentoService.ts` (`salvarPrecificacaoProcedimento`); `src/lib/precificacao.ts`; spec `ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-precificacao-hora-clinica.md` (v1.7)
+- **[v1.2.3]** Falha de carregamento da lista `/clinic/requests`: ver UC-16, Fluxo de Exceção 8g; caderno transversal `tests/e2e/_ux-erro-exibido-como-vazio.spec.ts` (cenários 1 e 2), que cobre só a lista; o caderno completo deste UC continua pendente (regra 8 do `CLAUDE.md`)
 
 ---
 
@@ -196,3 +198,4 @@ Ocasional — usado quando os detalhes de um procedimento já agendado precisam 
 | 1.2 | 10/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Feature "Precificação pela Hora Clínica" (spec `FEAT-precificacao-hora-clinica.md` v1.7, PRs #383/#384) — as-is.** O wrapper passa `duracaoMinutos`/`formaPagamento` na query string; a edição pré-preenche duração (vazia quando não gravada) e forma de pagamento, recalcula o card "Preço sugerido" com a configuração de custos atual e, ao confirmar, regrava `forma_pagamento`, atualiza ou remove `duracao_minutos` e sobrescreve o snapshot (`origem: 'edicao'`). Nova RN-06; novo Fluxo Alternativo 7b; novos Fluxos de Exceção 8d (falha do snapshot) e 8e (duração inválida); resumo, diagrama (`<<include>>` UC-58), pós-condições, Fluxo Principal (passos 4, 5, 7, 9, 11, 13 novo, renumeração até 15), 7a, seções 12 e 13 atualizados. Seção 14: novo item 6 — achado preexistente verificado em código (chaves `produto_codigo`/`codigo_produto` divergentes entre o wrapper e a tela de edição), recomendado registro no mapa de bugs; item 7 remete a UC-58. |
 | 1.2.1 | 10/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | Item 7 da Seção 14 marcado como resolvido: as questões de precificação de UC-58 foram corrigidas nos commits `9dba044`/`50a8a69`; registrado que a data enviada pelo wrapper de edição continua correta para procedimentos agendados. |
 | 1.2.2 | 19/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **BUGFIX `formulario-procedimento-observacoes-validade` (PR #406) — as-is.** Passo 5: observações pré-preenchidas no campo multilinha (3 linhas), com quebras de linha preservadas pela query string (`URLSearchParams`). Seção 13 atualizada. Seção 14: novo achado preexistente (item 8 — apagar observações/descrição na edição não limpa o valor gravado) e item 9 herdado de UC-16 (revisão sem quebras de linha). A validade em `dd/mm/aaaa` do lote não se aplica aqui (o Select "Lote Utilizado *" só existe no modo efetuado, UC-17). |
+| 1.2.3 | 26/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Citação do lote "erro exibido como estado vazio" (UX-038 corrigido; spec `TASK_COMPLETED/BUGFIX-ux-erro-exibido-como-vazio.md` v1.2; PRs #421/#422, merge `8bd8c7a`; sinalização do `_PADRAO-UX.md` v1.1.1 §8(b)).** Seção 12 cita o novo Fluxo de Exceção 8g do UC-16 (falha de carregamento da lista `/clinic/requests`, ponto de entrada; o procedimento a editar é aberto a partir dela); Seção 13 cita o caderno transversal `tests/e2e/_ux-erro-exibido-como-vazio.spec.ts` (cenários 1 e 2). Nenhuma mudança no fluxo próprio deste UC. |
