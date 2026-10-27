@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,8 +17,6 @@ import {
   Building2,
   Save,
   KeyRound,
-  Eye,
-  EyeOff,
   CheckCircle2,
   Mail,
 } from 'lucide-react';
@@ -62,7 +61,6 @@ export default function ConsultantDetailPage() {
   // Definir senha manualmente
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
   const [forcePasswordChange, setForcePasswordChange] = useState(true);
   const [settingPassword, setSettingPassword] = useState(false);
   const [setPasswordSuccess, setSetPasswordSuccess] = useState(false);
@@ -491,38 +489,23 @@ export default function ConsultantDetailPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="newPassword">Nova Senha</Label>
-                    <div className="relative">
-                      <input
-                        id="newPassword"
-                        type={showNewPassword ? 'text' : 'password'}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Mínimo 6 caracteres"
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm pr-10 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showNewPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
+                    <PasswordInput
+                      id="newPassword"
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-                    <input
+                    <PasswordInput
                       id="confirmPassword"
-                      type={showNewPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repita a senha"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
                   </div>
 
