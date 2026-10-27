@@ -3,11 +3,13 @@
 **Projeto:** Curva Mestra
 **Data:** 21/10/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Concluído
+**Concluído por:** Guilherme Stanke Scandelari
+**Data de Conclusão:** 26/10/2026
 **Tipo:** Feature
 **Branch sugerida:** `feature/toggle-visibilidade-senha`
 **Prioridade:** Média
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Hoje, 16 dos 18 campos de senha do sistema não têm como mostrar o que foi digitado. Os outros 2 (`/admin/users` e `/admin/consultants/[id]`) têm um "olho" feito à mão, sem nome acessível (UX-017). Esta feature cria o componente reutilizável `PasswordInput` (`src/components/ui/password-input.tsx`), no padrão shadcn `new-york` e montado sobre o `Input` existente. O componente tem um botão "olho" acessível dentro do campo, e cada campo controla a própria visibilidade. Ele substitui todos os `type="password"` do sistema, em 9 arquivos e 9 UCs. A mudança é só de front-end: não toca em regras do Firestore, dados, API, multi-tenant nem autenticação. Fecha o UX-060 e a parte "mostrar senha" do UX-017.
 
@@ -676,3 +678,4 @@ Depois clica no botão e verifica `type="text"`, `aria-label="Ocultar senha"` (e
 |--------|------|-------|-------------|
 | 1.0 | 21/10/2026 | Doc Writer (Claude) | Versão inicial. Status "Aguardando decisão" por causa da D1 (padrão de anúncio do botão: rótulo fixo + `aria-pressed` × rótulo dinâmico sem `aria-pressed` × rótulo dinâmico + `aria-pressed`). |
 | 1.1 | 21/10/2026 | Doc Writer (Claude) | D1 resolvida pelo usuário em 21/10/2026 (resposta explícita, via coordenador): **opção (B), padrão GOV.UK**. O `aria-label` alterna entre "Mostrar senha" e "Ocultar senha", sem `aria-pressed`, e o `aria-controls` é mantido. Atualizados: o helper `src/lib/passwordVisibility.ts` (constantes `SHOW_PASSWORD_LABEL`/`HIDE_PASSWORD_LABEL`, sem `pressed`), o componente (§6.2), RF-03, §4.1(c), §4.3, §6.3, o teste Jest (§8.1), o STEP 8 (passos 2, 3 e 6), o caderno Playwright (verifica a troca do `aria-label` e a ausência de `aria-pressed`), o DoD, os riscos (anúncio sem `aria-live`), o glossário e a §12.1. Status passa de "Aguardando decisão" para "Planejamento". |
+| 1.2 | 26/10/2026 | Claude (implementação) | Task concluída e movida para `TASK_COMPLETED`. Commits: `17325de` (`passwordVisibility.ts` + 5 testes Jest; `PasswordInput`), `5dd59cb` (login, change-password, reset-password), `f6890cc` (perfis admin/clínica, `minLength` preservados), `e1f57d5` (UsersTab com `autoComplete="new-password"`; tenants/[id]), `a4b4e37` (admin/users e admin/consultants/[id]: dois `PasswordInput` com `new-password`; removidos `showNewPassword`, o reset na abertura do diálogo de edição e os ícones `Eye`/`EyeOff`), `cfe696b` (`admin-profile`/`clinic-profile` em `A11Y_ROUTES` com `loginRedirect`; baseline regravado), `6306304` (caderno `UX-060-mostrar-ocultar-senha.spec.ts`, 13 testes cobrindo os 14 cenários — o 14 roda como `test.step`). Divergências do spec tratadas na execução: linhas de `/admin/users` deslocadas pelo lote "erro exibido como estado vazio" (toggle igual); `loginRedirect` obrigatório nas rotas do axe; mensagens de commit dos STEPs 2 e 3 encurtadas para ≤72 caracteres (commitlint). Validação: `grep -rn 'type="password"' src` e `grep -rn showNewPassword src` vazios; Jest 44 suítes/799 testes; type-check e lint sem erros; UC-04/UC-06/UC-08 + UX-060 = 46/46 sem editar os cadernos antigos; axe: baseline do `login` inalterado, os 3 botões de cada perfil passam em `button-name`, e as entradas novas (`admin-profile`: `color-contrast`/`meta-viewport`; `clinic-profile`: `button-name`/`meta-viewport`) vêm de nós do layout (sidebar, sino, menu — UX-002/003/004/006/007), conferidos nó a nó. Suíte E2E local completa: 205 passed, 3 failed — UC-09 Variante B (falha local pré-existente) e 2 cenários do UC-59, que passaram 7/7 rodando o UC-59 isolado (instabilidade da suíte longa). STEP 8 (validação manual de 16 passos em `dev-gscandelari.web.app`) fica para depois do PR. Pendências pós-entrega (§12.1): `uml-use-case-writer`, `uc-issues-tracker` (UX-060 corrigido, UX-017 parcial, §8.2 divergência 4), `ux-reviewer` Modo C e `ui-consistency-auditor`. |
