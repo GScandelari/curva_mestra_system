@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PasswordInput } from '@/components/ui/password-input';
+import { ChangePasswordCard } from '@/components/auth/ChangePasswordCard';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Mail, Key, Save, Shield } from 'lucide-react';
+import { User, Mail, Save, Shield } from 'lucide-react';
 import Link from 'next/link';
 import {
   updateProfile,
@@ -176,78 +176,21 @@ export default function AdminProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Change Password */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Alterar Senha
-            </CardTitle>
-            <CardDescription>
-              Mantenha sua conta segura com uma senha forte (mínimo 8 caracteres para admins)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleUpdatePassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Senha Atual</Label>
-                <PasswordInput
-                  id="currentPassword"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  disabled={passwordLoading}
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Nova Senha</Label>
-                <PasswordInput
-                  id="newPassword"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={passwordLoading}
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Mínimo de 8 caracteres para system_admin
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-                <PasswordInput
-                  id="confirmPassword"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={passwordLoading}
-                  required
-                  autoComplete="new-password"
-                />
-              </div>
-
-              {passwordSuccess && (
-                <div className="text-sm text-green-600 bg-green-50 dark:bg-green-900/20 p-3 rounded-md">
-                  {passwordSuccess}
-                </div>
-              )}
-
-              {passwordError && (
-                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-                  {passwordError}
-                </div>
-              )}
-
-              <Button type="submit" disabled={passwordLoading}>
-                <Key className="mr-2 h-4 w-4" />
-                {passwordLoading ? 'Alterando...' : 'Alterar Senha'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <ChangePasswordCard
+          currentPassword={currentPassword}
+          onCurrentPasswordChange={setCurrentPassword}
+          newPassword={newPassword}
+          onNewPasswordChange={setNewPassword}
+          confirmPassword={confirmPassword}
+          onConfirmPasswordChange={setConfirmPassword}
+          loading={passwordLoading}
+          error={passwordError}
+          success={passwordSuccess}
+          onSubmit={handleUpdatePassword}
+          minLength={8}
+          description="Mantenha sua conta segura com uma senha forte (mínimo 8 caracteres para admins)"
+          newPasswordHint="Mínimo de 8 caracteres para system_admin"
+        />
       </div>
     </div>
   );
