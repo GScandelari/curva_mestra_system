@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
   Card,
@@ -222,9 +222,8 @@ export default function ResetPasswordPage({ params }: PageProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="newPassword">Nova Senha</Label>
-            <Input
+            <PasswordInput
               id="newPassword"
-              type="password"
               placeholder="Digite a nova senha"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -238,9 +237,8 @@ export default function ResetPasswordPage({ params }: PageProps) {
 
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               placeholder="Confirme a nova senha"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

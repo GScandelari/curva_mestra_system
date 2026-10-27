@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -165,9 +165,8 @@ export default function ChangePasswordPage() {
             <>
               <div className="space-y-2">
                 <Label htmlFor="currentPassword">Senha Atual (Temporária)</Label>
-                <Input
+                <PasswordInput
                   id="currentPassword"
-                  type="password"
                   placeholder="Digite a senha temporária"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
@@ -179,9 +178,8 @@ export default function ChangePasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="newPassword">Nova Senha</Label>
-                <Input
+                <PasswordInput
                   id="newPassword"
-                  type="password"
                   placeholder="Digite a nova senha"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -194,9 +192,8 @@ export default function ChangePasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-                <Input
+                <PasswordInput
                   id="confirmPassword"
-                  type="password"
                   placeholder="Confirme a nova senha"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
