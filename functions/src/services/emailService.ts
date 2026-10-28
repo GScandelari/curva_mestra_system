@@ -3,6 +3,7 @@
  */
 
 import * as nodemailer from 'nodemailer';
+import { htmlToPlainText } from '../emailLayout';
 
 /**
  * Configuração do transporter Nodemailer
@@ -39,17 +40,6 @@ export interface EmailOptions {
   from?: string;
 }
 
-function stripHtmlTags(html: string): string {
-  let result = '';
-  let inTag = false;
-  for (const ch of html) {
-    if (ch === '<') inTag = true;
-    else if (ch === '>') inTag = false;
-    else if (!inTag) result += ch;
-  }
-  return result;
-}
-
 /**
  * Envia um e-mail usando SMTP do Zoho
  */
@@ -61,7 +51,8 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
     to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
     subject: options.subject,
     html: options.html,
-    text: options.text || stripHtmlTags(options.html), // Fallback text
+    // Versão texto: mantém o endereço dos links e descarta <head>/<style>.
+    text: options.text || htmlToPlainText(options.html),
   };
 
   try {
