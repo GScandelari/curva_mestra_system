@@ -54,4 +54,19 @@ export const A11Y_ROUTES: A11yRoute[] = [
     // InventoryView sem readOnly (clinic_admin)
     readyHeading: 'Gerenciar Estoque',
   },
+  // UX-060: telas com 3 PasswordInput cada, para o axe validar o botão de mostrar/ocultar.
+  {
+    key: 'admin-profile',
+    path: '/admin/profile',
+    user: 'systemAdmin',
+    loginRedirect: '/admin/dashboard',
+    readyHeading: 'Meu Perfil',
+  },
+  {
+    key: 'clinic-profile',
+    path: '/clinic/profile',
+    user: 'clinicAdminA',
+    loginRedirect: '/clinic/dashboard',
+    readyHeading: 'Meu Perfil',
+  },
 ];
