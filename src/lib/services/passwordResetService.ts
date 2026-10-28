@@ -21,8 +21,9 @@ interface PasswordResetTokenData {
   expires_at: Timestamp;
   created_at: Timestamp | ReturnType<typeof FieldValue.serverTimestamp>;
   created_by: string;
-  used_at?: Timestamp;
-  invalidated_at?: Timestamp;
+  // Gravados como null na criação; docs antigos podem não ter os campos.
+  used_at?: Timestamp | null;
+  invalidated_at?: Timestamp | null;
 }
 
 /**
@@ -75,13 +76,15 @@ export async function createPasswordResetToken(
   expiresAt.setMinutes(expiresAt.getMinutes() + TOKEN_EXPIRY_MINUTES);
 
   // Criar documento no Firestore
-  const tokenData: Omit<PasswordResetTokenData, 'used_at' | 'invalidated_at'> = {
+  const tokenData: PasswordResetTokenData = {
     token_hash: tokenHash,
     user_id: userId,
     user_email: userEmail,
     created_by: createdBy,
     expires_at: Timestamp.fromDate(expiresAt),
     created_at: FieldValue.serverTimestamp(),
+    used_at: null,
+    invalidated_at: null,
     ...(tenantId && { tenant_id: tenantId }),
   };
 
@@ -217,20 +220,27 @@ export async function consumeToken(rawToken: string): Promise<{
  */
 export async function invalidateUserTokens(userId: string): Promise<void> {
   try {
+    // Filtra os pendentes em memória: `where('used_at','==',null)` não
+    // encontra docs sem o campo (todos os tokens antigos eram gravados assim),
+    // então nenhum token era invalidado.
     const snapshot = await adminDb
       .collection(PASSWORD_RESET_TOKENS_COLLECTION)
       .where('user_id', '==', userId)
-      .where('used_at', '==', null)
       .get();
 
+    const pending = snapshot.docs.filter((doc) => {
+      const data = doc.data() as PasswordResetTokenData;
+      return !data.used_at && !data.invalidated_at;
+    });
+
     const batch = adminDb.batch();
-    snapshot.docs.forEach((doc) => {
+    pending.forEach((doc) => {
       batch.update(doc.ref, {
         invalidated_at: FieldValue.serverTimestamp(),
       });
     });
 
-    if (!snapshot.empty) {
+    if (pending.length > 0) {
       await batch.commit();
     }
   } catch (error) {
