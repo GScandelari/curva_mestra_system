@@ -148,8 +148,9 @@ export default function NewConsultantPage() {
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <p className="text-sm text-amber-800">
-                <strong>Importante:</strong> O consultor receberá um email com uma senha temporária.
-                Ele será solicitado a alterar a senha no primeiro acesso.
+                <strong>Importante:</strong> O consultor receberá um e-mail com um link para definir
+                a própria senha. O link vale por 72 horas e só pode ser aberto uma vez; se expirar,
+                ele pode usar &quot;Esqueci minha senha&quot; na tela de login.
               </p>
             </div>
 
@@ -247,7 +248,7 @@ export default function NewConsultantPage() {
                 <h4 className="text-sm font-medium mb-2">O que acontece após o cadastro:</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Um código único de 6 dígitos será gerado</li>
-                  <li>• Uma senha temporária será enviada por email</li>
+                  <li>• Um link para definir a senha será enviado por e-mail</li>
                   <li>• O consultor poderá fazer login e vincular-se a clínicas</li>
                 </ul>
               </div>
