@@ -40,6 +40,14 @@ describe('evaluatePasswordToken — password_reset', () => {
     expect(evaluatePasswordToken(token(), NOW, 'consume')).toBe('valid');
   });
 
+  it('limite exato: vale até o instante de expiração, inclusive', () => {
+    expect(evaluatePasswordToken(token({ expires_at: NOW }), NOW, 'consume')).toBe('valid');
+    const oneMsLater = new Date(NOW.getTime() + 1);
+    expect(evaluatePasswordToken(token({ expires_at: NOW }), oneMsLater, 'consume')).toBe(
+      'expired'
+    );
+  });
+
   it('expirado após 30 minutos', () => {
     expect(evaluatePasswordToken(token({ expires_at: min(-1) }), NOW, 'consume')).toBe('expired');
   });
