@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,37 +41,28 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      await sendPasswordResetEmail(auth, email, {
-        url: `${window.location.origin}/login`,
-        handleCodeInApp: false,
+      // A API responde igual exista ou não a conta (anti-enumeração).
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-      setSuccess(true);
-    } catch (err: any) {
-      // auth/user-not-found tratado como sucesso silencioso -- antes, a
-      // mensagem "Usuário não encontrado" permitia enumerar quais e-mails
-      // estão cadastrados no sistema só observando a resposta. Não se aplica
-      // a auth/invalid-email (erro de formato, não revela se a conta existe).
-      if (err.code === 'auth/user-not-found') {
+
+      if (response.ok) {
         setSuccess(true);
         return;
       }
-      const errorMessage = translateFirebaseError(err.code);
-      setError(errorMessage);
+
+      const data = await response.json().catch(() => ({}));
+      setError(
+        response.status === 429
+          ? 'Muitas solicitações. Aguarde alguns minutos e tente novamente.'
+          : data.error || 'Erro ao enviar email. Tente novamente'
+      );
+    } catch {
+      setError('Erro de conexão. Verifique sua internet');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const translateFirebaseError = (errorCode: string): string => {
-    switch (errorCode) {
-      case 'auth/invalid-email':
-        return 'Email inválido';
-      case 'auth/too-many-requests':
-        return 'Muitas tentativas. Tente novamente mais tarde';
-      case 'auth/network-request-failed':
-        return 'Erro de conexão. Verifique sua internet';
-      default:
-        return 'Erro ao enviar email. Tente novamente';
     }
   };
 
@@ -94,9 +83,10 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
             <div className="text-center space-y-2">
-              <p className="text-sm font-medium">Email enviado com sucesso!</p>
+              <p className="text-sm font-medium">Solicitação recebida!</p>
               <p className="text-sm text-muted-foreground">
-                Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
+                Se houver uma conta com este e-mail, você receberá um link para redefinir a senha. O
+                link é válido por 30 minutos.
               </p>
               <p className="text-xs text-muted-foreground mt-4">
                 Não se esqueça de verificar a pasta de spam.
@@ -119,7 +109,10 @@ export default function ForgotPasswordPage() {
               />
             </div>
             {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              <div
+                role="alert"
+                className="text-sm text-destructive bg-destructive/10 p-3 rounded-md"
+              >
                 {error}
               </div>
             )}
