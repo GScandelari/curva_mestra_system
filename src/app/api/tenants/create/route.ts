@@ -13,6 +13,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore, getAdminAuth } from '@/lib/firebase-admin';
 import { CreateTenantData } from '@/types/tenant';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
+import { sendFirstAccessEmail } from '@/lib/services/firstAccessEmail';
+import { getRoleName } from '@/lib/formatters';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dados obrigatórios não fornecidos' }, { status: 400 });
     }
 
-    if (!data.admin_email || !data.admin_name || !data.temp_password) {
+    if (!data.admin_email || !data.admin_name) {
       return NextResponse.json({ error: 'Dados do administrador não fornecidos' }, { status: 400 });
     }
 
@@ -76,12 +78,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Tenant criado: ${tenantId} (${data.name})`);
 
-    // 2. Criar usuário no Firebase Auth
+    // 2. Criar usuário no Firebase Auth, sem senha: o administrador a define
+    // pelo link de primeiro acesso enviado por e-mail (passo 5).
     let userId: string;
     try {
       const userRecord = await auth.createUser({
         email: data.admin_email,
-        password: data.temp_password,
         displayName: data.admin_name,
         emailVerified: false,
       });
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest) {
           phone: data.admin_phone || '',
           role: 'clinic_admin',
           active: true,
-          requirePasswordChange: true,
+          skip_welcome_email: true,
           created_at: new Date(),
           updated_at: new Date(),
         });
@@ -134,7 +136,6 @@ export async function POST(request: NextRequest) {
         role: 'clinic_admin',
         is_system_admin: false,
         active: true,
-        requirePasswordChange: true,
       });
 
       console.log(`✅ Custom claims definidos para usuário: ${userId}`);
@@ -179,7 +180,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Enviar e-mail de boas-vindas (se solicitado)
+    // 5. E-mail de boas-vindas com link de primeiro acesso (sempre) e, se
+    // solicitado, o e-mail personalizado de corpo livre
+    await sendFirstAccessEmail({
+      tipo: 'generic_user_welcome',
+      userId,
+      email: data.admin_email,
+      createdBy: decodedToken.uid,
+      tenantId,
+      variables: (firstAccessLink) => ({
+        displayName: data.admin_name!,
+        role: getRoleName('clinic_admin'),
+        email: data.admin_email!,
+        firstAccessLink,
+      }),
+    });
+
     if (data.welcome_email?.send) {
       try {
         // Chamar Cloud Function para enviar o email

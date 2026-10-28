@@ -95,7 +95,7 @@ export async function getTenant(tenantId: string) {
 export async function createTenant(data: CreateTenantData, token: string) {
   try {
     // Se tiver dados de admin, usar API route (que usa Firebase Admin)
-    if (data.admin_email && data.admin_name && data.temp_password) {
+    if (data.admin_email && data.admin_name) {
       console.log('🔐 Criando tenant com admin via API route...');
 
       const response = await fetch('/api/tenants/create', {
