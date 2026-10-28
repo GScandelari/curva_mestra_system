@@ -25,52 +25,14 @@
  */
 
 import { EMAIL_TEMPLATE_DEFINITIONS as TEMPLATES } from './lib/emailTemplateDefinitions';
-
-const KNOWN_REAL_PROJECT_IDS = ['curva-mestra-dev', 'curva-mestra'];
-
-async function resolveFirestore(credPath: string | undefined) {
-  if (process.env.FIRESTORE_EMULATOR_HOST && process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-    const { getEmulatorAdminFirestore } = await import('./lib/emulatorAdmin');
-    console.log('[seed-email-templates] rodando contra o Firebase Emulator');
-    return getEmulatorAdminFirestore();
-  }
-
-  if (!credPath) {
-    console.error(
-      'Uso: npx tsx scripts/seed-email-templates.ts [<caminho-para-service-account.json>] [--force]\n' +
-        'Sem FIRESTORE_EMULATOR_HOST/FIREBASE_AUTH_EMULATOR_HOST setados, é obrigatório informar a credencial.'
-    );
-    process.exit(1);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const serviceAccount = require(credPath);
-  if (!KNOWN_REAL_PROJECT_IDS.includes(serviceAccount.project_id)) {
-    console.error(
-      `❌ ABORTADO: a credencial aponta para "${serviceAccount.project_id}", esperado um de ` +
-        `${KNOWN_REAL_PROJECT_IDS.join(', ')}. Isso evita escrever no projeto errado.`
-    );
-    process.exit(1);
-  }
-
-  const { initializeApp, cert } = await import('firebase-admin/app');
-  const { getFirestore } = await import('firebase-admin/firestore');
-  const app = initializeApp({
-    credential: cert(serviceAccount),
-    projectId: serviceAccount.project_id,
-  });
-  console.log(
-    `[seed-email-templates] rodando contra o projeto real "${serviceAccount.project_id}"`
-  );
-  return getFirestore(app);
-}
+import { resolveFirestore } from './lib/firestoreTarget';
 
 async function main() {
   const args = process.argv.slice(2);
   const force = args.includes('--force');
   const credPath = args.find((a) => a !== '--force');
 
-  const db = await resolveFirestore(credPath);
+  const db = await resolveFirestore(credPath, 'seed-email-templates');
   const { FieldValue } = await import('firebase-admin/firestore');
 
   let created = 0;
