@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,7 +61,6 @@ export default function UsersTab() {
   const [newUser, setNewUser] = useState({
     email: '',
     displayName: '',
-    password: '',
     role: 'clinic_user' as 'clinic_admin' | 'clinic_user',
   });
 
@@ -154,13 +152,8 @@ export default function UsersTab() {
       setCreating(true);
       setError('');
 
-      if (!newUser.email || !newUser.displayName || !newUser.password) {
+      if (!newUser.email || !newUser.displayName) {
         setError('Todos os campos são obrigatórios');
-        return;
-      }
-
-      if (newUser.password.length < 6) {
-        setError('A senha deve ter pelo menos 6 caracteres');
         return;
       }
 
@@ -190,7 +183,6 @@ export default function UsersTab() {
       setNewUser({
         email: '',
         displayName: '',
-        password: '',
         role: 'clinic_user',
       });
     } catch (err: any) {
@@ -245,8 +237,9 @@ export default function UsersTab() {
             <DialogHeader>
               <DialogTitle>Adicionar Novo Usuário</DialogTitle>
               <DialogDescription>
-                Crie um novo usuário para sua clínica. O usuário receberá as credenciais para
-                acessar o sistema.
+                Crie um novo usuário para sua clínica. O usuário receberá por e-mail um link para
+                definir a própria senha. O link vale por 72 horas e só pode ser aberto uma vez; se
+                expirar, ele pode usar "Esqueci minha senha" na tela de login.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -268,17 +261,6 @@ export default function UsersTab() {
                   placeholder="joao@clinica.com"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  disabled={creating}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password">Senha</Label>
-                <PasswordInput
-                  id="password"
-                  autoComplete="new-password"
-                  placeholder="Mínimo 6 caracteres"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                   disabled={creating}
                 />
               </div>
