@@ -4,8 +4,8 @@ export const dynamic = 'force-dynamic';
  * API Route: Validar Token de Reset de Senha
  * GET /api/auth/validate-reset-token?token=xxx
  *
- * Valida um token sem consumi-lo
- * Retorna informações mascaradas do usuário
+ * Valida um token sem consumi-lo nem abri-lo (nunca altera o token)
+ * Retorna a finalidade e informações mascaradas do usuário
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -25,11 +25,15 @@ export async function GET(request: NextRequest) {
     const result = await validateToken(token);
 
     if (!result.valid) {
-      return NextResponse.json({ valid: false, error: result.error }, { status: 400 });
+      return NextResponse.json(
+        { valid: false, purpose: result.purpose, reason: result.reason, error: result.error },
+        { status: result.reason ? 400 : 500 }
+      );
     }
 
     return NextResponse.json({
       valid: true,
+      purpose: result.purpose,
       email_masked: result.emailMasked,
     });
   } catch (error: any) {

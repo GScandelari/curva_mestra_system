@@ -8,6 +8,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { resolveAppBaseUrl } from '@/lib/emailLayout';
 import {
+  computeSessionExpiry,
   computeTokenExpiry,
   evaluatePasswordToken,
   tokenPurpose,
@@ -186,58 +187,93 @@ export async function validateToken(rawToken: string): Promise<{
 }
 
 /**
- * Consome um token (marca como usado) e retorna informações do usuário
- * Deve ser chamado APÓS validar o token e ANTES de atualizar a senha
+ * Abre um link de primeiro acesso (clique em "Definir minha senha"): o link
+ * deixa de valer para novas aberturas e gera uma sessão de 30 min, que é a
+ * única forma de salvar a senha com ele (DN-02). Transacional: dois cliques
+ * simultâneos não abrem duas sessões.
  */
-export async function consumeToken(rawToken: string): Promise<{
+export async function openFirstAccessToken(rawToken: string): Promise<{
   success: boolean;
-  userId?: string;
-  userEmail?: string;
+  session?: string;
+  sessionExpiresAt?: Date;
+  emailMasked?: string;
+  reason?: TokenState | 'not_found';
   error?: string;
 }> {
   try {
-    const tokenHash = hashToken(rawToken);
-
-    // Buscar token pelo hash
-    const snapshot = await adminDb
-      .collection(PASSWORD_RESET_TOKENS_COLLECTION)
-      .where('token_hash', '==', tokenHash)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
-      return { success: false, error: 'Token inválido ou expirado' };
+    const tokenDoc = await findTokenDoc(rawToken);
+    if (!tokenDoc) {
+      return { success: false, reason: 'not_found', error: 'Link inválido ou expirado.' };
     }
 
-    const tokenDoc = snapshot.docs[0];
-    const tokenData = tokenDoc.data() as PasswordResetTokenData;
+    const session = generateResetToken();
+    return await adminDb.runTransaction(async (tx) => {
+      const fresh = await tx.get(tokenDoc.ref);
+      const data = fresh.data() as PasswordResetTokenData;
+      const now = new Date();
+      const state = evaluatePasswordToken(toSnapshot(data), now, 'open');
+      if (state !== 'valid') {
+        return { success: false, reason: state, error: tokenStateMessage(state) };
+      }
 
-    // Verificar se já foi usado
-    if (tokenData.used_at) {
-      return { success: false, error: 'Este link já foi utilizado' };
-    }
-
-    // Verificar se foi invalidado
-    if (tokenData.invalidated_at) {
-      return { success: false, error: 'Este link foi invalidado' };
-    }
-
-    // Verificar expiração
-    const expiresAt = tokenData.expires_at.toDate();
-    if (new Date() > expiresAt) {
-      return { success: false, error: 'Este link expirou' };
-    }
-
-    // Marcar como usado
-    await tokenDoc.ref.update({
-      used_at: FieldValue.serverTimestamp(),
+      const sessionExpiresAt = computeSessionExpiry(now);
+      tx.update(tokenDoc.ref, {
+        opened_at: Timestamp.fromDate(now),
+        session_hash: hashToken(session),
+        session_expires_at: Timestamp.fromDate(sessionExpiresAt),
+      });
+      return {
+        success: true,
+        session,
+        sessionExpiresAt,
+        emailMasked: maskEmail(data.user_email),
+      };
     });
+  } catch (error) {
+    console.error('Erro ao abrir link de primeiro acesso:', error);
+    return { success: false, error: 'Erro ao processar o link. Tente novamente.' };
+  }
+}
 
-    return {
-      success: true,
-      userId: tokenData.user_id,
-      userEmail: tokenData.user_email,
-    };
+/**
+ * Consome um token (marca como usado) e retorna informações do usuário.
+ * Primeiro acesso exige a sessão gerada na abertura. Transacional: o mesmo
+ * link não é consumido duas vezes.
+ */
+export async function consumeToken(
+  rawToken: string,
+  session?: string
+): Promise<{
+  success: boolean;
+  userId?: string;
+  userEmail?: string;
+  purpose?: PasswordTokenPurpose;
+  reason?: TokenState | 'not_found';
+  error?: string;
+}> {
+  try {
+    const tokenDoc = await findTokenDoc(rawToken);
+    if (!tokenDoc) {
+      return { success: false, reason: 'not_found', error: 'Link inválido ou expirado.' };
+    }
+
+    const sessionHash = session ? hashToken(session) : undefined;
+    return await adminDb.runTransaction(async (tx) => {
+      const fresh = await tx.get(tokenDoc.ref);
+      const data = fresh.data() as PasswordResetTokenData;
+      const state = evaluatePasswordToken(toSnapshot(data), new Date(), 'consume', sessionHash);
+      if (state !== 'valid' && state !== 'session_valid') {
+        return { success: false, reason: state, error: tokenStateMessage(state) };
+      }
+
+      tx.update(tokenDoc.ref, { used_at: FieldValue.serverTimestamp() });
+      return {
+        success: true,
+        userId: data.user_id,
+        userEmail: data.user_email,
+        purpose: tokenPurpose(data),
+      };
+    });
   } catch (error) {
     console.error('Erro ao consumir token:', error);
     return { success: false, error: 'Erro ao processar token. Tente novamente.' };
