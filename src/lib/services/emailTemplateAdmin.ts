@@ -1,6 +1,8 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-import { renderTemplate, validateTemplateVariables } from '@/lib/emailTemplateRendering';
+import { validateTemplateVariables } from '@/lib/emailTemplateRendering';
+import { renderStoredEmailTemplate, SYSTEM_TEMPLATE_VARIABLES } from '@/lib/emailLayout';
+import { getAppBaseUrl } from '@/lib/appBaseUrl';
 import type { EmailTemplateDoc, EmailTemplateVersion } from '@/types';
 
 /**
@@ -31,9 +33,29 @@ export async function getRenderedEmailTemplate(
   if (!template) {
     throw new Error(`Template de e-mail "${tipo}" não encontrado`);
   }
+  const { subject, html } = renderStoredEmailTemplate({
+    tipo,
+    template,
+    variables,
+    getBaseUrl: getAppBaseUrl,
+  });
+  return { subject, body: html };
+}
+
+/** Conteúdo editável: `content` (formato novo) ou `body` (formato antigo). */
+export interface EmailTemplateEdit {
+  subject: string;
+  body?: string;
+  content?: string;
+}
+
+/** Snapshot do conteúdo atual para o histórico, sem campos `undefined`. */
+function versionSnapshot(current: EmailTemplateDoc | EmailTemplateVersion) {
   return {
-    subject: renderTemplate(template.subject, variables),
-    body: renderTemplate(template.body, variables),
+    subject: current.subject,
+    ...(current.body !== undefined && { body: current.body }),
+    ...(current.content !== undefined && { content: current.content }),
+    ...(current.layout_version !== undefined && { layout_version: current.layout_version }),
   };
 }
 
@@ -62,7 +84,7 @@ export async function enqueueTemplatedEmail(
 
 export async function saveEmailTemplateVersion(
   tipo: string,
-  content: { subject: string; body: string },
+  edit: EmailTemplateEdit,
   actor: { uid: string; name: string }
 ): Promise<void> {
   const templateRef = templatesCollection().doc(tipo);
@@ -74,15 +96,19 @@ export async function saveEmailTemplateVersion(
     }
 
     const current = snap.data() as EmailTemplateDoc;
-    const allowedKeys = current.variables.map((v) => v.key);
+    // Doc no formato novo só aceita `content`; o antigo, só `body`.
+    const usesLayout = current.layout_version !== undefined;
+    const text = usesLayout ? edit.content : edit.body;
+    if (!text) {
+      throw new Error(
+        usesLayout ? 'Conteúdo do e-mail é obrigatório' : 'Corpo do e-mail é obrigatório'
+      );
+    }
+
+    const allowedKeys = [...current.variables.map((v) => v.key), ...SYSTEM_TEMPLATE_VARIABLES];
     const requiredKeys = current.variables.filter((v) => v.required).map((v) => v.key);
 
-    const validation = validateTemplateVariables(
-      content.subject,
-      content.body,
-      allowedKeys,
-      requiredKeys
-    );
+    const validation = validateTemplateVariables(edit.subject, text, allowedKeys, requiredKeys);
     if (!validation.valid) {
       throw new Error(validation.error);
     }
@@ -90,8 +116,7 @@ export async function saveEmailTemplateVersion(
     const versionRef = templateRef.collection('versions').doc();
     transaction.set(versionRef, {
       id: versionRef.id,
-      subject: current.subject,
-      body: current.body,
+      ...versionSnapshot(current),
       variables: current.variables,
       replaced_at: FieldValue.serverTimestamp(),
       replaced_by: actor.uid,
@@ -99,8 +124,8 @@ export async function saveEmailTemplateVersion(
     });
 
     transaction.update(templateRef, {
-      subject: content.subject,
-      body: content.body,
+      subject: edit.subject,
+      [usesLayout ? 'content' : 'body']: text,
       updated_at: FieldValue.serverTimestamp(),
       updated_by: actor.uid,
       updated_by_name: actor.name,
@@ -144,17 +169,23 @@ export async function revertEmailTemplateVersion(
     const newVersionRef = templateRef.collection('versions').doc();
     transaction.set(newVersionRef, {
       id: newVersionRef.id,
-      subject: current.subject,
-      body: current.body,
+      ...versionSnapshot(current),
       variables: current.variables,
       replaced_at: FieldValue.serverTimestamp(),
       replaced_by: actor.uid,
       replaced_by_name: actor.name,
     });
 
+    // Restaura o formato da versão: com `content`, volta ao layout novo; sem
+    // ele (versão anterior à migração), volta ao `body` legado.
+    const restored =
+      version.content !== undefined
+        ? { content: version.content, layout_version: version.layout_version ?? 1 }
+        : { content: FieldValue.delete(), layout_version: FieldValue.delete() };
     transaction.update(templateRef, {
       subject: version.subject,
-      body: version.body,
+      ...(version.body !== undefined && { body: version.body }),
+      ...restored,
       updated_at: FieldValue.serverTimestamp(),
       updated_by: actor.uid,
       updated_by_name: actor.name,

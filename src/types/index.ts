@@ -681,7 +681,9 @@ export interface EmailTemplateDoc {
   category: EmailTemplateCategory;
   related_uc: string; // ex.: "UC-02"
   subject: string;
-  body: string; // HTML completo
+  body?: string; // HTML completo (formato antigo; mantido após a migração)
+  content?: string; // miolo editável, renderizado dentro do layout padrão
+  layout_version?: 1; // presente = doc no formato novo (usa `content`)
   variables: EmailTemplateVariable[]; // fixa, não editável pela UI nesta v1 (RN-02)
   updated_at: Timestamp;
   updated_by: string; // uid
@@ -691,7 +693,9 @@ export interface EmailTemplateDoc {
 export interface EmailTemplateVersion {
   id: string;
   subject: string;
-  body: string;
+  body?: string;
+  content?: string; // presente = versão no formato novo
+  layout_version?: 1;
   variables: EmailTemplateVariable[]; // snapshot no momento da substituição
   replaced_at: Timestamp;
   replaced_by: string;

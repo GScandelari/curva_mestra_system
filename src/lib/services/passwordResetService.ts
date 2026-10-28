@@ -6,7 +6,7 @@
 import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { resolveAppBaseUrl } from '@/lib/emailLayout';
+import { getAppBaseUrl } from '@/lib/appBaseUrl';
 import {
   computeSessionExpiry,
   computeTokenExpiry,
@@ -313,17 +313,6 @@ export async function invalidateUserTokens(userId: string): Promise<void> {
     console.error('Erro ao invalidar tokens do usuário:', error);
     // Não lançar erro - invalidação é operação de limpeza
   }
-}
-
-/**
- * URL base do ambiente para links e imagens de e-mail (nunca do header Host)
- */
-export function getAppBaseUrl(): string {
-  return resolveAppBaseUrl({
-    explicitBaseUrl: process.env.NEXT_PUBLIC_BASE_URL,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    fallbackLocalUrl: process.env.PLAYWRIGHT_BASE_URL,
-  });
 }
 
 /**

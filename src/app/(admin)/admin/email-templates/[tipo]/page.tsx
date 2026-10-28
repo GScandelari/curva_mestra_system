@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { httpsCallable } from 'firebase/functions';
@@ -20,8 +20,22 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Send, History, RotateCcw } from 'lucide-react';
-import { renderTemplate } from '@/lib/emailTemplateRendering';
+import {
+  ArrowLeft,
+  Save,
+  Loader2,
+  Send,
+  History,
+  RotateCcw,
+  Info,
+  MousePointerClick,
+} from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  renderEmailButton,
+  renderStoredEmailTemplate,
+  SYSTEM_TEMPLATE_VARIABLES,
+} from '@/lib/emailLayout';
 import { formatTimestamp } from '@/lib/utils';
 import type { EmailTemplateDoc, EmailTemplateVersion } from '@/types';
 
@@ -36,7 +50,10 @@ export default function EmailTemplateEditorPage() {
   const [saving, setSaving] = useState(false);
   const [template, setTemplate] = useState<EmailTemplateDoc | null>(null);
   const [subject, setSubject] = useState('');
+  // Texto em edição: o miolo (`content`) no formato novo ou o HTML completo
+  // (`body`) em doc ainda não migrado.
   const [body, setBody] = useState('');
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testEmail, setTestEmail] = useState('');
@@ -60,7 +77,7 @@ export default function EmailTemplateEditorPage() {
       const data = json.data as EmailTemplateDoc;
       setTemplate(data);
       setSubject(data.subject);
-      setBody(data.body);
+      setBody((data.layout_version === undefined ? data.body : data.content) ?? '');
     } catch (error) {
       toast({
         title: 'Erro ao carregar template',
@@ -84,9 +101,33 @@ export default function EmailTemplateEditorPage() {
     }, {});
   }
 
+  const usesLayout = template?.layout_version !== undefined;
+
   function renderedPreview() {
-    const values = sampleValues();
-    return { subject: renderTemplate(subject, values), body: renderTemplate(body, values) };
+    const { subject: renderedSubject, html } = renderStoredEmailTemplate({
+      tipo,
+      template: {
+        subject,
+        label: template?.label,
+        ...(usesLayout ? { content: body } : { body }),
+      },
+      variables: sampleValues(),
+      // Preview e teste usam as imagens do próprio ambiente aberto.
+      getBaseUrl: () => window.location.origin,
+    });
+    return { subject: renderedSubject, body: html };
+  }
+
+  function handleInsertButton() {
+    const snippet = renderEmailButton('{{variavel}}', 'Texto do botão');
+    const textarea = bodyRef.current;
+    const start = textarea?.selectionStart ?? body.length;
+    const end = textarea?.selectionEnd ?? body.length;
+    setBody(body.slice(0, start) + snippet + body.slice(end));
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start, start + snippet.length);
+    });
   }
 
   async function handleSave() {
@@ -97,7 +138,7 @@ export default function EmailTemplateEditorPage() {
       const response = await fetch(`/api/email-templates/${tipo}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject, body }),
+        body: JSON.stringify({ subject, [usesLayout ? 'content' : 'body']: body }),
       });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || 'Erro ao salvar template');
@@ -222,7 +263,14 @@ export default function EmailTemplateEditorPage() {
         {versions.map((v) => (
           <div key={v.id} className="flex items-center justify-between border rounded p-3 gap-3">
             <div className="min-w-0">
-              <p className="font-medium text-sm truncate">{v.subject}</p>
+              <p className="font-medium text-sm truncate">
+                {v.subject}
+                {usesLayout && v.content === undefined && (
+                  <Badge variant="outline" className="ml-2">
+                    Formato antigo
+                  </Badge>
+                )}
+              </p>
               <p className="text-xs text-muted-foreground">
                 {v.replaced_by_name} • {formatTimestamp(v.replaced_at)}
               </p>
@@ -293,6 +341,11 @@ export default function EmailTemplateEditorPage() {
               {v.required && ' *'}
             </Badge>
           ))}
+          {SYSTEM_TEMPLATE_VARIABLES.map((key) => (
+            <Badge key={key} variant="secondary" title="Variável do sistema">
+              {`{{${key}}}`}
+            </Badge>
+          ))}
         </CardContent>
       </Card>
 
@@ -310,15 +363,31 @@ export default function EmailTemplateEditorPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Corpo (HTML)</CardTitle>
+          <CardTitle>{usesLayout ? 'Conteúdo do e-mail (miolo)' : 'Corpo (HTML)'}</CardTitle>
           <CardDescription>
             A pré-visualização à direita atualiza em tempo real, com os valores de exemplo de cada
             variável.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              {usesLayout
+                ? 'Banner e rodapé são padronizados e não são editáveis aqui.'
+                : 'Template no formato antigo, aguardando migração.'}
+            </AlertDescription>
+          </Alert>
+          {usesLayout && (
+            <Button variant="outline" size="sm" onClick={handleInsertButton}>
+              <MousePointerClick className="mr-2 h-4 w-4" />
+              Inserir botão padrão
+            </Button>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Textarea
+              ref={bodyRef}
+              aria-label={usesLayout ? 'Conteúdo do e-mail (miolo)' : 'Corpo do e-mail (HTML)'}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={24}

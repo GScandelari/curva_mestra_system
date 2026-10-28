@@ -6,6 +6,8 @@
  * src/__tests__/emailLayout.test.ts compara as duas versões.
  */
 
+import { renderTemplate } from './emailTemplateRendering';
+
 /** Pasta pública versionada (public/email/v1). Nunca apagar: e-mails enviados apontam para ela. */
 export const EMAIL_ASSET_VERSION = 'v1';
 
@@ -263,4 +265,55 @@ export function htmlToPlainText(html: string): string {
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+/** Variáveis de sistema injetadas em todo template (não precisam estar em `variables`). */
+export const SYSTEM_TEMPLATE_VARIABLES = ['appUrl', 'currentYear'];
+
+/** Campos de `email_templates/{tipo}` usados para renderizar. */
+export interface StoredEmailTemplate {
+  subject: string;
+  /** HTML completo (formato antigo, sem layout). */
+  body?: string;
+  /** Miolo editável (formato novo, `layout_version: 1`). */
+  content?: string;
+  label?: string;
+}
+
+/**
+ * Assunto e HTML final de um template salvo: com `content`, o miolo vai
+ * dentro do layout padrão; sem ele (doc ainda não migrado), usa o `body`
+ * legado como está. `getBaseUrl` só é chamado quando necessário.
+ */
+export function renderStoredEmailTemplate(p: {
+  tipo: string;
+  template: StoredEmailTemplate;
+  variables: Record<string, string>;
+  getBaseUrl: () => string;
+  now?: Date;
+}): { subject: string; html: string } {
+  const { template } = p;
+  const usesAppUrl = /\{\{\s*appUrl\s*\}\}/.test(
+    `${template.subject}${template.content ?? template.body ?? ''}`
+  );
+  const baseUrl = template.content || usesAppUrl ? p.getBaseUrl() : '';
+  const vars: Record<string, string> = {
+    ...(baseUrl && { appUrl: baseUrl }),
+    currentYear: String((p.now ?? new Date()).getFullYear()),
+    ...p.variables,
+  };
+
+  const subject = renderTemplate(template.subject, vars);
+  if (template.content) {
+    return {
+      subject,
+      html: buildEmailLayout({
+        tipo: p.tipo,
+        contentHtml: renderTemplate(template.content, vars),
+        baseUrl,
+        fallbackTitle: template.label,
+      }),
+    };
+  }
+  return { subject, html: renderTemplate(template.body ?? '', vars) };
 }
