@@ -1,8 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import type { DocumentReference, DocumentData } from 'firebase-admin/firestore';
 import { loginAs } from './helpers/auth';
-import { getEmulatorAdminFirestore } from '../../scripts/lib/emulatorAdmin';
-import { TEST_PASSWORD, TEST_USERS } from './fixtures/seed-data';
+import { getEmulatorAdminAuth, getEmulatorAdminFirestore } from '../../scripts/lib/emulatorAdmin';
+import { TEST_PASSWORD, TEST_TENANTS, TEST_USERS } from './fixtures/seed-data';
 
 /**
  * Cobertura (Modo B) de:
@@ -28,8 +28,9 @@ import { TEST_PASSWORD, TEST_USERS } from './fixtures/seed-data';
  * 7. Bloqueio de acesso (RF-08, Fluxo 8a) — `clinic_admin` redirecionado.
  * 8. Amostra representativa dos dois mecanismos de leitura (RF-09):
  *    `password_reset` via `email_queue` (fluxo real UC-08) coberto
- *    integralmente; `generic_user_welcome` via Cloud Function `onUserCreated`
- *    marcado como `test.fixme` — ver nota de infraestrutura abaixo.
+ *    integralmente; `generic_user_welcome`, que deixou de sair pelo trigger
+ *    `onUserCreated` (removido) e passou a ser enfileirado pela criação de
+ *    usuário, também via `email_queue`.
  *
  * Assunções e lacunas de infraestrutura (a confirmar/resolver na revisão humana):
  *
@@ -47,19 +48,11 @@ import { TEST_PASSWORD, TEST_USERS } from './fixtures/seed-data';
  *       Zoho SMTP acontecem DENTRO da própria Cloud Function
  *       (`functions/src/sendTemplateTestEmail.ts`) — não são, e não podem ser,
  *       verificados por este teste sem o emulador de Functions de pé.
- *    b) O Cenário 8 (RF-09) só consegue cobrir de ponta a ponta o mecanismo
- *       `email_queue` (`password_reset`, enfileirado diretamente pela API
- *       route via Admin SDK, sem depender de nenhuma Cloud Function). O
- *       mecanismo "Cloud Function trigger" (`generic_user_welcome`, disparado
- *       por `onUserCreated`, um `onDocumentCreated` em `users/{uid}`) está
- *       marcado como `test.fixme` — nenhum trigger de Firestore dispara sem o
- *       emulador de Functions rodando. Habilitar esse cenário exigiria (i)
- *       adicionar `functions` ao `--only` do script `test:e2e` (e garantir que
- *       `functions/lib` esteja compilado antes), e (ii) decidir o que fazer com
- *       os secrets `SMTP_USER`/`SMTP_PASS` (indisponíveis no emulador) — por
- *       exemplo, mockar `sendEmail` dentro da function. Isso é infraestrutura
- *       nova, fora do escopo deste spec — sinalizado aqui para avaliação do
- *       dev/orquestrador, não resolvido por este agente.
+ *    b) O Cenário 8 (RF-09) cobre de ponta a ponta o mecanismo `email_queue`
+ *       (`password_reset` e `generic_user_welcome`, enfileirados pelas API
+ *       routes via Admin SDK). O trigger `onUserCreated` foi removido
+ *       (FEAT-padronizacao-emails-e-links-de-senha, DN-08), então o antigo
+ *       `test.fixme` de "Cloud Function trigger" deixou de ser necessário.
  * 2. Os testes que editam e salvam um template usam `withTemplateRestore`
  *    (helper local) para devolver o documento ao conteúdo original e apagar
  *    quaisquer `versions` criadas durante o teste, no `finally` — garante
@@ -116,6 +109,25 @@ function subjectInputOf(page: Page) {
 
 function bodyTextareaOf(page: Page) {
   return page.locator('textarea').first();
+}
+
+/** Login REST direto no Auth Emulator, para chamar a API de criação de usuário. */
+async function getIdTokenViaAuthEmulator(email: string, password: string): Promise<string> {
+  const host = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  if (!host) {
+    throw new Error('FIREBASE_AUTH_EMULATOR_HOST não definido — rode via `npm run test:e2e`.');
+  }
+  const response = await fetch(
+    `http://${host}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    }
+  );
+  const data = await response.json();
+  if (!data.idToken) throw new Error(`Falha ao autenticar ${email}: ${JSON.stringify(data)}`);
+  return data.idToken as string;
 }
 
 function historyDialogOf(page: Page) {
@@ -209,8 +221,19 @@ test.describe('UC-55 — Editar Templates de E-mail', () => {
         page.getByText('Pré-visualização: Redefinição de Senha - Curva Mestra')
       ).toBeVisible();
 
+      // Layout padrão: o editor mexe só no miolo; banner e rodapé são fixos e
+      // aparecem no preview (FEAT-padronizacao-emails-e-links-de-senha).
+      await expect(
+        page.getByText('Banner e rodapé são padronizados e não são editáveis aqui.')
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Inserir botão padrão' })).toBeVisible();
+
       const previewFrame = page.frameLocator('iframe[title="Pré-visualização do corpo do e-mail"]');
       await expect(previewFrame.getByText('Maria Oliveira')).toBeVisible();
+      await expect(
+        previewFrame.locator('img[alt="Redefinição de Senha — Curva Mestra"]')
+      ).toHaveAttribute('src', /\/email\/v1\/banner-password-reset\.png$/);
+      await expect(previewFrame.locator('img[src$="/email/v1/rodape.png"]')).toHaveCount(1);
       await expect(previewFrame.locator('body')).not.toContainText('{{displayName}}');
 
       // Edita o assunto -- a pré-visualização textual acompanha em tempo real.
@@ -222,6 +245,8 @@ test.describe('UC-55 — Editar Templates de E-mail', () => {
       // Edita o corpo -- o iframe ao lado reflete a mudança, sem clicar em nada.
       await bodyTextareaOf(page).fill('<p>Teste QA-UC55 {{displayName}}</p>');
       await expect(previewFrame.getByText('Teste QA-UC55 Maria Oliveira')).toBeVisible();
+      // O miolo editado continua dentro do layout.
+      await expect(previewFrame.locator('img[src$="/email/v1/rodape.png"]')).toHaveCount(1);
     });
   });
 
@@ -273,6 +298,8 @@ test.describe('UC-55 — Editar Templates de E-mail', () => {
       expect(capturedPayload?.html).toContain('João Pereira');
       expect(capturedPayload?.html).toContain('CONS-4821');
       expect(capturedPayload?.html).not.toContain('{{name}}');
+      // O teste vai com o mesmo HTML do preview: miolo dentro do layout.
+      expect(capturedPayload?.html).toContain('/email/v1/banner-consultant-welcome.png');
 
       // Nada persistido em email_templates por este fluxo (Fluxo 7b, passo 4).
       const afterSnap = await templateRef.get();
@@ -298,18 +325,20 @@ test.describe('UC-55 — Editar Templates de E-mail', () => {
 
         // Caminho feliz: edita texto livre, mantendo todas as variáveis.
         const editedBody = originalBody.replace(
-          'Atenciosamente,<br>Equipe Curva Mestra',
-          'Atenciosamente,<br>Equipe Curva Mestra QA-UC55-OK'
+          'Acesse o Portal do Consultor para aprovar ou rejeitar este pedido.',
+          'Acesse o Portal do Consultor para aprovar ou rejeitar este pedido. QA-UC55-OK'
         );
+        expect(editedBody).not.toBe(originalBody);
         await bodyTextareaOf(page).fill(editedBody);
         await page.getByRole('button', { name: 'Salvar' }).click();
         await expect(page.getByText('Template salvo com sucesso', { exact: true })).toBeVisible();
 
         const afterHappyPath = await templateRef.get();
-        expect(afterHappyPath.data()?.body).toContain('QA-UC55-OK');
+        // Template no layout novo: o editor grava o miolo em `content`.
+        expect(afterHappyPath.data()?.content).toContain('QA-UC55-OK');
         const versionsAfterHappyPath = await templateRef.collection('versions').get();
         expect(versionsAfterHappyPath.size).toBe(1);
-        expect(versionsAfterHappyPath.docs[0].data().body).toBe(originalBody);
+        expect(versionsAfterHappyPath.docs[0].data().content).toBe(originalBody);
 
         // Fluxo 8b, passo 1a: variável fora da lista permitida.
         await bodyTextareaOf(page).fill(`${editedBody} {{naoPermitida}}`);
@@ -323,7 +352,7 @@ test.describe('UC-55 — Editar Templates de E-mail', () => {
         await expect(bodyTextareaOf(page)).toHaveValue(`${editedBody} {{naoPermitida}}`);
         // Garantia mínima de falha: Firestore não mudou desde o caminho feliz.
         const afterError1 = await templateRef.get();
-        expect(afterError1.data()?.body).toBe(editedBody);
+        expect(afterError1.data()?.content).toBe(editedBody);
 
         // Fluxo 8b, passo 1b: remoção de uma variável obrigatória.
         const bodyMissingRequired = editedBody.replace(
@@ -336,7 +365,7 @@ test.describe('UC-55 — Editar Templates de E-mail', () => {
           page.getByText('Variável obrigatória {{tenantName}} foi removida', { exact: true })
         ).toBeVisible();
         const afterError2 = await templateRef.get();
-        expect(afterError2.data()?.body).toBe(editedBody);
+        expect(afterError2.data()?.content).toBe(editedBody);
       });
     });
   });
@@ -501,25 +530,78 @@ test.describe('UC-55 — Editar Templates de E-mail', () => {
       });
     });
 
-    test.fixme(
-      true,
-      'generic_user_welcome (#11) só é enviado pelo trigger onUserCreated ' +
-        '(Cloud Function onDocumentCreated em users/{uid}, functions/src/onUserCreated.ts). ' +
-        '`npm run test:e2e` roda `firebase emulators:exec --only auth,firestore,storage` -- o ' +
-        'emulador de Functions (porta 5001, já configurado em firebase.json) não é iniciado por ' +
-        'essa suíte hoje, então nenhum trigger de Cloud Functions dispara aqui. Habilitar este ' +
-        'cenário exige (1) adicionar `functions` ao --only do script test:e2e (e compilar ' +
-        'functions/lib antes) e (2) decidir o que fazer com os secrets SMTP_USER/SMTP_PASS ' +
-        '(indisponíveis no emulador) -- por exemplo, mockar sendEmail dentro da function. ' +
-        'Infraestrutura nova, fora do escopo deste spec -- sinalizado para o dev/orquestrador.'
-    );
-    test('generic_user_welcome editado é refletido no e-mail enviado pelo trigger onUserCreated ao criar um users/{uid} direto (mecanismo Cloud Function trigger)', async () => {
-      // Intencionalmente não implementado -- ver test.fixme acima. Quando o
-      // emulador de Functions estiver disponível nesta suíte, o esqueleto é:
-      // 1. Editar generic_user_welcome (marcador no body) e salvar via UI.
-      // 2. Criar `users/{uid}` via Admin SDK (sem `skip_welcome_email`).
-      // 3. Aguardar o trigger onUserCreated processar e confirmar, via algum
-      //    stub/captura de sendEmail, que o corpo enviado contém o marcador.
+    test('generic_user_welcome editado é refletido no e-mail enfileirado ao criar um usuário (mecanismo email_queue, sem o trigger onUserCreated)', async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+      // O trigger onUserCreated foi removido: a criação de usuário enfileira
+      // o generic_user_welcome com o link de primeiro acesso
+      // (FEAT-padronizacao-emails-e-links-de-senha, DN-08).
+      const db = getEmulatorAdminFirestore();
+      const adminAuth = getEmulatorAdminAuth();
+      const email = `qa-uc55-welcome-${Date.now()}@example.com`;
+      let createdUid: string | undefined;
+
+      await withTemplateRestore('generic_user_welcome', async () => {
+        const marker = `QA-UC55-WELCOME-${Date.now()}`;
+
+        await loginSystemAdmin(page);
+        await page.goto(EDITOR_PATH('generic_user_welcome'));
+        const originalBody = await bodyTextareaOf(page).inputValue();
+        const editedBody = originalBody.replace(
+          'Para começar, defina a sua senha:',
+          `Para começar, defina a sua senha: [${marker}]`
+        );
+        expect(editedBody).not.toBe(originalBody);
+        await bodyTextareaOf(page).fill(editedBody);
+        await page.getByRole('button', { name: 'Salvar' }).click();
+        await expect(page.getByText('Template salvo com sucesso', { exact: true })).toBeVisible();
+
+        try {
+          // Clínica B, para não consumir vagas de usuário da clínica A
+          // (usadas por outros cadernos).
+          const idToken = await getIdTokenViaAuthEmulator(
+            TEST_USERS.systemAdmin.email,
+            TEST_PASSWORD
+          );
+          const response = await page.request.post('/api/users/create', {
+            headers: { Authorization: `Bearer ${idToken}` },
+            data: {
+              email,
+              displayName: 'QA UC-55 Boas-vindas',
+              role: 'clinic_user',
+              tenant_id_override: TEST_TENANTS.clinicB.tenant_id,
+            },
+          });
+          expect(response.status()).toBe(201);
+          createdUid = (await response.json()).user.uid;
+
+          const emailSnap = await db
+            .collection('email_queue')
+            .where('to', '==', email)
+            .where('type', '==', 'generic_user_welcome')
+            .get();
+          expect(emailSnap.size).toBe(1);
+          const body = emailSnap.docs[0].data().body as string;
+          expect(body).toContain(marker);
+          expect(body).toMatch(/\/reset-password\/[0-9a-f]{64}/);
+          expect(body).not.toContain('{{firstAccessLink}}');
+          await Promise.all(emailSnap.docs.map((d) => d.ref.delete()));
+        } finally {
+          if (createdUid) {
+            await adminAuth.deleteUser(createdUid).catch(() => undefined);
+            await db
+              .doc(`users/${createdUid}`)
+              .delete()
+              .catch(() => undefined);
+            const tokens = await db
+              .collection('password_reset_tokens')
+              .where('user_id', '==', createdUid)
+              .get();
+            await Promise.all(tokens.docs.map((d) => d.ref.delete()));
+          }
+        }
+      });
     });
   });
 });

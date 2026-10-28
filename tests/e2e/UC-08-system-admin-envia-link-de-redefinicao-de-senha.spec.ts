@@ -207,7 +207,8 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
         const tokenDoc = tokenSnap.docs[0].data();
         expect(tokenDoc.user_email).toBe(target.email);
         expect(tokenDoc.created_by).toBe(TEST_USERS.systemAdmin.uid);
-        expect(tokenDoc.used_at).toBeUndefined();
+        expect(tokenDoc.used_at).toBeNull();
+        expect(tokenDoc.purpose).toBe('password_reset');
         expect((tokenDoc as Record<string, unknown>).token).toBeUndefined();
         expect((tokenDoc as Record<string, unknown>).raw_token).toBeUndefined();
         const expiresAtMs = (tokenDoc.expires_at as Timestamp).toMillis();
@@ -224,6 +225,14 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
         expect(emailSnap.size).toBe(1);
         expect(emailSnap.docs[0].data().to).toBe(target.email);
         expect(emailSnap.docs[0].data().type).toBe('password_reset');
+
+        // Layout padrão (FEAT-padronizacao-emails-e-links-de-senha): banner do
+        // tipo e link com o host do ambiente (resolveAppBaseUrl; no E2E, a
+        // URL local do Playwright).
+        const emailBody = emailSnap.docs[0].data().body as string;
+        expect(emailBody).toContain('/email/v1/banner-password-reset.png');
+        const baseURL = test.info().project.use.baseURL as string;
+        expect(emailBody).toContain(`${baseURL}/reset-password/${rawToken}`);
 
         // Pós-condição: auditoria no documento do usuário-alvo.
         const userDocAfterRequest = await db.doc(`users/${target.uid}`).get();
@@ -443,14 +452,16 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
         // Passo 2.
         await expect(page.getByRole('heading', { name: 'Link Inválido' })).toBeVisible();
         await expect(
-          page.getByText('Este link já foi utilizado. Solicite um novo reset de senha.')
+          page.getByText('Este link já foi utilizado. Solicite uma nova senha.')
         ).toBeVisible();
         await expect(
-          page.getByText(
-            'Se você precisa redefinir sua senha, entre em contato com o administrador do sistema.'
-          )
+          page.getByText('Solicite um novo link informando o seu e-mail de acesso.')
         ).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Voltar ao Login' })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Solicitar nova senha' })).toHaveAttribute(
+          'href',
+          '/forgot-password'
+        );
+        await expect(page.getByRole('link', { name: 'Voltar ao Login' })).toBeVisible();
       } finally {
         await adminAuth.updateUser(target.uid, { password: TEST_PASSWORD });
       }
@@ -559,9 +570,10 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
       const target = TEST_USERS.clinicAdminA;
       const rawToken = crypto.randomBytes(32).toString('hex');
       const db = getEmulatorAdminFirestore();
-      // Setup: escreve diretamente um token já expirado (formato idêntico ao
-      // gravado por createPasswordResetToken) — não há como esperar 30min
-      // reais dentro de um teste automatizado.
+      // Setup: escreve diretamente um token já expirado no formato legado
+      // (sem `purpose`, como os emitidos antes do layout novo — tratados como
+      // redefinição) — não há como esperar 30min reais dentro de um teste
+      // automatizado.
       await db.collection(RESET_TOKENS_COLLECTION).add({
         token_hash: hashTokenLikeApp(rawToken),
         user_id: target.uid,
@@ -574,12 +586,10 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
       await page.goto(`/reset-password/${rawToken}`);
 
       await expect(page.getByRole('heading', { name: 'Link Inválido' })).toBeVisible();
-      await expect(
-        page.getByText('Este link expirou. Solicite um novo reset de senha.')
-      ).toBeVisible();
+      await expect(page.getByText('Este link expirou. Solicite uma nova senha.')).toBeVisible();
     });
 
-    test('8e — token inválido/inexistente exibe "Link Inválido" com "Token inválido ou expirado" (a partir do passo 14)', async ({
+    test('8e — token inválido/inexistente exibe "Link Inválido" com "Link inválido ou expirado." (a partir do passo 14)', async ({
       page,
     }) => {
       const bogusToken = 'a'.repeat(64);
@@ -587,7 +597,7 @@ test.describe('UC-08 — System Admin Envia Link de Redefinição de Senha', () 
       await page.goto(`/reset-password/${bogusToken}`);
 
       await expect(page.getByRole('heading', { name: 'Link Inválido' })).toBeVisible();
-      await expect(page.getByText('Token inválido ou expirado')).toBeVisible();
+      await expect(page.getByText('Link inválido ou expirado.')).toBeVisible();
     });
 
     test('8f — nova senha inválida é reprovada no formulário, sem nenhuma chamada à API (RN-08, três sub-casos)', async ({
