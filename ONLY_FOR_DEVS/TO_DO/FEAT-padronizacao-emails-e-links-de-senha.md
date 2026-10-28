@@ -3,11 +3,11 @@
 **Projeto:** Curva Mestra
 **Data:** 28/10/2026
 **Autor:** Doc Writer (Claude)
-**Status:** Planejamento
+**Status:** Implementado (aguardando validação em dev)
 **Tipo:** Feature
 **Branch sugerida:** `feature/padronizacao-emails-e-links-de-senha`
 **Prioridade:** Alta
-**Versão:** 1.1
+**Versão:** 1.2
 
 > Os 13 templates de e-mail passam a usar um layout único: banner por tipo, miolo editável no UC-55, rodapé e botão padrão, com HTML compatível com clientes de e-mail. Os links de senha passam a ser todos do Curva Mestra. O de redefinição ("Esqueci minha senha" e UC-08) vale 30 minutos. O de primeiro acesso vale 72 horas e é de uso único: deixa de valer na abertura. Ele vai nos e-mails de boas-vindas de usuário de clínica, de consultor, de admin de clínica cadastrada pelo system_admin (UC-21) e de aprovação de cadastro. Com isso, o admin deixa de definir a senha ao criar usuários. As 8 decisões de design foram respondidas pelo usuário em 28/10/2026 (seção 4.4) e o documento está pronto para o `dev-task-manager`.
 
@@ -913,7 +913,7 @@ Sem envio real: o emulador não roda functions, e os e-mails são conferidos e o
 | R-05 | Divergência entre `src/lib/emailLayout.ts` e o espelho nas functions | Média | Médio | Teste de paridade Jest (8.1) |
 | R-06 | Link com domínio errado (dev → produção, ou o inverso) | Média | Alto | `resolveAppBaseUrl` por projeto + teste; nunca usar o header `Host` (RNF-07) |
 | R-07 | Abuso de "Esqueci minha senha" (spam no e-mail de terceiros, custo SMTP) | Média | Médio | Rate limit por e-mail e IP; resposta neutra |
-| R-08 | `processEmailQueue` não está deployada em `curva-mestra-dev` (ausente do `--only` em `deploy-gscandelari-dev.yml:115`): e-mails da fila não saem em dev e não dá para validar | Média | Médio | Antes da validação, rodar `firebase functions:list --project curva-mestra-dev`. Se faltar, adicionar `functions:processEmailQueue` ao `--only` (o secret SMTP precisa existir em dev, conforme o comentário da linha 93) |
+| R-08 | `processEmailQueue` não está deployada em `curva-mestra-dev`: e-mails da fila não saem em dev | — | — | **Resolvido por decisão do usuário (28/10/2026): sem envio real em dev.** A aparência é conferida pelo "Enviar e-mail de teste" do editor (`sendTemplateTestEmail`, ativa em dev) e os fluxos são conferidos copiando o link do doc em `email_queue` no console do Firestore. `processEmailQueue` continua fora do deploy de dev |
 | R-09 | Usuários de produção criados antes da task com senha temporária e `requirePasswordChange` pendente | Baixa | Baixo | Fluxo UC-06 preservado; nenhuma migração de usuário |
 | R-10 | Consultores de produção que nunca receberam senha (temp nunca enviada) | Média | Baixo | Passam a conseguir entrar sozinhos via "Esqueci minha senha" (benefício); nenhuma ação em dados |
 | R-11 | Customização do admin perdida na migração | Baixa | Médio | Backup em `versions` + relatório do dry-run; produção só no release com aviso (DN-03) |
@@ -962,3 +962,4 @@ Sem envio real: o emulador não roda functions, e os e-mails são conferidos e o
 |--------|------|-------|-------------|
 | 1.0 | 28/10/2026 | Doc Writer (Claude) | Versão inicial. Inclui o mapeamento dos 15 arquivos de banner/rodapé recebidos no mesmo dia. Status "Aguardando decisão" por causa de DN-01 a DN-08. |
 | 1.1 | 28/10/2026 | Doc Writer (Claude) | Decisões DN-01 a DN-08 **resolvidas pelo usuário** (resposta explícita, 28/10/2026, todas na recomendação): UC-21 entra no primeiro acesso; invalidação no clique + 30 min de sessão + F5 mantém o formulário; migração autorizada com backup em `versions`, dev primeiro e produção só no release com aviso; `1.png` não publicado e `2.png` usado com texto legal em HTML; domínio `curvamestra.com.br`, botão escuro com texto dourado; inativo não recebe nada; `onUserCreated` removido com aviso antes do merge em `master`. Seção 4.4 virou tabela de decisões tomadas; RFs, RNs, STEPs 1/2/4/5/6/9/14, testes, checklist e riscos ajustados. Status → Planejamento. |
+| 1.2 | 28/10/2026 | Claude (implementação) | Implementado na branch `feature/padronizacao-emails-e-links-de-senha` (STEPs 1–14). R-08 resolvido: sem envio real em dev. Decisões de implementação, todas seguindo as recomendações (usuário autorizou "siga suas recomendações" para este PR): (a) `sendFirstAccessEmail` (`src/lib/services/firstAccessEmail.ts`) concentra token + fila nos 4 pontos de criação; (b) `getAppBaseUrl` em `src/lib/appBaseUrl.ts`; (c) `renderStoredEmailTemplate` em `emailLayout.ts` (e espelho) decide layout × legado e só resolve a URL base quando precisa; (d) reverter uma versão restaura o formato dela — versão sem `content` (anterior à migração) remove `content`/`layout_version` e volta ao `body`; (e) conteúdo dos 13 templates em `scripts/lib/emailTemplateDefinitions.ts`, compartilhado por seed, migração e testes; `resolveFirestore` em `scripts/lib/firestoreTarget.ts`; (f) migração classifica "customizado" por `updated_by != 'seed-script'`; (g) links de consultor apontam para `/login` quando não há rota dedicada; "Nova solicitação" aponta para `/register` (o `/early-access` não existe); data congelada do seed do `new_tenant_notification` removida; (h) texto de `/admin/consultants/new` corrigido (ainda falava em senha temporária); (i) rate limit por IP usa o primeiro IP de `x-forwarded-for` — pode ser forjado pelo cliente, mas o limite por e-mail continua valendo (risco aceito, registrar no PR). Status → Implementado. |
