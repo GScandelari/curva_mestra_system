@@ -5,7 +5,7 @@ import { TEST_PASSWORD, TEST_TENANTS, TEST_USERS } from './fixtures/seed-data';
 import { Timestamp } from 'firebase-admin/firestore';
 
 /**
- * Cobertura (Modo A, a partir de `ONLY_FOR_DEVS/TO_DO/FEAT-relatorios-gerenciais-custeio-procedimento.md`,
+ * Cobertura (Modo A, a partir de `ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-relatorios-gerenciais-custeio-procedimento.md`,
  * v1.0, Seções 6/7) de:
  * - `ONLY_FOR_DEVS/PO_BA_Docs/UC-51-gerar-relatorios-gerenciais-avancados-e-custeio-por-procedimento.md`
  *   (v1.1, Aprovado) — Fluxo Principal (Custo por Procedimento), Fluxo Alternativo 7a

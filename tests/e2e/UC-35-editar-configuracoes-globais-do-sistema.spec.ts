@@ -6,7 +6,7 @@ import { TEST_PASSWORD, TEST_USERS } from './fixtures/seed-data';
 
 /**
  * Cobertura (Modo A) de:
- * - `ONLY_FOR_DEVS/TO_DO/BUGFIX-admin-settings-sobrescrita-falha-leitura.md` (§6.3, §8.2 e STEP 5)
+ * - `ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-admin-settings-sobrescrita-falha-leitura.md` (§6.3, §8.2 e STEP 5)
  * - `ONLY_FOR_DEVS/PO_BA_Docs/UC-35-editar-configuracoes-globais-do-sistema.md` (v2.0, RN-01/RN-07)
  *
  * Cenários (tabela da §8.2):

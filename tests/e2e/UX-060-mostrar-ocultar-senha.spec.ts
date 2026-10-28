@@ -8,7 +8,7 @@ import { TEST_PASSWORD, TEST_TENANTS, TEST_USERS } from './fixtures/seed-data';
 /**
  * Caderno da feature (Modo A, spec ainda em TO_DO — exceção explícita: o
  * caderno entra no mesmo PR da task) de:
- * ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md (v1.1) — §8.2 (função
+ * ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-toggle-visibilidade-senha.md (v1.1) — §8.2 (função
  * `expectToggle`, tabela de 14 cenários e "Observações para o qa-agent e o
  * revisor"), STEP 6 e roteiro manual do STEP 8.
  *

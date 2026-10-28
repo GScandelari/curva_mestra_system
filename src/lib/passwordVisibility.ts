@@ -1,7 +1,7 @@
 /**
  * Estado → atributos do botão de mostrar/ocultar senha (UX-060).
  * Decisão D1 (padrão GOV.UK): o rótulo descreve a ação do próximo clique e o
- * botão não usa `aria-pressed`. Ver ONLY_FOR_DEVS/TO_DO/FEAT-toggle-visibilidade-senha.md.
+ * botão não usa `aria-pressed`. Ver ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-toggle-visibilidade-senha.md.
  */
 
 export const SHOW_PASSWORD_LABEL = 'Mostrar senha';

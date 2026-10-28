@@ -4,7 +4,7 @@ import { translateFirestoreError } from '@/lib/firestoreErrors';
  * Regras puras para distinguir "falha ao carregar" de "não há dados" nos
  * blocos de leitura das telas (lote "erro exibido como estado vazio":
  * UX-025, UX-026, UX-038, UX-047, UX-050, UX-051, UX-053).
- * Ver ONLY_FOR_DEVS/TO_DO/BUGFIX-ux-erro-exibido-como-vazio.md.
+ * Ver ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-ux-erro-exibido-como-vazio.md.
  *
  * Sem imports de `firebase/*`, para poderem ser testadas com Jest.
  */
