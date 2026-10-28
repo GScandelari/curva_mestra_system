@@ -11,7 +11,7 @@
 
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
+import { sendFirstAccessEmail } from '@/lib/services/firstAccessEmail';
 import { syncConsultantAuthorizedTenants } from '@/lib/services/consultantClaimsSync';
 import { getAccessRequestBusinessName } from '@/lib/accessRequestPayload';
 import type { AccessRequest, Tenant, UserRole } from '@/types';
@@ -98,8 +98,8 @@ export class EmailAlreadyInUseError extends Error {
  *
  * O usuário Auth é criado SEM senha: antes, uma senha temporária aleatória era
  * gerada só para ser descartada logo em seguida (o usuário nunca a via). O
- * acesso continua sendo definido exclusivamente pelo link de
- * `generatePasswordResetLink` enviado no e-mail de boas-vindas (UC-02 RN-03).
+ * acesso é definido exclusivamente pelo link de primeiro acesso (72 h, uso
+ * único) enviado no e-mail de boas-vindas (UC-02 RN-03).
  */
 export async function createTenantAndUserFromAccessRequest(
   request: AccessRequest,
@@ -214,32 +214,21 @@ export async function createTenantAndUserFromAccessRequest(
     await syncConsultantAuthorizedTenants(linkedConsultant.user_id, tenant_id, 'add');
   }
 
-  // Link para o usuário definir a própria senha
-  let passwordResetLink = 'https://curvamestra.com.br/login';
-  try {
-    passwordResetLink = await adminAuth.generatePasswordResetLink(request.email);
-    console.log(`✅ Link de redefinição de senha gerado para ${request.email}`);
-  } catch (resetErr) {
-    console.warn(`⚠️ Não foi possível gerar link de redefinição:`, resetErr);
-  }
-
-  // E-mail de boas-vindas via fila (não falha a aprovação)
-  try {
-    await enqueueTemplatedEmail(
-      'welcome_approval',
-      request.email,
-      {
-        displayName: request.full_name,
-        email: request.email,
-        businessName,
-        passwordResetLink,
-      },
-      { metadata: { user_id, tenant_id } }
-    );
-    console.log(`✅ E-mail de boas-vindas adicionado à fila para ${request.email}`);
-  } catch (emailError) {
-    console.warn(`⚠️ Erro ao adicionar e-mail à fila:`, emailError);
-  }
+  // E-mail de boas-vindas com link de primeiro acesso via fila (não falha a
+  // aprovação; sem ele, o usuário usa "Esqueci minha senha")
+  await sendFirstAccessEmail({
+    tipo: 'welcome_approval',
+    userId: user_id,
+    email: request.email,
+    createdBy: approver.uid,
+    tenantId: tenant_id,
+    variables: (passwordResetLink) => ({
+      displayName: request.full_name,
+      email: request.email,
+      businessName,
+      passwordResetLink,
+    }),
+  });
 
   return {
     tenant_id,
