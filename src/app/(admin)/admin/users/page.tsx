@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ManualPasswordSection } from '@/components/admin/ManualPasswordSection';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -25,12 +26,21 @@ import {
   CheckCircle2,
   Mail,
   UserCheck,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  getDocsFromServer,
+  query,
+  orderBy,
+  doc,
+  getDocFromServer,
+  updateDoc,
+} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { resolveLoadView } from '@/lib/loadErrors';
+import { LoadErrorAlert, UnavailableValue } from '@/components/ui/load-error-alert';
 import { formatTimestamp } from '@/lib/utils';
 import { formatLastAccessLabel } from '@/lib/lastAccess';
 import { useLastAccess } from '@/hooks/useLastAccess';
@@ -77,7 +87,8 @@ export default function UsersManagementPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserWithTenant[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserWithTenant[]>([]);
-  const [loading, setLoading] = useState(true);
+  // UX-047: falha de leitura vira estado de erro, nunca "Nenhum usuário cadastrado".
+  const { loading, error: loadError, errorDetail, run } = useAsyncState();
   const [searchTerm, setSearchTerm] = useState('');
   const { lastAccess } = useLastAccess(users.map((u) => u.uid));
 
@@ -101,72 +112,82 @@ export default function UsersManagementPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [forcePasswordChange, setForcePasswordChange] = useState(true);
-  const [showNewPassword, setShowNewPassword] = useState(false);
   const [settingPassword, setSettingPassword] = useState(false);
   const [setPasswordSuccess, setSetPasswordSuccess] = useState(false);
   const [setPasswordSuccessMessage, setSetPasswordSuccessMessage] = useState('');
 
+  const loadAllUsers = useCallback(() => {
+    void run(
+      async ({ isCurrent }) => {
+        const allUsers: UserWithTenant[] = [];
+
+        // Buscar todos os usuários e filtrar consultores em memória
+        // (evita índice composto para role != clinic_consultant)
+        const usersRef = collection(db, 'users');
+        const usersQuery = query(usersRef, orderBy('created_at', 'desc'));
+        // Do servidor: resultado só do cache nunca vale como lista vazia.
+        const usersSnapshot = await getDocsFromServer(usersQuery);
+
+        // Para cada usuário, buscar o nome do tenant
+        for (const userDoc of usersSnapshot.docs) {
+          const userData = userDoc.data();
+
+          // Consultores são gerenciados exclusivamente em /admin/consultants
+          if (userData.role === 'clinic_consultant') continue;
+
+          const tenantId = userData.tenant_id;
+          let tenantName = 'Sem clínica';
+
+          if (tenantId) {
+            try {
+              const tenantDoc = await getDocFromServer(doc(db, 'tenants', tenantId));
+              if (tenantDoc.exists()) {
+                tenantName = tenantDoc.data().name || 'Sem nome';
+              }
+            } catch (err) {
+              console.error(`Erro ao buscar tenant ${tenantId}:`, err);
+              // Falha da leitura da clínica não é "sem clínica" (RF-09).
+              tenantName = 'Clínica indisponível';
+            }
+          }
+
+          allUsers.push({
+            uid: userDoc.id,
+            email: userData.email || '',
+            displayName: userData.displayName || userData.full_name || '',
+            phone: userData.phone || '',
+            role: userData.role || 'clinic_user',
+            active: userData.active ?? true,
+            tenantId: tenantId || '',
+            tenantName: userData.role === 'clinic_consultant' ? 'Consultor' : tenantName,
+            created_at: userData.created_at,
+          });
+        }
+
+        if (isCurrent()) {
+          setUsers(allUsers);
+          setFilteredUsers(allUsers);
+        }
+      },
+      'Erro ao carregar usuários:',
+      'Não foi possível carregar os usuários'
+    );
+  }, [run]);
+
   useEffect(() => {
     loadAllUsers();
-  }, []);
+  }, [loadAllUsers]);
 
   useEffect(() => {
     filterUsers();
   }, [searchTerm, users]);
 
-  const loadAllUsers = async () => {
-    try {
-      setLoading(true);
-      const allUsers: UserWithTenant[] = [];
-
-      // Buscar todos os usuários e filtrar consultores em memória
-      // (evita índice composto para role != clinic_consultant)
-      const usersRef = collection(db, 'users');
-      const usersQuery = query(usersRef, orderBy('created_at', 'desc'));
-      const usersSnapshot = await getDocs(usersQuery);
-
-      // Para cada usuário, buscar o nome do tenant
-      for (const userDoc of usersSnapshot.docs) {
-        const userData = userDoc.data();
-
-        // Consultores são gerenciados exclusivamente em /admin/consultants
-        if (userData.role === 'clinic_consultant') continue;
-
-        const tenantId = userData.tenant_id;
-        let tenantName = 'Sem clínica';
-
-        if (tenantId) {
-          try {
-            const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
-            if (tenantDoc.exists()) {
-              tenantName = tenantDoc.data().name || 'Sem nome';
-            }
-          } catch (err) {
-            console.error(`Erro ao buscar tenant ${tenantId}:`, err);
-          }
-        }
-
-        allUsers.push({
-          uid: userDoc.id,
-          email: userData.email || '',
-          displayName: userData.displayName || userData.full_name || '',
-          phone: userData.phone || '',
-          role: userData.role || 'clinic_user',
-          active: userData.active ?? true,
-          tenantId: tenantId || '',
-          tenantName: userData.role === 'clinic_consultant' ? 'Consultor' : tenantName,
-          created_at: userData.created_at,
-        });
-      }
-
-      setUsers(allUsers);
-      setFilteredUsers(allUsers);
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const usersUnavailable = !loading && !!loadError;
+  const listView = resolveLoadView({
+    loading,
+    error: !!loadError,
+    isEmpty: filteredUsers.length === 0,
+  });
 
   const filterUsers = () => {
     if (!searchTerm.trim()) {
@@ -233,7 +254,6 @@ export default function UsersManagementPage() {
     setNewPassword('');
     setConfirmPassword('');
     setForcePasswordChange(true);
-    setShowNewPassword(false);
     setSetPasswordSuccess(false);
     setEditDialogOpen(true);
   };
@@ -443,7 +463,11 @@ export default function UsersManagementPage() {
               <UserCog className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
+              {usersUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <div className="text-2xl font-bold">{users.length}</div>
+              )}
               <p className="text-xs text-muted-foreground">Usuários de clínica</p>
             </CardContent>
           </Card>
@@ -454,7 +478,11 @@ export default function UsersManagementPage() {
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.filter((u) => u.active).length}</div>
+              {usersUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <div className="text-2xl font-bold">{users.filter((u) => u.active).length}</div>
+              )}
               <p className="text-xs text-muted-foreground">Com acesso</p>
             </CardContent>
           </Card>
@@ -465,9 +493,16 @@ export default function UsersManagementPage() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {users.filter((u) => u.role === 'clinic_admin' || u.role === 'system_admin').length}
-              </div>
+              {usersUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {
+                    users.filter((u) => u.role === 'clinic_admin' || u.role === 'system_admin')
+                      .length
+                  }
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Clinic + System</p>
             </CardContent>
           </Card>
@@ -478,7 +513,13 @@ export default function UsersManagementPage() {
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{new Set(users.map((u) => u.tenantId)).size}</div>
+              {usersUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {new Set(users.map((u) => u.tenantId)).size}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Com usuários</p>
             </CardContent>
           </Card>
@@ -504,9 +545,15 @@ export default function UsersManagementPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {listView === 'loading' ? (
               <div className="text-center py-8 text-muted-foreground">Carregando usuários...</div>
-            ) : filteredUsers.length === 0 ? (
+            ) : listView === 'error' ? (
+              <LoadErrorAlert
+                title="Não foi possível carregar os usuários"
+                detail={errorDetail}
+                onRetry={loadAllUsers}
+              />
+            ) : listView === 'empty' ? (
               <div className="text-center py-8 text-muted-foreground">
                 {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
               </div>
@@ -737,93 +784,20 @@ export default function UsersManagementPage() {
               </div>
             </div>
 
-            {/* Seção Definir Senha Manualmente */}
-            <div className="pt-4 border-t space-y-3">
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-orange-500" />
-                <Label className="font-medium">Definir Senha Manualmente</Label>
-              </div>
-
-              {setPasswordSuccess ? (
-                <div className="p-3 rounded-md bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                      {setPasswordSuccessMessage || 'Senha definida com sucesso!'}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    Use para suporte quando o sistema de email falhar. A senha é definida
-                    imediatamente.
-                  </p>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword">Nova Senha</Label>
-                    <div className="relative">
-                      <input
-                        id="newPassword"
-                        type={showNewPassword ? 'text' : 'password'}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Mínimo 6 caracteres"
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm pr-10 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showNewPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-                    <input
-                      id="confirmPassword"
-                      type={showNewPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Repita a senha"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="forcePasswordChange"
-                      checked={forcePasswordChange}
-                      onCheckedChange={(checked) => setForcePasswordChange(checked === true)}
-                    />
-                    <Label
-                      htmlFor="forcePasswordChange"
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      Solicitar troca de senha no próximo login
-                    </Label>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleSetPassword}
-                    disabled={settingPassword || updating || !newPassword || !confirmPassword}
-                    className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
-                  >
-                    <KeyRound className="h-4 w-4 mr-2" />
-                    {settingPassword ? 'Definindo...' : 'Definir Senha'}
-                  </Button>
-                </div>
-              )}
-            </div>
+            <ManualPasswordSection
+              newPassword={newPassword}
+              onNewPasswordChange={setNewPassword}
+              confirmPassword={confirmPassword}
+              onConfirmPasswordChange={setConfirmPassword}
+              forcePasswordChange={forcePasswordChange}
+              onForcePasswordChange={setForcePasswordChange}
+              settingPassword={settingPassword}
+              success={setPasswordSuccess}
+              successMessage={setPasswordSuccessMessage}
+              onSubmit={handleSetPassword}
+              disabled={updating}
+              fullWidthButton
+            />
 
             <DialogFooter>
               <Button

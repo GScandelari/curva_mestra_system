@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { auth } from '@/lib/firebase';
@@ -799,9 +800,8 @@ export default function EditTenantPage() {
 
             <div className="space-y-2">
               <Label htmlFor="newUserPassword">Senha</Label>
-              <Input
+              <PasswordInput
                 id="newUserPassword"
-                type="password"
                 value={newUserPassword}
                 onChange={(e) => setNewUserPassword(e.target.value)}
                 placeholder="Mínimo 6 caracteres"

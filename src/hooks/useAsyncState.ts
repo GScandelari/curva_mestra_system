@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { describeLoadError } from '@/lib/loadErrors';
+
+export interface AsyncRunContext {
+  /** false quando um `run` mais recente já começou (ex.: troca de filtro). */
+  isCurrent: () => boolean;
+}
 
 /**
  * Hook compartilhado para padronizar o ciclo loading/error de carregamentos
@@ -12,26 +18,43 @@ import { useCallback, useState } from 'react';
  * introduzir uma camada completa de data-fetching, já que cada chamador
  * mantém total controle sobre o que é buscado e como o resultado é aplicado
  * ao próprio estado (ex.: `consultant`, `termsAcceptances`).
+ *
+ * Lote "erro exibido como estado vazio" (BUGFIX-ux-erro-exibido-como-vazio):
+ * `errorDetail` traz a mensagem pt-BR do erro e só a execução mais recente de
+ * `run` altera o estado — quem aplica dados deve checar `isCurrent()`.
  */
 export function useAsyncState(initialLoading = true) {
   const [loading, setLoading] = useState(initialLoading);
   const [error, setError] = useState('');
+  const [errorDetail, setErrorDetail] = useState('');
+  const seq = useRef(0);
 
   const run = useCallback(
-    async (action: () => Promise<void>, errorLogLabel: string, fallbackMessage: string) => {
+    async (
+      action: (ctx: AsyncRunContext) => Promise<void>,
+      errorLogLabel: string,
+      fallbackMessage: string
+    ) => {
+      const id = ++seq.current;
+      const isCurrent = () => id === seq.current;
+
       setLoading(true);
       setError('');
+      setErrorDetail('');
       try {
-        await action();
+        await action({ isCurrent });
       } catch (err) {
         console.error(errorLogLabel, err);
-        setError(fallbackMessage);
+        if (isCurrent()) {
+          setError(fallbackMessage);
+          setErrorDetail(describeLoadError(err));
+        }
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
     },
     []
   );
 
-  return { loading, error, setError, setLoading, run };
+  return { loading, error, errorDetail, setError, setLoading, run };
 }

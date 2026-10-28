@@ -5,7 +5,7 @@
 **Autor:** Guilherme Scandelari (via uml-use-case-writer)
 **Status:** Aprovado
 **Módulo/Contexto:** Portal do Consultor (Vínculo com Clínicas)
-**Versão:** 1.1.1
+**Versão:** 1.2
 
 > O consultor que deve decidir sobre uma pendência — o consultor atual (pedido de transferência, UC-25) ou o consultor convidado (convite, UC-54) — pode rejeitá-la, com um motivo opcional. A mesma tela, o mesmo diálogo de rejeição e a mesma rota atendem os dois cenários. **Atualização (v1.1):** até a v1.0, esta tela dependia de um pedido `pending` que, na prática, nunca era criado (UC-25 sem gatilho de UI). Ambos os gatilhos (UC-25 e o novo UC-54) foram implementados; a rota passou a resolver "quem rejeita" via `getApproverConsultantId`, a checar expiração (15 dias), e a rejeição de um **convite** passou a notificar a clínica in-app, efeito colateral que não existe para a rejeição de uma transferência. **Atualização (v1.1.1):** a assimetria de confirmação entre Aprovar e Rejeitar (RN-03) deixou de existir — desde o commit `d5d412a`, "Aprovar" (UC-26) também passou a exigir confirmação explícita, através do mesmo componente `ConfirmDialog` reutilizável. A rejeição em si (diálogo próprio, com campo de motivo) não foi alterada por essa correção. Ver Seção 15.
 
@@ -67,6 +67,8 @@ flowchart LR
 - Se o pedido já tiver sido processado (`status !== 'pending'`): nenhuma alteração é feita, erro 400.
 - Se o pedido estiver `pending` mas expirado: nenhuma alteração é feita, erro 400 "Este pedido expirou" (RN-06).
 - Se o pedido, o consultor ou a clínica referenciados não existirem mais: erro 404 (nos pontos aplicáveis).
+- **[Novo em v1.2 — UX-053 corrigido]** Se a leitura da lista de pendências falhar (no acesso à tela ou na releitura depois de rejeitar): nenhum dado é alterado e a falha fica **visível** no lugar das abas, com a orientação sobre o prazo e o botão "Tentar novamente" (fluxo 8f; mesmo comportamento do UC-26, fluxo 8g).
+- **[Observação v1.2]** Se a rejeição falhar, o diálogo permanece aberto (com o motivo digitado) e um toast destrutivo exibe a mensagem do erro (ver Seção 14, item 3 — UX-062).
 
 ---
 
@@ -88,7 +90,7 @@ Consultor aprovador acessa `/consultant/transfer-requests`, aba "Pendentes", cli
    - Se `type === 'invite'`: API cria uma notificação in-app em `tenants/{tenant_id}/notifications` (`type: 'consultant_invite_rejected'`, `action_url: '/clinic/consultant/invite'`), avisando a clínica da recusa. Nenhum e-mail é enviado (não há "solicitante" distinto do aprovador).
    - Se `type === 'transfer'`: API busca os dados do consultor solicitante e enfileira um e-mail informando a rejeição e o motivo (se houver) — comportamento idêntico ao já existente antes desta feature.
 9. Falha ao enfileirar e-mail ou criar notificação é capturada por `try/catch` e apenas logada, sem impedir a resposta de sucesso (mesmo padrão de UC-24/UC-25).
-10. Sistema exibe "Pedido rejeitado", fecha o diálogo e recarrega a lista.
+10. Sistema exibe "Pedido rejeitado", fecha o diálogo e recarrega a lista. **[v1.2]** Se a releitura falhar, a tela vai para o estado de erro do fluxo 8f (a rejeição já concluída não é afetada).
 11. Caso de uso é concluído com sucesso.
 
 ---
@@ -119,6 +121,12 @@ Nenhum identificado além do fluxo principal.
 ### 8e. Pendência expirada (a partir do passo 6)
 1. O documento está `pending`, mas `expires_at` (created_at + 15 dias) já passou.
 2. API retorna 400 ("Este pedido expirou") **sem alterar o documento** — a pendência permanece `pending`/expirada indefinidamente, apenas deixa de ser acionável (RN-06).
+
+### 8f. [Novo em v1.2 — UX-053 corrigido] Falha ao carregar a lista de pendências (a partir do passo 1, ou da releitura do passo 10)
+1. A leitura de `GET /api/consultants/transfer-requests` (a mesma tela e a mesma leitura do UC-26) falha: exceção de rede, status `!ok` ou corpo 2xx ilegível.
+2. No lugar das abas "Pendentes"/"Histórico", sistema exibe o alerta **"Não foi possível carregar os pedidos de transferência"**, com a orientação **"Os pedidos pendentes continuam valendo e têm prazo de resposta. Tente novamente para vê-los."**, um detalhe em pt-BR (`describeLoadError`; o corpo cru de um 500 nunca é exibido) e o botão **"Tentar novamente"**. Nenhum card é exibido, então nenhuma pendência pode ser rejeitada enquanto a tela está em erro; o vazio "Nenhum pedido de transferência pendente" só aparece com leitura bem-sucedida.
+3. A releitura depois de rejeitar (passo 10) usa a mesma leitura: se falhar, a tela vai para este estado de erro, sem manter a lista anterior visível.
+4. "Tentar novamente" repete a leitura; com sucesso, a tela volta às abas. Detalhamento completo no UC-26, fluxo 8g.
 
 ---
 
@@ -163,6 +171,8 @@ Recém-implementado — sem dados de uso em produção ainda. Deixa de ser "nula
 - `src/types/index.ts` (`ConsultantTransferRequest`, `ConsultantTransferRequestStatus`, `ConsultantPendencyType`)
 - `src/types/notification.ts` (`consultant_invite_rejected`)
 - `ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-unificacao-vinculo-transferencia-consultor.md` (spec de implementação)
+- **[v1.2]** Falha de carregamento da lista (fluxo 8f): `transfer-requests/page.tsx` (`loadRequests` com `useAsyncState.run` + `readApiData`; `LoadErrorAlert` no lugar do `<Tabs>`; `handleRejectConfirm`, toast de falha — UX-062); `src/lib/loadErrors.ts`; `src/hooks/useAsyncState.ts`; `src/components/ui/load-error-alert.tsx`; spec `ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-ux-erro-exibido-como-vazio.md` (v1.2, §6.3.2); PRs #421/#422, commit `c053b73`; `_PADRAO-UX.md` v1.1.1 (UX-053 `Corrigido`; UX-062 `Aberto`)
+- **[v1.2] Caderno de teste:** o fluxo 8f é coberto pelo caderno transversal `tests/e2e/_ux-erro-exibido-como-vazio.spec.ts` (cenários 3, 4 e 5). O caderno completo deste UC continua pendente (retroativo, regra 8 do `CLAUDE.md`).
 - Commit da correção equivalente em UC-26: `d5d412a` (`fix(tenant): exige confirmacao para aprovar vinculo de consultor`), PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0 — resolve a assimetria de confirmação registrada aqui em RN-03, sem alterar código deste UC
 
 ---
@@ -171,6 +181,7 @@ Recém-implementado — sem dados de uso em produção ainda. Deixa de ser "nula
 
 1. ~~**[RN-07, herdado do UC-25]** Este UC só passa a ser útil na prática se o gatilho do UC-25 for implementado.~~ **[RESOLVIDO em v1.1]** Gatilho de UC-25 implementado, e novo gatilho de UC-54 (convite) adicionado.
 2. ~~**[RN-03]** Vale avaliar se a assimetria de confirmação entre Aprovar (sem diálogo) e Rejeitar (com diálogo) é intencional ou um descuido de UX — a ação de aprovar (mais impactante) hoje tem menos fricção que a de rejeitar. Ainda em aberto, inalterado por esta feature.~~ **[RESOLVIDO no commit `d5d412a` — UC-26-RN-01]** Aprovar passou a exigir confirmação explícita também, eliminando a assimetria. Nenhuma alteração de código foi necessária neste UC-27 — a resolução ocorreu inteiramente do lado de UC-26.
+3. **[Observação, v1.2 — UX-062, `Aberto`]** Quando a rejeição falha, `handleRejectConfirm` faz `throw new Error(data.error || 'Erro ao rejeitar')` e o toast destrutivo exibe `error.message` de qualquer status: no 500 da rota (`reject/route.ts`, que devolve `error.message` do Admin SDK), o texto cru, possivelmente em inglês; numa falha de rede, "Failed to fetch". As mensagens de negócio em pt-BR dos 4xx (ex.: "Pedido já foi processado", "Este pedido expirou") continuam corretas. Correção sugerida no `_PADRAO-UX.md` (UX-062): título fixo em pt-BR e detalhe via `describeLoadError`, mostrando a mensagem do servidor só em 4xx ≠ 401; no servidor, mensagem genérica no 500 das rotas `src/app/api/consultants/**`, como no `UC-37-RN-06`. Registrado como observação, sem decisão de produto pendente neste UC.
 
 ---
 
@@ -181,3 +192,4 @@ Recém-implementado — sem dados de uso em produção ainda. Deixa de ser "nula
 | 1.0 | 14/07/2026 | Guilherme Scandelari | Versão inicial, investigada do zero. Fluxo de rejeição documentado como a operação mais simples e segura do módulo (sem batch, sem custom claims — RN-01), mas dependente do mesmo gatilho ausente identificado no UC-25 (RN-04). Identificada uma assimetria de UX entre Aprovar (sem confirmação) e Rejeitar (com diálogo de confirmação e motivo) — RN-03. Último dos 4 UCs do módulo "Consultor — vínculo com clínicas" (UC-24 a UC-27). |
 | 1.1 | 13/08/2026 | Guilherme Scandelari (via uml-use-case-writer) | Revisão pós-implementação de `feature/consultor-vinculo-convite-transferencia`: a rota e a tela passam a tratar dois tipos de pendência (`transfer` e o novo `invite`, criado por UC-54), com a resolução de "quem rejeita" centralizada em `getApproverConsultantId`; pendências expiradas (15 dias) passam a ser rejeitadas com 400, sem alteração do documento (novo RN-06); a rejeição de um **convite** passa a gerar notificação in-app para a clínica (novo RN-04), enquanto a rejeição de uma **transferência** permanece sem notificar a clínica, comportamento herdado (novo RN-05). RN-01 ganhou nuance sobre a escrita adicional condicional. Ator primário generalizado para "consultor aprovador"; título do diagrama, atores, pré/pós-condições, gatilho e fluxo principal atualizados. Antiga RN-04 (dependência de UC-25) renumerada para RN-07 e marcada como resolvida. Frequência de uso deixa de ser "nula". |
 | 1.1.1 | 04/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Fechamento de RN-03 (severidade Baixa) como efeito colateral da correção aplicada em UC-26, commit `d5d412a`, PR #355 (branch `chore/patch-10-correcoes-baixa-severidade-2`), release v1.11.0.** Nenhuma alteração de código foi feita neste UC-27 — a assimetria de confirmação entre Aprovar e Rejeitar foi resolvida inteiramente do lado de UC-26 (RN-01), que passou a usar o componente `ConfirmDialog` antes de aprovar. Atualizados resumo do cabeçalho, Fluxo Principal (passo 3, nota sobre a resolução da assimetria), RN-03 (marcada `[RESOLVIDO]`), Casos de Uso Relacionados (Seção 12), Referências (Seção 13) e item 2 da Seção 14 (marcado `[RESOLVIDO]`). |
+| 1.2 | 26/10/2026 | Guilherme Scandelari (via uml-use-case-writer) | **Atualização as-is: lote "erro exibido como estado vazio" (UX-053 corrigido; spec `TASK_COMPLETED/BUGFIX-ux-erro-exibido-como-vazio.md` v1.2, §6.3.2; PRs #421 → `gscandelari_setup` e #422 → `develop`, merge `8bd8c7a`, commit `c053b73`; validação manual do usuário reportada como "validado"; sinalização do `_PADRAO-UX.md` v1.1.1 §8(b)).** Novo fluxo de exceção 8f (falha ao carregar a lista de pendências: alerta no lugar das abas, orientação sobre o prazo, "Tentar novamente"; a releitura depois de rejeitar que falha leva ao mesmo estado de erro; detalhado no UC-26, fluxo 8g). §4.2: falha da lista visível e observação de que o diálogo permanece aberto quando a rejeição falha. Passo 10 do Fluxo Principal cita o fluxo 8f. §13: referências do código e do caderno transversal `tests/e2e/_ux-erro-exibido-como-vazio.spec.ts` (cenários 3, 4 e 5). §14: nova observação 3 sobre o UX-062 (toast de falha ao rejeitar com a mensagem crua do 500). Fonte: leitura de `transfer-requests/page.tsx`, `loadErrors.ts`, `useAsyncState.ts`, `load-error-alert.tsx` e do caderno no `develop` `8bd8c7a`. |

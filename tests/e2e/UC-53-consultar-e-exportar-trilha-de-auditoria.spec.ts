@@ -8,7 +8,7 @@ import { TEST_PASSWORD, TEST_TENANTS, TEST_USERS } from './fixtures/seed-data';
 /**
  * Cobertura (Modo A/B) de:
  * - `ONLY_FOR_DEVS/PO_BA_Docs/UC-53-consultar-e-exportar-trilha-de-auditoria.md` (v1.0)
- * - `ONLY_FOR_DEVS/TO_DO/FEAT-trilha-de-auditoria-consultar-exportar.md` (Seção 6.3 e Step 15)
+ * - `ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-trilha-de-auditoria-consultar-exportar.md` (Seção 6.3 e Step 15)
  *
  * Cenários: (1) escrita instrumentada real (edição de clínica pela UI) gera entrada visível;
  * (2) visão System Admin unificada e cross-tenant vs. Clinic Admin restrito ao próprio tenant

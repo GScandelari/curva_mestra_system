@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { LayoutDashboard, Building2, Search, ArrowRight, Copy, TrendingDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { readApiData, resolveLoadView } from '@/lib/loadErrors';
+import { LoadErrorAlert, UnavailableValue } from '@/components/ui/load-error-alert';
 import {
   getReplenishmentProjections,
   countProjectionsWithinHorizon,
@@ -26,55 +30,79 @@ export default function ConsultantDashboardPage() {
   const { toast } = useToast();
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [clinics, setClinics] = useState<ClinicSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [projectionsCount, setProjectionsCount] = useState<number | null>(null);
   const [loadingProjections, setLoadingProjections] = useState(true);
 
-  const loadDashboardData = useCallback(async () => {
+  // UX-051: perfil e clínicas carregam de forma independente, cada um com o
+  // próprio erro — a falha de um não esconde o outro nem vira estado vazio.
+  const profile = useAsyncState();
+  const clinicsLoad = useAsyncState();
+  const runProfile = profile.run;
+  const runClinics = clinicsLoad.run;
+  // refreshClaims muda de identidade a cada render; via ref não reinicia a leitura.
+  const refreshClaimsRef = useRef(refreshClaims);
+  refreshClaimsRef.current = refreshClaims;
+
+  const loadProfile = useCallback(() => {
+    if (!user || !consultantId) return;
+    void runProfile(
+      async ({ isCurrent }) => {
+        const token = await user.getIdToken();
+        const res = await fetch(`/api/consultants/${consultantId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await readApiData<Consultant>(res);
+        if (isCurrent()) setConsultant(data ?? null);
+      },
+      'Erro ao carregar perfil do consultor:',
+      'Não foi possível carregar seu código de consultor'
+    );
+  }, [user, consultantId, runProfile]);
+
+  const loadClinics = useCallback(async () => {
     if (!user) return;
-
-    try {
-      setLoading(true);
-      const token = await user.getIdToken();
-
-      // Load consultant profile
-      const consultantRes = await fetch(`/api/consultants/${consultantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const consultantData = await consultantRes.json();
-      if (consultantRes.ok) {
-        setConsultant(consultantData.data);
-      }
-
-      // Load clinics
-      const clinicsRes = await fetch('/api/consultants/me/clinics', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const clinicsData = await clinicsRes.json();
-      if (clinicsRes.ok) {
-        setClinics(clinicsData.data || []);
-        await refreshClaims();
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    } finally {
-      setLoading(false);
+    let loaded = false;
+    await runClinics(
+      async ({ isCurrent }) => {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/consultants/me/clinics', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await readApiData<ClinicSummary[]>(res);
+        if (!isCurrent()) return;
+        setClinics(data ?? []);
+        loaded = true;
+      },
+      'Erro ao carregar clínicas:',
+      'Não foi possível carregar suas clínicas'
+    );
+    // Sincroniza vínculos só após leitura bem-sucedida; falha aqui não é erro de carregamento.
+    if (loaded) {
+      refreshClaimsRef.current().catch((e) => console.error('Erro ao sincronizar vínculos:', e));
     }
-    // refreshClaims e toast são omitidos das deps: não são refs estáveis em useAuth/useToast
-    // e não afetam quando o carregamento deve ser re-executado (apenas user/consultantId determinam isso)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, consultantId]);
+  }, [user, runClinics]);
 
   useEffect(() => {
-    if (user && consultantId) {
-      void loadDashboardData();
-    }
-  }, [user, consultantId, loadDashboardData]);
+    loadProfile();
+  }, [loadProfile]);
+
+  useEffect(() => {
+    void loadClinics();
+  }, [loadClinics]);
+
+  const clinicsView = resolveLoadView({
+    loading: clinicsLoad.loading,
+    error: !!clinicsLoad.error,
+    isEmpty: clinics.length === 0,
+  });
+  const clinicsReady = clinicsView === 'ready' || clinicsView === 'empty';
 
   // Projeção de reposição (UC-52) — agrega a contagem de todas as clínicas
   // vinculadas ativas (RF-03/RNF-02). Falha em uma clínica individual não
   // deve derrubar o card inteiro: soma as demais e loga a falha parcial.
+  // Só calcula depois que as clínicas foram lidas: com erro, o card fica "Indisponível".
   useEffect(() => {
+    if (!clinicsReady) return;
     const activeClinics = clinics.filter((c) => c.active);
     if (activeClinics.length === 0) {
       setProjectionsCount(clinics.length === 0 ? null : 0);
@@ -105,7 +133,7 @@ export default function ConsultantDashboardPage() {
         setLoadingProjections(false);
       }
     );
-  }, [clinics, toast]);
+  }, [clinics, clinicsReady, toast]);
 
   const copyCode = () => {
     if (consultant?.code) {
@@ -114,15 +142,8 @@ export default function ConsultantDashboardPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container py-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600"></div>
-        </div>
-      </div>
-    );
-  }
+  const firstName = consultant?.name?.split(' ')[0];
+  const clinicsUnavailable = clinicsView === 'error';
 
   return (
     <div className="container py-8">
@@ -134,32 +155,50 @@ export default function ConsultantDashboardPage() {
             Dashboard
           </h1>
           <p className="text-muted-foreground">
-            Bem-vindo ao Portal do Consultor, {consultant?.name?.split(' ')[0]}
+            {firstName
+              ? `Bem-vindo ao Portal do Consultor, ${firstName}`
+              : 'Bem-vindo ao Portal do Consultor'}
           </p>
         </div>
 
         {/* Consultant Code Card */}
-        <Card className="bg-gradient-to-r from-sky-500 to-sky-600 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sky-100 text-sm mb-1">Seu código de consultor</p>
-                <p className="text-4xl font-bold font-mono tracking-widest">{consultant?.code}</p>
-                <p className="text-sky-100 text-sm mt-2">
-                  Compartilhe este código com as clínicas para vincular-se
-                </p>
+        {profile.error && !profile.loading ? (
+          <LoadErrorAlert
+            title="Não foi possível carregar seu código de consultor"
+            detail={profile.errorDetail}
+            onRetry={loadProfile}
+          />
+        ) : (
+          <Card className="bg-gradient-to-r from-sky-500 to-sky-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sky-100 text-sm mb-1">Seu código de consultor</p>
+                  {profile.loading ? (
+                    <Skeleton className="h-10 w-40 bg-white/30" />
+                  ) : (
+                    <p className="text-4xl font-bold font-mono tracking-widest">
+                      {consultant?.code}
+                    </p>
+                  )}
+                  <p className="text-sky-100 text-sm mt-2">
+                    Compartilhe este código com as clínicas para vincular-se
+                  </p>
+                </div>
+                {consultant?.code && !profile.loading && (
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={copyCode}
+                    className="bg-white/20 hover:bg-white/30 text-white"
+                  >
+                    <Copy className="h-5 w-5" />
+                  </Button>
+                )}
               </div>
-              <Button
-                variant="secondary"
-                size="icon"
-                onClick={copyCode}
-                className="bg-white/20 hover:bg-white/30 text-white"
-              >
-                <Copy className="h-5 w-5" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Grid */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -169,10 +208,18 @@ export default function ConsultantDashboardPage() {
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{clinics.length}</div>
-              <p className="text-xs text-muted-foreground">
-                {clinics.filter((c) => c.active).length} ativas
-              </p>
+              {clinicsView === 'loading' ? (
+                <Skeleton className="h-8 w-16" />
+              ) : clinicsUnavailable ? (
+                <UnavailableValue />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{clinics.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {clinics.filter((c) => c.active).length} ativas
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -200,7 +247,9 @@ export default function ConsultantDashboardPage() {
               <TrendingDown className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loadingProjections ? (
+              {clinicsUnavailable ? (
+                <UnavailableValue />
+              ) : loadingProjections ? (
                 <div className="text-sm text-muted-foreground">Carregando...</div>
               ) : (
                 <>
@@ -233,7 +282,20 @@ export default function ConsultantDashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {clinics.length === 0 ? (
+            {clinicsView === 'loading' ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : clinicsView === 'error' ? (
+              <LoadErrorAlert
+                title="Não foi possível carregar suas clínicas"
+                description="Seus vínculos não foram alterados. Tente novamente antes de buscar ou pedir vínculo com uma clínica."
+                detail={clinicsLoad.errorDetail}
+                onRetry={loadClinics}
+              />
+            ) : clinicsView === 'empty' ? (
               <div className="text-center py-8">
                 <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">
