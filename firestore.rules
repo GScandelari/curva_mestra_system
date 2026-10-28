@@ -374,6 +374,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Rate limit de "Esqueci minha senha" (apenas Admin SDK, via
+    // POST /api/auth/forgot-password)
+    match /password_reset_rate_limits/{key} {
+      allow read, write: if false;
+    }
+
     // Templates de e-mail (UC-55) -- coleção e subcoleção `versions`, 100%
     // mediadas por Admin SDK (API routes /api/email-templates/**). A escrita
     // direta via client foi descartada (Opção A da spec): a validação de
