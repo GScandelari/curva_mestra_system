@@ -5,6 +5,32 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.17.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.16.0...v1.17.0) (2026-10-28)
+
+
+### Features
+
+* **auth:** add password toggle to login, change and reset screens ([5dd59cb](https://github.com/GScandelari/curva_mestra_system/commit/5dd59cbe75ef9513bdf043f7cd1aab478ab4b910))
+* **ui:** add password toggle to admin and clinic profile forms ([f6890cc](https://github.com/GScandelari/curva_mestra_system/commit/f6890ccf31642edc1249c27daa294458edca9abd))
+* **ui:** add PasswordInput with accessible show/hide toggle ([17325de](https://github.com/GScandelari/curva_mestra_system/commit/17325deb32f5ebe5f89ac4852654235e7bf005e6))
+* **ui:** add show/hide password toggle to user creation dialogs ([e1f57d5](https://github.com/GScandelari/curva_mestra_system/commit/e1f57d54555120bc350cb2f5b0d3c6cc1beff97b))
+
+
+### Bug Fixes
+
+* **admin:** add pure helpers for global settings load and save guards ([9368743](https://github.com/GScandelari/curva_mestra_system/commit/93687432c9967fbff4cac5de1b816605ab3dd03a))
+* **admin:** block settings form and save when global settings fail to load ([8c6de84](https://github.com/GScandelari/curva_mestra_system/commit/8c6de8422cdf645da5c60210378e913c6e330a85))
+* **admin:** replace unlabeled password toggles with PasswordInput ([a4b4e37](https://github.com/GScandelari/curva_mestra_system/commit/a4b4e373022326a6843bf240c401352bdb4d9db5))
+* **admin:** save global settings in a transaction with concurrent change check ([7c68db8](https://github.com/GScandelari/curva_mestra_system/commit/7c68db89840571e05dce9a54422283925f2def09))
+* **admin:** show load error instead of empty state in users list ([c9e74ac](https://github.com/GScandelari/curva_mestra_system/commit/c9e74ac9bd0ee8a44767e990ca790b2d0efd493a))
+* **admin:** show pt-BR messages instead of raw firebase errors in settings ([6e48abf](https://github.com/GScandelari/curva_mestra_system/commit/6e48abff26c3967fbc6084e854991fda5e3a224a))
+* **dashboard:** show load errors in consultant clinics and dashboard ([53152b8](https://github.com/GScandelari/curva_mestra_system/commit/53152b846cc72a801b0d726387cda58f014edf11))
+* **dashboard:** show per-block load errors in clinic dashboard ([c518149](https://github.com/GScandelari/curva_mestra_system/commit/c518149a38d617f142e609e7d387022359745b9c))
+* **requests:** show load error instead of empty state in procedures list ([aa03fba](https://github.com/GScandelari/curva_mestra_system/commit/aa03fba1a0ad0e5ca988b25c9b9dae6f0807a365))
+* **requests:** show load error instead of empty transfer requests list ([c053b73](https://github.com/GScandelari/curva_mestra_system/commit/c053b73712f53978daf99294d818b8d848683894))
+* **ui:** add shared load error helpers, alert and async state guard ([0ae4f45](https://github.com/GScandelari/curva_mestra_system/commit/0ae4f45c3fd1bb5f3bda68235511abede1b763b6))
+* **ui:** mark unawaited load promises as void and readonly alert props ([d43f15b](https://github.com/GScandelari/curva_mestra_system/commit/d43f15bb683a7bc99035d5109ff11ed00e643d90))
+
 ## [1.16.0](https://github.com/GScandelari/curva_mestra_system/compare/v1.15.0...v1.16.0) (2026-10-19)
 
 
