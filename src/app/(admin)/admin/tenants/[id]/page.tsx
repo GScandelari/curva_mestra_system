@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { auth } from '@/lib/firebase';
@@ -26,7 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { getTenant, updateTenant } from '@/lib/services/tenantServiceDirect';
-import { validateEmail, validatePassword } from '@/lib/validations/serverValidations';
+import { validateEmail } from '@/lib/validations/serverValidations';
 import { writeAuditLog } from '@/lib/services/auditLogService';
 import {
   SuspendTenantDialog,
@@ -81,7 +80,6 @@ export default function EditTenantPage() {
   // Estado para modal de adicionar usuário
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'clinic_admin' | 'clinic_user'>('clinic_user');
   const [creatingUser, setCreatingUser] = useState(false);
@@ -206,7 +204,8 @@ export default function EditTenantPage() {
   const handleCreateUser = async () => {
     // Nenhum campo deste dialogo tinha validacao client-side -- toda a
     // validacao dependia do backend, que tambem nao valida formato de email
-    // nem comprimento minimo de senha explicitamente (UC-39-RN-01).
+    // explicitamente (UC-39-RN-01). Senha não é mais definida aqui: o usuário
+    // recebe o link de primeiro acesso por e-mail.
     if (!newUserName.trim()) {
       setError('Nome completo é obrigatório');
       return;
@@ -215,12 +214,6 @@ export default function EditTenantPage() {
     const emailValidation = validateEmail(newUserEmail);
     if (!emailValidation.valid) {
       setError(emailValidation.error || 'Email inválido');
-      return;
-    }
-
-    const passwordValidation = validatePassword(newUserPassword, { minLength: 6 });
-    if (!passwordValidation.valid) {
-      setError(passwordValidation.error || 'Senha inválida');
       return;
     }
 
@@ -239,7 +232,6 @@ export default function EditTenantPage() {
         },
         body: JSON.stringify({
           email: newUserEmail,
-          password: newUserPassword,
           displayName: newUserName,
           role: newUserRole,
           // Para system_admin, enviar tenant_id manualmente
@@ -257,7 +249,6 @@ export default function EditTenantPage() {
 
       // Limpar formulário
       setNewUserEmail('');
-      setNewUserPassword('');
       setNewUserName('');
       setNewUserRole('clinic_user');
       setShowAddUserDialog(false);
@@ -768,9 +759,9 @@ export default function EditTenantPage() {
           <DialogHeader>
             <DialogTitle>Adicionar Novo Usuário</DialogTitle>
             <DialogDescription>
-              Crie um novo usuário para esta clínica. A senha definida aqui não é enviada por e-mail
-              — comunique-a ao usuário por fora do sistema. Ele será solicitado a trocá-la no
-              primeiro acesso.
+              Crie um novo usuário para esta clínica. O usuário receberá por e-mail um link para
+              definir a própria senha. O link vale por 72 horas e só pode ser aberto uma vez; se
+              expirar, ele pode usar "Esqueci minha senha" na tela de login.
             </DialogDescription>
           </DialogHeader>
 
@@ -795,18 +786,6 @@ export default function EditTenantPage() {
                 onChange={(e) => setNewUserEmail(e.target.value)}
                 placeholder="usuario@exemplo.com"
                 disabled={creatingUser}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="newUserPassword">Senha</Label>
-              <PasswordInput
-                id="newUserPassword"
-                value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                disabled={creatingUser}
-                autoComplete="new-password"
               />
             </div>
 

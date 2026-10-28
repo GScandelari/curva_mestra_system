@@ -6,7 +6,11 @@
  */
 
 import * as admin from 'firebase-admin';
-import { renderTemplate } from '../emailTemplateRendering';
+import {
+  renderStoredEmailTemplate,
+  resolveAppBaseUrl,
+  type StoredEmailTemplate,
+} from '../emailLayout';
 
 export async function getRenderedEmailTemplate(
   tipo: string,
@@ -33,9 +37,15 @@ export async function getRenderedEmailTemplate(
     throw new Error(`Template de e-mail "${tipo}" não encontrado em email_templates`);
   }
 
-  const data = snap.data() as { subject: string; body: string };
-  return {
-    subject: renderTemplate(data.subject, variables),
-    html: renderTemplate(data.body, variables),
-  };
+  return renderStoredEmailTemplate({
+    tipo,
+    template: snap.data() as StoredEmailTemplate,
+    variables,
+    // APP_BASE_URL opcional; senão, mapeia pelo projeto (prod/dev).
+    getBaseUrl: () =>
+      resolveAppBaseUrl({
+        explicitBaseUrl: process.env.APP_BASE_URL,
+        projectId: process.env.GCLOUD_PROJECT,
+      }),
+  });
 }

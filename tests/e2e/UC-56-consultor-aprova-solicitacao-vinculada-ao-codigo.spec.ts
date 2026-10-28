@@ -198,7 +198,9 @@ test.describe('UC-56 — Consultor Aprova Solicitação de Acesso Vinculada ao S
         .limit(1)
         .get();
       expect(emailSnap.empty).toBe(false);
-      expect(emailSnap.docs[0].data().body).toContain('mode=resetPassword');
+      // Link de primeiro acesso do Curva Mestra, não o nativo do Firebase.
+      expect(emailSnap.docs[0].data().body).toMatch(/\/reset-password\/[0-9a-f]{64}/);
+      expect(emailSnap.docs[0].data().body).not.toContain('mode=resetPassword');
     });
   });
 

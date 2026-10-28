@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { test, expect } from '@playwright/test';
 import { Timestamp } from 'firebase-admin/firestore';
 import { loginAs } from './helpers/auth';
@@ -234,9 +235,21 @@ test.describe('UC-02 — Aprovar Solicitação de Acesso', () => {
       expect(emailDoc.status).toBe('pending');
       expect(emailDoc.metadata.tenant_id).toBe(tenant_id);
       expect(emailDoc.metadata.user_id).toBe(user_id);
-      // RN-03: o link real de definição de senha (generatePasswordResetLink)
-      // foi gerado para o usuário criado sem senha — não o fallback de /login.
-      expect(emailDoc.body).toContain('mode=resetPassword');
+      // RN-03: o link de primeiro acesso do Curva Mestra (72 h, uso único)
+      // foi gerado para o usuário criado sem senha — não o link nativo do
+      // Firebase (mode=resetPassword) nem o fallback de /login.
+      expect(emailDoc.body).toMatch(/\/reset-password\/[0-9a-f]{64}/);
+      expect(emailDoc.body).not.toContain('mode=resetPassword');
+      expect(emailDoc.body).toContain('/email/v1/banner-welcome-approval.png');
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update(emailDoc.body.match(/reset-password\/([0-9a-f]{64})/)[1])
+        .digest('hex');
+      const tokenSnap = await db
+        .collection('password_reset_tokens')
+        .where('token_hash', '==', tokenHash)
+        .get();
+      expect(tokenSnap.docs[0]?.data()).toMatchObject({ purpose: 'first_access', user_id });
     });
 
     test('System Admin aprova solicitação de consultor: cria tenant com max_users=1 (RN-02)', async ({

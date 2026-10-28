@@ -50,6 +50,11 @@ jest.mock('../lib/firebase-admin', () => ({
   getAdminFirestore: () => ({ collection: (name: string) => makeCollection(name) }),
 }));
 
+const mockSendFirstAccessEmail = jest.fn().mockResolvedValue(true);
+jest.mock('../lib/services/firstAccessEmail', () => ({
+  sendFirstAccessEmail: (...a: unknown[]) => mockSendFirstAccessEmail(...a),
+}));
+
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: () => 'SERVER_TS', delete: () => 'DELETE_FIELD' },
 }));
@@ -186,13 +191,16 @@ describe('POST /api/users/create', () => {
       req('POST', {
         email: 'n@x.com',
         displayName: 'Novo',
-        password: 'Senha123',
         role: 'clinic_user',
         tenant_id_override: 't-1',
       })
     );
 
     expect(res.status).toBe(201);
+    expect(mockCreateUser.mock.calls[0][0]).not.toHaveProperty('password');
+    expect(mockSendFirstAccessEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: 'generic_user_welcome', userId: 'new-uid', tenantId: 't-1' })
+    );
     expect(mockAuditAdd.mock.calls[0][0]).toMatchObject({
       tenant_id: 't-1',
       entity_type: 'user',
@@ -214,7 +222,6 @@ describe('POST /api/users/create', () => {
       req('POST', {
         email: 'n@x.com',
         displayName: 'Novo',
-        password: 'Senha123',
         role: 'clinic_user',
       })
     );
@@ -235,7 +242,6 @@ describe('POST /api/users/create', () => {
       req('POST', {
         email: 'n@x.com',
         displayName: 'Novo',
-        password: 'Senha123',
         role: 'clinic_user',
         tenant_id_override: 't-1',
       })

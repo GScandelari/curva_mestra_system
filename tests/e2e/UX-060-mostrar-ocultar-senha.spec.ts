@@ -73,7 +73,10 @@ import { TEST_PASSWORD, TEST_TENANTS, TEST_USERS } from './fixtures/seed-data';
  * A3. Cenário 9: o token é escrito direto em `password_reset_tokens` (formato
  *     de `createPasswordResetToken`, igual ao UC-08 8d, mas com
  *     `expires_at = agora + 30 min`) e o documento é apagado no `afterEach`.
- *     Há asserção via Admin SDK de que o token continua sem `used_at`.
+ *     Há asserção via Admin SDK de que o token continua sem `used_at`. O token
+ *     fica no formato legado (sem `purpose`) de propósito: continua aceito
+ *     como redefinição depois do layout novo (RN-02 da
+ *     FEAT-padronizacao-emails-e-links-de-senha).
  * A4. Cenário 10: o botão "Adicionar Usuário" de UsersTab fica desabilitado
  *     quando a clínica atinge `max_users` (5 no seed de clinicA). Se outros
  *     specs da suíte criarem usuários em clinicA o bastante para atingir o
@@ -451,7 +454,12 @@ test.describe('UX-060 — Mostrar/ocultar senha em todos os campos de senha', ()
   });
 
   test.describe('Diálogos de criação de usuário (UC-40, UC-39)', () => {
-    test('cenário 10 — clínica: olho no campo de senha, autocomplete new-password e reinício ao reabrir (UC-40, STEP 8 #11)', async ({
+    // FEAT-padronizacao-emails-e-links-de-senha: os diálogos de criação não
+    // pedem mais senha — o usuário a define pelo link de primeiro acesso.
+    // Os cenários 10 e 11 passam a garantir que não sobrou campo de senha.
+    const FIRST_ACCESS_HINT = 'O usuário receberá por e-mail um link para definir a própria senha.';
+
+    test('cenário 10 — clínica: diálogo de novo usuário sem campo de senha (UC-40)', async ({
       page,
     }) => {
       await loginAs(page, CLINIC_ADMIN_A_CREDENTIALS, '/clinic/dashboard');
@@ -463,25 +471,12 @@ test.describe('UX-060 — Mostrar/ocultar senha em todos os campos de senha', ()
       await openButton.click();
       const dialog = page.getByRole('dialog', { name: 'Adicionar Novo Usuário' });
       await expect(dialog).toBeVisible();
-      await expectEveryPasswordFieldHasToggle(page, dialog);
-
-      await expect(field(page, 'password')).toHaveAttribute('autocomplete', 'new-password');
-      await field(page, 'password').fill(DUMMY_VALUE);
-      await expectToggle(page, 'password');
-
-      // RF-05: revelar, fechar com Esc e reabrir → volta oculto.
-      await toggle(page, 'password').click();
-      await expectVisible(page, 'password');
-      await page.keyboard.press('Escape');
-      await expect(dialog).toBeHidden();
-
-      await openButton.click();
-      await expect(dialog).toBeVisible();
-      await expectHidden(page, 'password');
+      await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
+      await expect(dialog.getByText(FIRST_ACCESS_HINT)).toBeVisible();
       // "Criar Usuário" nunca é clicado.
     });
 
-    test('cenário 11 — admin no detalhe da clínica: olho no campo de senha do novo usuário (UC-39, STEP 8 #12)', async ({
+    test('cenário 11 — admin no detalhe da clínica: diálogo de novo usuário sem campo de senha (UC-39)', async ({
       page,
     }) => {
       await loginAs(page, SYSTEM_ADMIN_CREDENTIALS, '/admin/dashboard');
@@ -492,11 +487,8 @@ test.describe('UX-060 — Mostrar/ocultar senha em todos os campos de senha', ()
       await openButton.click();
       const dialog = page.getByRole('dialog', { name: 'Adicionar Novo Usuário' });
       await expect(dialog).toBeVisible();
-      await expectEveryPasswordFieldHasToggle(page, dialog);
-
-      await expect(field(page, 'newUserPassword')).toHaveAttribute('autocomplete', 'new-password');
-      await field(page, 'newUserPassword').fill(DUMMY_VALUE);
-      await expectToggle(page, 'newUserPassword');
+      await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
+      await expect(dialog.getByText(FIRST_ACCESS_HINT)).toBeVisible();
     });
   });
 

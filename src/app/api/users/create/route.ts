@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
+import { sendFirstAccessEmail } from '@/lib/services/firstAccessEmail';
+import { getRoleName } from '@/lib/formatters';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Parse do body ANTES de determinar tenant_id
     const body = await request.json();
-    const { email, displayName, password, role, tenant_id_override } = body;
+    const { email, displayName, role, tenant_id_override } = body;
 
     // Para system_admin, usar tenant_id_override
     // Para clinic_admin, usar tenant_id do token
@@ -45,9 +47,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar campos obrigatórios
-    if (!email || !displayName || !password || !role) {
+    if (!email || !displayName || !role) {
       return NextResponse.json(
-        { error: 'Campos obrigatórios: email, displayName, password, role' },
+        { error: 'Campos obrigatórios: email, displayName, role' },
         { status: 400 }
       );
     }
@@ -102,10 +104,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Criar usuário no Firebase Auth
+    // Criar usuário no Firebase Auth, sem senha: o próprio usuário a define
+    // pelo link de primeiro acesso enviado por e-mail.
     const userRecord = await adminAuth.createUser({
       email,
-      password,
       displayName,
       emailVerified: false,
     });
@@ -116,7 +118,6 @@ export async function POST(request: NextRequest) {
       role: role,
       active: true,
       is_system_admin: false,
-      requirePasswordChange: true,
     });
 
     // Criar documento do usuário no Firestore (coleção raiz users)
@@ -127,12 +128,27 @@ export async function POST(request: NextRequest) {
       role,
       active: true,
       tenant_id: tenantId,
-      requirePasswordChange: true,
+      // O e-mail de boas-vindas sai abaixo, com o link de primeiro acesso.
+      skip_welcome_email: true,
       created_at: new Date(),
       updated_at: new Date(),
     };
 
     await adminDb.collection('users').doc(userRecord.uid).set(userDoc);
+
+    await sendFirstAccessEmail({
+      tipo: 'generic_user_welcome',
+      userId: userRecord.uid,
+      email,
+      createdBy: decodedToken.uid,
+      tenantId,
+      variables: (firstAccessLink) => ({
+        displayName,
+        role: getRoleName(role),
+        email,
+        firstAccessLink,
+      }),
+    });
 
     await writeAuditLogAdmin({
       tenant_id: tenantId,
@@ -171,13 +187,6 @@ export async function POST(request: NextRequest) {
 
     if (error.code === 'auth/invalid-email') {
       return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
-    }
-
-    if (error.code === 'auth/weak-password') {
-      return NextResponse.json(
-        { error: 'Senha muito fraca. Use pelo menos 6 caracteres' },
-        { status: 400 }
-      );
     }
 
     return NextResponse.json({ error: 'Erro ao criar usuário. Tente novamente.' }, { status: 500 });

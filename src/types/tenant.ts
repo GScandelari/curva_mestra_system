@@ -48,7 +48,6 @@ export interface CreateTenantData {
   admin_name?: string;
   admin_email?: string;
   admin_phone?: string;
-  temp_password?: string;
   // NOVO: configuração de e-mail de boas-vindas
   welcome_email?: {
     subject: string;

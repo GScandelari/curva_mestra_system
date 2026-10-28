@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic';
  * POST /api/auth/reset-password
  *
  * Consome o token e atualiza a senha do usuário
- * Body: { token: string, new_password: string }
+ * Body: { token: string, new_password: string, session?: string }
+ * `session` é obrigatória para link de primeiro acesso (POST password-token/open)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,7 +16,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, new_password } = await request.json();
+    const { token, new_password, session } = await request.json();
 
     // Validar parâmetros
     if (!token) {
@@ -38,18 +39,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Consumir token (verifica validade e marca como usado)
-    const consumeResult = await consumeToken(token);
+    const consumeResult = await consumeToken(
+      token,
+      typeof session === 'string' ? session : undefined
+    );
 
     if (!consumeResult.success) {
-      return NextResponse.json({ success: false, error: consumeResult.error }, { status: 400 });
+      return NextResponse.json(
+        { success: false, reason: consumeResult.reason, error: consumeResult.error },
+        { status: consumeResult.reason ? 400 : 500 }
+      );
     }
 
     const userId = consumeResult.userId!;
     const userEmail = consumeResult.userEmail!;
 
-    // Atualizar senha no Firebase Auth
+    // Atualizar senha no Firebase Auth. Quem recebeu o link no e-mail
+    // comprovou a posse do endereço.
     await adminAuth.updateUser(userId, {
       password: new_password,
+      emailVerified: true,
     });
 
     // Remover flag de requirePasswordChange se existir

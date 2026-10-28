@@ -114,6 +114,9 @@ export default defineConfig({
       NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '000000000000',
       NEXT_PUBLIC_FIREBASE_APP_ID: '1:000000000000:web:0000000000000000000000',
       FIREBASE_ADMIN_CREDENTIALS: FAKE_ADMIN_CREDENTIALS,
+      // Base dos links de senha e imagens de e-mail (resolveAppBaseUrl) --
+      // o projeto demo não tem domínio mapeado.
+      PLAYWRIGHT_BASE_URL: BASE_URL,
     },
   },
 });

@@ -17,7 +17,6 @@ jest.mock('../lib/firebase-admin', () => {
     adminAuth: {
       createUser: (...a: unknown[]) => mockCreateUser(...a),
       setCustomUserClaims: jest.fn().mockResolvedValue(undefined),
-      generatePasswordResetLink: jest.fn().mockResolvedValue('https://link'),
       verifyIdToken: (...a: unknown[]) => mockVerifyIdToken(...a),
     },
     adminDb: {
@@ -45,8 +44,8 @@ jest.mock('../lib/firebase-admin', () => {
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: () => 'TS', arrayUnion: (v: string) => ({ arrayUnion: v }) },
 }));
-jest.mock('../lib/services/emailTemplateAdmin', () => ({
-  enqueueTemplatedEmail: (...a: unknown[]) => mockEnqueue(...a),
+jest.mock('../lib/services/firstAccessEmail', () => ({
+  sendFirstAccessEmail: (...a: unknown[]) => mockEnqueue(...a),
 }));
 jest.mock('../lib/services/consultantClaimsSync', () => ({
   syncConsultantAuthorizedTenants: jest.fn().mockResolvedValue(undefined),
@@ -86,7 +85,7 @@ beforeEach(() => {
   mockTenantsAdd.mockResolvedValue({ id: 'tenant-novo' });
   mockCreateUser.mockResolvedValue({ uid: 'user-novo' });
   mockConsultantGet.mockResolvedValue({ exists: false, data: () => undefined });
-  mockEnqueue.mockResolvedValue(undefined);
+  mockEnqueue.mockResolvedValue(true);
   jest.spyOn(console, 'log').mockImplementation(() => {});
   jest.spyOn(console, 'warn').mockImplementation(() => {});
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -150,7 +149,12 @@ describe('createTenantAndUserFromAccessRequest — nome', () => {
     const r = await createTenantAndUserFromAccessRequest(consultor, 'req-2', approver);
     expect(r.business_name).toBe('Helena Vidal');
     expect(mockTenantsAdd.mock.calls[0][0].name).toBe('Helena Vidal');
-    expect(mockEnqueue.mock.calls[0][2]).toMatchObject({ businessName: 'Helena Vidal' });
+    const emailCall = mockEnqueue.mock.calls[0][0];
+    expect(emailCall).toMatchObject({ tipo: 'welcome_approval' });
+    expect(emailCall.variables('https://link')).toMatchObject({
+      businessName: 'Helena Vidal',
+      passwordResetLink: 'https://link',
+    });
   });
 
   it('keeps the legacy region of old consultant requests', async () => {

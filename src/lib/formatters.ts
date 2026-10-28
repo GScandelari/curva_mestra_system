@@ -41,3 +41,14 @@ export function parseAddressFromString(address: string): {
 
   return result;
 }
+
+/** Nome legível da role para e-mails (equivalente a getRoleName em functions/src/services/emailService.ts) */
+export function getRoleName(role: string): string {
+  const roles: Record<string, string> = {
+    system_admin: 'Administrador do Sistema',
+    clinic_admin: 'Administrador da Clínica',
+    clinic_user: 'Usuário da Clínica',
+    clinic_consultant: 'Consultor',
+  };
+  return roles[role] || role;
+}

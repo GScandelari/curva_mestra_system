@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
@@ -22,6 +22,49 @@ interface PageProps {
   params: Promise<{ token: string }>;
 }
 
+type Phase = 'validating' | 'invalid' | 'intro' | 'form' | 'success';
+type Purpose = 'password_reset' | 'first_access';
+
+interface StoredSession {
+  session: string;
+  expiresAt: string;
+}
+
+/**
+ * A sessão do primeiro acesso fica só nesta aba (sessionStorage), para que
+ * recarregar a página mantenha o formulário (DN-02). A chave usa o hash do
+ * token, nunca o token em si.
+ */
+async function sessionStorageKey(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  const hex = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return `cm_first_access_session:${hex}`;
+}
+
+async function readStoredSession(token: string): Promise<StoredSession | null> {
+  try {
+    const raw = sessionStorage.getItem(await sessionStorageKey(token));
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as StoredSession;
+    return new Date(stored.expiresAt) > new Date() ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeStoredSession(token: string, value: StoredSession | null): Promise<void> {
+  try {
+    const key = await sessionStorageKey(token);
+    if (value) sessionStorage.setItem(key, JSON.stringify(value));
+    else sessionStorage.removeItem(key);
+  } catch {
+    // Sem sessionStorage (aba privada/bloqueada): o formulário segue
+    // funcionando enquanto a página não for recarregada.
+  }
+}
+
 export default function ResetPasswordPage({ params }: PageProps) {
   const { token } = use(params);
   const router = useRouter();
@@ -30,15 +73,14 @@ export default function ResetPasswordPage({ params }: PageProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
-  // Estados de validação do token
-  const [validating, setValidating] = useState(true);
-  const [tokenValid, setTokenValid] = useState(false);
+  const [phase, setPhase] = useState<Phase>('validating');
+  const [purpose, setPurpose] = useState<Purpose>('password_reset');
   const [tokenError, setTokenError] = useState('');
   const [emailMasked, setEmailMasked] = useState('');
+  const [session, setSession] = useState<string | null>(null);
 
-  // Validar token ao carregar a página
+  // Validar token ao carregar a página (não altera o token)
   useEffect(() => {
     async function validateToken() {
       try {
@@ -46,25 +88,73 @@ export default function ResetPasswordPage({ params }: PageProps) {
           `/api/auth/validate-reset-token?token=${encodeURIComponent(token)}`
         );
         const data = await response.json();
+        const tokenPurpose: Purpose =
+          data.purpose === 'first_access' ? 'first_access' : 'password_reset';
+        setPurpose(tokenPurpose);
 
         if (data.valid) {
-          setTokenValid(true);
           setEmailMasked(data.email_masked || '');
-        } else {
-          setTokenValid(false);
-          setTokenError(data.error || 'Token inválido');
+          setPhase(tokenPurpose === 'first_access' ? 'intro' : 'form');
+          return;
         }
+
+        // Primeiro acesso já aberto nesta aba: segue no formulário.
+        if (data.reason === 'opened') {
+          const stored = await readStoredSession(token);
+          if (stored) {
+            setSession(stored.session);
+            setPhase('form');
+            return;
+          }
+        }
+
+        setTokenError(data.error || 'Link inválido ou expirado.');
+        setPhase('invalid');
       } catch (err) {
         console.error('Erro ao validar token:', err);
-        setTokenValid(false);
-        setTokenError('Erro ao validar token. Tente novamente.');
-      } finally {
-        setValidating(false);
+        setTokenError('Erro ao validar o link. Tente novamente.');
+        setPhase('invalid');
       }
     }
 
-    validateToken();
+    void validateToken();
   }, [token]);
+
+  const handleOpen = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/password-token/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        if (data.reason) {
+          setTokenError(data.error || 'Link inválido ou expirado.');
+          setPhase('invalid');
+        } else {
+          setError(data.error || 'Erro ao processar o link. Tente novamente.');
+        }
+        return;
+      }
+
+      await writeStoredSession(token, {
+        session: data.session,
+        expiresAt: data.session_expires_at,
+      });
+      setSession(data.session);
+      if (data.email_masked) setEmailMasked(data.email_masked);
+      setPhase('form');
+    } catch (err) {
+      console.error('Erro ao abrir link de primeiro acesso:', err);
+      setError('Erro ao processar o link. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,17 +186,24 @@ export default function ResetPasswordPage({ params }: PageProps) {
         body: JSON.stringify({
           token,
           new_password: newPassword,
+          ...(session && { session }),
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setSuccess(true);
+        await writeStoredSession(token, null);
+        setPhase('success');
         // Redirecionar para login após 3 segundos
         setTimeout(() => {
           router.push('/login');
         }, 3000);
+      } else if (data.reason) {
+        // Link usado, vencido ou sessão encerrada: não adianta tentar de novo.
+        await writeStoredSession(token, null);
+        setTokenError(data.error || 'Link inválido ou expirado.');
+        setPhase('invalid');
       } else {
         setError(data.error || 'Erro ao redefinir senha');
       }
@@ -118,8 +215,10 @@ export default function ResetPasswordPage({ params }: PageProps) {
     }
   };
 
+  const isFirstAccess = purpose === 'first_access';
+
   // Estado de carregamento (validando token)
-  if (validating) {
+  if (phase === 'validating') {
     return (
       <Card>
         <CardHeader className="space-y-1">
@@ -128,7 +227,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
           </div>
           <CardTitle className="text-2xl text-center">Validando Link...</CardTitle>
           <CardDescription className="text-center">
-            Aguarde enquanto verificamos seu link de redefinição de senha.
+            Aguarde enquanto verificamos seu link.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -136,7 +235,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
   }
 
   // Token inválido
-  if (!tokenValid) {
+  if (phase === 'invalid') {
     return (
       <Card>
         <CardHeader className="space-y-1">
@@ -153,16 +252,18 @@ export default function ResetPasswordPage({ params }: PageProps) {
             <AlertDescription className="text-destructive">{tokenError}</AlertDescription>
           </Alert>
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>
-              Se você precisa redefinir sua senha, entre em contato com o administrador do sistema.
-            </p>
+            <p>Solicite um novo link informando o seu e-mail de acesso.</p>
           </div>
         </CardContent>
-        <CardFooter>
-          <Link href="/login" className="w-full">
-            <Button variant="outline" className="w-full">
-              Voltar ao Login
-            </Button>
+        <CardFooter className="flex flex-col gap-2">
+          <Link href="/forgot-password" className={buttonVariants({ className: 'w-full' })}>
+            Solicitar nova senha
+          </Link>
+          <Link
+            href="/login"
+            className={buttonVariants({ variant: 'outline', className: 'w-full' })}
+          >
+            Voltar ao Login
           </Link>
         </CardFooter>
       </Card>
@@ -170,7 +271,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
   }
 
   // Sucesso na redefinição
-  if (success) {
+  if (phase === 'success') {
     return (
       <Card>
         <CardHeader className="space-y-1">
@@ -179,9 +280,13 @@ export default function ResetPasswordPage({ params }: PageProps) {
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-center">Senha Redefinida!</CardTitle>
+          <CardTitle className="text-2xl text-center">
+            {isFirstAccess ? 'Senha Definida!' : 'Senha Redefinida!'}
+          </CardTitle>
           <CardDescription className="text-center">
-            Sua senha foi alterada com sucesso.
+            {isFirstAccess
+              ? 'Sua senha foi criada com sucesso.'
+              : 'Sua senha foi alterada com sucesso.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -193,9 +298,63 @@ export default function ResetPasswordPage({ params }: PageProps) {
           </Alert>
         </CardContent>
         <CardFooter>
-          <Link href="/login" className="w-full">
-            <Button className="w-full">Fazer Login Agora</Button>
+          <Link href="/login" className={buttonVariants({ className: 'w-full' })}>
+            Fazer Login Agora
           </Link>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  // Primeiro acesso: o link só é marcado como usado neste clique (DN-02),
+  // para que pré-visualizações do e-mail não o consumam.
+  if (phase === 'intro') {
+    return (
+      <Card>
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-center mb-4">
+            <div className="p-3 rounded-full bg-primary/10">
+              <KeyRound className="h-8 w-8 text-primary" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl text-center">Primeiro Acesso</CardTitle>
+          <CardDescription className="text-center">
+            Crie a senha da sua conta
+            {emailMasked && (
+              <span className="block mt-1 font-medium text-foreground">{emailMasked}</span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Este link é de uso único. Depois de continuar, você terá 30 minutos para definir a
+              senha nesta aba. Se não concluir, basta solicitar uma nova senha.
+            </AlertDescription>
+          </Alert>
+          {error && (
+            <div role="alert" className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              {error}
+            </div>
+          )}
+        </CardContent>
+        <CardFooter className="flex flex-col gap-2">
+          <Button className="w-full" onClick={() => void handleOpen()} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Abrindo...
+              </>
+            ) : (
+              'Definir minha senha'
+            )}
+          </Button>
+          <div className="text-sm text-center text-muted-foreground">
+            <Link href="/login" className="text-primary hover:underline font-medium">
+              Voltar ao Login
+            </Link>
+          </div>
         </CardFooter>
       </Card>
     );
@@ -210,9 +369,11 @@ export default function ResetPasswordPage({ params }: PageProps) {
             <KeyRound className="h-8 w-8 text-primary" />
           </div>
         </div>
-        <CardTitle className="text-2xl text-center">Nova Senha</CardTitle>
+        <CardTitle className="text-2xl text-center">
+          {isFirstAccess ? 'Defina sua Senha' : 'Nova Senha'}
+        </CardTitle>
         <CardDescription className="text-center">
-          Defina uma nova senha para sua conta
+          {isFirstAccess ? 'Crie a senha da sua conta' : 'Defina uma nova senha para sua conta'}
           {emailMasked && (
             <span className="block mt-1 font-medium text-foreground">{emailMasked}</span>
           )}
@@ -249,7 +410,9 @@ export default function ResetPasswordPage({ params }: PageProps) {
           </div>
 
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
+            <div role="alert" className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              {error}
+            </div>
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
@@ -258,6 +421,8 @@ export default function ResetPasswordPage({ params }: PageProps) {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Salvando...
               </>
+            ) : isFirstAccess ? (
+              'Salvar Senha'
             ) : (
               'Definir Nova Senha'
             )}

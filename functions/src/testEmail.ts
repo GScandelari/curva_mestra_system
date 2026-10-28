@@ -38,6 +38,8 @@ export const testEmail = onRequest(
         const { subject, html } = await getRenderedEmailTemplate('generic_user_welcome', {
           displayName: 'Guilherme Scandelari',
           role: getRoleName('system_admin'),
+          email,
+          firstAccessLink: 'https://curvamestra.com.br/reset-password/exemplo',
         });
         await sendEmail({ to: email, subject, html });
       } else {

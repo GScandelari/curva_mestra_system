@@ -38,7 +38,6 @@ interface AdminData {
   name: string;
   email: string;
   phone: string;
-  password: string;
 }
 
 export default function NewTenantPage() {
@@ -64,7 +63,6 @@ export default function NewTenantPage() {
     name: '',
     email: '',
     phone: '',
-    password: '',
   });
 
   // E-mail de Boas-Vindas (Step 3)
@@ -79,14 +77,13 @@ Sua clínica {{clinic_name}} foi cadastrada com sucesso em nossa plataforma.
 **Dados de Acesso:**
 - E-mail: {{admin_email}}
 
-**Importante:** sua senha de acesso não é enviada por e-mail — foi definida pelo System Admin durante o cadastro. Você será solicitado a trocá-la no primeiro acesso ao sistema.
+**Importante:** você receberá um outro e-mail com o link para definir a sua senha. O link vale por 72 horas e só pode ser aberto uma vez.
 
 **Próximos Passos:**
-1. Acesse o sistema em: https://curva-mestra.web.app
-2. Faça login com suas credenciais
-3. Altere sua senha temporária
-4. Configure os dados da sua clínica
-5. Adicione produtos ao seu estoque
+1. Defina sua senha pelo link de primeiro acesso
+2. Acesse o sistema em: https://curvamestra.com.br
+3. Configure os dados da sua clínica
+4. Adicione produtos ao seu estoque
 
 Se tiver qualquer dúvida, estamos à disposição!
 
@@ -132,10 +129,6 @@ Equipe Curva Mestra`
       setError('E-mail válido do administrador é obrigatório');
       return false;
     }
-    if (!adminData.password || adminData.password.length < 6) {
-      setError('Senha deve ter no mínimo 6 caracteres');
-      return false;
-    }
     setError('');
     return true;
   };
@@ -147,8 +140,6 @@ Equipe Curva Mestra`
   };
 
   const getPreviewEmail = () => {
-    // Não substitui {{temp_password}} -- a senha nunca deve trafegar por e-mail,
-    // mesmo que o admin edite o corpo manualmente e inclua esse placeholder.
     return emailBody
       .replace(/{{admin_name}}/g, adminData.name || '[Nome do Administrador]')
       .replace(/{{clinic_name}}/g, clinicData.name || '[Nome da Clínica]')
@@ -188,7 +179,6 @@ Equipe Curva Mestra`
           admin_name: adminData.name.trim(),
           admin_email: adminData.email.trim(),
           admin_phone: adminData.phone.trim(),
-          temp_password: adminData.password,
 
           // Dados do e-mail
           welcome_email: {
@@ -512,21 +502,11 @@ Equipe Curva Mestra`
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>
-                  Senha Temporária <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  value={adminData.password}
-                  onChange={(e) => setAdminData({ ...adminData, password: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Esta senha não é enviada por e-mail — comunique-a ao administrador por fora do
-                  sistema. Ele será solicitado a trocá-la no primeiro acesso.
-                </p>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                O administrador receberá por e-mail um link para definir a própria senha. O link
+                vale por 72 horas e só pode ser aberto uma vez; se expirar, ele pode usar
+                &quot;Esqueci minha senha&quot; na tela de login.
+              </p>
             </CardContent>
           </Card>
         )}
@@ -564,8 +544,7 @@ Equipe Curva Mestra`
                 />
                 <p className="text-xs text-muted-foreground">
                   Variáveis disponíveis: <code>{'{{admin_name}}'}</code>,{' '}
-                  <code>{'{{clinic_name}}'}</code>, <code>{'{{admin_email}}'}</code>,{' '}
-                  <code>{'{{temp_password}}'}</code>
+                  <code>{'{{clinic_name}}'}</code>, <code>{'{{admin_email}}'}</code>
                 </p>
               </div>
 

@@ -55,15 +55,15 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ tipo: s
     if (auth.error) return auth.error;
 
     const { tipo } = await context.params;
-    const { subject, body } = await req.json();
+    const { subject, body, content } = await req.json();
 
-    if (!subject || !body) {
+    if (!subject || (!body && !content)) {
       return NextResponse.json({ error: 'Assunto e corpo são obrigatórios' }, { status: 400 });
     }
 
     await saveEmailTemplateVersion(
       tipo,
-      { subject, body },
+      { subject, body, content },
       {
         uid: auth.decodedToken!.uid,
         name: actorNameFromToken(auth.decodedToken!),
