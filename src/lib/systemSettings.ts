@@ -4,7 +4,7 @@
  *
  * Contexto (UX-046): a tela não pode salvar sobre valores que não leu do
  * servidor, nem sobrescrever uma alteração feita em outra sessão.
- * Ver ONLY_FOR_DEVS/TO_DO/BUGFIX-admin-settings-sobrescrita-falha-leitura.md.
+ * Ver ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-admin-settings-sobrescrita-falha-leitura.md.
  */
 
 export interface SystemSettingsForm {

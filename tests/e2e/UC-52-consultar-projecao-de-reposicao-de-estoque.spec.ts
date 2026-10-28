@@ -12,7 +12,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 /**
  * Cobertura retroativa (Modo B) de:
  * - ONLY_FOR_DEVS/PO_BA_Docs/UC-52-consultar-projecao-de-reposicao-de-estoque.md (v1.1, Aprovado)
- * - ONLY_FOR_DEVS/TO_DO/FEAT-projecao-reposicao-estoque.md (v1.2, Em execução) — Seções 6/7/9
+ * - ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-projecao-reposicao-estoque.md (v1.2, Em execução) — Seções 6/7/9
  *
  * Cobre: Fluxo Principal (passos 1-6, clínica e Consultor), Fluxo Alternativo 7a (produto com
  * dados insuficientes mesmo na janela mais longa), Fluxo Alternativo 7b (nenhum produto com

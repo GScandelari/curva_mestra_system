@@ -6,7 +6,7 @@ import type { AxeResults } from 'axe-core';
 
 /**
  * Varredura de acessibilidade (axe-core) com baseline por regra ("catraca").
- * Ver ONLY_FOR_DEVS/TO_DO/FEAT-agente-ux-reviewer.md §4.1 e §6.4.
+ * Ver ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-agente-ux-reviewer.md §4.1 e §6.4.
  *
  * - A11Y_MODE=report      → nunca falha; só anota regras novas (uso do ux-reviewer).
  * - qualquer outro valor  → enforce: falha se surgir regra fora do baseline (CI).
