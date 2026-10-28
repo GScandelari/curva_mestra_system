@@ -2,10 +2,10 @@
 
 **Projeto:** Curva Mestra
 **Data de Criação:** 01/10/2026
-**Última Atualização:** 01/10/2026
+**Última Atualização:** 28/10/2026
 **Autor:** ui-consistency-auditor (via Claude)
 **Base técnica:** shadcn/ui (estilo `new-york`, Tailwind + CSS variables — `components.json`)
-**Versão:** 1.0
+**Versão:** 1.1
 
 > Este documento registra o padrão visual já dominante no sistema (não um padrão novo inventado
 > para esta auditoria) e serve de referência para toda tela nova ou revisão de tela existente.
@@ -120,8 +120,12 @@ tela.
 - `src/app/(auth)/register/page.tsx:198,314` — controles segmentados de seleção de papel/volume
   (toggle de estado ativo/inativo) implementados como `<button type="button">` com estilo próprio,
   sem usar `Button`/`variant`.
-- `src/app/(admin)/admin/users/page.tsx:764` e `src/app/(admin)/admin/consultants/[id]/page.tsx:497`
-  — ícone de mostrar/ocultar senha, absoluto dentro do campo, como `<button type="button">`.
+- ~~`src/app/(admin)/admin/users/page.tsx:764` e `src/app/(admin)/admin/consultants/[id]/page.tsx:497`
+  — ícone de mostrar/ocultar senha, absoluto dentro do campo, como `<button type="button">`.~~
+  **Corrigido na v1.1 (UX-060, PRs #425/#426):** o toggle agora é
+  `<Button type="button" variant="ghost" size="icon">` dentro de `src/components/ui/password-input.tsx:37-54`;
+  as duas telas consomem esse campo via `src/components/admin/ManualPasswordSection.tsx`
+  (`admin/users/page.tsx:787`, `admin/consultants/[id]/page.tsx:466`).
 
 **Exceção justificada:**
 - `src/app/(clinic)/clinic/add-products/page.tsx:719` — item de sugestão dentro de um dropdown de
@@ -140,12 +144,59 @@ tela.
   de posicionamento do ícone: `left-3 top-1/2 -translate-y-1/2` é majoritário; já
   `src/app/(admin)/admin/users/page.tsx:493` usa `left-2 top-2.5`, isoladamente.
 
-**Desvio confirmado:**
-- `src/app/(admin)/admin/users/page.tsx:762,786` e `src/app/(admin)/admin/consultants/[id]/page.tsx:495,519`
+**Desvio corrigido (v1.1):**
+- ~~`src/app/(admin)/admin/users/page.tsx:762,786` e `src/app/(admin)/admin/consultants/[id]/page.tsx:495,519`
   reimplementam à mão, em um `<input>` puro, exatamente as classes visuais do primitivo `Input`
   (`flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ...`)
   em vez de `<Input className="pr-10" />`, aparentemente para acomodar o ícone de
-  mostrar/ocultar senha. Duplica a definição visual do primitivo em 4 lugares.
+  mostrar/ocultar senha. Duplica a definição visual do primitivo em 4 lugares.~~
+  **Corrigido na v1.1 (UX-060, PRs #425/#426):** os 4 `<input>` crus foram substituídos por
+  `<PasswordInput>` dentro de `src/components/admin/ManualPasswordSection.tsx:70,81`, usado em
+  `admin/users/page.tsx:787` e `admin/consultants/[id]/page.tsx:466`. Re-verificação em 28/10/2026:
+  não há mais `type="password"` em `src/`, e os únicos `<input>` crus restantes fora do primitivo
+  são `type="radio"` (`admin/tenants/new/page.tsx:302,318`) e o seletor de arquivo de
+  `src/components/upload/FileUpload.tsx:141` — nenhum reimplementa o visual de `Input`.
+
+**Campo de senha — composto de referência (v1.1):**
+- Todo campo de senha usa `PasswordInput` (`src/components/ui/password-input.tsx`), nunca
+  `<Input type="password">` nem `<input>` cru. O composto é montado só com primitivos e tokens:
+  wrapper `relative`; `Input` com `pr-10` (reserva o espaço do ícone) e supressão do ícone nativo
+  do Edge (`[&::-ms-reveal]:hidden [&::-ms-clear]:hidden`) — `password-input.tsx:25-36`; botão
+  `Button variant="ghost" size="icon"` posicionado `absolute right-0 top-0 h-full w-10`, cor
+  `text-muted-foreground` com `hover:text-foreground` e `hover:bg-transparent`, ícones lucide
+  `Eye`/`EyeOff` em `h-4 w-4` — `password-input.tsx:37-54`. Raio, borda e altura vêm do `Input`
+  (`rounded-md`, Seção 2), sem nenhuma cor fixa: **conforme** ao padrão.
+- Consumidores em 28/10/2026: `(auth)/login/page.tsx:278`, `(auth)/change-password/page.tsx:168,181,195`,
+  `(auth)/reset-password/[token]/page.tsx:225,240`, `admin/tenants/[id]/page.tsx:803`,
+  `src/components/clinic/UsersTab.tsx:276`, e os dois compostos de nível acima:
+  - `src/components/admin/ManualPasswordSection.tsx` — seção "Definir Senha Manualmente"
+    (`admin/users`, `admin/consultants/[id]`): `PasswordInput` + `Checkbox` + `Label` + `Button variant="outline"`.
+  - `src/components/auth/ChangePasswordCard.tsx` — card "Alterar Senha" dos perfis
+    (`admin/profile/page.tsx:179`, `clinic/profile/page.tsx:295`): `Card` + `CardTitle` com ícone
+    (sub-convenção "card de seção com ícone", Seção 3) + `PasswordInput` + `Button` default.
+
+**Cores fixas nos compostos de senha (registro, sem correção — v1.1):**
+- `ManualPasswordSection.tsx:49` (`KeyRound text-orange-500`), `:107` (`border-orange-200 text-orange-700 hover:bg-orange-50`
+  no `Button variant="outline"`) e `:54-59` (bloco de sucesso `bg-green-50 border-green-200 text-green-600/700`
+  + pares `dark:`). `ChangePasswordCard.tsx:97` (sucesso `text-green-600 bg-green-50 dark:bg-green-900/20`).
+- **Fato:** são cores da paleta Tailwind, não tokens do tema — fora da regra da Seção 1. **Não é desvio
+  novo:** o markup foi copiado sem mudança de classes das páginas antigas (antes dos PRs #425/#426:
+  `admin/users/page.tsx:751-754,794,799-802,870`, `admin/consultants/[id]/page.tsx:432-435,472,477-480,548`,
+  `admin/profile/page.tsx:159,235`, `clinic/profile/page.tsx:224,347`). O mesmo desvio mudou de
+  arquivo e passou a ficar concentrado em 2 componentes (antes duplicado em 4 páginas) — o
+  que, na prática, facilita a correção futura.
+- **Observação de registro:** a auditoria v1.0 contou na dimensão "cores hardcoded" apenas hex cru
+  (`bg-[#f5f3ef]`) e Badges fora de variante; blocos de sucesso/aviso com paleta `green-*`/`orange-*`
+  não foram listados. A causa é a mesma da Seção 1/4.4 (falta de token semântico de sucesso/aviso).
+  O padrão `bg-green-50` aparece em 13 arquivos de `src/app` + `src/components`, e `orange-*` em 12 —
+  convenção difusa, não exclusiva dos compostos de senha. Fica registrada aqui como pendência
+  transversal a medir na próxima auditoria completa, não contada por tela nesta re-verificação.
+- O bloco de erro do `ChangePasswordCard.tsx:103` usa `text-destructive bg-destructive/10` — **token,
+  conforme**.
+- **Recomendação (não é padrão vigente):** o bloco de sucesso poderia usar `Alert variant="success"`
+  (já existente em `alert.tsx:16`, ainda que também em paleta fixa) para pelo menos centralizar a cor no
+  primitivo; o laranja do `ManualPasswordSection` é um acento de "ação de suporte" sem equivalente no tema
+  — decidir se vira variante/token ou se passa a `variant="outline"` puro.
 
 ### 4.3 Cards e Containers
 
@@ -223,6 +274,10 @@ todas as telas de dois dos quatro portais do sistema — por isso reportado aqui
 confirmada (mais 2 componentes de layout compartilhado e 1 observação transversal de fundo de
 tela, detalhados abaixo da tabela).
 
+**Re-verificação pontual (v1.1):** 28/10/2026 — só as linhas afetadas pela UX-060 (PRs #425/#426).
+`admin/consultants/[id]` passou a conforme; `admin/users` perdeu as divergências de input/toggle.
+Total atual: **12** arquivos `page.tsx` com divergência confirmada.
+
 ### Admin (23 telas)
 
 | Tela | Status | Divergências |
@@ -230,7 +285,7 @@ tela, detalhados abaixo da tabela).
 | `src/app/(admin)/admin/access-requests/page.tsx` | ✅ Conforme | - |
 | `src/app/(admin)/admin/audit-log/page.tsx` | ✅ Conforme | - |
 | `src/app/(admin)/admin/consultant-pendencies/page.tsx` | ⚠️ Divergências | Badge com classe `bg-amber-100` hand-rolled (L72) |
-| `src/app/(admin)/admin/consultants/[id]/page.tsx` | ⚠️ Divergências | `<input>` reimplementando `Input` (L495,519); `<button>` de toggle de senha (L497) |
+| `src/app/(admin)/admin/consultants/[id]/page.tsx` | ✅ Conforme (v1.1) | ~~`<input>` reimplementando `Input` (L495,519); `<button>` de toggle de senha (L497)~~ — corrigido na UX-060 (PRs #425/#426): usa `ManualPasswordSection` (L466) |
 | `src/app/(admin)/admin/consultants/new/page.tsx` | ✅ Conforme | - |
 | `src/app/(admin)/admin/consultants/page.tsx` | ✅ Conforme | - |
 | `src/app/(admin)/admin/dashboard/page.tsx` | ⚠️ Divergências | Título em `<h2>` em vez de `<h1>` (L143); `space-y-8` em vez de `space-y-6` (L140) |
@@ -249,7 +304,7 @@ tela, detalhados abaixo da tabela).
 | `src/app/(admin)/admin/tenants/[id]/page.tsx` | ✅ Conforme | - |
 | `src/app/(admin)/admin/tenants/new/page.tsx` | ✅ Conforme | - |
 | `src/app/(admin)/admin/tenants/page.tsx` | ✅ Conforme | - |
-| `src/app/(admin)/admin/users/page.tsx` | ⚠️ Divergências | `<input>` reimplementando `Input` (L762,786); `<button>` de toggle de senha (L764); Badge `bg-sky-600` hand-rolled (L193); ícone de busca em posição isolada `left-2`/`top-2.5` (L493) |
+| `src/app/(admin)/admin/users/page.tsx` | ⚠️ Divergências | Badge `bg-sky-600` hand-rolled (L217); ícone de busca em posição isolada `left-2`/`top-2.5` (L537). ~~`<input>` reimplementando `Input` (L762,786); `<button>` de toggle de senha (L764)~~ — corrigido na UX-060 (PRs #425/#426): usa `ManualPasswordSection` (L787) |
 
 ### Clínica (29 telas)
 
@@ -325,17 +380,25 @@ tela, detalhados abaixo da tabela).
 | `src/components/consultant/ConsultantLayout.tsx` | ⚠️ Divergência | `bg-[#f5f3ef]` hardcoded no shell (L60,170); raio `rounded-lg` em item de nav (L107) difere do `rounded-md` do menu mobile da Clínica |
 | `src/components/clinic/ClinicLayout.tsx` | ✅ Conforme | Usa `bg-background` (token) |
 
+### Componentes compartilhados de senha (v1.1 — fora da contagem de 70)
+
+| Componente | Status | Divergências |
+|---|---|---|
+| `src/components/ui/password-input.tsx` | ✅ Conforme | Composto de referência (Seção 4.2) — só primitivos e tokens |
+| `src/components/admin/ManualPasswordSection.tsx` | ⚠️ Cores fixas herdadas | `orange-*` (L49,107) e `green-*` (L54-59) — mesmo markup das páginas antigas, não desvio novo (Seção 4.2) |
+| `src/components/auth/ChangePasswordCard.tsx` | ⚠️ Cor fixa herdada | `green-*` no sucesso (L97); erro em token `destructive` (L103) conforme |
+
 ### Resumo de divergências por dimensão
 
 | Dimensão | Telas afetadas | Exemplo mais representativo |
 |---|---|---|
 | Bordas/raio | 2 (layouts, não páginas) | `AdminLayout.tsx:137` (`rounded-lg` em nav) |
 | Tipografia | 4 | `admin/dashboard/page.tsx:143` (`<h2>` em vez de `<h1>`) |
-| Botões | 4 | `clinic/dashboard/page.tsx:399` (`<button>` em vez de `Button`) |
-| Inputs/busca | 2 | `admin/users/page.tsx:762` (`<input>` reimplementando `Input`) |
+| Botões | 2 (2 corrigidas na v1.1) | `clinic/dashboard/page.tsx:399` (`<button>` em vez de `Button`) |
+| Inputs/busca | 1 — só a variação do ícone de busca (2 corrigidas na v1.1) | `admin/users/page.tsx:537` (`left-2 top-2.5`) |
 | Cards/containers | 0 confirmadas (1 exceção justificada) | `clinic/add-products/page.tsx:717` (exceção) |
 | Espaçamento de página | 7 | `admin/settings/page.tsx:115` (`p-6` sem `container`) |
-| Cores hardcoded / fora do token | 5 (+ 2 layouts) | `AdminLayout.tsx:107` / `ConsultantLayout.tsx:60` (`bg-[#f5f3ef]`) |
+| Cores hardcoded / fora do token | 5 (+ 2 layouts; + 2 componentes de senha com paleta fixa herdada, v1.1) | `AdminLayout.tsx:107` / `ConsultantLayout.tsx:60` (`bg-[#f5f3ef]`) |
 | Badges fora do sistema de variantes | 3 | `admin/users/page.tsx:193` (`bg-sky-600` hand-rolled) |
 
 ## 7. Histórico de Versões
@@ -343,3 +406,4 @@ tela, detalhados abaixo da tabela).
 | Versão | Data | Autor | O que mudou |
 |--------|------|-------|--------------|
 | 1.0 | 01/10/2026 | ui-consistency-auditor | Elaboração inicial do padrão + primeira auditoria completa (70 telas, 13 arquivos `page.tsx` com divergência confirmada, mais 2 layouts compartilhados e 1 observação transversal de fundo de tela). |
+| 1.1 | 28/10/2026 | ui-consistency-auditor | Re-verificação pontual pós UX-060 (PRs #425/#426), sem auditoria completa. Divergências de `<input>` cru e `<button>` de toggle de senha em `admin/users` e `admin/consultants/[id]` marcadas como corrigidas (Seções 4.1, 4.2 e 6); `admin/consultants/[id]` passa a conforme (13 → 12 arquivos com divergência). `PasswordInput` registrado como composto de referência para campos de senha (Seção 4.2), com `ManualPasswordSection` e `ChangePasswordCard`. Cores fixas `orange-*`/`green-*` desses compostos registradas como desvio herdado (mesmo markup das páginas antigas), não novo; registrada a pendência transversal de blocos de sucesso em paleta fixa. Linhas de `admin/users` atualizadas (Badge L217, busca L537). |

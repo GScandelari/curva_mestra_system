@@ -3,7 +3,7 @@ import type { TEST_USERS } from './seed-data';
 /**
  * Telas varridas em runtime pelo axe (tests/e2e/_infra-a11y-axe-mobile.spec.ts)
  * e consumidas pelo agente ux-reviewer (Modo E). Ver
- * ONLY_FOR_DEVS/TO_DO/FEAT-agente-ux-reviewer.md §6.4.
+ * ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-agente-ux-reviewer.md §6.4.
  *
  * Só entram usuários semeados com termos legais já aceitos (systemAdmin e
  * clinicAdminA) — os demais caem em /accept-terms no seed atual. Toda rota

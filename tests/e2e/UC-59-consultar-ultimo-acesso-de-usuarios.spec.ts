@@ -7,7 +7,7 @@ import { computeLastAccess, formatLastAccessLabel } from '../../src/lib/lastAcce
 
 /**
  * Cobertura (feature nova) de:
- * ONLY_FOR_DEVS/TO_DO/FEAT-ultimo-acesso-usuarios.md — STEP 4 (Validação Manual)
+ * ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-ultimo-acesso-usuarios.md — STEP 4 (Validação Manual)
  * e orientações do STEP 5. UC de referência: UC-59 — Consultar último acesso de
  * usuários (ator: system_admin).
  *

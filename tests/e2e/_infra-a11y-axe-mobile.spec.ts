@@ -11,7 +11,7 @@ import { TEST_PASSWORD, TEST_USERS } from './fixtures/seed-data';
  * acessibilidade (axe-core, WCAG 2.1 AA com baseline por regra) e de perfil
  * mobile (projeto `mobile-chromium`, Pixel 7). Gerado a partir da Seção
  * "STEP 4 — Validação Manual" (cenários 1 a 4) de
- * ONLY_FOR_DEVS/TO_DO/FEAT-agente-ux-reviewer.md (ver também §6.4 e §6.5).
+ * ONLY_FOR_DEVS/TASK_COMPLETED/FEAT-agente-ux-reviewer.md (ver também §6.4 e §6.5).
  *
  * Todos os testes têm tag `@mobile` e rodam nos dois projetos (`chromium` e
  * `mobile-chromium`), exceto o cenário 4, pulado fora do `mobile-chromium`.

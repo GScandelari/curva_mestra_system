@@ -5,7 +5,7 @@ import { TEST_PASSWORD, TEST_TENANTS, TEST_USERS } from './fixtures/seed-data';
 
 /**
  * Caderno transversal (Modo A, D3) de:
- * `ONLY_FOR_DEVS/TO_DO/BUGFIX-ux-erro-exibido-como-vazio.md` (v1.1): §6.3 (textos), §8.2 (tabela
+ * `ONLY_FOR_DEVS/TASK_COMPLETED/BUGFIX-ux-erro-exibido-como-vazio.md` (v1.1): §6.3 (textos), §8.2 (tabela
  * de 12 cenários, princípio e notas de viabilidade) e STEP 7 (ações 1-5).
  *
  * Princípio (§8.2): falha de carregamento nunca aparece como lista/estado vazio nem como `0`.
