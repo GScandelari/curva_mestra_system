@@ -8,7 +8,7 @@ import type { UserRole, Consultant } from '@/types';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Query, DocumentData } from 'firebase-admin/firestore';
 import { writeAuditLogAdmin, actorNameFromToken } from '@/lib/auditLogAdmin';
-import { enqueueTemplatedEmail } from '@/lib/services/emailTemplateAdmin';
+import { sendFirstAccessEmail } from '@/lib/services/firstAccessEmail';
 
 /**
  * Gera código único de 6 dígitos
@@ -34,18 +34,6 @@ async function generateUniqueCode(): Promise<string> {
   } while (attempts < 10);
 
   throw new Error('Falha ao gerar código único após 10 tentativas');
-}
-
-/**
- * Gera senha temporária segura
- */
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(crypto.randomInt(0, chars.length));
-  }
-  return password;
 }
 
 /**
@@ -160,15 +148,12 @@ export async function POST(req: NextRequest) {
     // Gerar código único
     const code = await generateUniqueCode();
 
-    // Gerar senha temporária
-    const tempPassword = generateTempPassword();
-
-    // Criar usuário no Firebase Auth
+    // Criar usuário no Firebase Auth, sem senha: o consultor a define pelo
+    // link de primeiro acesso enviado no consultant_welcome.
     let userId: string;
     try {
       const userRecord = await adminAuth.createUser({
         email: emailLower,
-        password: tempPassword,
         displayName: name,
         emailVerified: false,
       });
@@ -212,7 +197,6 @@ export async function POST(req: NextRequest) {
         consultant_id: consultantRef.id,
         authorized_tenants: [],
         active: true,
-        requirePasswordChange: true,
       });
 
       // Criar documento na collection users
@@ -226,7 +210,6 @@ export async function POST(req: NextRequest) {
           role: 'clinic_consultant' as UserRole,
           tenant_id: null,
           active: true,
-          requirePasswordChange: true,
           skip_welcome_email: true,
           created_at: FieldValue.serverTimestamp(),
           updated_at: FieldValue.serverTimestamp(),
@@ -254,19 +237,15 @@ export async function POST(req: NextRequest) {
       actor_role: 'system_admin',
     });
 
-    // Enviar e-mail de boas-vindas via fila
-    try {
-      await enqueueTemplatedEmail(
-        'consultant_welcome',
-        emailLower,
-        { name, email: emailLower, code },
-        { metadata: { user_id: userId, consultant_id: consultantRef.id } }
-      );
-
-      console.log(`E-mail de boas-vindas adicionado à fila para ${emailLower}`);
-    } catch (emailError) {
-      console.warn('Erro ao adicionar e-mail à fila:', emailError);
-    }
+    // Enviar e-mail de boas-vindas com link de primeiro acesso via fila
+    await sendFirstAccessEmail({
+      tipo: 'consultant_welcome',
+      userId,
+      email: emailLower,
+      createdBy: decodedToken.uid,
+      variables: (firstAccessLink) => ({ name, email: emailLower, code, firstAccessLink }),
+      metadata: { consultant_id: consultantRef.id },
+    });
 
     return NextResponse.json({
       success: true,

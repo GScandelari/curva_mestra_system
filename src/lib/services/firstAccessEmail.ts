@@ -15,6 +15,8 @@ export async function sendFirstAccessEmail(params: {
   tenantId?: string;
   /** Recebe o link e devolve as variáveis do template. */
   variables: (firstAccessLink: string) => Record<string, string>;
+  /** Campos extras no metadata da fila (ex.: consultant_id). */
+  metadata?: Record<string, unknown>;
 }): Promise<boolean> {
   // Falha aqui não desfaz a criação do usuário: ele recupera o acesso
   // por "Esqueci minha senha".
@@ -37,6 +39,7 @@ export async function sendFirstAccessEmail(params: {
           ...(params.tenantId && { tenant_id: params.tenantId }),
           expires_at: expiresAt.toISOString(),
           origin: 'first_access',
+          ...params.metadata,
         },
       }
     );
