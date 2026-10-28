@@ -1,20 +1,31 @@
 /**
- * Serviço de Tokens de Reset de Senha
- * Gerencia tokens de uso único para reset de senha seguro
+ * Serviço de Tokens de Senha (redefinição e primeiro acesso)
+ * Gerencia tokens de uso único; as regras de estado ficam em passwordTokenRules.
  */
 
 import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { resolveAppBaseUrl } from '@/lib/emailLayout';
+import {
+  computeTokenExpiry,
+  evaluatePasswordToken,
+  tokenPurpose,
+  tokenStateMessage,
+  type PasswordTokenPurpose,
+  type TokenSnapshot,
+  type TokenState,
+} from '@/lib/passwordTokenRules';
 
 const PASSWORD_RESET_TOKENS_COLLECTION = 'password_reset_tokens';
-const TOKEN_EXPIRY_MINUTES = 30;
 
 /**
  * Interface interna para dados de token (usa tipos Admin SDK)
  */
 interface PasswordResetTokenData {
   token_hash: string;
+  // Ausente em tokens antigos: tratados como password_reset.
+  purpose?: PasswordTokenPurpose;
   user_id: string;
   user_email: string;
   tenant_id?: string;
@@ -24,6 +35,30 @@ interface PasswordResetTokenData {
   // Gravados como null na criação; docs antigos podem não ter os campos.
   used_at?: Timestamp | null;
   invalidated_at?: Timestamp | null;
+  opened_at?: Timestamp | null;
+  session_hash?: string | null;
+  session_expires_at?: Timestamp | null;
+}
+
+function toSnapshot(data: PasswordResetTokenData): TokenSnapshot {
+  return {
+    purpose: data.purpose,
+    expires_at: data.expires_at.toDate(),
+    used_at: data.used_at?.toDate() ?? null,
+    invalidated_at: data.invalidated_at?.toDate() ?? null,
+    opened_at: data.opened_at?.toDate() ?? null,
+    session_hash: data.session_hash ?? null,
+    session_expires_at: data.session_expires_at?.toDate() ?? null,
+  };
+}
+
+async function findTokenDoc(rawToken: string) {
+  const snapshot = await adminDb
+    .collection(PASSWORD_RESET_TOKENS_COLLECTION)
+    .where('token_hash', '==', hashToken(rawToken))
+    .limit(1)
+    .get();
+  return snapshot.empty ? null : snapshot.docs[0];
 }
 
 /**
@@ -56,7 +91,42 @@ export function maskEmail(email: string): string {
 }
 
 /**
- * Cria um novo token de reset de senha no Firestore
+ * Cria um token de senha. `password_reset` vale 30 min; `first_access`
+ * vale 72 h e é de uso único no clique (ver openFirstAccessToken).
+ * Tokens pendentes anteriores do usuário são invalidados.
+ */
+export async function createPasswordToken(params: {
+  userId: string;
+  userEmail: string;
+  createdBy: string;
+  purpose: PasswordTokenPurpose;
+  tenantId?: string;
+}): Promise<{ token: string; expiresAt: Date }> {
+  await invalidateUserTokens(params.userId);
+
+  const rawToken = generateResetToken();
+  const expiresAt = computeTokenExpiry(params.purpose, new Date());
+
+  const tokenData: PasswordResetTokenData = {
+    token_hash: hashToken(rawToken),
+    purpose: params.purpose,
+    user_id: params.userId,
+    user_email: params.userEmail,
+    created_by: params.createdBy,
+    expires_at: Timestamp.fromDate(expiresAt),
+    created_at: FieldValue.serverTimestamp(),
+    used_at: null,
+    invalidated_at: null,
+    ...(params.tenantId && { tenant_id: params.tenantId }),
+  };
+
+  await adminDb.collection(PASSWORD_RESET_TOKENS_COLLECTION).add(tokenData);
+
+  return { token: rawToken, expiresAt };
+}
+
+/**
+ * Cria um token de redefinição de senha (30 min)
  */
 export async function createPasswordResetToken(
   userId: string,
@@ -64,87 +134,47 @@ export async function createPasswordResetToken(
   createdBy: string,
   tenantId?: string
 ): Promise<{ token: string; expiresAt: Date }> {
-  // Invalidar tokens anteriores do usuário
-  await invalidateUserTokens(userId);
-
-  // Gerar novo token
-  const rawToken = generateResetToken();
-  const tokenHash = hashToken(rawToken);
-
-  // Calcular expiração (30 minutos)
-  const expiresAt = new Date();
-  expiresAt.setMinutes(expiresAt.getMinutes() + TOKEN_EXPIRY_MINUTES);
-
-  // Criar documento no Firestore
-  const tokenData: PasswordResetTokenData = {
-    token_hash: tokenHash,
-    user_id: userId,
-    user_email: userEmail,
-    created_by: createdBy,
-    expires_at: Timestamp.fromDate(expiresAt),
-    created_at: FieldValue.serverTimestamp(),
-    used_at: null,
-    invalidated_at: null,
-    ...(tenantId && { tenant_id: tenantId }),
-  };
-
-  await adminDb.collection(PASSWORD_RESET_TOKENS_COLLECTION).add(tokenData);
-
-  return {
-    token: rawToken,
-    expiresAt,
-  };
+  return createPasswordToken({
+    userId,
+    userEmail,
+    createdBy,
+    tenantId,
+    purpose: 'password_reset',
+  });
 }
 
 /**
- * Valida um token sem consumi-lo
- * Retorna informações sobre o token ou erro
+ * Valida um token sem alterá-lo (nunca marca abertura nem uso)
  */
 export async function validateToken(rawToken: string): Promise<{
   valid: boolean;
+  purpose?: PasswordTokenPurpose;
+  reason?: TokenState | 'not_found';
   userId?: string;
   userEmail?: string;
   emailMasked?: string;
   error?: string;
 }> {
   try {
-    const tokenHash = hashToken(rawToken);
-
-    // Buscar token pelo hash
-    const snapshot = await adminDb
-      .collection(PASSWORD_RESET_TOKENS_COLLECTION)
-      .where('token_hash', '==', tokenHash)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
-      return { valid: false, error: 'Token inválido ou expirado' };
+    const tokenDoc = await findTokenDoc(rawToken);
+    if (!tokenDoc) {
+      return { valid: false, reason: 'not_found', error: 'Link inválido ou expirado.' };
     }
 
-    const tokenDoc = snapshot.docs[0];
     const tokenData = tokenDoc.data() as PasswordResetTokenData;
-
-    // Verificar se já foi usado
-    if (tokenData.used_at) {
+    const state = evaluatePasswordToken(toSnapshot(tokenData), new Date(), 'inspect');
+    if (state !== 'valid') {
       return {
         valid: false,
-        error: 'Este link já foi utilizado. Solicite um novo reset de senha.',
+        purpose: tokenPurpose(tokenData),
+        reason: state,
+        error: tokenStateMessage(state),
       };
-    }
-
-    // Verificar se foi invalidado
-    if (tokenData.invalidated_at) {
-      return { valid: false, error: 'Este link foi invalidado. Solicite um novo reset de senha.' };
-    }
-
-    // Verificar expiração
-    const expiresAt = tokenData.expires_at.toDate();
-    if (new Date() > expiresAt) {
-      return { valid: false, error: 'Este link expirou. Solicite um novo reset de senha.' };
     }
 
     return {
       valid: true,
+      purpose: tokenPurpose(tokenData),
       userId: tokenData.user_id,
       userEmail: tokenData.user_email,
       emailMasked: maskEmail(tokenData.user_email),
@@ -250,9 +280,19 @@ export async function invalidateUserTokens(userId: string): Promise<void> {
 }
 
 /**
- * Gera o link completo de reset de senha
+ * URL base do ambiente para links e imagens de e-mail (nunca do header Host)
+ */
+export function getAppBaseUrl(): string {
+  return resolveAppBaseUrl({
+    explicitBaseUrl: process.env.NEXT_PUBLIC_BASE_URL,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    fallbackLocalUrl: process.env.PLAYWRIGHT_BASE_URL,
+  });
+}
+
+/**
+ * Gera o link completo de senha (redefinição ou primeiro acesso)
  */
 export function generateResetLink(token: string, baseUrl?: string): string {
-  const base = baseUrl || process.env.NEXT_PUBLIC_BASE_URL || 'https://curvamestra.com.br';
-  return `${base}/reset-password/${token}`;
+  return `${baseUrl || getAppBaseUrl()}/reset-password/${token}`;
 }
